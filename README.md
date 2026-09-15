@@ -1,10 +1,10 @@
 # DartDraw
 
-Web app for creating, managing, and printing darts tournament charts — built for the Kuala Lumpur Darts Association (KLDA). Organizers sign in and their tournaments are stored centrally (Neon Postgres), so a tournament is accessible from any device.
+Web app for creating, managing, and printing darts tournament charts — built for the Kuala Lumpur Darts Association (KLDA). Tournaments are stored centrally (Neon Postgres), so a tournament is accessible from any device.
 
 ## Usage
 
-Sign in (or create an account) at the deployed URL, then use the app as normal — the print-ready chart still updates as you work, exactly as before.
+Open the deployed URL and use the app as normal — the print-ready chart still updates as you work, exactly as before. By default no login is required (see below).
 
 ## Deployment
 
@@ -14,27 +14,30 @@ Hosted on Vercel with a Neon Postgres database.
    create the `organizers` and `tournaments` tables. Copy the **pooled**
    connection string.
 2. **Vercel**: import this repo as a new project (Framework Preset "Other" —
-   zero config, no build step). Add three Environment Variables:
+   zero config, no build step). Add two Environment Variables:
    - `DATABASE_URL` — the Neon pooled connection string from step 1.
    - `SESSION_SECRET` — a long random string (see `.env.example` for how to
      generate one).
-   - `SIGNUP_CODE` — a code of your choosing; anyone signing up at
-     `/register.html` must enter it, so only share it with people who should
-     get an account.
-3. Deploy, then visit `/register.html` to create the first organizer account.
+3. Deploy.
 
-Each organizer only sees their own tournaments. Local development: copy
-`.env.example` to `.env` (or `.env.local`), fill in the values, and run
-`vercel dev`.
+Local development: copy `.env.example` to `.env` (or `.env.local`), fill in
+the values, and run `vercel dev`.
 
-### Temporarily opening the app to the public
+### Requiring organizer login
 
-Set the `AUTH_DISABLED` environment variable to `true` and redeploy to bypass
-login entirely — every visitor shares one implicit "Public" account, with no
-sign-in required, and all tournaments are visible/editable by anyone who has
-the URL. Set it back to `false` (or remove it) and redeploy to require
-organizer login again; existing accounts and their tournaments are unaffected
-either way.
+By default the app is open to anyone with the URL — every visitor shares one
+implicit "Public" account. To require sign-in instead (each organizer then
+only sees their own tournaments), set two more Environment Variables and
+redeploy:
+
+- `REQUIRE_LOGIN` = `true`
+- `SIGNUP_CODE` — a code of your choosing; anyone signing up at
+  `/register.html` must enter it, so only share it with people who should
+  get an account.
+
+Set `REQUIRE_LOGIN` back to `false` (or remove it) and redeploy to re-open
+the app to the public; existing accounts and their tournaments are
+unaffected either way.
 
 ## Features
 

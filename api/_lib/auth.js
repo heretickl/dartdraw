@@ -51,10 +51,10 @@ function getOrganizerFromRequest(req) {
   }
 }
 
-// When AUTH_DISABLED=true every visitor shares this one organizer row (lazily
-// created) instead of signing in - a reversible way to open the app to the
-// public without ripping out the login system. Flip AUTH_DISABLED back to
-// false/unset and redeploy to require login again.
+// Login is OFF by default (every visitor shares this one lazily-created
+// organizer row) unless REQUIRE_LOGIN=true is set - a reversible way to open
+// the app to the public without ripping out the login system. Set
+// REQUIRE_LOGIN=true and redeploy to require organizer login again.
 let publicOrganizerPromise = null;
 async function getOrCreatePublicOrganizer() {
   if (!publicOrganizerPromise) {
@@ -78,7 +78,7 @@ async function getOrCreatePublicOrganizer() {
 // Call at the top of a protected handler. Writes the 401 itself and returns
 // null when unauthenticated, so callers can just `if (!organizer) return;`.
 async function requireAuth(req, res) {
-  if (process.env.AUTH_DISABLED === 'true') {
+  if (process.env.REQUIRE_LOGIN !== 'true') {
     try {
       return await getOrCreatePublicOrganizer();
     } catch (e) {
