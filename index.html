@@ -343,6 +343,15 @@ function blankTournament(){
         roundRobin: {enabled:false, time:'', minutes:30},
         knockout: {enabled:false, time:'', minutes:30},
         transition: {enabled:false, minutes:15}
+      },
+      /* Optional WDF-style "legs increase closer to the final" per bracket.
+         `main` (the winner bracket) falls back to bestOfLegs above when not
+         variable, matching today's flat behaviour exactly. `plate` (the
+         losers' pool) has no pre-existing flat field of its own, so it gets
+         `flatLegs` for that case — the two brackets are fully independent. */
+      knockoutLegs: {
+        main: { variable:false, early:5, quarterfinal:5, semifinal:5, final:5 },
+        plate: { variable:false, flatLegs:5, early:5, quarterfinal:5, semifinal:5, final:5 }
       }
     },
     entriesList: [],
@@ -506,7 +515,31 @@ function matchDurationMinutes(t, opts){
     const total = (t.format.mixedRubbers||[]).reduce((sum,r)=> sum + mpl*(parseInt(r.legs)||3), 0);
     return roundUpTo5(total);
   }
-  return roundUpTo5(mpl * (parseInt(t.format.bestOfLegs)||5));
+  const legs = opts.legs!=null ? opts.legs : t.format.bestOfLegs;
+  return roundUpTo5(mpl * (parseInt(legs)||5));
+}
+/* Which named stage a knockout round falls into, counting back from the
+   final — matches WDF's own bucketing (everything before the quarterfinal
+   is "early rounds"). `idx` is 0-based from round 1. */
+function koStageKey(totalRounds, idx){
+  const fromEnd = totalRounds-idx;
+  if(fromEnd===1) return 'final';
+  if(fromEnd===2) return 'semifinal';
+  if(fromEnd===3) return 'quarterfinal';
+  return 'early';
+}
+/* Best-of-legs for a specific knockout round. `bracketKey` picks which
+   bracket's config applies ('knockoutLosers' -> the Plate, independent of
+   the winner bracket). When that bracket's "variable" toggle is off, main
+   falls back to the tournament's flat bestOfLegs (today's behaviour,
+   unchanged); the Plate has no such pre-existing field, so it falls back to
+   its own flatLegs (defaulting to bestOfLegs the first time it's touched). */
+function legsForKnockoutRound(t, bracketKey, totalRounds, idx){
+  const isPlate = bracketKey==='knockoutLosers';
+  const cfg = (t.format.knockoutLegs||{})[isPlate?'plate':'main'];
+  const flatFallback = isPlate ? ((cfg&&cfg.flatLegs!=null)?cfg.flatLegs:t.format.bestOfLegs) : t.format.bestOfLegs;
+  if(!cfg || !cfg.variable) return parseInt(flatFallback)||5;
+  return parseInt(cfg[koStageKey(totalRounds, idx)])||parseInt(flatFallback)||5;
 }
 function clockToMinutes(hhmm){
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm||'');
@@ -555,7 +588,6 @@ function estimateTotalMinutes(t){
   const boards = Math.max(1, parseInt(t.eventCreation.boards)||1);
   const n = Math.max(0, parseInt(t.eventCreation.entries)||0);
   const perMatch = matchDurationMinutes(t, {isKnockout:false});
-  const perMatchKO = matchDurationMinutes(t, {isKnockout:true});
   const breaks = t.format.breaks || {};
   /* Per the organiser's model: every board's slot duration is benchmarked
      against the LARGEST group (rec.size is always the largest — remainder
@@ -570,13 +602,29 @@ function estimateTotalMinutes(t){
     const maxGroupsPerBoard = Math.ceil(rec.groups/boards);
     return benchmark*maxGroupsPerBoard;
   }
-  function knockoutMinutes(entryCount){
-    // Single-elimination always has exactly entries-1 matches, byes included.
-    return entryCount<2 ? 0 : (entryCount-1)*perMatchKO;
+  /* Round-by-round simulation (no real bracket exists yet, so round sizes are
+     synthetic) — needed because legs, and therefore duration, can vary by
+     round. Byes only ever occur in round 0 (classic seeding), so every later
+     round is a full, real round. Already accounts for boards (matches queue
+     in waves), so this should not be divided by boards again. */
+  function simulateKnockoutMinutes(entryCount, bracketKey){
+    if(entryCount<2) return 0;
+    const bracketSize = nearestBracket(entryCount).size;
+    const totalRounds = Math.round(Math.log2(bracketSize));
+    let mins = 0;
+    for(let idx=0; idx<totalRounds; idx++){
+      const slotsThisRound = bracketSize/Math.pow(2, idx+1);
+      const matchesInRound = idx===0 ? Math.max(0, entryCount-bracketSize/2) : slotsThisRound;
+      const legs = legsForKnockoutRound(t, bracketKey, totalRounds, idx);
+      const roundPerMatch = matchDurationMinutes(t, {isKnockout:true, legs});
+      const waves = Math.max(1, Math.ceil(matchesInRound/boards));
+      mins += waves*roundPerMatch;
+    }
+    return mins;
   }
   let minutes;
   if(t.format.formatType==='knockout'){
-    minutes = knockoutMinutes(n)/boards + (breaks.knockout&&breaks.knockout.enabled ? parseInt(breaks.knockout.minutes)||0 : 0);
+    minutes = simulateKnockoutMinutes(n, 'knockout') + (breaks.knockout&&breaks.knockout.enabled ? parseInt(breaks.knockout.minutes)||0 : 0);
   } else if(t.format.formatType==='rrknockout'){
     const rec = recommendGroups(n);
     const qualPerGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
@@ -584,7 +632,7 @@ function estimateTotalMinutes(t){
     minutes = roundRobinMinutes(n)
       + (breaks.roundRobin&&breaks.roundRobin.enabled ? parseInt(breaks.roundRobin.minutes)||0 : 0)
       + (breaks.transition&&breaks.transition.enabled ? parseInt(breaks.transition.minutes)||0 : 0)
-      + knockoutMinutes(advancing)/boards
+      + simulateKnockoutMinutes(advancing, 'knockout')
       + (breaks.knockout&&breaks.knockout.enabled ? parseInt(breaks.knockout.minutes)||0 : 0);
   } else {
     minutes = roundRobinMinutes(n) + (breaks.roundRobin&&breaks.roundRobin.enabled ? parseInt(breaks.roundRobin.minutes)||0 : 0);
@@ -629,18 +677,20 @@ function computeRoundRobinSchedule(t){
    matches queue in waves of `boards` at a time. Any round already actually
    started (bracket.roundStartedAt[idx]) overrides the estimate with reality,
    so later rounds' estimates self-correct as real data comes in. */
-function computeKnockoutSchedule(t, bracket, fallbackStartMs){
+function computeKnockoutSchedule(t, bracket, bracketKey, fallbackStartMs){
   if(!bracket) return { rounds: [], phaseEndMs:null };
   const boards = Math.max(1, parseInt(t.eventCreation.boards)||1);
-  const perMatch = matchDurationMinutes(t, {isKnockout:true});
   const brk = (t.format.breaks||{}).knockout;
   const roundStartedAt = bracket.roundStartedAt || [];
+  const totalRounds = bracket.rounds.length;
   const appliedRef = {done:false};
   let cursor = roundStartedAt[0] || fallbackStartMs;
   const rounds = bracket.rounds.map((round, idx)=>{
     if(roundStartedAt[idx]) cursor = roundStartedAt[idx];
     cursor = applyBreakIfDue(cursor, brk, appliedRef);
     const matchesToPlay = round.filter(m=>!m.bye && m.aEntryId && m.bEntryId).length;
+    const legs = legsForKnockoutRound(t, bracketKey, totalRounds, idx);
+    const perMatch = matchDurationMinutes(t, {isKnockout:true, legs});
     const waves = Math.max(1, Math.ceil(matchesToPlay / boards));
     const durMs = waves * perMatch * 60000;
     const entry = { startMs: cursor, endMs: cursor!=null ? cursor+durMs : null, actualStart: !!roundStartedAt[idx] };
@@ -845,10 +895,14 @@ function koRoundName(bracket, idx){
    which of state.knockout / state.knockoutLosers to update). */
 function bracketColumnsHTML(bracket, t, opts){
   opts = opts||{};
-  const interactive = !!opts.interactive, bracketKey = opts.bracketKey||'knockout';
+  const interactive = !!opts.interactive;
+  const bracketKey = opts.bracketKey || (bracket===t.knockoutLosers ? 'knockoutLosers' : 'knockout');
+  const legsCfg = (t.format.knockoutLegs||{})[bracketKey==='knockoutLosers'?'plate':'main'];
+  const totalRounds = bracket.rounds.length;
   return '<div class="bracket-cols">'+
     bracket.rounds.map((round, ri)=>{
-      return '<div class="bracket-col"><div class="bracket-col-title">'+koRoundName(bracket,ri)+'</div>'+
+      const legsNote = legsCfg && legsCfg.variable ? ' · Best of '+legsForKnockoutRound(t, bracketKey, totalRounds, ri) : '';
+      return '<div class="bracket-col"><div class="bracket-col-title">'+koRoundName(bracket,ri)+legsNote+'</div>'+
         round.map((m,mi)=>{
           const aName = bracketEntryName(t, m.aEntryId) || (ri===0?'—':'TBD');
           const bName = bracketEntryName(t, m.bEntryId) || (ri===0?'—':'TBD');
@@ -872,7 +926,7 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m.aEntryId || !m.bEntryId || m.bye) return;
   const aName = bracketEntryName(state, m.aEntryId), bName = bracketEntryName(state, m.bEntryId);
-  const bestOf = parseInt(state.format.bestOfLegs)||5;
+  const bestOf = legsForKnockoutRound(state, bracketKey, bracket.rounds.length, roundIdx);
   const majority = Math.floor(bestOf/2)+1;
   const clampAttr = 'min="0" max="'+majority+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.min(Math.max(parseInt(this.value)||0,0),'+majority+')"';
   openModal({
@@ -905,7 +959,7 @@ function markKnockoutNoShow(bracketKey, roundIdx, matchIdx, side){
   if(!bracket) return;
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m || !m.aEntryId || !m.bEntryId || m.winnerId || m.bye) return;
-  const majority = Math.floor((parseInt(state.format.bestOfLegs)||5)/2)+1;
+  const majority = Math.floor(legsForKnockoutRound(state, bracketKey, bracket.rounds.length, roundIdx)/2)+1;
   const loserId = side==='a' ? m.aEntryId : m.bEntryId;
   const winnerId = side==='a' ? m.bEntryId : m.aEntryId;
   m.aLegs = side==='a' ? 0 : majority;
@@ -923,26 +977,34 @@ function openKoNoShowPicker(bracketKey, roundIdx, matchIdx){
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m || !m.aEntryId || !m.bEntryId || m.winnerId) return;
   const aName = bracketEntryName(state, m.aEntryId), bName = bracketEntryName(state, m.bEntryId);
+  const majority = Math.floor(legsForKnockoutRound(state, bracketKey, bracket.rounds.length, roundIdx)/2)+1;
   const rows =
     '<div class="picker-row" onclick="markKnockoutNoShow(\''+bracketKey+'\','+roundIdx+','+matchIdx+',\'a\');closeModal();">'+escapeHtml(aName)+'</div>'+
     '<div class="picker-row" onclick="markKnockoutNoShow(\''+bracketKey+'\','+roundIdx+','+matchIdx+',\'b\');closeModal();">'+escapeHtml(bName)+'</div>';
   openModal({
     title:'Mark a no-show',
-    bodyHTML: '<p style="margin-top:-4px">Choose who didn\'t show up. The other side is advanced as a '+(Math.floor((parseInt(state.format.bestOfLegs)||5)/2)+1)+'–0 walkover win, tagged WO.</p><div class="picker-list">'+rows+'</div>',
+    bodyHTML: '<p style="margin-top:-4px">Choose who didn\'t show up. The other side is advanced as a '+majority+'–0 walkover win, tagged WO.</p><div class="picker-list">'+rows+'</div>',
     confirmLabel:'Close', confirmClass:'secondary',
     onConfirm:()=>{}
   });
 }
 function knockoutBracketSheetHTML(bracket){
   const t = state;
+  const bracketKey = bracket===t.knockoutLosers ? 'knockoutLosers' : 'knockout';
+  const legsCfg = (t.format.knockoutLegs||{})[bracketKey==='knockoutLosers'?'plate':'main'];
+  const variableLegs = legsCfg && legsCfg.variable;
+  const legsSub = variableLegs ? '' : ' · Best of '+t.format.bestOfLegs+' Legs';
+  const legsFooter = variableLegs
+    ? 'Legs per match increase by knockout stage — see each round\'s heading above.'
+    : 'Best of '+t.format.bestOfLegs+' legs per match — no draws, the winner needs '+(Math.floor((parseInt(t.format.bestOfLegs)||5)/2)+1)+' legs.';
   return '<div class="print-sheet">'+
     '<div class="sheet-top">'+ mainLogoBoxHTML()+
       '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
-      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Knockout Stage · Best of '+t.format.bestOfLegs+' Legs</div></div>'+
+      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Knockout Stage'+legsSub+'</div></div>'+
       '<div class="group-label"><strong>'+escapeHtml((bracket.label||'BRACKET').toUpperCase())+'</strong><span>'+bracket.size+'-entry bracket</span></div>'+
     '</div>'+
     '<div style="flex:1;display:flex;align-items:center;margin-top:16px">'+bracketColumnsHTML(bracket, t, {interactive:false})+'</div>'+
-    '<div class="footer"><small>Best of '+t.format.bestOfLegs+' legs per match — no draws, the winner needs '+(Math.floor((parseInt(t.format.bestOfLegs)||5)/2)+1)+' legs.</small>'+
+    '<div class="footer"><small>'+legsFooter+'</small>'+
     (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
     '</div>'+
   '</div>';
@@ -1212,6 +1274,10 @@ async function openTournament(id){
     if(state.format.anticipatedStartTime===undefined) state.format.anticipatedStartTime = '';
     if(!state.format.breaks) state.format.breaks = { roundRobin:{enabled:false,time:'',minutes:30}, knockout:{enabled:false,time:'',minutes:30}, transition:{enabled:false,minutes:15} };
     if(state.rrFinishedAt===undefined) state.rrFinishedAt = null;
+    if(!state.format.knockoutLegs) state.format.knockoutLegs = {
+      main: { variable:false, early:5, quarterfinal:5, semifinal:5, final:5 },
+      plate: { variable:false, flatLegs:5, early:5, quarterfinal:5, semifinal:5, final:5 }
+    };
     (state.groups||[]).forEach(g=>{ if(g.startedAt===undefined) g.startedAt = null; });
     [state.knockout, state.knockoutLosers].forEach(b=>{
       if(b && !b.roundStartedAt) b.roundStartedAt = b.rounds.map(()=>null);
@@ -1500,6 +1566,7 @@ function stage2(){
       '<div class="recommend"><b>Recommended:</b> '+rec.groups+' group'+(rec.groups===1?'':'s')+' of '+rec.size+' ('+n+' entries total'+(rec.remainder?', last group has '+rec.remainder:'')+'). Each group plays '+matchesPerGroup(rec.size)+' matches. Change "Maximum entries per group" above if you prefer a different split.</div>'
       : '<div class="recommend"><b>Nearest bracket:</b> '+bracket.size+'-entry bracket for '+n+' entries — '+bracket.byes+' bye'+(bracket.byes===1?'':'s')+' required in round 1.</div>'
     )+
+    (f.formatType==='knockout' || f.formatType==='rrknockout' ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)') : '')+
     (f.formatType==='rrknockout' ? '<div class="grid2" style="margin-top:12px">'+
       '<div class="field"><label>Qualifiers per group (advance to knockout)</label><input id="f_qualifiers" type="number" min="1" value="'+f.qualifiersPerGroup+'" oninput="updateStage2Timing()"></div>'+
       '<div class="field"><label>How qualifiers are placed into the bracket</label><select id="f_advancemode">'+
@@ -1509,7 +1576,8 @@ function stage2(){
     '</div>'+
     '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a losers\' pool (Plate) knockout bracket for entries that don\'t qualify</label></div>'+
     '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate qualifiers per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+(f.plateQualifiersPerGroup||'')+'"></div>'+
-    '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group qualifiers across the bracket where the numbers allow it. Leave Plate qualifiers blank to send everyone who doesn\'t qualify for the main bracket into the Plate (today\'s default); set a number to cap the Plate too, e.g. top 2 → winner bracket, next 2 → Plate, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'
+    '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group qualifiers across the bracket where the numbers allow it. Leave Plate qualifiers blank to send everyone who doesn\'t qualify for the main bracket into the Plate (today\'s default); set a number to cap the Plate too, e.g. top 2 → winner bracket, next 2 → Plate, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'+
+    knockoutLegsFieldsHTML('plate', f.knockoutLegs.plate, 'Plate bracket: also increase legs by stage (independent of the winner bracket above)')
       : '')+
     (isTeamUnit(state) ? '<div class="field" style="margin-top:12px"><label>Team format</label><div class="options">'+
         (unit==='Teams' ? '<div class="choice'+(f.teamMatchFormat==='foursome'?' selected':'')+'" onclick="setTeamMatchFormat(\'foursome\')"><strong>Foursome</strong><small>Each encounter is one match, full team vs full team</small></div>'+
@@ -1616,6 +1684,23 @@ function stage2FormatDraft(){
       roundRobin: { enabled:checked('f_break_rr_enabled', f.breaks.roundRobin.enabled), time:val('f_break_rr_time', f.breaks.roundRobin.time), minutes:val('f_break_rr_minutes', f.breaks.roundRobin.minutes) },
       knockout: { enabled:checked('f_break_ko_enabled', f.breaks.knockout.enabled), time:val('f_break_ko_time', f.breaks.knockout.time), minutes:val('f_break_ko_minutes', f.breaks.knockout.minutes) },
       transition: { enabled:checked('f_break_transition_enabled', f.breaks.transition.enabled), minutes:val('f_break_transition_minutes', f.breaks.transition.minutes) }
+    },
+    knockoutLegs: {
+      main: {
+        variable: f.knockoutLegs.main.variable,
+        early: val('f_kolegs_main_early', f.knockoutLegs.main.early),
+        quarterfinal: val('f_kolegs_main_quarterfinal', f.knockoutLegs.main.quarterfinal),
+        semifinal: val('f_kolegs_main_semifinal', f.knockoutLegs.main.semifinal),
+        final: val('f_kolegs_main_final', f.knockoutLegs.main.final)
+      },
+      plate: {
+        variable: f.knockoutLegs.plate.variable,
+        flatLegs: val('f_kolegs_plate_flat', f.knockoutLegs.plate.flatLegs),
+        early: val('f_kolegs_plate_early', f.knockoutLegs.plate.early),
+        quarterfinal: val('f_kolegs_plate_quarterfinal', f.knockoutLegs.plate.quarterfinal),
+        semifinal: val('f_kolegs_plate_semifinal', f.knockoutLegs.plate.semifinal),
+        final: val('f_kolegs_plate_final', f.knockoutLegs.plate.final)
+      }
     }
   };
 }
@@ -1629,6 +1714,34 @@ function updateStage2Timing(){
 }
 function setFormatType(v){ state.format.formatType = v; render(); }
 function setTeamMatchFormat(v){ state.format.teamMatchFormat = v; render(); }
+/* WDF-style "legs increase closer to the final" fields for one bracket
+   ('main' = winner bracket, 'plate' = losers' pool) — fully independent of
+   each other. When off, 'main' just uses the tournament's flat bestOfLegs
+   (today's behaviour, unchanged); 'plate' gets its own flat field since it
+   has no pre-existing one to fall back to. */
+function knockoutLegsFieldsHTML(key, cfg, label){
+  return '<div class="field" style="margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px">'+
+    '<div class="toggle-row" style="margin:0 0 8px"><input type="checkbox" id="f_kolegs_'+key+'_variable" '+(cfg.variable?'checked':'')+' onchange="toggleKnockoutLegsVariable(\''+key+'\')"> <label for="f_kolegs_'+key+'_variable">'+label+'</label></div>'+
+    (cfg.variable ?
+      '<div class="grid2">'+
+        '<div class="field"><label>Early rounds</label><input id="f_kolegs_'+key+'_early" type="number" min="1" step="2" value="'+cfg.early+'" oninput="updateStage2Timing()"></div>'+
+        '<div class="field"><label>Quarterfinal</label><input id="f_kolegs_'+key+'_quarterfinal" type="number" min="1" step="2" value="'+cfg.quarterfinal+'" oninput="updateStage2Timing()"></div>'+
+      '</div>'+
+      '<div class="grid2">'+
+        '<div class="field"><label>Semifinal</label><input id="f_kolegs_'+key+'_semifinal" type="number" min="1" step="2" value="'+cfg.semifinal+'" oninput="updateStage2Timing()"></div>'+
+        '<div class="field"><label>Final</label><input id="f_kolegs_'+key+'_final" type="number" min="1" step="2" value="'+cfg.final+'" oninput="updateStage2Timing()"></div>'+
+      '</div>'+
+      '<div class="hint" style="margin:0">Every round before the quarterfinal uses "Early rounds". Odd numbers recommended so a round can\'t end level.</div>'
+      : (key==='plate' ?
+        '<div class="field" style="margin:0"><label>Best of legs (all Plate rounds)</label><input id="f_kolegs_plate_flat" type="number" min="1" step="2" value="'+(cfg.flatLegs!=null?cfg.flatLegs:5)+'" oninput="updateStage2Timing()"></div>'
+        : '<div class="hint" style="margin:0">Uses the tournament\'s "Best of legs" value (above) for every knockout round.</div>')
+    )+
+  '</div>';
+}
+function toggleKnockoutLegsVariable(key){
+  state.format.knockoutLegs[key].variable = !state.format.knockoutLegs[key].variable;
+  render();
+}
 function rubberEditor(){
   const rubbers = state.format.mixedRubbers;
   const typeOptions = [['singles','Singles'],['doubles','Doubles'],['triples','Triples'],['foursome','Foursome (quad)']];
@@ -1804,6 +1917,20 @@ function saveStage2(){
   f.breaks.roundRobin = readBreak('rr', true) || f.breaks.roundRobin;
   f.breaks.knockout = readBreak('ko', true) || f.breaks.knockout;
   f.breaks.transition = readBreak('transition', false) || f.breaks.transition;
+  const readKnockoutLegs = (key)=>{
+    const cfg = f.knockoutLegs[key];
+    if(cfg.variable){
+      ['early','quarterfinal','semifinal','final'].forEach(stage=>{
+        const el = document.getElementById('f_kolegs_'+key+'_'+stage);
+        if(el) cfg[stage] = Math.max(1, parseInt(el.value)||5);
+      });
+    } else if(key==='plate'){
+      const el = document.getElementById('f_kolegs_plate_flat');
+      if(el) cfg.flatLegs = Math.max(1, parseInt(el.value)||5);
+    }
+  };
+  if(f.formatType==='knockout' || f.formatType==='rrknockout') readKnockoutLegs('main');
+  if(f.formatType==='rrknockout') readKnockoutLegs('plate');
   f.saved = true;
   ensureEntries(state); // resync roster length if teamSize changed
   if(f.formatType==='roundrobin' || f.formatType==='rrknockout'){ buildGroups(state); }
@@ -1815,7 +1942,7 @@ function formatSummaryCard(){
   const f = state.format;
   return '<div class="summary-card"><div class="summary-grid">'+
     '<div><label>Format</label><strong>'+({knockout:'Knockout', rrknockout:'Round Robin → Knockout'}[f.formatType]||'Round Robin')+'</strong></div>'+
-    '<div><label>Best of</label><strong>'+f.bestOfLegs+' legs</strong></div>'+
+    '<div><label>Best of</label><strong>'+(f.knockoutLegs.main.variable?'Varies by stage':f.bestOfLegs+' legs')+'</strong></div>'+
     '<div><label>Max/group</label><strong>'+(f.formatType!=='knockout'?f.maxPerGroup:'—')+'</strong></div>'+
     '<div><label>Logo</label><strong>'+(f.logo?'Uploaded':'None')+'</strong></div>'+
     '<div><label>Sponsors</label><strong>'+f.sponsors.length+'</strong></div>'+
@@ -2356,12 +2483,30 @@ function formatDescriptionLines(t){
     lines.push('Scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of '+bestOf+' legs (first to '+majority+').');
   } else if(f.formatType==='knockout'){
     lines.push('Format: Knockout — single elimination. Lose once and you’re out (except any bye rounds).');
-    lines.push('Each match is best of '+bestOf+' legs (first to '+majority+'). Knockout matches cannot end in a draw.');
+    if(f.knockoutLegs.main.variable){
+      const k = f.knockoutLegs.main;
+      lines.push('Legs increase by round: early rounds best of '+k.early+', quarterfinal best of '+k.quarterfinal+', semifinal best of '+k.semifinal+', final best of '+k.final+'. Knockout matches cannot end in a draw.');
+    } else {
+      lines.push('Each match is best of '+bestOf+' legs (first to '+majority+'). Knockout matches cannot end in a draw.');
+    }
   } else if(f.formatType==='rrknockout'){
     lines.push('Format: Round robin group stage, followed by a knockout bracket.');
     lines.push('Group stage scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of '+bestOf+' legs (first to '+majority+').');
     lines.push('Advancing to the knockout: top '+f.qualifiersPerGroup+' from each group, '+(f.advanceMode==='seeded'?'seeded by group finishing position':'drawn at random')+'.'+(f.losersPool ? ' Non-qualifiers go into a separate losers’ pool (Plate) knockout bracket' + (f.plateQualifiersPerGroup ? ' (next '+f.plateQualifiersPerGroup+' per group; anyone ranked below that is eliminated)' : ' (everyone who doesn\'t qualify for the main bracket)') + '.' : ''));
-    lines.push('Knockout stage matches are best of '+bestOf+' legs and cannot end in a draw.');
+    if(f.knockoutLegs.main.variable){
+      const k = f.knockoutLegs.main;
+      lines.push('Knockout stage legs increase by round: early rounds best of '+k.early+', quarterfinal best of '+k.quarterfinal+', semifinal best of '+k.semifinal+', final best of '+k.final+'. Cannot end in a draw.');
+    } else {
+      lines.push('Knockout stage matches are best of '+bestOf+' legs and cannot end in a draw.');
+    }
+    if(f.losersPool){
+      const p = f.knockoutLegs.plate;
+      if(p.variable){
+        lines.push('Plate bracket legs increase by round: early rounds best of '+p.early+', quarterfinal best of '+p.quarterfinal+', semifinal best of '+p.semifinal+', final best of '+p.final+'.');
+      } else {
+        lines.push('Plate bracket matches are best of '+(p.flatLegs!=null?p.flatLegs:bestOf)+' legs.');
+      }
+    }
   }
   if(isTeamUnit(t)){
     const size = teamSizeFor(t);
@@ -2660,7 +2805,7 @@ function startKnockoutRound(bracketKey, roundIdx){
    stamped), a status label, and a "Start round" button for whichever round
    is next eligible. */
 function knockoutScheduleSummaryHTML(t, bracket, bracketKey, startOffsetMs){
-  const sched = computeKnockoutSchedule(t, bracket, startOffsetMs);
+  const sched = computeKnockoutSchedule(t, bracket, bracketKey, startOffsetMs);
   const nextRound = nextEligibleKnockoutRound(bracket);
   const rows = bracket.rounds.map((round, idx)=>{
     const entry = sched.rounds[idx];
