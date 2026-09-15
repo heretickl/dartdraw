@@ -36,6 +36,11 @@ button{font-family:inherit}
 .event-card label{color:#a9c7ec;font-size:10px;letter-spacing:.11em;text-transform:uppercase}
 .event-card strong{display:block;margin:6px 0 2px;font-size:14px}
 .event-card span{font-size:12px;color:#cbd6e2}
+.organizer-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#a9c7ec;margin:0 0 6px}
+.organizer-bar button{font-size:10px;padding:4px 8px;border-radius:5px;border:1px solid #3b536f;background:#0e1e34;color:#cbd8e6;cursor:pointer}
+.organizer-bar button:hover{background:#1a3252}
+.save-status{font-size:10px;color:#7fa0c4;margin:0 0 16px;min-height:12px}
+.save-status.error{color:#f2a49c;cursor:pointer;text-decoration:underline}
 .main{padding:28px 34px 42px;overflow:auto}
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .topbar h1{font-size:23px;margin:0}
@@ -254,7 +259,9 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 <div class="app">
   <aside class="sidebar">
     <div class="brand"><span class="brand-mark">D</span> DartDraw</div>
-    <div class="local">Tournament chart manager - local app</div>
+    <div class="local">Tournament chart manager - online</div>
+    <div class="organizer-bar" id="organizerBar"></div>
+    <div class="save-status" id="saveStatus"></div>
     <button class="new-tournament" onclick="newTournament()">+ New tournament</button>
     <button class="open-btn" onclick="scrollToLibrary()">Open saved tournament</button>
     <div class="step" id="navstep1" onclick="goStage(1)"><h3>1. Event creation</h3><p>Identity, category and entry count.</p></div>
@@ -275,7 +282,7 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
   <main class="main">
     <div class="topbar">
       <div><h1 id="pageTitle">Round-robin chart builder</h1><p id="pageSub">Set the event details on the left. The print-ready chart updates as you work.</p></div>
-      <span class="tag">Saved on this computer</span>
+      <span class="tag">Synced to your account</span>
     </div>
     <div id="stageArea"></div>
   </main>
@@ -283,10 +290,25 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 <div id="printSheets"></div>
 
 <script>
-/* ---------- Storage ---------- */
-const LS_KEY = 'dartdraw_tournaments_v1';
-function loadAll(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||'{}'); }catch(e){ return {}; } }
-function saveAll(all){ localStorage.setItem(LS_KEY, JSON.stringify(all)); }
+/* ---------- Storage (server-backed via /api/tournaments) ---------- */
+let currentOrganizer = null;
+let tournamentsCache = {}; // id -> tournament JSON (same shape `state` has)
+let dbUpdatedAtCache = {}; // id -> last known Postgres updated_at, for optimistic-concurrency saves
+async function apiFetch(url, opts){
+  opts = opts||{};
+  const headers = Object.assign({}, opts.headers);
+  if(opts.body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(url, Object.assign({}, opts, {headers}));
+  if(res.status===401){ window.location.href = '/login.html'; throw new Error('Not authenticated'); }
+  return res;
+}
+async function fetchTournamentList(){
+  const res = await apiFetch('/api/tournaments');
+  if(!res.ok) return;
+  const rows = await res.json();
+  tournamentsCache = {}; dbUpdatedAtCache = {};
+  rows.forEach(r=>{ tournamentsCache[r.id]=r.data; dbUpdatedAtCache[r.id]=r.updated_at; });
+}
 function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4); }
 
 /* ---------- Default / current state ---------- */
@@ -836,13 +858,80 @@ function reconcileConfirmations(t){
 }
 
 /* ---------- Persistence helpers ---------- */
+let saveTimer = null;
+function setSaveStatus(status){
+  const el = document.getElementById('saveStatus');
+  if(!el) return;
+  el.textContent = status==='saving' ? 'Saving…' : status==='error' ? 'Updated elsewhere — click to reload' : status==='ok' ? 'Saved' : '';
+  el.classList.toggle('error', status==='error');
+  el.onclick = status==='error' ? ()=>{ if(state) openTournament(state.id); } : null;
+}
+/* External behaviour is unchanged: every call site still just does
+   `persist(); render();` after mutating `state`. Internally this now debounces
+   a PUT to the server (so rapid clicks/typing coalesce into one network
+   write) instead of writing to localStorage synchronously. */
 function persist(){
   if(!state) return;
   state.updatedAt = Date.now();
-  const all = loadAll();
-  all[state.id] = state;
-  saveAll(all);
+  tournamentsCache[state.id] = state;
   renderSavedList();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 500);
+}
+async function flushSave(){
+  if(!state) return;
+  const id = state.id;
+  const payload = state;
+  const expected = dbUpdatedAtCache[id] || null;
+  setSaveStatus('saving');
+  try{
+    const res = await apiFetch('/api/tournaments/'+id, {
+      method:'PUT',
+      body: JSON.stringify({ data: payload, expectedUpdatedAt: expected })
+    });
+    if(res.status===409){
+      const body = await res.json();
+      dbUpdatedAtCache[id] = body.current.updated_at;
+      if(state && state.id===id) tournamentsCache[id] = body.current.data;
+      setSaveStatus('error');
+      return;
+    }
+    if(!res.ok) throw new Error('save failed');
+    const saved = await res.json();
+    dbUpdatedAtCache[id] = saved.updated_at;
+    setSaveStatus('ok');
+  }catch(e){
+    setSaveStatus('error');
+  }
+}
+/* Best-effort synchronous flush so a debounced save isn't lost on tab close. */
+function flushSaveNow(){
+  if(!state) return;
+  clearTimeout(saveTimer);
+  fetch('/api/tournaments/'+state.id, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ data: state, expectedUpdatedAt: dbUpdatedAtCache[state.id]||null }),
+    keepalive: true
+  }).catch(()=>{});
+}
+window.addEventListener('beforeunload', flushSaveNow);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushSaveNow(); });
+function renderOrganizerBar(){
+  const el = document.getElementById('organizerBar');
+  if(!el || !currentOrganizer) return;
+  el.innerHTML = '<span>'+escapeHtml(currentOrganizer.name||currentOrganizer.email)+'</span><button onclick="logout()">Log out</button>';
+}
+async function logout(){
+  await fetch('/api/auth/logout', {method:'POST'}).catch(()=>{});
+  window.location.href = '/login.html';
+}
+function computeStageFor(t){
+  return !t.eventCreation.saved ? 1
+    : !t.format.saved ? 2
+    : !t.entriesList.length ? 3
+    : t.format.formatType==='knockout' ? (t.knockout ? 5 : 4)
+    : !t.groups.every(g=>g.confirmed) ? 4
+    : 5;
 }
 function chartCount(t){ return t.groups.filter(g=>g.confirmed).length; }
 
@@ -861,10 +950,14 @@ function newTournament(){
 }
 function scrollToLibrary(){ document.getElementById('libraryLabel').scrollIntoView({behavior:'smooth'}); }
 
-function openTournament(id){
-  const all = loadAll();
-  if(all[id]){
-    state = all[id];
+async function openTournament(id){
+  const res = await apiFetch('/api/tournaments/'+id);
+  if(res.ok){
+    const row = await res.json();
+    state = row.data;
+    state.id = id;
+    dbUpdatedAtCache[id] = row.updated_at;
+    tournamentsCache[id] = state;
     if(!state.tieBreakOrder) state.tieBreakOrder = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
     if(!state.printSettings) state.printSettings = {sponsorFooterEnabled:true};
     if(state.format.sponsors && state.format.sponsors.length){
@@ -904,12 +997,7 @@ function openTournament(id){
       if(r.isTieBreaker===undefined) r.isTieBreaker = false;
     });
     ensureEntries(state); // adds org/players fields to entries saved before this feature existed
-    currentStage = !state.eventCreation.saved ? 1
-      : !state.format.saved ? 2
-      : !state.entriesList.length ? 3
-      : state.format.formatType==='knockout' ? (state.knockout ? 5 : 4)
-      : !state.groups.every(g=>g.confirmed) ? 4
-      : 5;
+    currentStage = computeStageFor(state);
     render();
     migrateLogoIfNeeded(state);
   }
@@ -939,43 +1027,55 @@ function deleteTournament(id, ev){
   ev.stopPropagation();
   openModal({
     title:'Delete tournament?',
-    body:'This removes it permanently from this computer. This cannot be undone.',
+    body:'This removes it permanently from your account. This cannot be undone.',
     confirmLabel:'Delete', confirmClass:'danger',
     onConfirm:()=>{
-      const all = loadAll();
-      delete all[id];
-      saveAll(all);
+      apiFetch('/api/tournaments/'+id, {method:'DELETE'}).catch(()=>{});
+      delete tournamentsCache[id];
+      delete dbUpdatedAtCache[id];
       if(state && state.id===id){ state=null; currentStage=1; }
-      if(!state){ const remaining = Object.values(loadAll()); if(remaining.length){ openTournament(remaining[0].id); } else { newTournament(); } }
+      if(!state){ const remaining = Object.values(tournamentsCache); if(remaining.length){ openTournament(remaining[0].id); } else { newTournament(); } }
       render();
     }
   });
 }
 function renameTournament(id, ev){
   ev.stopPropagation();
-  const all = loadAll();
-  const t = all[id];
+  const t = tournamentsCache[id];
+  if(!t) return;
   openModal({
     title:'Rename tournament',
     bodyHTML:'<div class="field"><label>Tournament name</label><input id="renameInput" type="text" value="'+escapeHtml(t.eventCreation.tournamentName)+'"></div>',
     confirmLabel:'Save', confirmClass:'primary',
     onConfirm:()=>{
       const v = document.getElementById('renameInput').value.trim();
-      if(v){ t.eventCreation.tournamentName = v; t.updatedAt = Date.now(); saveAll(all); if(state && state.id===id) state.eventCreation.tournamentName=v; render(); }
+      if(!v) return;
+      t.eventCreation.tournamentName = v;
+      t.updatedAt = Date.now();
+      if(state && state.id===id) state.eventCreation.tournamentName = v;
+      render();
+      apiFetch('/api/tournaments/'+id, { method:'PUT', body: JSON.stringify({ data:t, expectedUpdatedAt: dbUpdatedAtCache[id]||null }) })
+        .then(async res=>{
+          if(res.status===409){ const body=await res.json(); dbUpdatedAtCache[id]=body.current.updated_at; tournamentsCache[id]=body.current.data; renderSavedList(); return; }
+          if(res.ok){ const saved=await res.json(); dbUpdatedAtCache[id]=saved.updated_at; }
+        }).catch(()=>{});
     }
   });
 }
-function duplicateTournament(id, ev){
+async function duplicateTournament(id, ev){
   ev.stopPropagation();
-  const all = loadAll();
-  const src = all[id];
+  const src = tournamentsCache[id];
+  if(!src) return;
   const copy = JSON.parse(JSON.stringify(src));
   copy.id = uid('t');
   copy.eventCreation.tournamentName = src.eventCreation.tournamentName + ' (copy)';
   copy.createdAt = Date.now(); copy.updatedAt = Date.now();
-  all[copy.id] = copy;
-  saveAll(all);
-  openTournament(copy.id);
+  const res = await apiFetch('/api/tournaments/'+copy.id, { method:'PUT', body: JSON.stringify({ data: copy, expectedUpdatedAt: null }) });
+  if(!res.ok) return;
+  const saved = await res.json();
+  dbUpdatedAtCache[copy.id] = saved.updated_at;
+  tournamentsCache[copy.id] = copy;
+  await openTournament(copy.id);
 }
 
 /* ---------- Modal ---------- */
@@ -1002,7 +1102,7 @@ function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':
 
 /* ---------- Sidebar render ---------- */
 function renderSavedList(){
-  const all = Object.values(loadAll()).sort((a,b)=>b.updatedAt-a.updatedAt);
+  const all = Object.values(tournamentsCache).sort((a,b)=>b.updatedAt-a.updatedAt);
   const list = document.getElementById('savedList');
   if(!all.length){ list.innerHTML = '<div style="color:#7f93a8;font-size:12px;padding:8px 2px">No saved tournaments yet.</div>'; }
   else {
@@ -2604,8 +2704,15 @@ function runPrintPack(confirmed){
 }
 
 /* ---------- Init ---------- */
-window.onload = function(){
-  const all = Object.values(loadAll()).sort((a,b)=>b.updatedAt-a.updatedAt);
+window.onload = async function(){
+  try{
+    const meRes = await fetch('/api/auth/me');
+    if(!meRes.ok){ window.location.href = '/login.html'; return; }
+    currentOrganizer = await meRes.json();
+  }catch(e){ window.location.href = '/login.html'; return; }
+  renderOrganizerBar();
+  await fetchTournamentList();
+  const all = Object.values(tournamentsCache).sort((a,b)=>b.updatedAt-a.updatedAt);
   if(all.length){ openTournament(all[0].id); } else { render(); }
 };
 </script>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in - DartDraw</title>
+<style>
+:root{--navy:#10233e;--blue:#1f6feb;--gold:#d9ad45;--ink:#142133;--muted:#6f7c8b;--line:#dbe2ea;--bg:#edf2f6;--red:#c0392b}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:32px;box-shadow:0 12px 28px #26394a1a;width:100%;max-width:360px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:.3px;font-size:20px;margin-bottom:4px}
+.brand-mark{width:31px;height:31px;border:3px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-size:15px;color:var(--navy);background:var(--navy);color:var(--gold)}
+p.sub{margin:0 0 22px;color:var(--muted);font-size:13px}
+.field{margin:0 0 14px}
+.field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
+input{height:38px;border:1px solid #cad5e0;border-radius:7px;padding:9px 11px;font-size:13px;width:100%;font-family:inherit;color:var(--ink)}
+.btn{border:0;border-radius:8px;padding:11px 14px;font-weight:750;font-size:13px;cursor:pointer;width:100%;background:var(--blue);color:#fff;margin-top:6px}
+.btn:hover{background:#1a5fcc}
+.btn:disabled{opacity:.6;cursor:default}
+.err{background:#fdeceb;color:var(--red);border-radius:8px;padding:9px 11px;font-size:12px;margin-bottom:14px;display:none}
+.foot{text-align:center;margin-top:18px;font-size:12px;color:var(--muted)}
+.foot a{color:var(--blue);text-decoration:none;font-weight:700}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand"><span class="brand-mark">D</span> DartDraw</div>
+  <p class="sub">Sign in to manage your tournaments.</p>
+  <div class="err" id="err"></div>
+  <form id="loginForm">
+    <div class="field"><label>Email</label><input type="email" id="email" autocomplete="username" required></div>
+    <div class="field"><label>Password</label><input type="password" id="password" autocomplete="current-password" required></div>
+    <button class="btn" id="submitBtn" type="submit">Sign in</button>
+  </form>
+  <div class="foot">Need an account? <a href="/register.html">Sign up</a></div>
+</div>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const errEl = document.getElementById('err');
+  const btn = document.getElementById('submitBtn');
+  errEl.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try{
+    const res = await fetch('/api/auth/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value
+      })
+    });
+    const body = await res.json();
+    if(!res.ok){ throw new Error(body.error || 'Could not sign in.'); }
+    window.location.href = '/';
+  }catch(e){
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "dartdraw",
+  "private": true,
+  "version": "1.0.0",
+  "description": "DartDraw tournament chart manager",
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "cookie": "^0.7.2"
+  }
+}

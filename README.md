@@ -1,10 +1,31 @@
 # DartDraw
 
-Single-file offline HTML app for creating, managing, and printing darts tournament charts — built for the Kuala Lumpur Darts Association (KLDA).
+Web app for creating, managing, and printing darts tournament charts — built for the Kuala Lumpur Darts Association (KLDA). Organizers sign in and their tournaments are stored centrally (Neon Postgres), so a tournament is accessible from any device.
 
 ## Usage
 
-Open `index.html` in any modern browser. No install, no server, no internet connection required. All tournament data is saved to the browser's local storage.
+Sign in (or create an account) at the deployed URL, then use the app as normal — the print-ready chart still updates as you work, exactly as before.
+
+## Deployment
+
+Hosted on Vercel with a Neon Postgres database.
+
+1. **Neon**: create a project, open the SQL Editor and run `schema.sql` once to
+   create the `organizers` and `tournaments` tables. Copy the **pooled**
+   connection string.
+2. **Vercel**: import this repo as a new project (Framework Preset "Other" —
+   zero config, no build step). Add three Environment Variables:
+   - `DATABASE_URL` — the Neon pooled connection string from step 1.
+   - `SESSION_SECRET` — a long random string (see `.env.example` for how to
+     generate one).
+   - `SIGNUP_CODE` — a code of your choosing; anyone signing up at
+     `/register.html` must enter it, so only share it with people who should
+     get an account.
+3. Deploy, then visit `/register.html` to create the first organizer account.
+
+Each organizer only sees their own tournaments. Local development: copy
+`.env.example` to `.env` (or `.env.local`), fill in the values, and run
+`vercel dev`.
 
 ## Features
 
