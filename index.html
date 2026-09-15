@@ -1,0 +1,2613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DartDraw Local - Tournament Chart Manager</title>
+<style>
+:root{--navy:#10233e;--blue:#1f6feb;--gold:#d9ad45;--paper:#ffffff;--ink:#142133;--muted:#6f7c8b;--line:#dbe2ea;--bg:#edf2f6;--green:#1d8a4a;--red:#c0392b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
+button{font-family:inherit}
+.app{display:grid;grid-template-columns:340px 1fr;min-height:100vh}
+.sidebar{background:var(--navy);padding:28px 24px;color:#fff;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:.3px;font-size:20px}
+.brand-mark{width:31px;height:31px;border:3px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-size:15px;color:var(--gold)}
+.local{font-size:11px;color:#a9c7ec;margin:4px 0 18px 43px;letter-spacing:.12em;text-transform:uppercase}
+.new-tournament{width:100%;padding:11px;border:1px solid var(--gold);border-radius:8px;background:var(--gold);color:#172537;font-weight:800;font-size:12px;margin-bottom:16px;cursor:pointer}
+.open-btn{width:100%;padding:9px;border:1px solid #3b536f;border-radius:8px;background:transparent;color:#cbd8e6;font-weight:700;font-size:11px;margin-bottom:23px;cursor:pointer}
+.side-label{color:#a9c7ec;font-size:10px;letter-spacing:.11em;text-transform:uppercase;margin:24px 0 10px}
+.saved-list{border-top:1px solid #38516d}
+.saved{padding:10px 2px;border-bottom:1px solid #38516d;cursor:pointer}
+.saved.active{padding-left:8px;border-left:3px solid var(--gold)}
+.saved strong{font-size:12px;display:block}
+.saved span{color:#a9b9ca;font-size:10px;display:block;margin-top:3px}
+.saved-actions{display:flex;gap:6px;margin-top:5px}
+.saved-actions button{font-size:9px;padding:3px 6px;border-radius:4px;border:1px solid #3b536f;background:#0e1e34;color:#cbd8e6;cursor:pointer}
+.saved-actions button:hover{background:#1a3252}
+.step{border-left:2px solid #3b536f;padding:0 0 20px 18px;position:relative;cursor:pointer}
+.step:before{content:'';width:8px;height:8px;border-radius:50%;background:#56718f;position:absolute;left:-5px;top:5px}
+.step.active{border-color:var(--gold)}
+.step.active:before{background:var(--gold);box-shadow:0 0 0 5px #3b4655}
+.step.done:before{background:var(--green)}
+.step h3{font-size:13px;margin:0 0 5px}
+.step p{margin:0;color:#a9b9ca;font-size:12px;line-height:1.45}
+.event-card{margin-top:22px;padding:16px;border:1px solid #405974;border-radius:12px;background:#162d4a}
+.event-card label{color:#a9c7ec;font-size:10px;letter-spacing:.11em;text-transform:uppercase}
+.event-card strong{display:block;margin:6px 0 2px;font-size:14px}
+.event-card span{font-size:12px;color:#cbd6e2}
+.main{padding:28px 34px 42px;overflow:auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.topbar h1{font-size:23px;margin:0}
+.topbar p{margin:5px 0 0;color:var(--muted);font-size:13px}
+.tag{background:#e5eefc;color:#1956ad;border-radius:99px;font-size:12px;padding:8px 12px;font-weight:700}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 4px 15px #26394a0b;margin-bottom:22px;max-width:820px}
+.card h2{font-size:17px;margin:0 0 4px}
+.card .intro{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 18px}
+.field{margin:0 0 13px}
+.field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
+.hint{font-size:11px;color:var(--muted);margin-top:4px}
+input,select,textarea{height:38px;border:1px solid #cad5e0;border-radius:7px;padding:9px 11px;font-size:13px;background:#fff;width:100%;font-family:inherit;color:var(--ink)}
+textarea{height:auto;min-height:60px;resize:vertical}
+input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;flex-shrink:0;cursor:pointer}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.options{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.choice{border:1px solid #cad5e0;border-radius:8px;padding:11px 12px;cursor:pointer}
+.choice.selected{border:2px solid var(--blue);background:#f2f7ff;padding:10px 11px}
+.choice strong{display:block;font-size:13px}
+.choice small{color:var(--muted);display:block;margin-top:3px;line-height:1.35}
+.recommend{font-size:11px;color:#466177;background:#edf4f9;border-radius:7px;padding:10px 11px;line-height:1.5;margin-top:10px}
+.recommend b{color:#1f5baa}
+.confirm-box{background:#fff8e5;border:1px solid #e8c86e;border-radius:8px;padding:11px;font-size:11px;line-height:1.45;color:#65501d;margin-bottom:12px}
+.confirm-box b{display:block;color:#34290e;margin-bottom:3px}
+.buttonrow{display:flex;gap:9px;margin-top:18px;flex-wrap:wrap}
+.btn{border:0;border-radius:8px;padding:11px 14px;font-weight:750;font-size:12px;cursor:pointer}
+.secondary{background:#edf1f5;color:#2b4057}
+.secondary:hover{background:#e1e8ee}
+.primary{background:var(--blue);color:#fff}
+.primary:hover{background:#1a5fcc}
+.danger{background:#fdeceb;color:var(--red)}
+.danger:hover{background:#f9d9d6}
+.ghost{background:transparent;color:var(--blue);border:1px solid #cfe0fb}
+.summary-card{background:#f6f9fc;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:18px;max-width:820px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 18px;flex:1}
+.summary-grid div label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px}
+.summary-grid div strong{font-size:13px}
+.logo-thumb{width:44px;height:44px;border-radius:8px;object-fit:contain;background:#fff;border:1px solid var(--line)}
+.upload-row{display:flex;align-items:center;gap:10px}
+.upload-row .logo-thumb,.upload-row .logo-placeholder-sm{flex-shrink:0}
+.logo-placeholder-sm{width:44px;height:44px;border:1.5px dashed #9eafbf;border-radius:8px;display:grid;place-items:center;font-size:8px;color:#64788d;font-weight:700;text-align:center}
+.sponsor-thumbs{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.sponsor-thumb-item{display:flex;flex-direction:column;align-items:center;gap:4px}
+.sponsor-thumbs img{width:52px;height:52px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:4px;cursor:pointer}
+.shape-toggle{display:flex;gap:2px}
+.shape-toggle button{font-size:9px;padding:2px 5px;border:1px solid var(--line);background:#fff;border-radius:4px;cursor:pointer;color:#5b6a78}
+.shape-toggle button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.group-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.group-nav select{width:auto;min-width:140px}
+.group-nav button{padding:8px 12px}
+.entries-panel{max-width:1180px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:22px}
+.entries-panel h2{font-size:15px;margin:0 0 4px}
+.entries-panel .intro{color:var(--muted);font-size:12px;margin:0 0 14px}
+.group-block{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:grid;grid-template-columns:1fr 300px;gap:6px 18px;align-items:start}
+.group-block-head{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px}
+.group-block-head strong{font-size:13px}
+.group-block-head span{font-size:11px;color:var(--muted)}
+.group-entries-col{display:flex;flex-direction:column}
+@media(max-width:980px){.group-block{grid-template-columns:1fr}}
+.entry-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #f0f2f5;font-size:12px}
+.entry-row:first-of-type{border-top:none}
+.entry-row input[type=text]{height:30px;font-size:12px;flex:1}
+.entry-row .btn{white-space:nowrap;flex-shrink:0}
+.move-badge{font-size:9px;background:#e5eefc;color:#1956ad;border-radius:6px;padding:2px 6px}
+.mini-preview-wrap{overflow:hidden;margin:8px 0 4px;border:1px solid var(--line);border-radius:8px;background:#f6f9fc}
+.mini-preview-inner{transform-origin:top left;pointer-events:none}
+.confirm-flag{font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px}
+.confirm-flag.yes{background:#e4f6ea;color:var(--green)}
+.confirm-flag.no{background:#fdeceb;color:var(--red)}
+.preview-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:10px;max-width:1060px}
+.preview-head h2{margin:0;font-size:17px}
+.preview-head span{font-size:12px;color:var(--muted)}
+.print-sheet{background:var(--paper);border:1px solid #d5d8da;box-shadow:0 12px 28px #26394a1a;width:1000px;padding:28px 30px 20px;aspect-ratio:1.414/1;position:relative;margin-bottom:16px}
+.sheet-top{display:grid;grid-template-columns:minmax(58px,auto) 1fr auto;align-items:center;gap:15px;border-bottom:3px solid var(--navy);padding-bottom:13px}
+.logo-placeholder{border:1px solid #1a1a1a;border-radius:10px;display:grid;place-items:stretch;text-align:center;font-size:9px;color:#64788d;font-weight:700;box-sizing:border-box;padding:3px;overflow:hidden}
+.logo-placeholder:not(:has(img)){place-items:center;border:2px dashed #9eafbf}
+.logo-placeholder img{width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;display:block}
+.title-overline{color:#756438;font-size:10px;letter-spacing:.18em;font-weight:700;text-transform:uppercase}
+.sheet-title{font-family:Georgia,serif;font-size:24px;font-weight:bold;color:var(--navy);line-height:1.1;margin:3px 0}
+.sheet-sub{font-size:11px;color:#53606f}
+.group-label{text-align:right}
+.group-label strong{display:block;font-size:17px;color:var(--navy)}
+.group-label span{font-size:11px;color:#53606f}
+.print-sheet{display:flex;flex-direction:column}
+.sheet-top{flex-shrink:0}
+.chart{display:grid;gap:6px;margin-top:16px;flex:1;grid-auto-rows:minmax(58px,1fr)}
+.cell{border:1px solid #aeb8c3;border-radius:4px;min-height:58px;padding:6px 8px;font-size:11px}
+.hdr{background:var(--navy);color:#fff;border-color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;text-align:center}
+.player{font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px}
+.num{border:1px solid #8997a6;background:#eef1f3;border-radius:50%;width:20px;height:20px;display:grid;place-items:center;font-size:10px;flex-shrink:0}
+.diag{background:repeating-linear-gradient(-45deg,#e7eaed 0,#e7eaed 4px,#f8f8f8 4px,#f8f8f8 8px);display:grid;place-items:stretch;color:#71808d;font-size:8px;padding:3px;box-sizing:border-box}
+.diag-logo{width:100%;height:100%;min-width:0;min-height:0;border:1px solid #1a1a1a;border-radius:6px;background:#fff;display:grid;place-items:stretch;font-size:5px;font-weight:800;overflow:hidden;box-sizing:border-box;padding:0}
+.diag-logo:not(:has(img)){padding:2px;place-items:center;border:1px dashed #8192a1}
+.diag-logo img{width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;display:block}
+.score-cell{position:relative;text-align:center;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px}
+.score-cell.empty{color:#c3cad2;font-size:12px}
+.score-cell.locked{cursor:not-allowed;background:repeating-linear-gradient(-45deg,#f3f5f7 0,#f3f5f7 4px,#fafbfc 4px,#fafbfc 8px);color:#b7c0c9}
+.score-cell.win{background:#eaf7ee}
+.score-cell.loss{background:#fdf1f0}
+.standing{font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;font-size:15px}
+.standing.with-legs{flex-direction:column;gap:1px;line-height:1.1}
+.legs-sub{font-size:12px;font-weight:700}
+.legs-won{color:var(--ink)}
+.legs-lost{color:var(--red)}
+.schedule{margin-top:14px;display:grid;border:1px solid #b5bdc5;border-radius:5px;overflow:hidden;flex-shrink:0}
+.match{padding:7px 9px;border-right:1px solid #b5bdc5;border-bottom:1px solid #b5bdc5;font-size:10px}
+.match strong{color:var(--navy)}
+.footer{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #cbd1d6;margin-top:14px;padding-top:10px;flex-shrink:0;flex-wrap:wrap;row-gap:8px}
+.footer small{font-size:9px;color:#6c7883;flex:1;min-width:220px}
+.sponsors{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center;max-width:58%}
+.sponsor{width:64px;height:28px;border:none;border-radius:4px;color:#81909c;font-size:7px;display:grid;place-items:stretch;overflow:hidden;flex-shrink:0;background:#fff;box-sizing:border-box;padding:2px}
+.sponsor.square{width:34px;height:34px}
+.sponsor:not(:has(img)){place-items:center;border:1px dashed #a9b5c0}
+.sponsor img{width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;display:block}
+.print-controls{margin-top:4px;display:flex;justify-content:flex-end;gap:8px;max-width:1000px}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;background:#e5eefc;color:#1956ad;margin-left:8px}
+.modal-backdrop{position:fixed;inset:0;background:#0e1e3499;display:none;align-items:center;justify-content:center;z-index:50}
+.modal-backdrop.show{display:flex}
+.preview-modal-backdrop{position:fixed;inset:0;background:#0e1e3499;display:none;align-items:center;justify-content:center;z-index:45;padding:20px;box-sizing:border-box}
+.preview-modal-backdrop.show{display:flex}
+.preview-modal{background:#fff;border-radius:14px;padding:20px;max-width:960px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 20px 50px #0004;position:relative;box-sizing:border-box}
+.preview-modal-close{position:absolute;top:12px;right:14px;border:none;background:#eef1f4;color:#42505e;width:30px;height:30px;border-radius:99px;font-size:16px;cursor:pointer;line-height:1}
+.preview-modal-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding-right:36px}
+.preview-modal-nav strong{font-size:14px;color:var(--navy)}
+.preview-modal-scale-wrap{width:100%;overflow:hidden}
+.manage-chart-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 4px 15px #26394a0b;margin-bottom:22px;max-width:1080px}
+.manage-chart-wrap{width:100%;overflow:hidden}
+.manage-chart-inner{transform-origin:top left}
+.bracket-cols{display:flex;gap:16px;overflow-x:auto;padding:4px 2px}
+.bracket-col{display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-width:170px;flex-shrink:0}
+.bracket-col-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center;margin-bottom:4px}
+.bracket-match{border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12px;background:#fff}
+.bracket-match.clickable{cursor:pointer}
+.bracket-match.clickable:hover{border-color:var(--navy)}
+.bracket-side{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 9px;border-top:1px solid var(--line)}
+.bracket-side:first-child{border-top:none}
+.bracket-side.win{font-weight:800;background:#eaf7ee}
+.bracket-score{font-weight:800;font-size:12px;flex-shrink:0}
+.bracket-bye-tag{font-size:9px;color:var(--muted);text-align:center;padding:2px 0;border-top:1px solid var(--line)}
+.bracket-wo-action{font-size:9px;color:var(--blue);text-align:center;padding:3px 0;cursor:pointer;text-decoration:underline}
+.wo-tag{font-size:9px;font-weight:800;color:var(--muted);vertical-align:middle}
+.modal{background:#fff;border-radius:14px;padding:24px;max-width:420px;width:92%;box-shadow:0 20px 50px #0003}
+.modal.wide{max-width:480px}
+.picker-list{max-height:340px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin:-4px 0 4px}
+.picker-group-hdr{background:#f2f5f8;color:#526171;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:7px 12px}
+.picker-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-top:1px solid var(--line);cursor:pointer;font-size:13px}
+.picker-row:first-of-type{border-top:none}
+.picker-row:hover{background:#f2f7ff}
+.picker-row.current{background:#fdf8e9;cursor:default}
+.picker-row .occ{color:var(--muted);font-size:11px}
+.picker-row .blank{color:#9fb0be;font-size:11px;font-style:italic}
+.modal h3{margin:0 0 8px;font-size:16px}
+.modal p{margin:0 0 16px;color:var(--muted);font-size:13px;line-height:1.5}
+.modal input{margin-bottom:12px}
+.modal .buttonrow{margin-top:6px}
+.printlist{border:1px solid var(--line);border-radius:10px;overflow:hidden;max-width:520px;margin:14px 0}
+.printlist div{display:flex;justify-content:space-between;padding:9px 14px;font-size:12px;border-top:1px solid var(--line)}
+.printlist div:first-child{border-top:none}
+.toggle-row{display:flex;align-items:center;gap:10px;font-size:12px;margin:10px 0}
+.toggle-row input{width:auto;height:auto}
+.ro-sheet{display:flex;flex-direction:column}
+.ro-title{font-family:Georgia,serif;font-size:19px;color:var(--navy);margin:16px 0 10px}
+.ro-table{border:1px solid #b5bdc5;border-radius:6px;overflow:hidden}
+.ro-row{display:grid;grid-template-columns:90px 90px 110px 1fr;gap:10px;padding:9px 12px;font-size:11px;border-top:1px solid #d7dce1;align-items:center}
+.ro-row:first-child{border-top:none}
+.ro-row.ro-hdr{background:var(--navy);color:#fff;font-weight:800;font-size:10px;text-transform:uppercase}
+.ro-board,.ro-time{font-weight:700;color:var(--navy)}
+.ro-matches{color:#3d4a58}
+.lineup-sheet{flex-direction:row !important;padding:14px 16px;gap:0}
+.lineup-card{flex:1;display:flex;flex-direction:column;min-width:0;padding:0 14px}
+.lineup-card+.lineup-card{border-left:1px dashed #c3cad2}
+.lineup-head-row{display:flex;gap:6px;margin-bottom:8px}
+.lineup-head-box{flex:1;text-align:center;min-width:0}
+.lineup-head-box .bar{background:#141414;color:#fff;font-size:8px;font-weight:800;border-radius:10px 10px 0 0;padding:4px 0;text-transform:uppercase;letter-spacing:.04em}
+.lineup-head-box .box{border:1px solid #ccc;border-top:none;border-radius:0 0 6px 6px;height:20px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#333;padding:0 3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.lineup-topline{display:flex;align-items:center;gap:8px;margin:8px 0 10px}
+.lineup-teamname{flex:1;border:1px solid #ccc;border-radius:6px;padding:8px 10px 6px;font-size:12px;font-weight:700;position:relative}
+.lineup-teamname .tag{position:absolute;top:-7px;left:8px;background:#e7ecf1;font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:3px;color:#666}
+.lineup-seg{margin-bottom:5px}
+.lineup-seg-head{display:flex;background:#141414;color:#fff;border-radius:5px 5px 0 0;overflow:hidden}
+.lineup-seg-title{flex:1;padding:4px 9px;font-weight:800;font-size:10px;text-transform:uppercase;display:flex;align-items:baseline;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lineup-seg-title small{font-weight:600;font-size:7.5px;opacity:.75;text-transform:none}
+.lineup-seg-pts{width:48px;text-align:center;padding:4px 0;font-size:7.5px;font-weight:800;text-transform:uppercase;border-left:1px solid #333;flex-shrink:0}
+.lineup-seg-body{display:flex}
+.lineup-seg-lines{flex:1;border:1px solid #ccc;border-top:none;padding:3px 9px;min-width:0}
+.lineup-seg-pts-box{width:48px;border:1px solid #ccc;border-top:none;border-left:none;flex-shrink:0}
+.lineup-line{display:flex;align-items:baseline;gap:5px;font-size:8px;color:#aaa;border-bottom:1px solid #e4e7ea;padding:3px 0}
+.lineup-line:last-child{border-bottom:none}
+.lineup-line b{font-weight:800;color:#333}
+.lineup-total{margin-top:auto}
+.lineup-total .lineup-seg-head{background:#000}
+.lineup-total .lineup-seg-lines{border-bottom:1px solid #ccc}
+.lineup-sig{font-size:7.5px;color:#8a97a5;margin-top:5px;border-top:1px solid #e4e7ea;padding-top:3px}
+.lineup-card .logo-placeholder{width:44px !important;height:44px !important;font-size:7px}
+@media(max-width:1100px){.app{grid-template-columns:250px 1fr}.main{padding:24px}}
+@media(max-width:700px){.app{display:block}.sidebar{display:none}.main{padding:18px}}
+@media print{
+  body{background:#fff}
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
+  .app{display:none}
+  .sidebar,.main .topbar,.card,.entries-panel,.summary-card,.group-nav,.print-controls,.preview-head,.preview-modal-backdrop{display:none !important}
+  .print-sheet{box-shadow:none;border:none;width:277mm;height:190mm;aspect-ratio:auto;page-break-after:always;margin:0 auto}
+  .print-sheet:last-child{page-break-after:auto}
+  #printSheets{display:block !important}
+  @page{size:A4 landscape;margin:8mm}
+}
+#printSheets{display:none}
+</style>
+</head>
+<body>
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modalBox"></div>
+</div>
+<div class="preview-modal-backdrop" id="previewModalBackdrop"></div>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">D</span> DartDraw</div>
+    <div class="local">Tournament chart manager - local app</div>
+    <button class="new-tournament" onclick="newTournament()">+ New tournament</button>
+    <button class="open-btn" onclick="scrollToLibrary()">Open saved tournament</button>
+    <div class="step" id="navstep1" onclick="goStage(1)"><h3>1. Event creation</h3><p>Identity, category and entry count.</p></div>
+    <div class="step" id="navstep2" onclick="goStage(2)"><h3>2. Format &amp; branding</h3><p>Round robin/knockout, legs, logos.</p></div>
+    <div class="step" id="navstep3" onclick="goStage(3)"><h3>3. Chart details</h3><p>Groups, entries, boards, start times.</p></div>
+    <div class="step" id="navstep4" onclick="goStage(4)"><h3>4. Confirm &amp; Print Bracket</h3><p>Confirm each chart, print the blank pack.</p></div>
+    <div class="step" id="navstep5" onclick="goStage(5)"><h3>5. Manage Tournament</h3><p>Start games, enter scores.</p></div>
+    <div class="step" id="navstep6" onclick="goStage(6)"><h3>6. Finalize Standings</h3><p>Review final standings.</p></div>
+    <div class="step" id="navstep7" onclick="goStage(7)"><h3>7. Print Final Chart</h3><p>Print the pack with results.</p></div>
+    <div class="event-card" id="currentWorkspaceCard" style="display:none">
+      <label>Current workspace</label>
+      <strong id="cwName">-</strong>
+      <span id="cwSub">-</span>
+    </div>
+    <div class="side-label" id="libraryLabel">Saved tournaments</div>
+    <div class="saved-list" id="savedList"></div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div><h1 id="pageTitle">Round-robin chart builder</h1><p id="pageSub">Set the event details on the left. The print-ready chart updates as you work.</p></div>
+      <span class="tag">Saved on this computer</span>
+    </div>
+    <div id="stageArea"></div>
+  </main>
+</div>
+<div id="printSheets"></div>
+
+<script>
+/* ---------- Storage ---------- */
+const LS_KEY = 'dartdraw_tournaments_v1';
+function loadAll(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||'{}'); }catch(e){ return {}; } }
+function saveAll(all){ localStorage.setItem(LS_KEY, JSON.stringify(all)); }
+function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4); }
+
+/* ---------- Default / current state ---------- */
+let state = null;
+let currentStage = 1;
+
+function blankTournament(){
+  return {
+    id: uid('t'),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    eventCreation: { tournamentName:'', eventName:'', eventType:'Open', competitionUnit:'Singles', date:'', entries:8, boards:4, saved:false },
+    format: {
+      formatType:'roundrobin', bestOfLegs:5, maxPerGroup:4, logo:null, sponsors:[], footerText:'Tie-break: head-to-head, leg difference, legs won', saved:false,
+      /* Round robin -> knockout hybrid */
+      qualifiersPerGroup:2, advanceMode:'seeded', losersPool:false,
+      /* Plate (losers' pool) band size per group — null/blank means "rest of the group"
+         (today's behaviour); a number caps how many below the qualifiers advance to the
+         Plate, with anyone ranked below that eliminated outright (no bracket). */
+      plateQualifiersPerGroup:null,
+      /* Team events (Doubles/Triples/Teams) */
+      teamSize:4, teamMatchFormat:'foursome', mixedRubbers: defaultRubbers(4),
+      /* Applies to any unit: avoid grouping/seeding entries from the same org together */
+      orgSplit:false,
+      /* Free-text walkover / conduct / other rules, printed on the auto-generated rules & format sheet */
+      rulesNotes:''
+    },
+    entriesList: [],
+    groups: [],
+    knockout: null,
+    activeGroupId: null,
+    printSettings: { sponsorFooterEnabled:true, teamHandoutEnabled:false, rulesSheetEnabled:true, lineupSheetEnabled:false },
+    tieBreakOrder: ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'],
+    /* Disciplinary / incident log (Day-of-the-event) — organiser-only record, not printed. */
+    incidents: []
+  };
+}
+
+function unitWordFor(unit){ return { Singles:'Player', Doubles:'Pair', Triples:'Triple', Teams:'Team' }[unit] || 'Entry'; }
+/* Default rubber composition for a "Singles + Doubles mix" team encounter.
+   Design decision: one singles rubber per player on the team, plus a single
+   closing doubles rubber. Rationale:
+     - every named player on the roster gets a game (fairness, and it matches
+       how club/association team nights are usually run),
+     - the doubles goes last so it acts as the decider,
+     - teamSize + 1 is ODD for the common even team sizes (4 -> 5 rubbers,
+       first to 3), so an encounter can't be drawn,
+     - if the organiser wants something else entirely (e.g. 2 doubles + 3
+       singles) the rubber list is fully editable in Format & branding.
+   For an odd team size the count would be even and draws become possible,
+   which the round robin already handles (1 point each). */
+/* Rubber "type" -> number of named players a side fields for that segment,
+   matching real club lineup sheets (e.g. KELAB PJ's) which mix singles,
+   doubles, triples and a foursome/quad within one encounter. */
+const RUBBER_PLAYER_COUNT = { singles:1, doubles:2, triples:3, foursome:4 };
+function defaultRubbers(teamSize){
+  const n = Math.max(2, parseInt(teamSize)||4);
+  const out = [];
+  for(let i=0;i<n;i++) out.push({ name:'Singles '+(i+1), type:'singles', startingScore:501, legs:3 });
+  out.push({ name:'Doubles', type:'doubles', startingScore:501, legs:3 });
+  return out;
+}
+/* How many named players make up one "entry" for the current competition unit.
+   Singles is 1 (no roster — the entry name IS the player). Doubles/Triples are
+   fixed at 2/3. Teams is organiser-configurable (format.teamSize, default 4). */
+function teamSizeFor(t){
+  const unit = t.eventCreation.competitionUnit;
+  if(unit==='Doubles') return 2;
+  if(unit==='Triples') return 3;
+  if(unit==='Teams') return Math.max(2, parseInt(t.format.teamSize)||4);
+  return 1;
+}
+function isTeamUnit(t){ return teamSizeFor(t) > 1; }
+function isTeamMixed(t){ return t.eventCreation.competitionUnit==='Teams' && t.format.teamMatchFormat==='mixed'; }
+function ensureEntries(t){
+  const n = Math.max(2, parseInt(t.eventCreation.entries)||0);
+  const size = teamSizeFor(t);
+  /* Withdrawn entries are kept in the list for history but don't count toward
+     the entry total — otherwise withdrawing + replacing an entry would silently
+     delete a real entry off the end of the list. */
+  let active = t.entriesList.filter(e=>!e.withdrawn);
+  while(active.length < n){
+    const e = { id: uid('e'), name: 'Entry '+(active.length+1), autoName:true, org:'', players: size>1 ? Array(size).fill('') : [], checkedIn:false, noShow:false };
+    t.entriesList.push(e); active.push(e);
+  }
+  if(active.length > n){
+    const drop = new Set(active.slice(n).map(e=>e.id));
+    t.entriesList = t.entriesList.filter(e=> !drop.has(e.id));
+    if(t.seedOrder) t.seedOrder = t.seedOrder.filter(id=> !drop.has(id));
+    (t.groups||[]).forEach(g=>{ g.entryIds = g.entryIds.filter(id=> !drop.has(id)); });
+  }
+  t.entriesList.forEach(e=>{
+    if(e.org===undefined) e.org='';
+    if(!e.players) e.players=[];
+    if(size>1){
+      while(e.players.length<size) e.players.push('');
+      if(e.players.length>size) e.players.length = size;
+    } else if(e.players.length){ e.players = []; }
+    if(e.checkedIn===undefined) e.checkedIn=false;
+    if(e.noShow===undefined) e.noShow=false;
+  });
+}
+/* ---------- Check-in tracking ----------
+   Design decision (Day-of-the-event, Sept 2026): check-in is purely informational
+   — it never blocks confirming charts, generating a bracket, or starting games —
+   but the organiser is warned (not blocked) if they try to start play while
+   entries are still unchecked. Lives as its own card at the top of Stage 4
+   (Confirm & Print Bracket), i.e. "before groups start", for both round robin
+   and knockout formats. */
+function checkInCardHTML(){
+  const active = state.entriesList.filter(e=>!e.withdrawn);
+  if(!active.length) return '';
+  const total = active.length, checkedCount = active.filter(e=>e.checkedIn).length;
+  const allChecked = checkedCount===total;
+  const unitWord = unitWordFor(state.eventCreation.competitionUnit).toLowerCase();
+  return '<div class="card"><h2>Check-in</h2><p class="intro">Tick off each '+unitWord+' as they arrive on the day. This is just a record for you — it doesn\'t stop you confirming, printing or starting.</p>'+
+    '<div class="buttonrow" style="margin:0 0 10px;align-items:center">'+
+      '<button class="btn ghost" '+(allChecked?'disabled':'')+' onclick="checkInAll()">Check in all</button>'+
+      '<span class="hint" style="margin:0">'+checkedCount+' of '+total+' checked in</span>'+
+    '</div>'+
+    '<div class="checkin-list">'+ active.map(e=>
+      '<label style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-top:1px solid var(--line);cursor:pointer">'+
+        '<input type="checkbox" style="width:auto;height:auto" '+(e.checkedIn?'checked':'')+' onchange="toggleCheckedIn(\''+e.id+'\',this.checked)"> '+
+        escapeHtml(e.name)+(e.org?' <span style="color:var(--muted);font-size:11px">· '+escapeHtml(e.org)+'</span>':'')+
+      '</label>'
+    ).join('') +'</div>'+
+  '</div>';
+}
+function toggleCheckedIn(id, val){ const e=state.entriesList.find(x=>x.id===id); if(e){ e.checkedIn=val; persist(); render(); } }
+function checkInAll(){ state.entriesList.forEach(e=>{ if(!e.withdrawn) e.checkedIn=true; }); persist(); render(); }
+function notCheckedInEntries(ids){
+  const set = ids ? new Set(ids) : null;
+  return state.entriesList.filter(e=> !e.withdrawn && !e.checkedIn && (!set || set.has(e.id)));
+}
+function noShowWarningHTML(entries){
+  if(!entries.length) return '';
+  return '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Not everyone is checked in</b>'+entries.length+' entr'+(entries.length===1?'y':'ies')+' not yet checked in: '+entries.map(e=>escapeHtml(e.name)).join(', ')+'. You can still proceed.</div>';
+}
+/* Auto-names an entry as "{Unit} {GroupLabel}{Position}" (e.g. "Player A1") unless the organiser
+   has typed a custom name for it (autoName===false). Runs every time groups are (re)built. */
+function applyAutoNames(t){
+  const unitWord = unitWordFor(t.eventCreation.competitionUnit);
+  t.groups.forEach(g=>{
+    g.entryIds.forEach((eid,idx)=>{
+      const ent = t.entriesList.find(e=>e.id===eid);
+      if(ent && ent.autoName!==false){ ent.name = unitWord+' '+g.label+(idx+1); }
+    });
+  });
+}
+
+/* ---------- Round robin recommendation ---------- */
+function recommendGroups(entries){
+  let best=null;
+  for(const size of [4,3,5,6]){
+    if(entries < size) continue;
+    const groups = Math.ceil(entries/size);
+    const remainder = entries % size;
+    const score = (size===4?0:1) + (remainder && remainder<3 ? 1:0);
+    const cand = {size, groups, remainder, score};
+    if(!best || cand.score < best.score) best = cand;
+  }
+  if(!best) best = {size: entries, groups:1, remainder:0, score:0};
+  return best;
+}
+function matchesPerGroup(n){ return n*(n-1)/2; }
+function nearestBracket(entries){
+  const sizes=[4,8,16,32,64,128];
+  let pick = sizes.find(s=>s>=entries) || sizes[sizes.length-1];
+  return { size: pick, byes: pick-entries };
+}
+
+/* ---------- Knockout bracket engine ---------- */
+/* Standard tournament seeding order: for a bracket of `size` slots, returns
+   seed numbers (1 = best) in slot order, so slot pairs (0,1),(2,3)... are the
+   round-1 matches and top seeds are kept apart for as long as possible
+   (e.g. size 8 -> [1,8,4,5,2,7,3,6], i.e. round-1 pairs 1v8, 4v5, 2v7, 3v6). */
+function seedSlotOrder(size){
+  if(size<=1) return [1];
+  const prev = seedSlotOrder(size/2);
+  const out = [];
+  prev.forEach(s=>{ out.push(s); out.push(size+1-s); });
+  return out;
+}
+/* Builds a knockout bracket from an ordered list of {entryId, org} objects.
+   `orderedEntries[0]` is the best seed. Slots beyond the list are byes.
+   `label` marks which bracket this is (used when a losers' pool exists
+   alongside the main bracket) and is purely informational. */
+function generateBracket(orderedEntries, label){
+  const n = orderedEntries.length;
+  const size = nearestBracket(Math.max(n,2)).size;
+  const slotOrder = seedSlotOrder(size); // seed number (1-indexed) per slot
+  const bySeed = {};
+  orderedEntries.forEach((e,i)=> bySeed[i+1] = e );
+  const slots = slotOrder.map(seed=> bySeed[seed] || null);
+  // Round 1 pairs from adjacent slots
+  let round1 = [];
+  for(let i=0;i<size;i+=2){
+    round1.push({ id: uid('km'), aEntryId: slots[i]?slots[i].entryId:null, bEntryId: slots[i+1]?slots[i+1].entryId:null,
+      aOrg: slots[i]?slots[i].org:'', bOrg: slots[i+1]?slots[i+1].org:'',
+      aLegs:null, bLegs:null, winnerId:null, bye:false });
+  }
+  // Best-effort: if both sides of a round-1 match share a non-blank org, try
+  // swapping the "second" (lower-seed) slot with another match's second slot
+  // to break the clash without disturbing top-seed placement. Never fails —
+  // if no safe swap exists the clash is simply left in place.
+  round1.forEach((m,i)=>{
+    if(!m.aEntryId || !m.bEntryId || !m.aOrg || m.aOrg!==m.bOrg) return;
+    for(let j=0;j<round1.length;j++){
+      if(j===i) continue;
+      const other = round1[j];
+      if(!other.bEntryId) continue;
+      const wouldFixThis = other.bOrg!==m.aOrg;
+      const wouldFixOther = (!other.aOrg || other.aOrg!==m.bOrg);
+      if(wouldFixThis && wouldFixOther){
+        const tmpId = m.bEntryId, tmpOrg = m.bOrg;
+        m.bEntryId = other.bEntryId; m.bOrg = other.bOrg;
+        other.bEntryId = tmpId; other.bOrg = tmpOrg;
+        return;
+      }
+    }
+  });
+  // Auto-advance byes
+  round1.forEach(m=>{
+    if(m.aEntryId && !m.bEntryId){ m.winnerId = m.aEntryId; m.bye = true; }
+    else if(!m.aEntryId && m.bEntryId){ m.winnerId = m.bEntryId; m.bye = true; }
+  });
+  const rounds = [round1];
+  let count = round1.length;
+  while(count>1){
+    count = count/2;
+    const round = [];
+    for(let i=0;i<count;i++){ round.push({ id: uid('km'), aEntryId:null, bEntryId:null, aLegs:null, bLegs:null, winnerId:null, bye:false }); }
+    rounds.push(round);
+  }
+  propagateByes(rounds);
+  return { id: uid('kb'), label: label||'Bracket', size, rounds };
+}
+/* Pushes any already-known winners (from round-1 byes) forward into the next
+   round's slots — called after generation and after every score is saved. */
+function propagateByes(rounds){
+  for(let r=0; r<rounds.length-1; r++){
+    rounds[r].forEach((m, i)=>{
+      if(!m.winnerId) return;
+      const nextRound = rounds[r+1];
+      const nextMatch = nextRound[Math.floor(i/2)];
+      const slot = i%2===0 ? 'aEntryId' : 'bEntryId';
+      if(nextMatch[slot] !== m.winnerId){
+        nextMatch[slot] = m.winnerId;
+        nextMatch.winnerId = null; nextMatch.aLegs=null; nextMatch.bLegs=null; nextMatch.bye=false;
+      }
+      // Auto-advance a next-round match if it now has exactly one real side (opponent eliminated with no other source, rare but possible when a whole side of the bracket is byes)
+    });
+  }
+  // Second pass: any match with one populated side and the other side impossible to fill (both its own feeder matches are byes into a dead slot) is rare with power-of-2 brackets, so no extra handling needed.
+}
+function bracketEntryName(t, entryId){
+  if(!entryId) return null;
+  const e = t.entriesList.find(x=>x.id===entryId);
+  return e ? e.name : 'Unknown';
+}
+function bracketIsComplete(bracket){
+  const finalRound = bracket.rounds[bracket.rounds.length-1];
+  return finalRound.length===1 && !!finalRound[0].winnerId;
+}
+function bracketChampion(bracket){
+  if(!bracketIsComplete(bracket)) return null;
+  return bracket.rounds[bracket.rounds.length-1][0].winnerId;
+}
+function bracketRunnerUp(bracket){
+  const finalRound = bracket.rounds[bracket.rounds.length-1];
+  if(!finalRound.length || !finalRound[0].winnerId) return null;
+  const m = finalRound[0];
+  return m.winnerId===m.aEntryId ? m.bEntryId : m.aEntryId;
+}
+/* Ranked list of qualifiers (or non-qualifiers, for the losers' pool) taken
+   from each round robin group's current standings, interleaved by rank so
+   groups' top finishers are seeded before any group's second-place finisher,
+   etc. — this naturally spreads same-group entries apart in the bracket.
+   `filterFn(rank0based)` decides whether a given standing rank is included
+   (used to grab "top N" for qualifiers or "everyone else" for the losers pool). */
+function collectRankedEntries(t, filterFn){
+  const perGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
+  const maxRank = Math.max(...t.groups.map(g=>g.entryIds.length), 0);
+  const out = [];
+  for(let r=0;r<maxRank;r++){
+    if(!filterFn(r, perGroup)) continue;
+    t.groups.forEach(g=>{
+      const standings = g.gameStarted ? computeStandings(g) : [];
+      const st = standings[r];
+      if(st){
+        const ent = t.entriesList.find(e=>e.id===st.id);
+        out.push({ entryId: st.id, org: ent?ent.org:'', groupId: g.id, rank:r+1 });
+      }
+    });
+  }
+  return out;
+}
+function collectQualifiers(t){ return collectRankedEntries(t, (r,perGroup)=> r<perGroup); }
+/* Plate band: ranks from `perGroup` up to `perGroup + plateQualifiersPerGroup` (exclusive).
+   plateQualifiersPerGroup null/unset means "no cap" — take everyone left over, i.e. today's
+   behaviour before this band existed. Anyone ranked at or beyond the band's end is eliminated
+   outright (excluded from both collectQualifiers and this), consistent with the design decision
+   that the cutoffs are a ceiling, not a requirement — a group too small to fill both bands just
+   sends whatever it has left into the Plate with nobody eliminated from that group. */
+function collectNonQualifiers(t){
+  const plateSize = parseInt(t.format.plateQualifiersPerGroup);
+  const hasPlateCap = !isNaN(plateSize) && plateSize>=1;
+  return collectRankedEntries(t, (r,perGroup)=> r>=perGroup && (!hasPlateCap || r<perGroup+plateSize));
+}
+function shuffleArray(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+function bracketHasScores(bracket){ return bracket.rounds.some(r=>r.some(m=>m.aLegs!=null)); }
+function koRoundName(bracket, idx){
+  const total = bracket.rounds.length;
+  const fromEnd = total-idx;
+  if(fromEnd===1) return 'Final';
+  if(fromEnd===2) return 'Semifinal';
+  if(fromEnd===3) return 'Quarterfinal';
+  return 'Round of '+(bracket.rounds[idx].length*2);
+}
+/* Renders a bracket as side-by-side round columns. `opts.interactive` makes
+   matches with both sides filled clickable to enter a result (score cells
+   route through koMatchScoreModal, keyed by opts.bracketKey so it knows
+   which of state.knockout / state.knockoutLosers to update). */
+function bracketColumnsHTML(bracket, t, opts){
+  opts = opts||{};
+  const interactive = !!opts.interactive, bracketKey = opts.bracketKey||'knockout';
+  return '<div class="bracket-cols">'+
+    bracket.rounds.map((round, ri)=>{
+      return '<div class="bracket-col"><div class="bracket-col-title">'+koRoundName(bracket,ri)+'</div>'+
+        round.map((m,mi)=>{
+          const aName = bracketEntryName(t, m.aEntryId) || (ri===0?'—':'TBD');
+          const bName = bracketEntryName(t, m.bEntryId) || (ri===0?'—':'TBD');
+          const aWin = m.winnerId && m.winnerId===m.aEntryId;
+          const bWin = m.winnerId && m.winnerId===m.bEntryId;
+          const clickable = interactive && m.aEntryId && m.bEntryId && !m.bye;
+          return '<div class="bracket-match'+(clickable?' clickable':'')+'" '+(clickable?'onclick="koMatchScoreModal(\''+bracketKey+'\','+ri+','+mi+')"':'')+'>'+
+            '<div class="bracket-side'+(aWin?' win':'')+'"><span>'+escapeHtml(aName)+'</span>'+(m.aLegs!=null?'<span class="bracket-score">'+m.aLegs+'</span>':'')+'</div>'+
+            '<div class="bracket-side'+(bWin?' win':'')+'"><span>'+escapeHtml(bName)+'</span>'+(m.bLegs!=null?'<span class="bracket-score">'+m.bLegs+'</span>':'')+'</div>'+
+            (m.bye?'<div class="bracket-bye-tag">BYE</div>':'')+
+            (m.wo && !m.bye?'<div class="bracket-bye-tag">WO</div>':'')+
+            (clickable?'<div class="bracket-wo-action" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>':'')+
+          '</div>';
+        }).join('')+
+      '</div>';
+    }).join('')+
+  '</div>';
+}
+function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
+  const bracket = state[bracketKey];
+  const m = bracket.rounds[roundIdx][matchIdx];
+  if(!m.aEntryId || !m.bEntryId || m.bye) return;
+  const aName = bracketEntryName(state, m.aEntryId), bName = bracketEntryName(state, m.bEntryId);
+  const bestOf = parseInt(state.format.bestOfLegs)||5;
+  const majority = Math.floor(bestOf/2)+1;
+  const clampAttr = 'min="0" max="'+majority+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.min(Math.max(parseInt(this.value)||0,0),'+majority+')"';
+  openModal({
+    title: aName+' v '+bName,
+    bodyHTML: '<div class="grid2"><div class="field"><label>'+escapeHtml(aName)+' legs</label><input id="scA" type="number" '+clampAttr+' value="'+(m.aLegs!=null?m.aLegs:0)+'"></div>'+
+      '<div class="field"><label>'+escapeHtml(bName)+' legs</label><input id="scB" type="number" '+clampAttr+' value="'+(m.bLegs!=null?m.bLegs:0)+'"></div></div>'+
+      '<p style="font-size:11px;color:#8a97a5">Best of '+bestOf+' legs — a side can score at most '+majority+'. Knockout matches can\'t end in a draw.</p>',
+    confirmLabel:'Save score', confirmClass:'primary',
+    onConfirm:()=>{
+      const va = document.getElementById('scA').value, vb = document.getElementById('scB').value;
+      const la = parseInt(va), lb = parseInt(vb);
+      if(va===''||vb===''||isNaN(la)||isNaN(lb)||la<0||lb<0) return { error:'Enter a leg count for both sides (0 or more).' };
+      const winnerIsA = la>lb, winnerLegs = Math.max(la,lb), loserLegs = Math.min(la,lb);
+      if(winnerLegs===loserLegs) return { error:'This is a knockout match — it can\'t end in a draw. One side must win.' };
+      if(winnerLegs!==majority || loserLegs>=majority) return { error:'Not a valid finished result for best of '+bestOf+' legs — the winner must have exactly '+majority+' legs, and the loser fewer.' };
+      m.aLegs = la; m.bLegs = lb; m.winnerId = winnerIsA ? m.aEntryId : m.bEntryId; m.wo = false;
+      propagateByes(bracket.rounds);
+      persist(); render();
+    }
+  });
+}
+/* ---------- No-show / walkover (knockout) ----------
+   Mirrors the round-robin version: marking a side as a no-show resolves the
+   match as a majority-legs walkover for the opponent and advances them via
+   the normal propagateByes() pass, same as an auto-advanced bye — but tagged
+   "WO" rather than "BYE" so it's clear a match was actually forfeited.
+   Re-entering a real score afterwards (koMatchScoreModal) clears the tag. */
+function markKnockoutNoShow(bracketKey, roundIdx, matchIdx, side){
+  const bracket = state[bracketKey];
+  if(!bracket) return;
+  const m = bracket.rounds[roundIdx][matchIdx];
+  if(!m || !m.aEntryId || !m.bEntryId || m.winnerId || m.bye) return;
+  const majority = Math.floor((parseInt(state.format.bestOfLegs)||5)/2)+1;
+  const loserId = side==='a' ? m.aEntryId : m.bEntryId;
+  const winnerId = side==='a' ? m.bEntryId : m.aEntryId;
+  m.aLegs = side==='a' ? 0 : majority;
+  m.bLegs = side==='a' ? majority : 0;
+  m.winnerId = winnerId;
+  m.wo = true;
+  const ent = state.entriesList.find(e=>e.id===loserId);
+  if(ent) ent.noShow = true;
+  propagateByes(bracket.rounds);
+  persist(); render();
+}
+function openKoNoShowPicker(bracketKey, roundIdx, matchIdx){
+  const bracket = state[bracketKey];
+  if(!bracket) return;
+  const m = bracket.rounds[roundIdx][matchIdx];
+  if(!m || !m.aEntryId || !m.bEntryId || m.winnerId) return;
+  const aName = bracketEntryName(state, m.aEntryId), bName = bracketEntryName(state, m.bEntryId);
+  const rows =
+    '<div class="picker-row" onclick="markKnockoutNoShow(\''+bracketKey+'\','+roundIdx+','+matchIdx+',\'a\');closeModal();">'+escapeHtml(aName)+'</div>'+
+    '<div class="picker-row" onclick="markKnockoutNoShow(\''+bracketKey+'\','+roundIdx+','+matchIdx+',\'b\');closeModal();">'+escapeHtml(bName)+'</div>';
+  openModal({
+    title:'Mark a no-show',
+    bodyHTML: '<p style="margin-top:-4px">Choose who didn\'t show up. The other side is advanced as a '+(Math.floor((parseInt(state.format.bestOfLegs)||5)/2)+1)+'–0 walkover win, tagged WO.</p><div class="picker-list">'+rows+'</div>',
+    confirmLabel:'Close', confirmClass:'secondary',
+    onConfirm:()=>{}
+  });
+}
+function knockoutBracketSheetHTML(bracket){
+  const t = state;
+  return '<div class="print-sheet">'+
+    '<div class="sheet-top">'+ mainLogoBoxHTML()+
+      '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
+      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Knockout Stage · Best of '+t.format.bestOfLegs+' Legs</div></div>'+
+      '<div class="group-label"><strong>'+escapeHtml((bracket.label||'BRACKET').toUpperCase())+'</strong><span>'+bracket.size+'-entry bracket</span></div>'+
+    '</div>'+
+    '<div style="flex:1;display:flex;align-items:center;margin-top:16px">'+bracketColumnsHTML(bracket, t, {interactive:false})+'</div>'+
+    '<div class="footer"><small>Best of '+t.format.bestOfLegs+' legs per match — no draws, the winner needs '+(Math.floor((parseInt(t.format.bestOfLegs)||5)/2)+1)+' legs.</small>'+
+    (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- Group generation (balanced distribution) ---------- */
+function buildGroups(t){
+  const activeEntries = t.entriesList.filter(e=>!e.withdrawn);
+  const n = activeEntries.length;
+  const maxPer = parseInt(t.format.maxPerGroup)||4;
+  const numGroups = Math.max(1, Math.ceil(n/maxPer));
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const existing = {};
+  t.groups.forEach(g=> existing[g.id]=g );
+  const newGroups = [];
+  for(let i=0;i<numGroups;i++){
+    const label = letters[i]||('G'+(i+1));
+    let g = t.groups[i];
+    if(!g){ g = { id: uid('g'), label, board: i+1, startTime:'', entryIds:[], confirmed:false, gameStarted:false, scores:{} }; }
+    else { g.label = label; }
+    newGroups.push(g);
+  }
+  // distribute entries round-robin across groups for balance, preserving existing assignment where possible
+  const assigned = new Set();
+  newGroups.forEach(g=>{ g.entryIds = g.entryIds.filter(id=> activeEntries.some(e=>e.id===id)); g.entryIds.forEach(id=>assigned.add(id)); });
+  const unassigned = activeEntries.filter(e=>!assigned.has(e.id));
+  if(t.format.orgSplit){
+    /* Org-aware distribution: place each unassigned entry into the group with
+       the fewest current entries that does NOT already contain another entry
+       from the same (non-blank) organisation, when such a group exists. If
+       every group with space already has that org, fall back to the
+       least-populated group anyway — never refuse to seat an entry. */
+    const orgOf = id => { const e = t.entriesList.find(x=>x.id===id); return e && e.org ? e.org.trim().toLowerCase() : ''; };
+    unassigned.forEach(e=>{
+      const org = e.org ? e.org.trim().toLowerCase() : '';
+      const withSpace = newGroups.filter(g=> g.entryIds.length < maxPer);
+      const pool = withSpace.length ? withSpace : newGroups;
+      let candidates = pool;
+      if(org){
+        const orgFree = pool.filter(g=> !g.entryIds.some(id=> orgOf(id)===org));
+        if(orgFree.length) candidates = orgFree;
+      }
+      candidates = candidates.slice().sort((a,b)=> a.entryIds.length - b.entryIds.length);
+      candidates[0].entryIds.push(e.id);
+    });
+  } else {
+    let gi=0;
+    unassigned.forEach(e=>{
+      while(newGroups[gi % newGroups.length].entryIds.length >= maxPer) gi++;
+      newGroups[gi % newGroups.length].entryIds.push(e.id);
+      gi++;
+    });
+  }
+  if(t.format.orgSplit) resolveOrgClashes(newGroups, t);
+  t.groups = newGroups;
+  if(!t.activeGroupId || !t.groups.some(g=>g.id===t.activeGroupId)) t.activeGroupId = t.groups[0] ? t.groups[0].id : null;
+  applyAutoNames(t);
+  reconcileConfirmations(t);
+}
+/* Best-effort cleanup pass: fixes same-org clashes that already exist inside a
+   group (e.g. because the organiser typed in organisation names AFTER groups
+   were first built, so the org-aware placement in buildGroups above never
+   saw them). Repeatedly finds a same-org pair within a group and swaps one of
+   them with an entry from another group, but only when the swap doesn't
+   create a new clash on either side. Runs every time groups are (re)built
+   while orgSplit is on, so it stays self-correcting as org fields change.
+   Never fails to terminate (bounded iteration count) and never leaves an
+   entry unplaced — worst case, a clash that has no safe swap anywhere is
+   simply left in place, same trade-off as the knockout round-1 heuristic. */
+function resolveOrgClashes(groups, t){
+  const orgOf = id=>{ const e=t.entriesList.find(x=>x.id===id); return e&&e.org? e.org.trim().toLowerCase():''; };
+  let iterations=0;
+  while(iterations<200){
+    iterations++;
+    let didSwap = false;
+    outer:
+    for(const g of groups){
+      const seen = new Set();
+      for(const id of g.entryIds){
+        const org = orgOf(id);
+        if(!org){ continue; }
+        if(!seen.has(org)){ seen.add(org); continue; }
+        // id is a same-org duplicate within g — look for a safe swap partner elsewhere
+        for(const g2 of groups){
+          if(g2===g) continue;
+          for(const otherId of g2.entryIds){
+            const otherOrg = orgOf(otherId);
+            const gOthers = g.entryIds.filter(x=>x!==id).map(orgOf);
+            const g2Others = g2.entryIds.filter(x=>x!==otherId).map(orgOf);
+            const okForG = !otherOrg || !gOthers.includes(otherOrg);
+            const okForG2 = !org || !g2Others.includes(org);
+            if(okForG && okForG2){
+              const gi=g.entryIds.indexOf(id), g2i=g2.entryIds.indexOf(otherId);
+              g.entryIds[gi]=otherId; g2.entryIds[g2i]=id;
+              didSwap = true;
+              break outer;
+            }
+          }
+        }
+      }
+    }
+    if(!didSwap) break;
+  }
+}
+
+/* ---------- Confirmation integrity (Issue 1) ---------- */
+function idSetEqual(a,b){
+  if(!a || !b) return false;
+  if(a.length!==b.length) return false;
+  const sa = [...a].sort(), sb=[...b].sort();
+  return sa.every((v,i)=>v===sb[i]);
+}
+function reconcileConfirmations(t){
+  t.groups.forEach(g=>{
+    if(g.confirmed && g.confirmedEntryIds && !idSetEqual(g.confirmedEntryIds, g.entryIds)){
+      g.confirmed = false;
+      g.unconfirmReason = 'Un-confirmed automatically — this group\'s entries changed since it was confirmed. Please review and re-confirm.';
+    }
+  });
+}
+
+/* ---------- Persistence helpers ---------- */
+function persist(){
+  if(!state) return;
+  state.updatedAt = Date.now();
+  const all = loadAll();
+  all[state.id] = state;
+  saveAll(all);
+  renderSavedList();
+}
+function chartCount(t){ return t.groups.filter(g=>g.confirmed).length; }
+
+/* ---------- Navigation / rendering root ---------- */
+function goStage(n){
+  if(n>1 && !state.eventCreation.saved){ return; }
+  if(n>2 && !state.format.saved){ return; }
+  if(n>3 && !state.entriesList.length){ return; }
+  currentStage = n;
+  render();
+}
+function newTournament(){
+  state = blankTournament();
+  currentStage = 1;
+  render();
+}
+function scrollToLibrary(){ document.getElementById('libraryLabel').scrollIntoView({behavior:'smooth'}); }
+
+function openTournament(id){
+  const all = loadAll();
+  if(all[id]){
+    state = all[id];
+    if(!state.tieBreakOrder) state.tieBreakOrder = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
+    if(!state.printSettings) state.printSettings = {sponsorFooterEnabled:true};
+    if(state.format.sponsors && state.format.sponsors.length){
+      state.format.sponsors = state.format.sponsors.map(s=> typeof s==='string' ? {src:s, shape:'rect'} : s);
+    }
+    /* Tournaments saved before the "start game" gate existed had no concept of
+       it — scores could always be entered. Treat any group that already has
+       scores as already started, so existing progress isn't hidden/locked. */
+    (state.groups||[]).forEach(g=>{
+      if(g.gameStarted===undefined) g.gameStarted = !!(g.scores && Object.keys(g.scores).length>0);
+    });
+    /* Tournaments saved before "number of boards" was asked at event creation
+       won't have it — default to the highest board number already assigned
+       (or 4) so the board dropdowns still make sense. */
+    if(!state.eventCreation.boards){
+      const usedBoards = (state.groups||[]).map(g=>parseInt(g.board)||0);
+      state.eventCreation.boards = Math.max(4, ...usedBoards, 0);
+    }
+    if(state.printSettings.teamHandoutEnabled===undefined) state.printSettings.teamHandoutEnabled = false;
+    if(state.printSettings.rulesSheetEnabled===undefined) state.printSettings.rulesSheetEnabled = true;
+    if(state.printSettings.lineupSheetEnabled===undefined) state.printSettings.lineupSheetEnabled = false;
+    if(state.format.rulesNotes===undefined) state.format.rulesNotes = '';
+    if(state.incidents===undefined) state.incidents = [];
+    if(state.format.plateQualifiersPerGroup===undefined) state.format.plateQualifiersPerGroup = null;
+    if(state.format.qualifiersPerGroup===undefined){
+      state.format.qualifiersPerGroup = 2; state.format.advanceMode = 'seeded'; state.format.losersPool = false;
+      state.format.teamSize = state.format.teamSize || 4; state.format.teamMatchFormat = state.format.teamMatchFormat || 'foursome';
+      state.format.mixedRubbers = state.format.mixedRubbers || [ {name:'Singles 1',type:'singles'}, {name:'Singles 2',type:'singles'}, {name:'Doubles',type:'doubles'} ];
+      state.format.orgSplit = false;
+    }
+    /* Backfill per-rubber starting score/legs for tournaments saved before that concept
+       existed — default legs to this tournament's existing bestOfLegs so behaviour is
+       unchanged (every rubber previously played to the one tournament-wide setting). */
+    (state.format.mixedRubbers||[]).forEach(r=>{
+      if(r.startingScore===undefined) r.startingScore = 501;
+      if(r.legs===undefined) r.legs = parseInt(state.format.bestOfLegs)||3;
+      if(r.isTieBreaker===undefined) r.isTieBreaker = false;
+    });
+    ensureEntries(state); // adds org/players fields to entries saved before this feature existed
+    currentStage = !state.eventCreation.saved ? 1
+      : !state.format.saved ? 2
+      : !state.entriesList.length ? 3
+      : state.format.formatType==='knockout' ? (state.knockout ? 5 : 4)
+      : !state.groups.every(g=>g.confirmed) ? 4
+      : 5;
+    render();
+    migrateLogoIfNeeded(state);
+  }
+}
+/* A tournament saved before the auto-trim/aspect-fit logo work won't have
+   logoAspect set, and its stored logo was never trimmed of baked-in padding.
+   Re-run the trim + capture the aspect ratio once, in the background, so
+   older saved tournaments get the same correctly-fitted logo without the
+   organiser having to re-upload it. */
+function migrateLogoIfNeeded(t){
+  if(!t.format.logo || t.format.logoAspect) return;
+  const img = new Image();
+  img.onload = ()=>{
+    const box = detectContentBox(img);
+    const canvas = document.createElement('canvas');
+    const ratio = Math.min(600/box.w, 600/box.h, 1);
+    const w = Math.max(1,Math.round(box.w*ratio)), h = Math.max(1,Math.round(box.h*ratio));
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, box.x, box.y, box.w, box.h, 0, 0, w, h);
+    t.format.logo = canvas.toDataURL('image/png');
+    t.format.logoAspect = w/h;
+    if(state===t){ persist(); render(); }
+  };
+  img.src = t.format.logo;
+}
+function deleteTournament(id, ev){
+  ev.stopPropagation();
+  openModal({
+    title:'Delete tournament?',
+    body:'This removes it permanently from this computer. This cannot be undone.',
+    confirmLabel:'Delete', confirmClass:'danger',
+    onConfirm:()=>{
+      const all = loadAll();
+      delete all[id];
+      saveAll(all);
+      if(state && state.id===id){ state=null; currentStage=1; }
+      if(!state){ const remaining = Object.values(loadAll()); if(remaining.length){ openTournament(remaining[0].id); } else { newTournament(); } }
+      render();
+    }
+  });
+}
+function renameTournament(id, ev){
+  ev.stopPropagation();
+  const all = loadAll();
+  const t = all[id];
+  openModal({
+    title:'Rename tournament',
+    bodyHTML:'<div class="field"><label>Tournament name</label><input id="renameInput" type="text" value="'+escapeHtml(t.eventCreation.tournamentName)+'"></div>',
+    confirmLabel:'Save', confirmClass:'primary',
+    onConfirm:()=>{
+      const v = document.getElementById('renameInput').value.trim();
+      if(v){ t.eventCreation.tournamentName = v; t.updatedAt = Date.now(); saveAll(all); if(state && state.id===id) state.eventCreation.tournamentName=v; render(); }
+    }
+  });
+}
+function duplicateTournament(id, ev){
+  ev.stopPropagation();
+  const all = loadAll();
+  const src = all[id];
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.id = uid('t');
+  copy.eventCreation.tournamentName = src.eventCreation.tournamentName + ' (copy)';
+  copy.createdAt = Date.now(); copy.updatedAt = Date.now();
+  all[copy.id] = copy;
+  saveAll(all);
+  openTournament(copy.id);
+}
+
+/* ---------- Modal ---------- */
+function openModal({title, body, bodyHTML, confirmLabel, confirmClass, onConfirm}){
+  const backdrop = document.getElementById('modalBackdrop');
+  const box = document.getElementById('modalBox');
+  box.innerHTML = '<h3>'+title+'</h3>' + (bodyHTML ? bodyHTML : '<p>'+(body||'')+'</p>') +
+    '<div id="modalErr" style="color:#c0392b;font-size:11px;margin:-8px 0 10px;display:none"></div>'+
+    '<div class="buttonrow"><button class="btn secondary" onclick="closeModal()">Cancel</button><button class="btn '+(confirmClass||'primary')+'" id="modalConfirmBtn">'+confirmLabel+'</button></div>';
+  backdrop.classList.add('show');
+  document.getElementById('modalConfirmBtn').onclick = ()=>{
+    const result = onConfirm();
+    if(result && result.error){
+      const errEl = document.getElementById('modalErr');
+      errEl.textContent = result.error;
+      errEl.style.display = 'block';
+      return;
+    }
+    closeModal();
+  };
+}
+function closeModal(){ document.getElementById('modalBackdrop').classList.remove('show'); }
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- Sidebar render ---------- */
+function renderSavedList(){
+  const all = Object.values(loadAll()).sort((a,b)=>b.updatedAt-a.updatedAt);
+  const list = document.getElementById('savedList');
+  if(!all.length){ list.innerHTML = '<div style="color:#7f93a8;font-size:12px;padding:8px 2px">No saved tournaments yet.</div>'; }
+  else {
+    list.innerHTML = all.map(t=>{
+      const active = state && state.id===t.id ? ' active':'';
+      const dateStr = t.eventCreation.date || '—';
+      return '<div class="saved'+active+'" onclick="openTournament(\''+t.id+'\')">'+
+        '<strong>'+escapeHtml(t.eventCreation.tournamentName||'Untitled tournament')+'</strong>'+
+        '<span>'+escapeHtml(dateStr)+' · '+escapeHtml(t.eventCreation.competitionUnit||'')+' · '+chartCount(t)+' group chart'+(chartCount(t)===1?'':'s')+'</span>'+
+        '<div class="saved-actions">'+
+          '<button onclick="renameTournament(\''+t.id+'\',event)">Rename</button>'+
+          '<button onclick="duplicateTournament(\''+t.id+'\',event)">Duplicate</button>'+
+          '<button onclick="deleteTournament(\''+t.id+'\',event)">Delete</button>'+
+        '</div></div>';
+    }).join('');
+  }
+  const wsCard = document.getElementById('currentWorkspaceCard');
+  if(state){
+    wsCard.style.display='block';
+    document.getElementById('cwName').textContent = state.eventCreation.tournamentName || 'Untitled tournament';
+    document.getElementById('cwSub').textContent = (state.eventCreation.competitionUnit||'') + ' · ' + ({knockout:'Knockout', rrknockout:'Round Robin → Knockout'}[state.format.formatType]||'Round Robin');
+  } else { wsCard.style.display='none'; }
+  ['navstep1','navstep2','navstep3','navstep4','navstep5','navstep6','navstep7'].forEach((id,i)=>{
+    const el = document.getElementById(id);
+    el.classList.remove('active','done');
+    if(!state) return;
+    const n=i+1;
+    const confirmedGroups = state.groups.filter(g=>g.confirmed);
+    if(n===currentStage) el.classList.add('active');
+    else if(n===1 && state.eventCreation.saved) el.classList.add('done');
+    else if(n===2 && state.format.saved) el.classList.add('done');
+    else if(n===3 && state.groups.length) el.classList.add('done');
+    else if(n===4 && state.groups.length && state.groups.every(g=>g.confirmed)) el.classList.add('done');
+    else if(n===5 && confirmedGroups.length && confirmedGroups.every(g=>g.gameStarted)) el.classList.add('done');
+  });
+}
+
+/* ---------- Main render dispatcher ---------- */
+function render(){
+  if(!state){
+    document.getElementById('pageTitle').textContent = 'Welcome to DartDraw';
+    document.getElementById('pageSub').textContent = 'Start a new tournament or open a saved one from the left.';
+    document.getElementById('stageArea').innerHTML = '<div class="card"><h2>No tournament open</h2><p class="intro">Click "New tournament" in the sidebar to begin, or choose a saved tournament.</p></div>';
+    renderSavedList();
+    return;
+  }
+  const titles = {1:'Event creation',2:'Format & branding',3:'Chart details',4:'Confirm & Print Bracket',5:'Manage Tournament',6:'Finalize Standings',7:'Print Final Chart'};
+  const subs = {
+    1:'Name the event, choose its category and how many entries will play.',
+    2:'Choose round robin or knockout, set legs and branding.',
+    3:'Assign entries to groups, and set boards and start times.',
+    4:'Confirm every chart is correct, then print the blank bracket pack.',
+    5:'Start all games, then enter scores directly on each chart.',
+    6:'Review the final standings for every group before printing.',
+    7:'Export the completed pack with scores and standings filled in.'
+  };
+  document.getElementById('pageTitle').textContent = titles[currentStage];
+  document.getElementById('pageSub').textContent = subs[currentStage];
+  const area = document.getElementById('stageArea');
+  let html = '';
+  if(currentStage>=2 && state.eventCreation.saved) html += eventSummaryCard();
+  if(currentStage>=3 && state.format.saved) html += formatSummaryCard();
+  if(currentStage===1) html += stage1();
+  else if(currentStage===2) html += stage2();
+  else if(currentStage===3) html += stage3();
+  else if(currentStage===4) html += stage4();
+  else if(currentStage===5) html += stage5();
+  else if(currentStage===6) html += stage6();
+  else if(currentStage===7) html += stage7();
+  area.innerHTML = html;
+  renderExpandedPreview();
+  if(currentStage===5) requestAnimationFrame(scaleManageCharts);
+  renderSavedList();
+}
+
+/* ---------- Stage 1: Event Creation ---------- */
+function stage1(){
+  const e = state.eventCreation;
+  return '<div class="card">'+
+    '<h2>Create your event</h2><p class="intro">For singles, doubles, triples or team events. No login or internet connection required.</p>'+
+    '<div class="field"><label>Tournament name</label><input id="f_tname" type="text" value="'+escapeHtml(e.tournamentName)+'" placeholder="e.g. KLDA State League 2026"></div>'+
+    '<div class="field"><label>Event name</label><input id="f_ename" type="text" value="'+escapeHtml(e.eventName)+'" placeholder="e.g. Open Singles"></div>'+
+    '<div class="grid2">'+
+      '<div class="field"><label>Event category</label><select id="f_etype">'+ ['Open','Women','Youth'].map(o=>'<option'+(e.eventType===o?' selected':'')+'>'+o+'</option>').join('') +'</select></div>'+
+      '<div class="field"><label>Competition unit</label><select id="f_unit">'+ ['Singles','Doubles','Triples','Teams'].map(o=>'<option'+(e.competitionUnit===o?' selected':'')+'>'+o+'</option>').join('') +'</select></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div class="field"><label>Tournament date</label><input id="f_date" type="date" value="'+escapeHtml(e.date)+'"></div>'+
+      '<div class="field"><label id="f_entries_label">Number of entries</label><input id="f_entries" type="number" min="2" value="'+e.entries+'"></div>'+
+    '</div>'+
+    '<div class="field"><label>Number of boards available</label><input id="f_boards" type="number" min="1" value="'+(e.boards||4)+'"></div>'+
+    '<div class="hint">How many boards will run at the venue. Sets the choices in each chart\'s board dropdown later on.</div>'+
+    '<div class="buttonrow">'+
+      '<button class="btn secondary" onclick="newTournament()">Discard / New tournament</button>'+
+      '<button class="btn primary" onclick="saveStage1()">Save event creation →</button>'+
+    '</div>'+
+  '</div>';
+}
+function saveStage1(){
+  const e = state.eventCreation;
+  e.tournamentName = document.getElementById('f_tname').value.trim() || 'Untitled tournament';
+  e.eventName = document.getElementById('f_ename').value.trim() || 'Untitled event';
+  e.eventType = document.getElementById('f_etype').value;
+  e.competitionUnit = document.getElementById('f_unit').value;
+  e.date = document.getElementById('f_date').value;
+  e.entries = Math.max(2, parseInt(document.getElementById('f_entries').value)||2);
+  e.boards = Math.max(1, parseInt(document.getElementById('f_boards').value)||1);
+  e.saved = true;
+  ensureEntries(state);
+  persist();
+  currentStage = 2;
+  render();
+}
+function eventSummaryCard(){
+  const e = state.eventCreation;
+  return '<div class="summary-card"><div class="summary-grid">'+
+    '<div><label>Tournament</label><strong>'+escapeHtml(e.tournamentName)+'</strong></div>'+
+    '<div><label>Event</label><strong>'+escapeHtml(e.eventName)+'</strong></div>'+
+    '<div><label>Category</label><strong>'+escapeHtml(e.eventType)+'</strong></div>'+
+    '<div><label>Unit</label><strong>'+escapeHtml(e.competitionUnit)+'</strong></div>'+
+    '<div><label>Date</label><strong>'+escapeHtml(e.date||'—')+'</strong></div>'+
+    '<div><label>Entries</label><strong>'+e.entries+'</strong></div>'+
+    '<div><label>Boards</label><strong>'+(e.boards||4)+'</strong></div>'+
+    '</div><button class="btn ghost" onclick="goStage(1)">Edit</button></div>';
+}
+
+/* ---------- Stage 2: Format & Branding ---------- */
+function stage2(){
+  const f = state.format;
+  const n = state.eventCreation.entries;
+  const rec = recommendGroups(n);
+  const bracket = nearestBracket(n);
+  const unit = state.eventCreation.competitionUnit;
+  return '<div class="card">'+
+    '<h2>Competition format</h2><p class="intro">Choose the format, legs, group size and print branding.</p>'+
+    '<div class="field"><label>Competition format</label><div class="options">'+
+      '<div class="choice'+(f.formatType==='roundrobin'?' selected':'')+'" onclick="setFormatType(\'roundrobin\')"><strong>Round robin</strong><small>Play within assigned groups</small></div>'+
+      '<div class="choice'+(f.formatType==='knockout'?' selected':'')+'" onclick="setFormatType(\'knockout\')"><strong>Knockout</strong><small>Direct elimination bracket</small></div>'+
+      '<div class="choice'+(f.formatType==='rrknockout'?' selected':'')+'" onclick="setFormatType(\'rrknockout\')"><strong>Round robin → Knockout</strong><small>Group stage, then top finishers go to a bracket</small></div>'+
+    '</div></div>'+
+    '<div class="grid2">'+
+      '<div class="field"><label>Best of legs (odd numbers preferred)</label><input id="f_bestof" type="number" min="1" step="2" value="'+f.bestOfLegs+'" oninput="warnBestOf(this)"><div class="hint" id="bestOfHint"></div></div>'+
+      (f.formatType!=='knockout' ?
+        '<div class="field"><label>Maximum entries per group</label><select id="f_maxgroup">'+ [3,4,5,6].map(v=>'<option value="'+v+'"'+(f.maxPerGroup==v?' selected':'')+'>'+v+' entries</option>').join('') +'</select></div>'
+        : '<div class="field"><label>Bracket size (auto)</label><input type="text" value="'+bracket.size+' ('+bracket.byes+' bye'+(bracket.byes===1?'':'s')+')" disabled></div>'
+      )+
+    '</div>'+
+    (f.formatType!=='knockout' ?
+      '<div class="recommend"><b>Recommended:</b> '+rec.groups+' group'+(rec.groups===1?'':'s')+' of '+rec.size+' ('+n+' entries total'+(rec.remainder?', last group has '+rec.remainder:'')+'). Each group plays '+matchesPerGroup(rec.size)+' matches. Change "Maximum entries per group" above if you prefer a different split.</div>'
+      : '<div class="recommend"><b>Nearest bracket:</b> '+bracket.size+'-entry bracket for '+n+' entries — '+bracket.byes+' bye'+(bracket.byes===1?'':'s')+' required in round 1.</div>'
+    )+
+    (f.formatType==='rrknockout' ? '<div class="grid2" style="margin-top:12px">'+
+      '<div class="field"><label>Qualifiers per group (advance to knockout)</label><input id="f_qualifiers" type="number" min="1" value="'+f.qualifiersPerGroup+'"></div>'+
+      '<div class="field"><label>How qualifiers are placed into the bracket</label><select id="f_advancemode">'+
+        '<option value="seeded"'+(f.advanceMode==='seeded'?' selected':'')+'>Seeded by group standing (recommended)</option>'+
+        '<option value="random"'+(f.advanceMode==='random'?' selected':'')+'>Random draw</option>'+
+      '</select></div>'+
+    '</div>'+
+    '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a losers\' pool (Plate) knockout bracket for entries that don\'t qualify</label></div>'+
+    '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate qualifiers per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+(f.plateQualifiersPerGroup||'')+'"></div>'+
+    '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group qualifiers across the bracket where the numbers allow it. Leave Plate qualifiers blank to send everyone who doesn\'t qualify for the main bracket into the Plate (today\'s default); set a number to cap the Plate too, e.g. top 2 → winner bracket, next 2 → Plate, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'
+      : '')+
+    (isTeamUnit(state) ? '<div class="field" style="margin-top:12px"><label>Team format</label><div class="options">'+
+        (unit==='Teams' ? '<div class="choice'+(f.teamMatchFormat==='foursome'?' selected':'')+'" onclick="setTeamMatchFormat(\'foursome\')"><strong>Foursome</strong><small>Each encounter is one match, full team vs full team</small></div>'+
+        '<div class="choice'+(f.teamMatchFormat==='mixed'?' selected':'')+'" onclick="setTeamMatchFormat(\'mixed\')"><strong>Rubber lineup (custom)</strong><small>A mix of singles/doubles/triples/foursome rubbers, in any order — decided by rubbers won</small></div>' : '')+
+      '</div></div>'+
+      (unit==='Teams' ? '<div class="field"><label>Players per team</label><input id="f_teamsize" type="number" min="2" value="'+f.teamSize+'"></div>' : '')+
+      (unit==='Teams' && f.teamMatchFormat==='mixed' ? rubberEditor() : '')
+      : '')+
+    '<div class="toggle-row"><input type="checkbox" id="f_orgsplit" '+(f.orgSplit?'checked':'')+'> <label for="f_orgsplit">Avoid placing entries from the same organisation together (same round robin group, or facing off in the first knockout round)</label></div>'+
+    '<div class="field" style="margin-top:16px"><label>Tournament logo</label><div class="upload-row">'+
+      (f.logo? '<img class="logo-thumb" src="'+f.logo+'">' : '<div class="logo-placeholder-sm">NO<br>LOGO</div>')+
+      '<input type="file" accept="image/*" onchange="handleLogoUpload(this)">'+
+      (f.logo?'<button class="btn ghost" onclick="clearLogo()">Remove</button>':'')+
+    '</div><div class="hint">Best as a square or near-square image with a transparent background (PNG). Automatically resized to fit — no need to pre-resize.</div></div>'+
+    '<div class="field"><label>Sponsor logos</label>'+
+      '<input type="file" accept="image/*" multiple onchange="handleSponsorUpload(this)">'+
+      '<div class="sponsor-thumbs">'+ f.sponsors.map((s,i)=>
+        '<div class="sponsor-thumb-item">'+
+          '<img src="'+s.src+'" onclick="removeSponsor('+i+')" title="Click to remove">'+
+          '<div class="shape-toggle">'+
+            '<button type="button" class="'+(s.shape!=='square'?'active':'')+'" onclick="setSponsorShape('+i+',\'rect\')">▭ Rect</button>'+
+            '<button type="button" class="'+(s.shape==='square'?'active':'')+'" onclick="setSponsorShape('+i+',\'square\')">▢ Square</button>'+
+          '</div>'+
+        '</div>'
+      ).join('') +'</div>'+
+      '<div class="hint">'+f.sponsors.length+' logo'+(f.sponsors.length===1?'':'s')+' added. Click a thumbnail to remove it, or pick rectangle/square for how it displays on the chart footer. Auto-resized either way — no need to pre-crop.</div>'+
+    '</div>'+
+    '<div class="field"><label>Optional print rules / footer text</label><textarea id="f_footer">'+escapeHtml(f.footerText)+'</textarea></div>'+
+    '<div class="field"><label>Walkover, conduct &amp; other rules <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — printed on its own rules &amp; format sheet, see below)</span></label>'+
+      '<textarea id="f_rulesnotes" placeholder="e.g. A no-show forfeits after 10 minutes past the scheduled start. Players must check in at the desk before their first game. Unsporting conduct may result in disqualification at the organiser’s discretion.">'+escapeHtml(f.rulesNotes||'')+'</textarea></div>'+
+    tieBreakEditor()+
+    '<div class="buttonrow">'+
+      '<button class="btn secondary" onclick="goStage(1)">Back</button>'+
+      '<button class="btn primary" onclick="saveStage2()">Save format & branding →</button>'+
+    '</div>'+
+  '</div>';
+}
+function tieBreakEditor(){
+  const order = state.tieBreakOrder;
+  return '<div class="field"><label>Tie-break order (used only when points are equal — final position on each chart is calculated automatically from this)</label>'+
+    '<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">'+
+      order.map((rule,i)=>{
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;'+(i? 'border-top:1px solid var(--line)':'')+'">'+
+          '<span style="font-size:11px;font-weight:800;color:#8a97a5;width:16px">'+(i+1)+'</span>'+
+          '<span style="flex:1;font-size:12px">'+escapeHtml(rule)+'</span>'+
+          '<button class="btn ghost" style="padding:4px 8px" '+(i===0?'disabled':'')+' onclick="moveTieBreak('+i+',-1)">↑</button>'+
+          '<button class="btn ghost" style="padding:4px 8px" '+(i===order.length-1?'disabled':'')+' onclick="moveTieBreak('+i+',1)">↓</button>'+
+        '</div>';
+      }).join('')+
+    '</div><div class="hint">Suggested default order shown. Reorder to match your rules — the printed footer and standings both follow this order.</div>'+
+  '</div>';
+}
+function moveTieBreak(i, dir){
+  const order = state.tieBreakOrder;
+  const j = i+dir;
+  if(j<0||j>=order.length) return;
+  [order[i],order[j]] = [order[j],order[i]];
+  persist();
+  render();
+}
+function warnBestOf(el){
+  const v = parseInt(el.value)||0;
+  document.getElementById('bestOfHint').textContent = (v%2===0 && v>0) ? 'Even numbers can end in a tie — an odd number is recommended.' : '';
+}
+function setFormatType(v){ state.format.formatType = v; render(); }
+function setTeamMatchFormat(v){ state.format.teamMatchFormat = v; render(); }
+function rubberEditor(){
+  const rubbers = state.format.mixedRubbers;
+  const typeOptions = [['singles','Singles'],['doubles','Doubles'],['triples','Triples'],['foursome','Foursome (quad)']];
+  return '<div class="field"><label>Rubbers played per encounter (in order)</label>'+
+    '<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">'+
+      rubbers.map((r,i)=>{
+        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;flex-wrap:wrap;'+(i?'border-top:1px solid var(--line)':'')+(r.isTieBreaker?';background:#fdf8ea':'')+'">'+
+          '<span style="font-size:11px;font-weight:800;color:#8a97a5;width:16px">'+(i+1)+'</span>'+
+          '<input type="text" style="flex:1;min-width:110px" value="'+escapeHtml(r.name)+'" onchange="setRubberName('+i+',this.value)" placeholder="e.g. Singles 1">'+
+          '<select style="width:auto" onchange="setRubberType('+i+',this.value)">'+typeOptions.map(([v,label])=>'<option value="'+v+'"'+(r.type===v?' selected':'')+'>'+label+'</option>').join('')+'</select>'+
+          '<input type="number" style="width:70px" min="1" value="'+(r.startingScore||501)+'" title="Starting score" onchange="setRubberStartingScore('+i+',this.value)">'+
+          '<span style="font-size:11px;color:var(--muted)">x</span>'+
+          '<input type="number" style="width:50px" min="1" value="'+(r.legs||3)+'" title="Legs" onchange="setRubberLegs('+i+',this.value)">'+
+          '<span style="font-size:11px;color:var(--muted)">leg'+((r.legs||3)===1?'':'s')+'</span>'+
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);white-space:nowrap"><input type="checkbox" style="width:auto;height:auto" '+(r.isTieBreaker?'checked':'')+' onchange="setRubberTieBreaker('+i+',this.checked)">Tie-breaker</label>'+
+          '<button class="btn ghost" style="padding:4px 8px" '+(i===0?'disabled':'')+' onclick="moveRubber('+i+',-1)">↑</button>'+
+          '<button class="btn ghost" style="padding:4px 8px" '+(i===rubbers.length-1?'disabled':'')+' onclick="moveRubber('+i+',1)">↓</button>'+
+          '<button class="btn danger" style="padding:4px 8px" '+(rubbers.length<=1?'disabled':'')+' onclick="removeRubber('+i+')">✕</button>'+
+        '</div>';
+      }).join('')+
+    '</div>'+
+    '<div class="buttonrow" style="margin-top:8px"><button type="button" class="btn ghost" onclick="addRubber()">+ Add rubber</button></div>'+
+    '<div class="hint">A team encounter is won by whichever side wins the most rubbers. Each rubber is scored as its own best-of-legs match, using its own starting score and leg count (e.g. 501 x 3 legs, or 1001 x 1 leg for a foursome) — these print on the lineup sheet and the scoring modal. A rubber ticked "Tie-breaker" is only meant to be played if the encounter is otherwise level; leave it as "not played" if it wasn\'t needed.</div>'+
+  '</div>';
+}
+function addRubber(){ state.format.mixedRubbers.push({name:'Rubber '+(state.format.mixedRubbers.length+1), type:'singles', startingScore:501, legs:3}); render(); }
+function removeRubber(i){ if(state.format.mixedRubbers.length>1){ state.format.mixedRubbers.splice(i,1); render(); } }
+function setRubberName(i,v){ state.format.mixedRubbers[i].name = v; }
+function setRubberType(i,v){ state.format.mixedRubbers[i].type = v; render(); }
+function setRubberStartingScore(i,v){ state.format.mixedRubbers[i].startingScore = Math.max(1, parseInt(v)||501); render(); }
+function setRubberLegs(i,v){ state.format.mixedRubbers[i].legs = Math.max(1, parseInt(v)||3); render(); }
+function setRubberTieBreaker(i,v){ state.format.mixedRubbers[i].isTieBreaker = v; render(); }
+function moveRubber(i,dir){ const arr=state.format.mixedRubbers; const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; render(); }
+/* Finds the bounding box of the actual visible logo content inside an image,
+   so a logo file with lots of baked-in transparent (or flat-color) padding
+   around a small centered mark doesn't get treated as if the mark filled the
+   whole frame. Scans a downscaled proxy (capped at 700px) for speed, then
+   maps the box back to natural-resolution coordinates. Falls back to the
+   full image (no trim) if detection fails or finds nothing. */
+function detectContentBox(img){
+  const nw = img.naturalWidth||img.width, nh = img.naturalHeight||img.height;
+  const scale = Math.min(1, 700/Math.max(nw,nh));
+  const sw = Math.max(1,Math.round(nw*scale)), sh = Math.max(1,Math.round(nh*scale));
+  const full = { x:0, y:0, w:nw, h:nh };
+  try{
+    const scan = document.createElement('canvas'); scan.width=sw; scan.height=sh;
+    const sctx = scan.getContext('2d', { willReadFrequently:true });
+    sctx.drawImage(img,0,0,sw,sh);
+    const data = sctx.getImageData(0,0,sw,sh).data;
+    const px = (x,y)=>{ const i=(y*sw+x)*4; return [data[i],data[i+1],data[i+2],data[i+3]]; };
+    const corners = [px(0,0), px(sw-1,0), px(0,sh-1), px(sw-1,sh-1)];
+    const hasAlpha = corners.some(c=>c[3]<250);
+    const bg = corners[0];
+    const dist = (a,b)=> Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]);
+    let minX=sw, minY=sh, maxX=-1, maxY=-1;
+    for(let y=0;y<sh;y++){
+      for(let x=0;x<sw;x++){
+        const i=(y*sw+x)*4;
+        const isContent = hasAlpha ? data[i+3]>12 : dist([data[i],data[i+1],data[i+2]],bg)>24;
+        if(isContent){ if(x<minX)minX=x; if(x>maxX)maxX=x; if(y<minY)minY=y; if(y>maxY)maxY=y; }
+      }
+    }
+    if(maxX<minX || maxY<minY) return full; // nothing detected — bail out safely
+    const mx = Math.round((maxX-minX)*0.04)+1, my = Math.round((maxY-minY)*0.04)+1;
+    const x = Math.max(0, minX-mx), y = Math.max(0, minY-my);
+    const ex = Math.min(sw, maxX+mx+1), ey = Math.min(sh, maxY+my+1);
+    const inv = 1/scale;
+    return { x: Math.round(x*inv), y: Math.round(y*inv), w: Math.round((ex-x)*inv), h: Math.round((ey-y)*inv) };
+  } catch(e){ return full; }
+}
+/* Resize on upload so print logos are a consistent, print-crisp size without
+   bloating localStorage — and auto-trim any baked-in blank padding first (via
+   detectContentBox) so the box the app draws around the logo hugs the actual
+   mark, not the padded file. Preserves aspect ratio of the trimmed content,
+   transparent PNGs stay transparent. Resolves {dataUrl, w, h} of the final
+   (trimmed + resized) image so callers get the true content aspect ratio. */
+function resizeImageFile(file, maxW, maxH){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const box = detectContentBox(img);
+        const ratio = Math.min(maxW/box.w, maxH/box.h, 1);
+        const w = Math.max(1,Math.round(box.w*ratio)), h = Math.max(1,Math.round(box.h*ratio));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, box.x, box.y, box.w, box.h, 0, 0, w, h);
+        resolve({ dataUrl: canvas.toDataURL(file.type==='image/png' ? 'image/png' : 'image/jpeg', 0.9), w, h });
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+/* Computes a box (w,h) that hugs an image of the given aspect ratio, bounded by
+   maxW/maxH and never smaller than minW/minH — so the visible frame always fits
+   snugly around the actual logo instead of leaving letterboxed empty space. */
+function fitBox(aspect, maxW, maxH, minW, minH){
+  minW = minW||0; minH = minH||0;
+  let w = maxW, h = maxW/aspect;
+  if(h > maxH){ h = maxH; w = maxH*aspect; }
+  w = Math.max(w, Math.min(minW, maxW));
+  h = Math.max(h, Math.min(minH, maxH));
+  return { w: Math.round(w), h: Math.round(h) };
+}
+async function handleLogoUpload(input){
+  const file = input.files[0]; if(!file) return;
+  const { dataUrl, w, h } = await resizeImageFile(file, 600, 600);
+  state.format.logo = dataUrl;
+  state.format.logoAspect = w/h;
+  render();
+}
+function clearLogo(){ state.format.logo = null; state.format.logoAspect = null; render(); }
+/* Issue 1: logo box hugs the actual uploaded logo's aspect ratio (bounded by a max
+   envelope) instead of forcing every logo into the same fixed square — no more
+   letterboxed empty space, and nothing gets clipped since box == image shape. */
+function mainLogoBoxHTML(){
+  const t = state;
+  if(t.format.logo){
+    const box = fitBox(t.format.logoAspect||1, 88, 64, 40, 40);
+    return '<div class="logo-placeholder" style="width:'+box.w+'px;height:'+box.h+'px"><img src="'+t.format.logo+'"></div>';
+  }
+  return '<div class="logo-placeholder" style="width:58px;height:58px">YOUR<br>LOGO</div>';
+}
+function diagLogoBoxHTML(){
+  const t = state;
+  if(t.format.logo){
+    return '<span class="diag-logo"><img src="'+t.format.logo+'"></span>';
+  }
+  return '<span class="diag-logo">LOGO</span>';
+}
+async function handleSponsorUpload(input){
+  const files = Array.from(input.files);
+  for(const file of files){
+    const { dataUrl } = await resizeImageFile(file, 260, 260);
+    state.format.sponsors.push({ src:dataUrl, shape:'rect' });
+  }
+  render();
+}
+function removeSponsor(i){ state.format.sponsors.splice(i,1); render(); }
+function setSponsorShape(i, shape){ state.format.sponsors[i].shape = shape; persist(); render(); }
+function saveStage2(){
+  const f = state.format;
+  f.bestOfLegs = Math.max(1, parseInt(document.getElementById('f_bestof').value)||5);
+  if(f.formatType!=='knockout') f.maxPerGroup = parseInt(document.getElementById('f_maxgroup').value)||4;
+  if(f.formatType==='rrknockout'){
+    f.qualifiersPerGroup = Math.max(1, parseInt(document.getElementById('f_qualifiers').value)||2);
+    f.advanceMode = document.getElementById('f_advancemode').value;
+    f.losersPool = document.getElementById('f_loserspool').checked;
+    const plateVal = parseInt(document.getElementById('f_platequalifiers').value);
+    f.plateQualifiersPerGroup = (isNaN(plateVal) || plateVal<1) ? null : plateVal;
+  }
+  if(isTeamUnit(state) && state.eventCreation.competitionUnit==='Teams'){
+    const sizeEl = document.getElementById('f_teamsize');
+    if(sizeEl) f.teamSize = Math.max(2, parseInt(sizeEl.value)||4);
+  }
+  f.orgSplit = document.getElementById('f_orgsplit').checked;
+  f.footerText = document.getElementById('f_footer').value;
+  f.rulesNotes = document.getElementById('f_rulesnotes').value;
+  f.saved = true;
+  ensureEntries(state); // resync roster length if teamSize changed
+  if(f.formatType==='roundrobin' || f.formatType==='rrknockout'){ buildGroups(state); }
+  persist();
+  currentStage = 3;
+  render();
+}
+function formatSummaryCard(){
+  const f = state.format;
+  return '<div class="summary-card"><div class="summary-grid">'+
+    '<div><label>Format</label><strong>'+({knockout:'Knockout', rrknockout:'Round Robin → Knockout'}[f.formatType]||'Round Robin')+'</strong></div>'+
+    '<div><label>Best of</label><strong>'+f.bestOfLegs+' legs</strong></div>'+
+    '<div><label>Max/group</label><strong>'+(f.formatType!=='knockout'?f.maxPerGroup:'—')+'</strong></div>'+
+    '<div><label>Logo</label><strong>'+(f.logo?'Uploaded':'None')+'</strong></div>'+
+    '<div><label>Sponsors</label><strong>'+f.sponsors.length+'</strong></div>'+
+    '</div><button class="btn ghost" onclick="goStage(2)">Edit</button></div>';
+}
+
+/* ---------- Stage 3: Chart Details ---------- */
+function stage3(){
+  if(state.format.formatType==='knockout'){
+    return stage3Knockout();
+  }
+  buildGroups(state);
+  return entriesPanel() + printControls();
+}
+/* ---------- Stage 3 (Knockout format): seeding list, no groups ---------- */
+function stage3Knockout(){
+  ensureSeedOrder(state);
+  const t = state;
+  const order = t.seedOrder;
+  return '<div class="entries-panel"><h2>Seeding</h2><p class="intro">Edit entry names, then set the seed order (1 = best seed, kept apart from other top seeds for as long as possible). The bracket is generated from this order in the next step.</p>'+
+    order.map((eid,i)=>{
+      const ent = t.entriesList.find(e=>e.id===eid);
+      if(!ent) return '';
+      return '<div class="entry-row" style="align-items:center">'+
+        '<span class="num" style="flex-shrink:0">'+(i+1)+'</span>'+
+        entryFieldsHTML(ent)+
+        '<button class="btn ghost" style="padding:6px 9px;font-size:10px" '+(i===0?'disabled':'')+' onclick="moveSeed('+i+',-1)">↑</button>'+
+        '<button class="btn ghost" style="padding:6px 9px;font-size:10px" '+(i===order.length-1?'disabled':'')+' onclick="moveSeed('+i+',1)">↓</button>'+
+      '</div>';
+    }).join('')+
+  '</div>'+printControls();
+}
+/* Shared entry-editing fields (name, optional org, optional team roster) used
+   by both the round-robin entries panel and the knockout seeding list. */
+function entryFieldsHTML(ent){
+  const team = isTeamUnit(state);
+  return '<div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:160px">'+
+    '<div style="display:flex;gap:6px;align-items:center">'+
+      '<input type="text" style="flex:1" value="'+escapeHtml(ent.name)+'" onchange="renameEntry(\''+ent.id+'\',this.value)" placeholder="'+(team?'Team name':'Name')+'">'+
+      '<input type="text" style="flex:1;max-width:150px" value="'+escapeHtml(ent.org||'')+'" onchange="setEntryOrg(\''+ent.id+'\',this.value)" placeholder="Organisation (optional)">'+
+    '</div>'+
+    (team ? '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+      ent.players.map((p,pi)=>'<input type="text" style="flex:1;min-width:110px;height:28px;font-size:11px" value="'+escapeHtml(p)+'" onchange="setEntryPlayer(\''+ent.id+'\','+pi+',this.value)" placeholder="Player '+(pi+1)+'">').join('')+
+    '</div>' : '')+
+  '</div>';
+}
+function setEntryOrg(id, val){ const ent = state.entriesList.find(e=>e.id===id); if(ent){ ent.org = val.trim(); persist(); render(); } }
+function setEntryPlayer(id, idx, val){ const ent = state.entriesList.find(e=>e.id===id); if(ent){ ent.players[idx] = val.trim(); persist(); } }
+/* Seed order for knockout format: an explicit array of entry ids kept on the
+   tournament so the organiser's manual reordering survives across renders.
+   Initialised from current entriesList order, re-synced (append new /
+   drop removed) whenever entries change. */
+function ensureSeedOrder(t){
+  const activeIds = t.entriesList.filter(e=>!e.withdrawn).map(e=>e.id);
+  if(!t.seedOrder) t.seedOrder = [];
+  t.seedOrder = t.seedOrder.filter(id=> activeIds.includes(id));
+  activeIds.forEach(id=>{ if(!t.seedOrder.includes(id)) t.seedOrder.push(id); });
+}
+function moveSeed(i, dir){
+  const order = state.seedOrder;
+  const j = i+dir;
+  if(j<0||j>=order.length) return;
+  [order[i],order[j]] = [order[j],order[i]];
+  persist(); render();
+}
+function shuffleSeedOrder(){
+  state.seedOrder = shuffleArray(state.seedOrder);
+  persist(); render();
+}
+let bulkSelected = new Set();
+function entriesPanel(){
+  return '<div class="entries-panel"><h2>Draw & groups</h2><p class="intro">Edit entry names, withdraw, or swap entries between groups/positions, and set each group\'s board and start time. Confirming charts and printing the bracket happens in the next step.</p>'+
+    state.groups.map(g=>{
+      const clash = state.groups.some(x=> x.id!==g.id && String(x.board)===String(g.board) && g.board!=='' && g.board!=null);
+      return '<div class="group-block"><div class="group-block-head">'+
+        '<strong>Group '+g.label+'</strong>'+
+        '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+          g.entryIds.length+' / '+state.format.maxPerGroup+' entries · <span class="confirm-flag '+(g.confirmed?'yes':'no')+'">'+(g.confirmed?'Confirmed':'Not confirmed')+'</span> · <span class="confirm-flag '+(g.gameStarted?'yes':'no')+'">'+(g.gameStarted?'Game started':'Not started')+'</span>'+
+        '</span></div>'+
+        '<div class="group-block-controls" style="grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:-2px 0 8px;padding-bottom:8px;border-bottom:1px solid var(--line)">'+
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">Board <select style="width:auto;padding:4px 7px;font-size:11px'+(clash?';border-color:#c0392b;color:#c0392b':'')+'" onchange="setBoard(\''+g.id+'\',this.value)">'+ boardOptions(g.board) +'</select>'+(clash?' <span style="color:#c0392b;font-weight:700">⚠ clash</span>':'')+'</span>'+
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">Start time <input type="time" style="width:auto;padding:4px 7px;font-size:11px" value="'+(g.startTime||'')+'" onchange="setStartTime(\''+g.id+'\',this.value)"></span>'+
+        '</div>'+
+        '<div class="group-entries-col">'+
+        g.entryIds.map(eid=>{
+          const ent = state.entriesList.find(e=>e.id===eid);
+          if(!ent) return '';
+          return '<div class="entry-row">'+
+            entryFieldsHTML(ent)+
+            '<button class="btn ghost" style="padding:6px 9px;font-size:10px" onclick="openSwapPicker(\''+eid+'\')">Swap with…</button>'+
+            '<button class="btn danger" style="padding:6px 9px;font-size:10px" onclick="withdrawEntry(\''+eid+'\')">Withdraw</button></div>';
+        }).join('')+
+        '</div>'+
+        livePreviewBlock(g)+
+      '</div>';
+    }).join('')+
+  '</div>';
+}
+function livePreviewBlock(g){
+  const w = 1000, h = Math.round(w/1.414), targetW = 300, scale = targetW/w;
+  return '<div class="mini-preview-wrap" style="width:'+targetW+'px;height:'+Math.round(h*scale)+'px;cursor:pointer" onclick="openExpandedPreview(\''+g.id+'\')" title="Click to expand print preview">'+
+    '<div class="mini-preview-inner" style="width:'+w+'px;transform:scale('+scale+')">'+ chartSheetHTML(g, false) +'</div>'+
+  '</div>';
+}
+/* ---------- Expanded per-group print preview (modal) ---------- */
+function openExpandedPreview(groupId){
+  state.activeGroupId = groupId;
+  persist();
+  document.getElementById('previewModalBackdrop').classList.add('show');
+  renderExpandedPreview();
+}
+function closeExpandedPreview(){
+  document.getElementById('previewModalBackdrop').classList.remove('show');
+}
+function renderExpandedPreview(){
+  const backdrop = document.getElementById('previewModalBackdrop');
+  if(!backdrop || !backdrop.classList.contains('show')) return;
+  const idx = state.groups.findIndex(x=>x.id===state.activeGroupId);
+  const g = state.groups[idx];
+  if(!g){ closeExpandedPreview(); return; }
+  const prev = state.groups[idx-1], next = state.groups[idx+1];
+  const w = 1000, h = Math.round(w/1.414);
+  backdrop.innerHTML = '<div class="preview-modal">'+
+    '<button class="preview-modal-close" onclick="closeExpandedPreview()" title="Close">&times;</button>'+
+    '<div class="preview-modal-nav">'+
+      '<button class="btn secondary" '+(prev?'':'disabled')+' onclick="'+(prev?'openExpandedPreview(\''+prev.id+'\')':'')+'">&larr; Previous</button>'+
+      '<strong>Group '+g.label+' · Board '+g.board+(g.confirmed?' · Confirmed':' · Not confirmed')+(g.gameStarted?' · Game started':' · Not started')+'</strong>'+
+      '<button class="btn secondary" '+(next?'':'disabled')+' onclick="'+(next?'openExpandedPreview(\''+next.id+'\')':'')+'">Next &rarr;</button>'+
+    '</div>'+
+    '<div class="preview-modal-scale-wrap" id="previewModalScaleWrap" style="height:'+h+'px">'+
+      '<div id="previewModalInner" style="width:'+w+'px">'+ chartSheetHTML(g, false) +'</div>'+
+    '</div>'+
+    '<div class="print-controls" style="margin-top:14px"><button class="btn secondary" onclick="closeExpandedPreview()">Close</button><button class="btn primary" onclick="closeExpandedPreview();goStage(4)">Review print pack →</button></div>'+
+  '</div>';
+  requestAnimationFrame(scaleExpandedPreview);
+}
+function scaleExpandedPreview(){
+  const wrap = document.getElementById('previewModalScaleWrap');
+  const inner = document.getElementById('previewModalInner');
+  if(!wrap || !inner) return;
+  const w = 1000, h = Math.round(w/1.414);
+  const scale = Math.min(1, wrap.clientWidth/w);
+  inner.style.transformOrigin = 'top left';
+  inner.style.transform = 'scale('+scale+')';
+  wrap.style.height = Math.round(h*scale)+'px';
+}
+function toggleBulkSelect(id, checked){ if(checked) bulkSelected.add(id); else bulkSelected.delete(id); render(); }
+function bulkSelectAll(){ state.groups.forEach(g=>{ if(!g.confirmed) bulkSelected.add(g.id); }); render(); }
+function bulkConfirmSelected(){
+  let count=0;
+  state.groups.forEach(g=>{
+    if(bulkSelected.has(g.id) && !g.confirmed){
+      g.confirmed = true; g.confirmedEntryIds=[...g.entryIds]; g.unconfirmReason=null; count++;
+    }
+  });
+  bulkSelected.clear();
+  persist(); render();
+}
+function renameEntry(id, val){
+  const ent = state.entriesList.find(e=>e.id===id);
+  if(ent && val.trim()){ ent.name = val.trim(); ent.autoName = false; persist(); render(); }
+}
+function withdrawEntry(entryId){
+  const ent = state.entriesList.find(e=>e.id===entryId);
+  const g = state.groups.find(gr=> gr.entryIds.includes(entryId));
+  if(!ent || !g) return;
+  openModal({
+    title:'Withdraw '+escapeHtml(ent.name)+'?',
+    bodyHTML: '<p>Removes them from Group '+g.label+'. Either name a replacement to fill the slot, or leave it as a bye.</p>'+
+      '<div class="field"><label>Replacement name (optional)</label><input id="withdrawReplacement" type="text" placeholder="Leave blank for a bye"></div>',
+    confirmLabel:'Withdraw', confirmClass:'danger',
+    onConfirm:()=>{
+      const replacement = document.getElementById('withdrawReplacement').value.trim();
+      g.entryIds = g.entryIds.filter(id=>id!==entryId);
+      ent.withdrawn = true;
+      if(replacement){
+        const newEnt = { id: uid('e'), name: replacement, autoName:false };
+        state.entriesList.push(newEnt);
+        g.entryIds.push(newEnt.id);
+      }
+      reconcileConfirmations(state);
+      persist();
+      render();
+    }
+  });
+}
+/* Issue 2: "Swap with" picker — replaces the old cramped inline <select>.
+   Lists every Group/Position slot; shows the occupant's name if filled, or
+   "(blank)" if that position doesn't exist yet. Clicking a row performs the
+   swap (or move, if the target slot is blank) immediately. */
+function openSwapPicker(entryId){
+  const source = state.groups.find(g=> g.entryIds.includes(entryId));
+  if(!source) return;
+  const ent = state.entriesList.find(e=>e.id===entryId);
+  const maxPer = parseInt(state.format.maxPerGroup)||4;
+  const srcIdx = source.entryIds.indexOf(entryId);
+  let rows = '';
+  state.groups.forEach(g=>{
+    rows += '<div class="picker-group-hdr">Group '+g.label+' · Board '+g.board+'</div>';
+    const slotsToShow = Math.min(maxPer, g.entryIds.length+1);
+    for(let slot=0; slot<slotsToShow; slot++){
+      const isCurrent = g.id===source.id && slot===srcIdx;
+      const label = 'Position '+(slot+1);
+      if(isCurrent){
+        rows += '<div class="picker-row current">'+label+'<span class="occ">'+escapeHtml(ent.name)+' — currently here</span></div>';
+      } else if(slot < g.entryIds.length){
+        const occEnt = state.entriesList.find(e=>e.id===g.entryIds[slot]);
+        rows += '<div class="picker-row" onclick="performSwap(\''+entryId+'\',\''+g.id+'\','+slot+')">'+label+'<span class="occ">'+escapeHtml(occEnt?occEnt.name:'—')+'</span></div>';
+      } else {
+        rows += '<div class="picker-row" onclick="performSwap(\''+entryId+'\',\''+g.id+'\','+slot+')">'+label+'<span class="blank">blank — moves here</span></div>';
+      }
+    }
+  });
+  openModal({
+    title:'Swap '+escapeHtml(ent.name)+' with…',
+    bodyHTML: '<p style="margin-top:-4px">Pick a Group + Position. If it\'s occupied, the two swap places; if blank, '+escapeHtml(ent.name)+' moves there.</p><div class="picker-list">'+rows+'</div>',
+    confirmLabel:'Close', confirmClass:'secondary',
+    onConfirm:()=>{}
+  });
+  document.getElementById('modalBox').classList.add('wide');
+}
+function performSwap(entryId, targetGroupId, slotIndex){
+  const target = state.groups.find(g=>g.id===targetGroupId);
+  const source = state.groups.find(g=> g.entryIds.includes(entryId));
+  if(!target || !source) return;
+  const srcIdx = source.entryIds.indexOf(entryId);
+  const occupantId = target.entryIds[slotIndex];
+  let sizeChanged = false;
+  if(source.id===target.id){
+    const tmp = source.entryIds[slotIndex];
+    source.entryIds[slotIndex] = entryId;
+    source.entryIds[srcIdx] = tmp;
+  } else if(occupantId){
+    source.entryIds[srcIdx] = occupantId;
+    target.entryIds[slotIndex] = entryId;
+  } else {
+    source.entryIds.splice(srcIdx,1);
+    const insertAt = Math.min(slotIndex, target.entryIds.length);
+    target.entryIds.splice(insertAt,0,entryId);
+    sizeChanged = true;
+  }
+  reconcileConfirmations(state);
+  persist();
+  closeModal();
+  render();
+  if(sizeChanged){
+    const sizes = state.groups.map(g=>g.entryIds.length);
+    const gap = Math.max(...sizes) - Math.min(...sizes);
+    if(gap>1){
+      openModal({ title:'Uneven groups', body:'After that move, group sizes now range from '+Math.min(...sizes)+' to '+Math.max(...sizes)+' entries. Still fine to proceed — just flagging it.', confirmLabel:'Got it', confirmClass:'primary', onConfirm:()=>{} });
+    }
+  }
+}
+function boardClashWarning(g){
+  const clashes = state.groups.filter(x=> x.id!==g.id && String(x.board)===String(g.board) && g.board!=='' && g.board!=null);
+  if(!clashes.length) return '';
+  return '<div class="confirm-box" style="background:#fdeceb;border-color:#eab6b0;color:#7a2318"><b>Board '+g.board+' is already assigned</b>Also used by Group '+clashes.map(c=>c.label).join(', ')+'. Give this chart a different board number, or set different start times if they play in sequence on the same board.</div>';
+}
+function chartDetailsCard(g){
+  if(!g) return '';
+  return '<div class="card"><h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#526171;margin:0 0 13px">Chart details — confirm each chart</h3>'+
+    '<div class="grid3">'+
+      '<div class="field"><label>Group alphabet</label><select onchange="setActiveGroup(this.value)">'+ state.groups.map(x=>'<option value="'+x.id+'"'+(x.id===g.id?' selected':'')+'>Group '+x.label+'</option>').join('') +'</select></div>'+
+      '<div class="field"><label>Board number</label><input type="number" min="1" value="'+g.board+'" onchange="setBoard(\''+g.id+'\',this.value)"></div>'+
+      '<div class="field"><label>Optional start time</label><input type="time" value="'+(g.startTime||'')+'" onchange="setStartTime(\''+g.id+'\',this.value)"></div>'+
+    '</div>'+
+    boardClashWarning(g)+
+    (g.unconfirmReason ? '<div class="confirm-box" style="background:#fff0e0;border-color:#eec488;color:#7a4a12"><b>Heads up</b>'+g.unconfirmReason+'</div>' : '')+
+    '<div class="confirm-box"><b>Before this chart is added to the print pack</b>Confirm the group letter, board number and entries are correct. Every group chart must be confirmed individually.</div>'+
+    '<div class="buttonrow"><button class="btn '+(g.confirmed?'secondary':'primary')+'" onclick="toggleConfirm(\''+g.id+'\')">'+(g.confirmed?'Un-confirm this chart':'Confirm this group chart')+'</button></div>'+
+    '<div class="confirm-box" style="'+(g.gameStarted?'background:#eaf7ee;border-color:#bfe6cc;color:#175c33':'background:#f3f5f7;border-color:#dbe2ea;color:#42505e')+'"><b>'+(g.gameStarted?'Game started':'Game not started')+'</b>'+(g.gameStarted?'Scores can be entered and positions are being calculated for this chart.':'This chart can still be confirmed and printed blank. Scores stay locked and positions stay uncalculated until you start the game.')+'</div>'+
+    '<div class="buttonrow"><button class="btn '+(g.gameStarted?'secondary':'primary')+'" onclick="toggleGameStarted(\''+g.id+'\')">'+(g.gameStarted?'Mark as not started':'Start game (unlock scores)')+'</button></div>'+
+  '</div>';
+}
+function setActiveGroup(id){ state.activeGroupId = id; persist(); render(); }
+function setBoard(id,val){ const g=state.groups.find(x=>x.id===id); g.board=parseInt(val)||1; persist(); render(); }
+function boardOptions(selected){
+  const max = Math.max(parseInt(state.eventCreation.boards)||4, parseInt(selected)||0);
+  let html = '';
+  for(let i=1;i<=max;i++){ html += '<option value="'+i+'"'+(String(i)===String(selected)?' selected':'')+'>Board '+i+'</option>'; }
+  return html;
+}
+function setStartTime(id,val){ const g=state.groups.find(x=>x.id===id); g.startTime=val; persist(); render(); }
+function toggleGameStarted(id){
+  const g=state.groups.find(x=>x.id===id);
+  if(!g.gameStarted){
+    openModal({
+      title:'Start this game?',
+      body:'Group '+g.label+' will unlock for score entry, and positions will start being calculated from results as they come in. You can still edit or reprint the chart afterwards.',
+      confirmLabel:'Start game', confirmClass:'primary',
+      onConfirm:()=>{ g.gameStarted = true; persist(); render(); }
+    });
+  } else {
+    g.gameStarted = false; persist(); render();
+  }
+}
+function toggleConfirm(id){
+  const g=state.groups.find(x=>x.id===id);
+  if(!g.confirmed){
+    openConfirmChartModal(id);
+  } else {
+    g.confirmed = false; g.unconfirmReason = null;
+    persist(); render();
+  }
+}
+function openConfirmChartModal(id){
+  const g = state.groups.find(x=>x.id===id);
+  const entries = g.entryIds.map(eid=> state.entriesList.find(e=>e.id===eid)).filter(Boolean);
+  const clashes = state.groups.filter(x=> x.id!==g.id && String(x.board)===String(g.board) && g.board!=='' && g.board!=null);
+  const warnings = [];
+  if(!g.board) warnings.push('No board number has been set for this chart.');
+  if(clashes.length) warnings.push('Board '+g.board+' is already assigned to Group '+clashes.map(c=>c.label).join(', ')+'.');
+  if(entries.length < 2) warnings.push('This chart only has '+entries.length+' entr'+(entries.length===1?'y':'ies')+' — it can\'t be played as-is.');
+  else if(entries.length < state.format.maxPerGroup) warnings.push('This group has '+entries.length+' of '+state.format.maxPerGroup+' possible entries — the remaining slot'+(state.format.maxPerGroup-entries.length===1?'':'s')+' will print blank.');
+  const dupNames = entries.map(e=>e.name.trim().toLowerCase()).filter((n,i,arr)=> n && arr.indexOf(n)!==i);
+  if(dupNames.length) warnings.push('Two or more entries in this group share the same name — double-check they\'re not duplicates.');
+  const warningsHTML = warnings.length
+    ? '<div class="confirm-box" style="background:#fdeceb;border-color:#eab6b0;color:#7a2318"><b>Please check before confirming</b>'+warnings.join('<br>')+'</div>'
+    : '<div class="confirm-box" style="background:#eaf7ee;border-color:#bfe6cc;color:#175c33"><b>Looks good</b>No issues found with this chart.</div>';
+  const summaryHTML = '<div class="summary-grid" style="margin-bottom:12px">'+
+      '<div><label>Group</label><strong>Group '+escapeHtml(g.label)+'</strong></div>'+
+      '<div><label>Board</label><strong>'+(g.board||'Not set')+'</strong></div>'+
+      '<div><label>Start time</label><strong>'+(g.startTime||'Not set')+'</strong></div>'+
+    '</div>'+
+    '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">Entries ('+entries.length+')</div>'+
+    '<ol style="margin:0 0 4px;padding-left:20px;font-size:12px;line-height:1.7">'+ (entries.length? entries.map(e=>'<li>'+escapeHtml(e.name)+'</li>').join('') : '<li style="color:var(--muted)">No entries assigned yet</li>') +'</ol>';
+  openModal({
+    title: 'Confirm Group '+g.label+' chart?',
+    bodyHTML: warningsHTML + summaryHTML,
+    confirmLabel:'Confirm this chart', confirmClass:'primary',
+    onConfirm: ()=>{
+      g.confirmed = true; g.confirmedEntryIds = [...g.entryIds]; g.unconfirmReason = null;
+      persist(); render();
+    }
+  });
+}
+function groupNav(g){
+  const idx = state.groups.findIndex(x=>x.id===g.id);
+  const prev = state.groups[idx-1]; const next = state.groups[idx+1];
+  return '<div class="group-nav">'+
+    '<button class="btn secondary" '+(prev?'':'disabled')+' onclick="'+(prev?'setActiveGroup(\''+prev.id+'\')':'')+'">&larr; Previous</button>'+
+    '<select onchange="setActiveGroup(this.value)">'+ state.groups.map(x=>'<option value="'+x.id+'"'+(x.id===g.id?' selected':'')+'>Group '+x.label+' · Board '+x.board+(x.confirmed?' ✓':'')+(x.gameStarted?' ▶':'')+'</option>').join('') +'</select>'+
+    '<button class="btn secondary" '+(next?'':'disabled')+' onclick="'+(next?'setActiveGroup(\''+next.id+'\')':'')+'">Next &rarr;</button>'+
+  '</div>';
+}
+function printControls(){
+  return '<div class="print-controls"><button class="btn secondary" onclick="goStage(2)">Make changes</button><button class="btn primary" onclick="goStage(4)">Review print pack →</button></div>';
+}
+
+/* ---------- Match / standings logic ---------- */
+function groupMatches(g){
+  const ids = g.entryIds;
+  const matches = [];
+  for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++) matches.push([ids[i], ids[j]]);
+  return matches;
+}
+function scoreKey(a,b){ return a<b ? a+'|'+b : b+'|'+a; }
+function getScore(g,a,b){
+  const key = scoreKey(a,b);
+  return (g.scores && g.scores[key]) || null;
+}
+function setScore(g,a,b,legsA,legsB){
+  if(!g.scores) g.scores = {};
+  const key = scoreKey(a,b);
+  const firstIsA = a<b;
+  g.scores[key] = firstIsA ? {legs1:legsA, legs2:legsB} : {legs1:legsB, legs2:legsA};
+}
+/* ---------- No-show / walkover (round robin) ----------
+   Design decision (Check-in tracking, Sept 2026): marking an entry as a
+   no-show auto-fills a majority-legs walkover loss into every one of their
+   *unscored* remaining matches in the group (existing real results are never
+   overwritten). Walkover cells are tagged `wo:true` on the stored score so
+   the chart can show "WO" instead of a normal leg score; entering a real
+   score over one later (via promptScore) replaces the object outright and
+   clears the tag automatically. */
+function majorityLegs(){ return Math.floor((parseInt(state.format.bestOfLegs)||5)/2)+1; }
+function markGroupNoShow(groupId, entryId){
+  const g = state.groups.find(x=>x.id===groupId);
+  const ent = state.entriesList.find(e=>e.id===entryId);
+  if(!g || !ent) return;
+  ent.noShow = true;
+  const majority = majorityLegs();
+  groupMatches(g).forEach(([a,b])=>{
+    if(a!==entryId && b!==entryId) return;
+    if(getScore(g,a,b)) return; // don't overwrite a real result already entered
+    const opp = a===entryId ? b : a;
+    setScore(g, entryId, opp, 0, majority);
+    g.scores[scoreKey(entryId,opp)].wo = true;
+  });
+  persist(); render();
+}
+function undoGroupNoShow(groupId, entryId){
+  const g = state.groups.find(x=>x.id===groupId);
+  const ent = state.entriesList.find(e=>e.id===entryId);
+  if(!g || !ent) return;
+  ent.noShow = false;
+  groupMatches(g).forEach(([a,b])=>{
+    if(a!==entryId && b!==entryId) return;
+    const key = scoreKey(a,b);
+    if(g.scores && g.scores[key] && g.scores[key].wo) delete g.scores[key];
+  });
+  persist(); render();
+}
+function openNoShowPicker(groupId){
+  const g = state.groups.find(x=>x.id===groupId);
+  if(!g) return;
+  const rows = g.entryIds.map(id=>{
+    const ent = state.entriesList.find(e=>e.id===id);
+    if(!ent) return '';
+    if(ent.noShow) return '<div class="picker-row"><span>'+escapeHtml(ent.name)+'</span><span class="occ">marked WO — <a href="javascript:void(0)" onclick="undoGroupNoShow(\''+g.id+'\',\''+ent.id+'\');closeModal();">undo</a></span></div>';
+    return '<div class="picker-row" onclick="markGroupNoShow(\''+g.id+'\',\''+ent.id+'\');closeModal();">'+escapeHtml(ent.name)+'</div>';
+  }).join('');
+  openModal({
+    title:'Mark a no-show — Group '+g.label,
+    bodyHTML: '<p style="margin-top:-4px">Choose who didn\'t show up. Their remaining unscored matches in this group are filled in as a '+majorityLegs()+'–0 walkover loss, tagged WO.</p><div class="picker-list">'+rows+'</div>',
+    confirmLabel:'Close', confirmClass:'secondary',
+    onConfirm:()=>{}
+  });
+}
+function computeStandings(g){
+  const table = {};
+  g.entryIds.forEach(id=> table[id] = {id, pts:0, played:0, legsFor:0, legsAgainst:0, wins:0, h2h:{}} );
+  groupMatches(g).forEach(([a,b])=>{
+    const key = scoreKey(a,b);
+    const sc = g.scores && g.scores[key];
+    if(!sc) return;
+    const firstIsA = a<b;
+    const legsA = firstIsA? sc.legs1 : sc.legs2;
+    const legsB = firstIsA? sc.legs2 : sc.legs1;
+    if(legsA===undefined || legsB===undefined || legsA===''||legsB==='') return;
+    const la=parseInt(legsA), lb=parseInt(legsB);
+    if(isNaN(la)||isNaN(lb)) return;
+    table[a].played++; table[b].played++;
+    table[a].legsFor+=la; table[a].legsAgainst+=lb;
+    table[b].legsFor+=lb; table[b].legsAgainst+=la;
+    if(la>lb){ table[a].pts+=2; table[a].wins++; table[a].h2h[b]='W'; table[b].h2h[a]='L'; }
+    else if(lb>la){ table[b].pts+=2; table[b].wins++; table[b].h2h[a]='W'; table[a].h2h[b]='L'; }
+    else { table[a].pts+=1; table[b].pts+=1; table[a].h2h[b]='D'; table[b].h2h[a]='D'; }
+  });
+  const arr = Object.values(table);
+  const order = (state && state.tieBreakOrder) || ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
+  arr.sort((x,y)=>{
+    if(y.pts!==x.pts) return y.pts-x.pts;
+    for(const rule of order){
+      const c = compareByRule(rule, x, y);
+      if(c!==0) return c;
+    }
+    return 0;
+  });
+  arr.forEach((r,i)=> r.position = i+1);
+  return arr;
+}
+function compareByRule(rule, x, y){
+  if(rule==='Head-to-head result'){
+    const h = x.h2h[y.id];
+    if(h==='W') return -1;
+    if(h==='L') return 1;
+    return 0;
+  }
+  if(rule==='Leg difference'){
+    const xd = x.legsFor-x.legsAgainst, yd = y.legsFor-y.legsAgainst;
+    return yd-xd;
+  }
+  if(rule==='Legs won'){ return y.legsFor-x.legsFor; }
+  return 0; // Organiser decision / playoff — no automatic ordering
+}
+
+/* ---------- Chart preview (Stage 3 live + used for print) ---------- */
+function chartSheetHTML(g, forPrint){
+  const t = state;
+  const entries = g.entryIds.map(id=> t.entriesList.find(e=>e.id===id)).filter(Boolean);
+  const n = entries.length;
+  const standings = g.gameStarted ? computeStandings(g) : [];
+  const posById = {}; standings.forEach(s=> posById[s.id]=s);
+  const cols = 1 + n + 2; // player col + n match cols + pts + pos
+  const colTemplate = '2.1fr ' + ('0.62fr '.repeat(n)) + '0.55fr 0.5fr';
+  let rows = '<div class="cell hdr">ENTRY</div>' + entries.map((e,i)=>'<div class="cell hdr">'+(i+1)+'</div>').join('') + '<div class="cell hdr">PTS</div><div class="cell hdr">POS.</div>';
+  entries.forEach((rowEnt, ri)=>{
+    rows += '<div class="cell player"><span class="num">'+(ri+1)+'</span>'+escapeHtml(rowEnt.name)+'</div>';
+    entries.forEach((colEnt, ci)=>{
+      if(ri===ci){
+        rows += '<div class="cell diag">'+diagLogoBoxHTML()+'</div>';
+      } else {
+        const sc = getScore(g, rowEnt.id, colEnt.id);
+        let display='', cls='empty';
+        if(sc){
+          const firstIsRow = rowEnt.id < colEnt.id;
+          const myLegs = firstIsRow? sc.legs1 : sc.legs2;
+          const oppLegs = firstIsRow? sc.legs2 : sc.legs1;
+          if(myLegs!==undefined && myLegs!=='' && oppLegs!==undefined && oppLegs!==''){
+            display = myLegs+'–'+oppLegs+(sc.wo?' <span class="wo-tag">WO</span>':'');
+            cls = parseInt(myLegs)>parseInt(oppLegs)?'win':(parseInt(myLegs)<parseInt(oppLegs)?'loss':'');
+          }
+        }
+        let editAttr = '';
+        if(!forPrint){
+          editAttr = g.gameStarted
+            ? ' onclick="promptScore(\''+g.id+'\',\''+rowEnt.id+'\',\''+colEnt.id+'\',\''+escapeHtml(rowEnt.name)+'\',\''+escapeHtml(colEnt.name)+'\')"'
+            : ' onclick="lockedScoreClick(\''+g.id+'\')"';
+        }
+        const lockedCls = (!forPrint && !g.gameStarted) ? ' locked' : '';
+        rows += '<div class="cell score-cell '+cls+lockedCls+'"'+editAttr+'>'+ (display||(forPrint?'':'—')) +'</div>';
+      }
+    });
+    const st = posById[rowEnt.id];
+    const ptsInner = g.gameStarted ? (st?st.pts:0) : '—';
+    const legsInner = (g.gameStarted && st && st.played) ? '<span class="legs-sub"><span class="legs-won">'+st.legsFor+'</span>–<span class="legs-lost">'+st.legsAgainst+'</span></span>' : '';
+    rows += '<div class="cell standing'+(legsInner?' with-legs':'')+'">'+ptsInner+legsInner+'</div><div class="cell standing">'+(g.gameStarted ? (st?st.position:'') : '—')+'</div>';
+  });
+  const matches = groupMatches(g);
+  const schedule = matches.map((m,i)=>{
+    const a = t.entriesList.find(x=>x.id===m[0]), b = t.entriesList.find(x=>x.id===m[1]);
+    const ai = entries.findIndex(x=>x.id===m[0])+1, bi = entries.findIndex(x=>x.id===m[1])+1;
+    return '<div class="match"><strong>Match '+(i+1)+'</strong> · '+ai+' v '+bi+'</div>';
+  }).join('');
+  const scheduleCols = Math.min(6, matches.length)||1;
+  return '<div class="print-sheet">'+
+    '<div class="sheet-top">'+
+      mainLogoBoxHTML()+
+      '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
+      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Round Robin Stage · Best of '+t.format.bestOfLegs+' Legs · '+escapeHtml(t.eventCreation.date||'')+'</div></div>'+
+      '<div class="group-label"><strong>GROUP '+g.label+'</strong><span>Board '+g.board+(g.startTime?' · '+g.startTime:'')+'</span></div>'+
+    '</div>'+
+    '<div class="chart" style="grid-template-columns:'+colTemplate+'">'+rows+'</div>'+
+    '<div class="schedule" style="grid-template-columns:repeat('+scheduleCols+',1fr)">'+schedule+'</div>'+
+    '<div class="footer"><small>Points: Win 2 · Draw 1 · Loss 0 &nbsp;|&nbsp; Tie-break: '+ t.tieBreakOrder.map((x,i)=>(i+1)+') '+x).join(', ') +(t.format.footerText?(' &nbsp;|&nbsp; '+escapeHtml(t.format.footerText)):'')+'</small>'+
+    (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' :
+      (t.printSettings.sponsorFooterEnabled && !forPrint ? '<div class="sponsors"><div class="sponsor">SPONSOR</div><div class="sponsor">SPONSOR</div></div>' : ''))+
+    '</div>'+
+  '</div>';
+}
+function runningOrderSheetHTML(confirmed){
+  const t = state;
+  const sorted = confirmed.slice().sort((a,b)=> (a.board-b.board) || String(a.startTime||'').localeCompare(String(b.startTime||'')) || a.label.localeCompare(b.label));
+  const rows = sorted.map(g=>{
+    const entries = g.entryIds.map(id=>t.entriesList.find(e=>e.id===id)).filter(Boolean);
+    const matchList = groupMatches(g).map((m,i)=>{
+      const ai = entries.findIndex(x=>x.id===m[0])+1, bi = entries.findIndex(x=>x.id===m[1])+1;
+      return (i+1)+') '+ai+' v '+bi;
+    }).join('   ·   ');
+    return '<div class="ro-row"><div class="ro-board">Board '+g.board+'</div><div class="ro-time">'+(g.startTime||'—')+'</div><div>Group '+g.label+'</div><div class="ro-matches">'+matchList+'</div></div>';
+  }).join('');
+  return '<div class="print-sheet ro-sheet">'+
+    '<div class="sheet-top">'+
+      mainLogoBoxHTML()+
+      '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
+      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · '+escapeHtml(t.eventCreation.date||'')+'</div></div>'+
+      '<div class="group-label"><strong>RUNNING ORDER</strong><span>'+sorted.length+' group'+(sorted.length===1?'':'s')+' · all boards</span></div>'+
+    '</div>'+
+    '<div class="ro-title">Master running order — board by board</div>'+
+    '<div class="ro-table"><div class="ro-row ro-hdr"><div>Board</div><div>Start time</div><div>Group</div><div>Matches</div></div>'+rows+'</div>'+
+  '</div>';
+}
+/* ---------- Rules & format summary sheet ---------- */
+/* Auto-generated from the tournament's own settings — nothing extra to fill
+   in beyond the optional free-text notes field in Format & branding. Meant
+   to be posted or handed out so players/scorers aren't asking mid-event. */
+function formatDescriptionLines(t){
+  const f = t.format, unit = t.eventCreation.competitionUnit;
+  const lines = [];
+  const bestOf = parseInt(f.bestOfLegs)||5, majority = Math.floor(bestOf/2)+1;
+  if(f.formatType==='roundrobin'){
+    lines.push('Format: Round robin — every entry in a group plays every other entry in that group once.');
+    lines.push('Scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of '+bestOf+' legs (first to '+majority+').');
+  } else if(f.formatType==='knockout'){
+    lines.push('Format: Knockout — single elimination. Lose once and you’re out (except any bye rounds).');
+    lines.push('Each match is best of '+bestOf+' legs (first to '+majority+'). Knockout matches cannot end in a draw.');
+  } else if(f.formatType==='rrknockout'){
+    lines.push('Format: Round robin group stage, followed by a knockout bracket.');
+    lines.push('Group stage scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of '+bestOf+' legs (first to '+majority+').');
+    lines.push('Advancing to the knockout: top '+f.qualifiersPerGroup+' from each group, '+(f.advanceMode==='seeded'?'seeded by group finishing position':'drawn at random')+'.'+(f.losersPool ? ' Non-qualifiers go into a separate losers’ pool (Plate) knockout bracket' + (f.plateQualifiersPerGroup ? ' (next '+f.plateQualifiersPerGroup+' per group; anyone ranked below that is eliminated)' : ' (everyone who doesn\'t qualify for the main bracket)') + '.' : ''));
+    lines.push('Knockout stage matches are best of '+bestOf+' legs and cannot end in a draw.');
+  }
+  if(isTeamUnit(t)){
+    const size = teamSizeFor(t);
+    lines.push(unit+' size: '+size+' named player'+(size===1?'':'s')+' per entry.');
+    if(unit==='Teams'){
+      if(f.teamMatchFormat==='mixed'){
+        const comp = (f.mixedRubbers||[]).map((r,i)=>(i+1)+') '+r.name+' ('+r.type+', '+(r.startingScore||501)+' x '+(r.legs||3)+' leg'+((r.legs||3)===1?'':'s')+(r.isTieBreaker?', tie-breaker only':'')+')').join(', ');
+        lines.push('Team match format: rubber-based. Each encounter is decided by rubbers won, played in order: '+comp+'.');
+      } else {
+        lines.push('Team match format: Foursome — each encounter between two teams is played as one match, full team vs full team.');
+      }
+    }
+  }
+  if(f.orgSplit) lines.push('Entries from the same organisation are kept apart where possible, both in round robin groups and in the first knockout round.');
+  return lines;
+}
+function rulesSheetHTML(){
+  const t = state;
+  const order = t.tieBreakOrder || ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
+  const lines = formatDescriptionLines(t);
+  return '<div class="print-sheet ro-sheet">'+
+    '<div class="sheet-top">'+
+      mainLogoBoxHTML()+
+      '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
+      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · '+escapeHtml(t.eventCreation.date||'')+'</div></div>'+
+      '<div class="group-label"><strong>RULES &amp; FORMAT</strong><span>Please read before playing</span></div>'+
+    '</div>'+
+    '<div class="ro-title">Format</div>'+
+    '<div style="border:1px solid #b5bdc5;border-radius:6px;padding:4px 0">'+
+      lines.map((l,i)=>'<div style="padding:9px 14px;font-size:12px;line-height:1.5;'+(i?'border-top:1px solid #d7dce1':'')+'">'+escapeHtml(l)+'</div>').join('')+
+    '</div>'+
+    '<div class="ro-title">Tie-break order <span style="font-weight:400;font-size:12px;color:#6f7c8b">(used only when points are level)</span></div>'+
+    '<div style="border:1px solid #b5bdc5;border-radius:6px;padding:4px 0">'+
+      order.map((rule,i)=>'<div style="padding:9px 14px;font-size:12px;line-height:1.5;'+(i?'border-top:1px solid #d7dce1':'')+'"><strong>'+(i+1)+'.</strong> '+escapeHtml(rule)+'</div>').join('')+
+    '</div>'+
+    (t.format.rulesNotes ? '<div class="ro-title">Walkover, conduct &amp; other rules</div>'+
+      '<div style="border:1px solid #b5bdc5;border-radius:6px;padding:12px 14px;font-size:12px;line-height:1.55;white-space:pre-line">'+escapeHtml(t.format.rulesNotes)+'</div>' : '')+
+    (t.format.footerText ? '<div class="footer" style="margin-top:14px"><small>'+escapeHtml(t.format.footerText)+'</small></div>' : '')+
+  '</div>';
+}
+function renderChartPreview(){
+  const mount = document.getElementById('chartPreviewMount');
+  if(!mount) return;
+  const g = state.groups.find(x=>x.id===state.activeGroupId) || state.groups[0];
+  if(!g){ mount.innerHTML=''; return; }
+  mount.innerHTML = chartSheetHTML(g, false);
+}
+function lockedScoreClick(groupId){
+  const g = state.groups.find(x=>x.id===groupId);
+  openModal({
+    title:'Scores are locked',
+    body:'Group '+(g?g.label:'')+' hasn\'t started yet. All games start together, not individually — go to Manage Tournament and click "Start all games" to unlock score entry for every confirmed chart at once.',
+    confirmLabel:'OK', confirmClass:'primary',
+    onConfirm:()=>{}
+  });
+}
+function promptScore(groupId, aId, bId, aName, bName){
+  const g = state.groups.find(x=>x.id===groupId);
+  if(!g.gameStarted){ lockedScoreClick(groupId); return; }
+  if(isTeamMixed(state)){ promptScoreMixed(groupId, aId, bId, aName, bName); return; }
+  const sc = getScore(g,aId,bId);
+  const firstIsA = aId<bId;
+  let curA=0, curB=0;
+  if(sc){ curA = firstIsA? sc.legs1 : sc.legs2; curB = firstIsA? sc.legs2 : sc.legs1; if(curA==='') curA=0; if(curB==='') curB=0; }
+  const bestOf0 = parseInt(state.format.bestOfLegs)||5;
+  const majority0 = Math.floor(bestOf0/2)+1;
+  const clampAttr = 'min="0" max="'+majority0+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.min(Math.max(parseInt(this.value)||0,0),'+majority0+')"';
+  openModal({
+    title: aName+' v '+bName,
+    bodyHTML: '<div class="grid2"><div class="field"><label>'+escapeHtml(aName)+' legs</label><input id="scA" type="number" '+clampAttr+' value="'+curA+'"></div>'+
+      '<div class="field"><label>'+escapeHtml(bName)+' legs</label><input id="scB" type="number" '+clampAttr+' value="'+curB+'"></div></div>'+
+      '<p style="font-size:11px;color:#8a97a5">Best of '+state.format.bestOfLegs+' legs — a side can score at most '+majority0+'.</p>',
+    confirmLabel:'Save score', confirmClass:'primary',
+    onConfirm:()=>{
+      const va = document.getElementById('scA').value, vb = document.getElementById('scB').value;
+      const la = parseInt(va), lb = parseInt(vb);
+      if(va===''||vb===''||isNaN(la)||isNaN(lb)||la<0||lb<0){
+        return { error: 'Enter a leg count for both sides (0 or more).' };
+      }
+      const bestOf = parseInt(state.format.bestOfLegs)||5;
+      const majority = Math.floor(bestOf/2)+1;
+      const winner = Math.max(la,lb), loser = Math.min(la,lb);
+      if(winner!==majority || loser>=majority){
+        return { error: 'Not a valid finished result for best of '+bestOf+' legs — the winner must have exactly '+majority+' legs, and the loser fewer. (e.g. '+majority+'–0 up to '+majority+'–'+(majority-1)+').' };
+      }
+      setScore(g, aId, bId, va, vb);
+      persist();
+      render();
+    }
+  });
+}
+/* Team "Singles + Doubles mix" scoring (format.teamMatchFormat==='mixed').
+   Design decision: rather than a single leg score, a team encounter is a
+   fixed sequence of rubbers (configured in Format & branding, default from
+   defaultRubbers()) and the organiser records only the WINNER of each rubber
+   — no leg-by-leg detail, since club team nights are normally scored that
+   way on paper already. Rubbers won is then fed into the exact same
+   legsFor/legsAgainst/points machinery normal round robin already uses
+   (setScore stores rubber-win-counts in place of leg counts), so
+   computeStandings needed no changes at all. The per-rubber winners are kept
+   separately (g.rubberScores) purely so the result can be reviewed/edited
+   again later — they don't otherwise feed standings. */
+function rubberLabelHTML(r){
+  const legs = r.legs||3, startingScore = r.startingScore||501;
+  const sub = (r.isTieBreaker?'Tie-breaker · ':'')+startingScore+' x '+legs+' leg'+(legs===1?'':'s')+(r.type?' · '+r.type:'');
+  return escapeHtml(r.name)+' <span style="color:#8a97a5;text-transform:none;font-weight:400">('+sub+')</span>';
+}
+function promptScoreMixed(groupId, aId, bId, aName, bName){
+  const g = state.groups.find(x=>x.id===groupId);
+  const rubbers = state.format.mixedRubbers||[];
+  const curWinners = getRubberScore(g,aId,bId) || [];
+  const rowsHTML = rubbers.map((r,i)=>{
+    const cur = curWinners[i]||'';
+    return '<div class="field"><label>'+rubberLabelHTML(r)+'</label>'+
+      '<select id="rub_'+i+'"><option value="">— not played —</option>'+
+      '<option value="A" '+(cur==='A'?'selected':'')+'>'+escapeHtml(aName)+' win</option>'+
+      '<option value="B" '+(cur==='B'?'selected':'')+'>'+escapeHtml(bName)+' win</option></select></div>';
+  }).join('');
+  openModal({
+    title: aName+' v '+bName,
+    bodyHTML: '<p style="font-size:11px;color:#8a97a5;margin-top:0">Team encounter decided by rubbers — record the winner of each rubber below. The side winning the most rubbers wins the encounter. A tie-breaker rubber only needs a result if the rest ends level.</p>'+rowsHTML,
+    confirmLabel:'Save result', confirmClass:'primary',
+    onConfirm:()=>{
+      const winners = rubbers.map((r,i)=> document.getElementById('rub_'+i).value);
+      const missingRequired = rubbers.some((r,i)=> !r.isTieBreaker && !winners[i]);
+      if(missingRequired) return { error:'Record a winner for every rubber (tie-breakers are the only ones that can stay "not played").' };
+      const mainA = rubbers.filter((r,i)=>!r.isTieBreaker && winners[i]==='A').length;
+      const mainB = rubbers.filter((r,i)=>!r.isTieBreaker && winners[i]==='B').length;
+      const hasTieBreaker = rubbers.some(r=>r.isTieBreaker);
+      if(mainA===mainB && hasTieBreaker){
+        const tbMissing = rubbers.some((r,i)=> r.isTieBreaker && !winners[i]);
+        if(tbMissing) return { error:'This encounter is level without the tie-breaker — record its result too.' };
+      }
+      const aWins = winners.filter(w=>w==='A').length, bWins = winners.filter(w=>w==='B').length;
+      if(aWins===bWins) return { error:'This encounter can\'t end level with the current rubber count — reconfigure the rubbers in Format & branding so the total is odd, or re-check the results entered.' };
+      setScore(g, aId, bId, aWins, bWins);
+      setRubberScore(g, aId, bId, winners);
+      persist(); render();
+    }
+  });
+}
+function getRubberScore(g,a,b){
+  if(!g.rubberScores) return null;
+  const rec = g.rubberScores[scoreKey(a,b)];
+  if(!rec) return null;
+  const firstIsA = a<b;
+  return firstIsA ? rec.slice() : rec.map(w=> w==='A'?'B':(w==='B'?'A':w));
+}
+function setRubberScore(g,a,b,winnersForAB){
+  if(!g.rubberScores) g.rubberScores = {};
+  const firstIsA = a<b;
+  g.rubberScores[scoreKey(a,b)] = firstIsA ? winnersForAB.slice() : winnersForAB.map(w=> w==='A'?'B':(w==='B'?'A':w));
+}
+
+/* ---------- Stage 4: Confirm & Print Bracket ---------- */
+function stage4(){
+  if(state.format.formatType==='knockout') return stage4Knockout();
+  const confirmed = state.groups.filter(g=>g.confirmed);
+  const allConfirmed = state.groups.length && state.groups.every(g=>g.confirmed);
+  const readyCount = state.groups.filter(g=>!g.confirmed && bulkSelected.has(g.id)).length;
+  let html = checkInCardHTML();
+  html += '<div class="entries-panel"><h2>Confirm each chart</h2><p class="intro">Check the board, start time and entries for every group, then confirm it. Once confirmed, print the blank bracket pack below — you can keep editing and reprinting right up until you start games in Manage Tournament.</p>'+
+    '<div class="buttonrow" style="margin:0 0 14px">'+
+      '<button class="btn ghost" onclick="bulkSelectAll()">Select all unconfirmed</button>'+
+      '<button class="btn primary" '+(readyCount?'':'disabled')+' onclick="bulkConfirmSelected()">Confirm selected ('+readyCount+')</button>'+
+    '</div>'+
+    state.groups.map(g=>{
+      return '<div class="group-block"><div class="group-block-head">'+
+        '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" style="width:auto;height:auto" '+(bulkSelected.has(g.id)?'checked':'')+' onchange="toggleBulkSelect(\''+g.id+'\',this.checked)"><strong>Group '+g.label+'</strong></label>'+
+        '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+          g.entryIds.length+' / '+state.format.maxPerGroup+' entries · Board '+g.board+(g.startTime?' · '+g.startTime:'')+' · <span class="confirm-flag '+(g.confirmed?'yes':'no')+'">'+(g.confirmed?'Confirmed':'Not confirmed')+'</span>'+
+        '</span></div>'+
+        '<div class="buttonrow" style="margin:6px 0 2px"><button class="btn '+(g.confirmed?'secondary':'primary')+'" onclick="toggleConfirm(\''+g.id+'\')">'+(g.confirmed?'Un-confirm':'Confirm this chart')+'</button></div>'+
+        livePreviewBlock(g)+
+      '</div>';
+    }).join('')+
+  '</div>';
+  html += '<div class="card">'+
+    '<h2>Print bracket pack</h2><p class="intro">Prints the blank charts (no scores yet) so boards, times and entries are locked in on paper before play begins.</p>'+
+    '<div class="summary-grid" style="margin-bottom:12px">'+
+      '<div><label>Format</label><strong>A4 landscape</strong></div>'+
+      '<div><label>Charts included</label><strong>'+confirmed.length+' of '+state.groups.length+'</strong></div>'+
+      '<div><label>Sponsor footer</label><strong>'+(state.printSettings.sponsorFooterEnabled?'Enabled':'Disabled')+'</strong></div>'+
+    '</div>'+
+    '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(state.printSettings.sponsorFooterEnabled?'checked':'')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">Include sponsor footer on printed charts</label></div>'+
+    teamHandoutToggleHTML()+
+    lineupSheetToggleHTML()+
+    rulesSheetToggleHTML()+
+    '<div class="hint" style="margin-bottom:6px">A master running order sheet (board-by-board match list) is generated automatically as the first page of the pack.</div>'+
+    '<div class="printlist">'+ state.groups.map(g=> '<div><span>Group '+g.label+' — Board '+g.board+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">Confirmed</b>':'<b style="color:#c0392b">Not confirmed</b>')+'</span></div>' ).join('') +'</div>'+
+    (!allConfirmed ? '<div class="confirm-box"><b>Some charts are not confirmed yet</b>You can still print the confirmed charts now, or go back and confirm the rest first.</div>' : '')+
+    '<div class="buttonrow">'+
+      '<button class="btn secondary" onclick="goStage(3)">Make changes</button>'+
+      '<button class="btn '+(confirmed.length?'primary':'secondary')+'" '+(confirmed.length?'':'disabled')+' onclick="doFinalPrint()">Print bracket pack</button>'+
+      '<button class="btn '+(allConfirmed?'primary':'secondary')+'" onclick="goStage(5)">Continue to manage tournament →</button>'+
+    '</div>'+
+  '</div>';
+  return html;
+}
+function toggleSponsorFooter(v){ state.printSettings.sponsorFooterEnabled = v; persist(); render(); }
+function toggleTeamHandout(v){ state.printSettings.teamHandoutEnabled = v; persist(); render(); }
+/* Only offered for Doubles/Triples/Teams — Singles has no roster/team concept for a handout to describe. */
+function teamHandoutToggleHTML(){
+  if(!isTeamUnit(state)) return '';
+  return '<div class="toggle-row"><input type="checkbox" id="handoutToggle" '+(state.printSettings.teamHandoutEnabled?'checked':'')+' onchange="toggleTeamHandout(this.checked)"> <label for="handoutToggle">Also print a team handout sheet (roster + fixtures) for each '+unitWordFor(state.eventCreation.competitionUnit).toLowerCase()+'</label></div>';
+}
+function toggleRulesSheet(v){ state.printSettings.rulesSheetEnabled = v; persist(); render(); }
+function rulesSheetToggleHTML(){
+  return '<div class="toggle-row"><input type="checkbox" id="rulesToggle" '+(state.printSettings.rulesSheetEnabled?'checked':'')+' onchange="toggleRulesSheet(this.checked)"> <label for="rulesToggle">Include the rules &amp; format sheet as the first page of the pack</label></div>';
+}
+function toggleLineupSheet(v){ state.printSettings.lineupSheetEnabled = v; persist(); render(); }
+/* Only offered for the rubber-based team format — Foursome has no per-rubber lineup to print. */
+function lineupSheetToggleHTML(){
+  if(!isTeamMixed(state)) return '';
+  return '<div class="toggle-row"><input type="checkbox" id="lineupToggle" '+(state.printSettings.lineupSheetEnabled?'checked':'')+' onchange="toggleLineupSheet(this.checked)"> <label for="lineupToggle">Also print a lineup/scorecard sheet for each fixture, for captains to fill in on the day</label></div>';
+}
+/* ---------- Stage 4 (Knockout format): generate + confirm + print bracket ---------- */
+function stage4Knockout(){
+  ensureSeedOrder(state);
+  let html = checkInCardHTML();
+  html += '<div class="card"><h2>Generate &amp; confirm bracket</h2><p class="intro">Builds the knockout bracket from the seed order set in Chart details. You can regenerate it any time before you start entering results.</p>'+
+    '<div class="buttonrow">'+
+      '<button class="btn primary" onclick="regenerateKnockoutBracket()">'+(state.knockout?'Regenerate bracket':'Generate bracket')+'</button>'+
+      (state.knockout?'<button class="btn secondary" onclick="doFinalPrint()">Print bracket pack</button>':'')+
+      (state.knockout?'<button class="btn primary" onclick="goStage(5)">Continue to manage tournament →</button>':'')+
+    '</div></div>';
+  if(state.knockout) html += '<div class="card">'+bracketColumnsHTML(state.knockout, state, {interactive:false})+'</div>';
+  return html;
+}
+function regenerateKnockoutBracket(){
+  const doIt = ()=>{
+    ensureSeedOrder(state);
+    const ordered = state.seedOrder.map(id=>{ const e=state.entriesList.find(x=>x.id===id); return {entryId:id, org:e?e.org:''}; });
+    state.knockout = generateBracket(ordered, 'Bracket');
+    persist(); render();
+  };
+  const hasScores = state.knockout && bracketHasScores(state.knockout);
+  const notCheckedIn = notCheckedInEntries();
+  if(hasScores || notCheckedIn.length){
+    let body = hasScores ? '<p>This discards all results entered so far and rebuilds a fresh blank bracket from the current seed order.</p>' : '<p>Builds the knockout bracket from the current seed order.</p>';
+    body += noShowWarningHTML(notCheckedIn);
+    openModal({title: hasScores?'Regenerate bracket?':'Generate bracket?', bodyHTML: body, confirmLabel: hasScores?'Regenerate':'Generate', confirmClass: hasScores?'danger':'primary', onConfirm:doIt});
+  } else { doIt(); }
+}
+/* ---------- Round robin -> Knockout: generating the bracket from group standings ---------- */
+function stage5KnockoutSection(){
+  const t = state;
+  let html = '<div class="card"><h2>Knockout stage</h2>';
+  if(!t.knockout){
+    const confirmedGroups = t.groups.filter(g=>g.confirmed);
+    const allStarted = confirmedGroups.length && confirmedGroups.every(g=>g.gameStarted);
+    const plateNote = t.format.losersPool ? (t.format.plateQualifiersPerGroup ? ', next '+t.format.plateQualifiersPerGroup+' per group to the Plate, anyone below that eliminated' : ', everyone else to the Plate') : '';
+    html += '<p class="intro">Generates the knockout bracket from each group\'s current standings ('+t.format.qualifiersPerGroup+' qualifier'+(t.format.qualifiersPerGroup==1?'':'s')+' per group, '+(t.format.advanceMode==='seeded'?'seeded by group position':'random draw')+plateNote+').</p>'+
+      (!allStarted ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Round robin still in progress</b>Generating now uses whatever standings exist so far — usually best to wait until every group\'s games are finished.</div>' : '')+
+      '<div class="buttonrow"><button class="btn primary" onclick="generateKnockoutFromRR()">Generate knockout bracket</button></div>';
+  } else {
+    html += '<p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
+      '<div class="buttonrow" style="margin-bottom:10px"><button class="btn ghost" onclick="regenerateKnockoutFromRR()">Regenerate from current standings</button></div>'+
+      bracketColumnsHTML(t.knockout, t, {interactive:true, bracketKey:'knockout'});
+  }
+  html += '</div>';
+  if(t.format.losersPool && t.knockoutLosers){
+    html += '<div class="card"><h3 style="margin:0 0 10px">Losers\' pool (Plate)</h3>'+bracketColumnsHTML(t.knockoutLosers, t, {interactive:true, bracketKey:'knockoutLosers'})+'</div>';
+  }
+  return html;
+}
+function generateKnockoutFromRR(){
+  const t = state;
+  const qualifiers = collectQualifiers(t);
+  if(qualifiers.length<2){ openModal({title:'Not enough qualifiers', body:'At least 2 entries need to qualify — check group standings and the qualifiers-per-group setting in Format & branding.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
+  let ordered = t.format.advanceMode==='random' ? shuffleArray(qualifiers) : qualifiers;
+  t.knockout = generateBracket(ordered, 'Main bracket');
+  t.knockoutLosers = null;
+  if(t.format.losersPool){
+    const nonQual = collectNonQualifiers(t);
+    if(nonQual.length>=2){
+      const orderedL = t.format.advanceMode==='random' ? shuffleArray(nonQual) : nonQual;
+      t.knockoutLosers = generateBracket(orderedL, "Losers' pool (Plate)");
+    }
+  }
+  persist(); render();
+}
+function regenerateKnockoutFromRR(){
+  const doIt = ()=> generateKnockoutFromRR();
+  if(bracketHasScores(state.knockout) || (state.knockoutLosers && bracketHasScores(state.knockoutLosers))){
+    openModal({title:'Regenerate bracket?', body:'This discards all knockout results entered so far and rebuilds from current group standings.', confirmLabel:'Regenerate', confirmClass:'danger', onConfirm:doIt});
+  } else { doIt(); }
+}
+/* ---------- Stage 5: Manage Tournament (start games, enter scores) ---------- */
+/* ---------- Disciplinary / incident log (Day-of-the-event) ----------
+   Design decision: organiser-only record, deliberately never printed (often
+   sensitive/personal) — lives as its own card at the bottom of Stage 5
+   (Manage Tournament) for every format, since that's when play, and
+   incidents, actually happen. Kept simple: who (optional — not every
+   incident involves a specific entry), what happened, and what action was
+   taken, timestamped automatically. */
+const INCIDENT_ACTIONS = ['Verbal warning','Formal warning','Disqualification','Other'];
+function incidentLogCardHTML(){
+  const list = (state.incidents||[]).slice().sort((a,b)=> b.at-a.at);
+  const rows = list.map(inc=>{
+    const ent = inc.entryId ? state.entriesList.find(e=>e.id===inc.entryId) : null;
+    return '<tr><td style="padding:8px 6px;border-top:1px solid var(--line);white-space:nowrap;color:var(--muted);font-size:11px">'+escapeHtml(new Date(inc.at).toLocaleString())+'</td>'+
+      '<td style="padding:8px 6px;border-top:1px solid var(--line);font-weight:700">'+(ent?escapeHtml(ent.name):'<span style="color:var(--muted);font-weight:400">—</span>')+'</td>'+
+      '<td style="padding:8px 6px;border-top:1px solid var(--line)">'+escapeHtml(inc.description)+'</td>'+
+      '<td style="padding:8px 6px;border-top:1px solid var(--line);white-space:nowrap">'+escapeHtml(inc.action)+'</td>'+
+      '<td style="padding:8px 6px;border-top:1px solid var(--line)"><a href="javascript:void(0)" onclick="deleteIncident(\''+inc.id+'\')" style="color:#c0392b;font-size:11px">Delete</a></td></tr>';
+  }).join('');
+  return '<div class="card"><h2>Disciplinary / incident log</h2><p class="intro">Organiser-only record — not included in any printed pack. Use it to note warnings, disputes or other on-the-day incidents.</p>'+
+    '<div class="buttonrow" style="margin:0 0 12px"><button class="btn primary" onclick="openLogIncidentModal()">+ Log incident</button></div>'+
+    (list.length ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em"><th style="padding:0 6px 7px">When</th><th style="padding:0 6px 7px">Entry</th><th style="padding:0 6px 7px">What happened</th><th style="padding:0 6px 7px">Action taken</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>' : '<p class="intro" style="margin:0">No incidents logged.</p>')+
+  '</div>';
+}
+function openLogIncidentModal(){
+  const active = state.entriesList.filter(e=>!e.withdrawn);
+  const entryOptions = '<option value="">— Not entry-specific —</option>' + active.map(e=>'<option value="'+e.id+'">'+escapeHtml(e.name)+'</option>').join('');
+  const actionOptions = INCIDENT_ACTIONS.map(a=>'<option value="'+a+'">'+a+'</option>').join('');
+  openModal({
+    title:'Log an incident',
+    bodyHTML: '<div class="field"><label>Entry (optional)</label><select id="incEntry">'+entryOptions+'</select></div>'+
+      '<div class="field"><label>What happened</label><textarea id="incDesc" placeholder="e.g. Disputed a scoring call on board 3..."></textarea></div>'+
+      '<div class="field"><label>Action taken</label><select id="incAction">'+actionOptions+'</select></div>',
+    confirmLabel:'Log incident', confirmClass:'primary',
+    onConfirm:()=>{
+      const desc = document.getElementById('incDesc').value.trim();
+      if(!desc) return { error: 'Describe what happened.' };
+      const entryId = document.getElementById('incEntry').value || null;
+      const action = document.getElementById('incAction').value;
+      if(!state.incidents) state.incidents = [];
+      state.incidents.push({ id: uid('inc'), entryId, description:desc, action, at: Date.now() });
+      persist(); render();
+    }
+  });
+}
+function deleteIncident(id){
+  state.incidents = (state.incidents||[]).filter(i=>i.id!==id);
+  persist(); render();
+}
+function stage5(){
+  if(state.format.formatType==='knockout') return stage5Knockout();
+  const confirmed = state.groups.filter(g=>g.confirmed);
+  const startedCount = confirmed.filter(g=>g.gameStarted).length;
+  let html = '<div class="card">'+
+    '<h2>Manage tournament</h2><p class="intro">Start all games when play begins, then enter scores directly on each chart below. Positions and points calculate live as results come in.</p>'+
+    '<div class="confirm-box" style="background:#f3f5f7;border-color:#dbe2ea;color:#42505e"><b>Games start all together, not individually</b>'+(confirmed.length? (startedCount+' of '+confirmed.length+' confirmed chart'+(confirmed.length===1?'':'s')+' started.') : 'No charts confirmed yet — go to Confirm & Print Bracket first.')+'</div>'+
+    '<div class="buttonrow">'+
+      '<button class="btn secondary" onclick="goStage(4)">Confirm & print bracket</button>'+
+      '<button class="btn '+(confirmed.length && startedCount<confirmed.length?'primary':'secondary')+'" '+(confirmed.length?'':'disabled')+' onclick="startAllGames()">Start all games</button>'+
+    '</div>'+
+  '</div>';
+  if(!confirmed.length){
+    html += '<div class="card"><p class="intro" style="margin:0">Confirm at least one group chart in Confirm & Print Bracket before you can manage scores here.</p></div>';
+  } else {
+    html += confirmed.map(g=>
+      '<div class="manage-chart-card">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">'+
+          '<strong>Group '+g.label+' · Board '+g.board+(g.startTime?' · '+g.startTime:'')+'</strong>'+
+          '<span style="display:flex;align-items:center;gap:8px">'+
+            (g.gameStarted?'<button class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="openNoShowPicker(\''+g.id+'\')">Mark no-show…</button>':'')+
+            '<span class="confirm-flag '+(g.gameStarted?'yes':'no')+'">'+(g.gameStarted?'Game started':'Not started')+'</span>'+
+          '</span>'+
+        '</div>'+
+        '<div class="manage-chart-wrap"><div class="manage-chart-inner" id="manageChart_'+g.id+'" style="width:1000px">'+ chartSheetHTML(g, false) +'</div></div>'+
+      '</div>'
+    ).join('');
+  }
+  if(state.format.formatType==='rrknockout') html += stage5KnockoutSection();
+  html += incidentLogCardHTML();
+  return html;
+}
+function stage5Knockout(){
+  if(!state.knockout){
+    return '<div class="card"><h2>Manage tournament</h2><p class="intro">Generate the bracket in Confirm &amp; Print Bracket before you can enter results here.</p><div class="buttonrow"><button class="btn primary" onclick="goStage(4)">Confirm & print bracket</button></div></div>';
+  }
+  let html = '<div class="card"><h2>Manage tournament</h2><p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
+    bracketColumnsHTML(state.knockout, state, {interactive:true, bracketKey:'knockout'})+
+  '</div>';
+  html += incidentLogCardHTML();
+  return html;
+}
+function scaleManageCharts(){
+  document.querySelectorAll('.manage-chart-wrap').forEach(wrap=>{
+    const inner = wrap.querySelector('.manage-chart-inner');
+    if(!inner) return;
+    const w = 1000, h = Math.round(w/1.414);
+    const scale = Math.min(1, wrap.clientWidth/w);
+    inner.style.transformOrigin = 'top left';
+    inner.style.transform = 'scale('+scale+')';
+    wrap.style.height = Math.round(h*scale)+'px';
+  });
+}
+/* ---------- Stage 6: Finalize Standings (review only) ---------- */
+function stage6(){
+  if(state.format.formatType==='knockout') return stage6Knockout();
+  const confirmed = state.groups.filter(g=>g.confirmed);
+  let html = '<div class="card">'+
+    '<h2>Finalize standings</h2><p class="intro">Review each group\'s final standings before printing. This page is read-only — if you spot an issue, go back to Manage Tournament to fix a score.</p>'+
+  '</div>';
+  if(!confirmed.length){
+    html += '<div class="card"><p class="intro" style="margin:0">No confirmed charts yet.</p></div>';
+    return html;
+  }
+  html += confirmed.map(g=>{
+    const standings = g.gameStarted ? computeStandings(g) : [];
+    const rows = standings.map(st=>{
+      const ent = state.entriesList.find(e=>e.id===st.id);
+      return '<tr><td style="padding:7px 6px;border-top:1px solid var(--line);font-weight:700">'+st.position+'</td><td style="padding:7px 6px;border-top:1px solid var(--line)">'+escapeHtml(ent?ent.name:'—')+'</td><td style="padding:7px 6px;border-top:1px solid var(--line);font-weight:700">'+st.pts+'</td><td style="padding:7px 6px;border-top:1px solid var(--line);color:var(--muted)">'+st.played+'</td></tr>';
+    }).join('');
+    return '<div class="card">'+
+      '<h3 style="margin:0 0 10px;font-size:15px">Group '+g.label+' · Board '+g.board+'</h3>'+
+      (!g.gameStarted ? '<div class="confirm-box" style="margin:0">Game hasn\'t started yet — standings will appear here once scores are entered in Manage Tournament.</div>' :
+        '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em"><th style="padding:0 6px 7px">Pos.</th><th style="padding:0 6px 7px">Entry</th><th style="padding:0 6px 7px">Pts</th><th style="padding:0 6px 7px">Played</th></tr></thead><tbody>'+rows+'</tbody></table>')+
+    '</div>';
+  }).join('');
+  if(state.format.formatType==='rrknockout') html += stage6KnockoutSection();
+  html += '<div class="print-controls"><button class="btn secondary" onclick="goStage(5)">Back to manage tournament</button><button class="btn primary" onclick="goStage(7)">Continue to print →</button></div>';
+  return html;
+}
+function knockoutPlacementsCard(bracket, title){
+  const champ = bracketChampion(bracket);
+  const runnerUp = bracketRunnerUp(bracket);
+  return '<div class="card"><h3 style="margin:0 0 10px;font-size:15px">'+escapeHtml(title)+'</h3>'+
+    (champ ? '<div class="confirm-box" style="margin:0 0 14px;background:#eaf7ee;border-color:#bfe6cc;color:#175c33"><b>🏆 Winner: '+escapeHtml(bracketEntryName(state,champ))+'</b>Runner-up: '+escapeHtml(bracketEntryName(state,runnerUp)||'—')+'</div>' : '<div class="confirm-box" style="margin:0 0 14px">Not complete yet.</div>')+
+    bracketColumnsHTML(bracket, state, {interactive:false})+
+  '</div>';
+}
+function stage6Knockout(){
+  if(!state.knockout) return '<div class="card"><p class="intro" style="margin:0">No bracket yet — generate one in Confirm & Print Bracket.</p></div>';
+  let html = '<div class="card"><h2>Finalize standings</h2><p class="intro">Final placements from the bracket. Read-only — fix a result in Manage Tournament if needed.</p></div>';
+  html += knockoutPlacementsCard(state.knockout, 'Main bracket');
+  html += '<div class="print-controls"><button class="btn secondary" onclick="goStage(5)">Back to manage tournament</button><button class="btn primary" onclick="goStage(7)">Continue to print →</button></div>';
+  return html;
+}
+function stage6KnockoutSection(){
+  const t = state;
+  let html = '';
+  if(t.knockout) html += knockoutPlacementsCard(t.knockout, 'Knockout stage — main bracket');
+  if(t.knockoutLosers) html += knockoutPlacementsCard(t.knockoutLosers, "Losers' pool (Plate)");
+  return html;
+}
+/* ---------- Stage 7: Print Final Chart ---------- */
+function stage7(){
+  if(state.format.formatType==='knockout') return stage7Knockout();
+  const confirmed = state.groups.filter(g=>g.confirmed);
+  const startedCount = confirmed.filter(g=>g.gameStarted).length;
+  return '<div class="card">'+
+    '<h2>Print final chart</h2><p class="intro">Export the completed pack with entered scores and final standings, as a high-resolution A4 landscape PDF.</p>'+
+    '<div class="summary-grid" style="margin-bottom:12px">'+
+      '<div><label>Format</label><strong>A4 landscape</strong></div>'+
+      '<div><label>Resolution</label><strong>High-resolution</strong></div>'+
+      '<div><label>Charts included</label><strong>'+confirmed.length+' of '+state.groups.length+'</strong></div>'+
+      '<div><label>Games started</label><strong>'+startedCount+' of '+confirmed.length+'</strong></div>'+
+      '<div><label>Sponsor footer</label><strong>'+(state.printSettings.sponsorFooterEnabled?'Enabled':'Disabled')+'</strong></div>'+
+    '</div>'+
+    '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(state.printSettings.sponsorFooterEnabled?'checked':'')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">Include sponsor footer on printed charts</label></div>'+
+    teamHandoutToggleHTML()+
+    lineupSheetToggleHTML()+
+    rulesSheetToggleHTML()+
+    (confirmed.length && startedCount<confirmed.length ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Some games haven\'t started</b>'+(confirmed.length-startedCount)+' confirmed chart'+((confirmed.length-startedCount)===1?'':'s')+' will print with scores still locked/blank. Go to Manage Tournament to start '+((confirmed.length-startedCount)===1?'it':'them')+' first if that\'s not intended.</div>' : '')+
+    '<div class="printlist">'+ state.groups.map(g=> '<div><span>Group '+g.label+' — Board '+g.board+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">Confirmed</b>':'<b style="color:#c0392b">Not confirmed</b>')+(g.confirmed?' · '+(g.gameStarted?'<b style="color:#1d8a4a">Started</b>':'<b style="color:#c0392b">Not started</b>'):'')+'</span></div>' ).join('') +'</div>'+
+    '<div class="buttonrow">'+
+      '<button class="btn secondary" onclick="goStage(6)">Back to standings</button>'+
+      '<button class="btn '+(confirmed.length?'primary':'secondary')+'" '+(confirmed.length?'':'disabled')+' onclick="doFinalPrint()">Print final chart — Save high-res A4 PDF</button>'+
+    '</div>'+
+    (state.format.formatType==='rrknockout' && state.knockout ? '<div class="hint">The knockout bracket (and losers\' pool, if enabled) prints as extra pages after the group charts.</div>' : '')+
+  '</div>';
+}
+function stage7Knockout(){
+  return '<div class="card">'+
+    '<h2>Print final chart</h2><p class="intro">Export the bracket with results filled in, as a high-resolution A4 landscape PDF.</p>'+
+    '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(state.printSettings.sponsorFooterEnabled?'checked':'')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">Include sponsor footer on printed charts</label></div>'+
+    teamHandoutToggleHTML()+
+    lineupSheetToggleHTML()+
+    rulesSheetToggleHTML()+
+    (!state.knockout ? '<div class="confirm-box">No bracket generated yet — go to Confirm & Print Bracket first.</div>' : '')+
+    '<div class="buttonrow">'+
+      '<button class="btn secondary" onclick="goStage(6)">Back to standings</button>'+
+      '<button class="btn '+(state.knockout?'primary':'secondary')+'" '+(state.knockout?'':'disabled')+' onclick="doFinalPrint()">Print final chart — Save high-res A4 PDF</button>'+
+    '</div>'+
+  '</div>';
+}
+function startAllGames(afterStart){
+  const confirmed = state.groups.filter(g=>g.confirmed);
+  if(!confirmed.length){
+    openModal({title:'No confirmed charts', body:'Confirm at least one group chart in Confirm & Print Bracket before starting games.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
+    return;
+  }
+  const notYetStarted = confirmed.filter(g=>!g.gameStarted);
+  if(!notYetStarted.length){
+    openModal({title:'Already started', body:'All confirmed charts already have their game started.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{ if(afterStart) afterStart(confirmed); }});
+    return;
+  }
+  const suggestPrint = !state.printedPack;
+  const notCheckedIn = notCheckedInEntries(confirmed.flatMap(g=>g.entryIds));
+  openModal({
+    title:'Start all games?',
+    bodyHTML:
+      (suggestPrint ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Suggestion: print the pack first</b>You haven\'t printed this pack yet. It\'s best to print the blank charts before starting, so boards/times are locked in on paper before scores start coming in. You can still start now without printing if you prefer.<div class="buttonrow" style="margin-top:10px"><button type="button" class="btn secondary" onclick="closeModal();goStage(4)">Go print the pack first</button></div></div>' : '')+
+      noShowWarningHTML(notCheckedIn)+
+      '<p>This starts the game for all '+confirmed.length+' confirmed chart'+(confirmed.length===1?'':'s')+' at once — unlocking score entry and position calculation for every one of them. Games can\'t be started individually, only all together like this.</p>',
+    confirmLabel: suggestPrint ? 'Start without printing' : 'Start all games', confirmClass:'primary',
+    onConfirm:()=>{
+      notYetStarted.forEach(g=> g.gameStarted = true);
+      persist(); render();
+      if(afterStart) afterStart(confirmed);
+    }
+  });
+}
+/* ---------- Team event handout sheets (one per team/pair/triple) ---------- */
+/* Design decision: one page per active entry, showing its roster and its
+   full fixture list (round robin opponents and/or knockout-round opponents,
+   whichever apply to this tournament's format) so a captain can be handed
+   just their team's sheet rather than the whole pack. Follows the same
+   .print-sheet / .ro-table visual language as the running-order sheet for
+   consistency. */
+/* ---------- Team lineup / scorecard sheets (rubber-based team encounters) ----------
+   Reference: a real club lineup sheet (e.g. KELAB PJ's) — Group/Board/Fixture/Game No.
+   header boxes, a logo + team name row, then one dark bar per rubber (its name, its own
+   starting-score x legs, and a Points box) with blank numbered lines for the captain to
+   write in players on the day, a Total Points bar, and a signature line. One printed page
+   holds both sides of a fixture side by side (left/right), same as the reference. Only
+   offered for the rubber-based team format ("mixed") — Foursome has no per-rubber lineup
+   to hand out. Player names are deliberately left blank (not pre-filled from the roster):
+   lineup order for a rubber-based encounter is usually decided on the day. */
+function teamLineupSheetsHTML(){
+  if(!isTeamMixed(state)) return '';
+  const t = state;
+  let html = '';
+  t.groups.forEach(g=>{
+    groupMatches(g).forEach((m,i)=>{
+      const a = t.entriesList.find(e=>e.id===m[0]), b = t.entriesList.find(e=>e.id===m[1]);
+      if(!a || !b) return;
+      html += lineupSheetHTML(a, b, { groupLabel:g.label, board:g.board, gameNo:i+1 });
+    });
+  });
+  return html;
+}
+function lineupSheetHTML(entryA, entryB, meta){
+  return '<div class="print-sheet lineup-sheet">'+ lineupCardHTML(entryA, entryB, meta) + lineupCardHTML(entryB, entryA, meta) + '</div>';
+}
+function lineupCardHTML(entry, opponent, meta){
+  const rubbers = state.format.mixedRubbers||[];
+  const segsHTML = rubbers.map(r=>{
+    const n = RUBBER_PLAYER_COUNT[r.type]||1;
+    const lines = Array.from({length:n}).map((_,i)=> '<div class="lineup-line"><b>'+(i+1)+'</b><span>&nbsp;</span></div>').join('');
+    const label = r.isTieBreaker ? 'TIE-BREAKER' : escapeHtml((r.name||'Rubber').toUpperCase());
+    const sub = (r.startingScore||501)+' x '+(r.legs||3)+' Leg'+((r.legs||3)===1?'':'s');
+    return '<div class="lineup-seg"><div class="lineup-seg-head"><div class="lineup-seg-title">'+label+' <small>'+sub+'</small></div><div class="lineup-seg-pts">Points</div></div>'+
+      '<div class="lineup-seg-body"><div class="lineup-seg-lines">'+lines+'</div><div class="lineup-seg-pts-box"></div></div></div>';
+  }).join('');
+  const headBoxes = [['Group', meta.groupLabel], ['Board', meta.board], ['Fixture', 'vs '+opponent.name], ['Game No.', meta.gameNo]];
+  return '<div class="lineup-card">'+
+    '<div class="lineup-head-row">'+ headBoxes.map(([lbl,val])=>'<div class="lineup-head-box"><div class="bar">'+lbl+'</div><div class="box">'+escapeHtml(String(val==null?'':val))+'</div></div>').join('') +'</div>'+
+    '<div class="lineup-topline">'+mainLogoBoxHTML()+'<div class="lineup-teamname"><span class="tag">Team Name</span>'+escapeHtml(entry.name)+'</div></div>'+
+    segsHTML+
+    '<div class="lineup-seg lineup-total"><div class="lineup-seg-head"><div class="lineup-seg-title">TOTAL POINTS</div><div class="lineup-seg-pts"></div></div><div class="lineup-seg-body"><div class="lineup-seg-lines" style="min-height:14px"></div><div class="lineup-seg-pts-box"></div></div></div>'+
+    '<div class="lineup-sig">Captain/Manager Signature</div>'+
+  '</div>';
+}
+function teamHandoutSheetsHTML(){
+  return state.entriesList.filter(e=>!e.withdrawn).map(e=> teamHandoutSheetHTML(e)).join('');
+}
+function teamHandoutSheetHTML(e){
+  const t = state;
+  const rosterHTML = (e.players && e.players.length) ?
+    '<div style="margin:16px 0 4px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">Roster</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:8px">'+e.players.map((p,i)=>'<div style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:12px">'+(p?escapeHtml(p):'Player '+(i+1)+' (TBC)')+'</div>').join('')+'</div></div>' : '';
+  let rows = '';
+  const g = t.groups.find(gr=> gr.entryIds.includes(e.id));
+  if(g){
+    const opponents = g.entryIds.filter(id=>id!==e.id).map(id=>t.entriesList.find(x=>x.id===id)).filter(Boolean);
+    rows += opponents.map(opp=> '<div class="ro-row"><div>Group '+g.label+'</div><div class="ro-board">Board '+g.board+'</div><div class="ro-time">'+(g.startTime||'—')+'</div><div class="ro-matches">Round robin vs '+escapeHtml(opp.name)+'</div></div>').join('');
+  }
+  [ {b:t.knockout, l:t.knockout&&t.knockout.label}, {b:t.knockoutLosers, l:t.knockoutLosers&&t.knockoutLosers.label} ].forEach(x=>{
+    if(!x.b) return;
+    x.b.rounds.forEach((round,ri)=>{
+      round.forEach(m=>{
+        if(m.aEntryId!==e.id && m.bEntryId!==e.id) return;
+        const oppId = m.aEntryId===e.id ? m.bEntryId : m.aEntryId;
+        const oppName = oppId ? bracketEntryName(t,oppId) : (m.bye ? 'BYE' : 'TBD (winner of earlier match)');
+        rows += '<div class="ro-row"><div>'+escapeHtml(x.l)+'</div><div class="ro-board">'+koRoundName(x.b,ri)+'</div><div class="ro-time"></div><div class="ro-matches">vs '+escapeHtml(oppName)+'</div></div>';
+      });
+    });
+  });
+  if(!rows) rows = '<div class="ro-row"><div style="grid-column:1/-1;color:var(--muted)">No fixtures generated yet.</div></div>';
+  return '<div class="print-sheet ro-sheet">'+
+    '<div class="sheet-top">'+ mainLogoBoxHTML()+
+      '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(e.name)+'</div>'+
+      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Team handout'+(e.org?' · '+escapeHtml(e.org):'')+'</div></div>'+
+      '<div class="group-label"><strong>TEAM HANDOUT</strong><span>'+escapeHtml(e.name)+'</span></div>'+
+    '</div>'+
+    rosterHTML+
+    '<div class="ro-title">Fixtures</div>'+
+    '<div class="ro-table"><div class="ro-row ro-hdr"><div>Stage</div><div>Board/Round</div><div>Start time</div><div>Opponent</div></div>'+rows+'</div>'+
+    '<div class="footer"><small>Hand this sheet to the team captain — full roster and fixture list.</small>'+
+    (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
+    '</div>'+
+  '</div>';
+}
+function doFinalPrint(){
+  if(state.format.formatType==='knockout'){
+    if(!state.knockout){ openModal({title:'No bracket yet', body:'Generate the bracket first.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
+    runPrintPack([]);
+    return;
+  }
+  const confirmed = state.groups.filter(g=>g.confirmed);
+  if(!confirmed.length){ openModal({title:'No confirmed charts', body:'Confirm at least one group chart in Confirm & Print Bracket before exporting.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
+  /* Printing never starts games on its own — organisers can print and
+     reprint the pack as many times as needed (e.g. after edits) while
+     everything is still blank. Starting is a separate, explicit action. */
+  runPrintPack(confirmed);
+}
+function runPrintPack(confirmed){
+  state.printedPack = true;
+  persist();
+  const mount = document.getElementById('printSheets');
+  let html = '';
+  if(state.printSettings.rulesSheetEnabled) html += rulesSheetHTML();
+  if(confirmed && confirmed.length) html += runningOrderSheetHTML(confirmed) + confirmed.map(g=> chartSheetHTML(g, true) ).join('');
+  if(state.knockout) html += knockoutBracketSheetHTML(state.knockout);
+  if(state.knockoutLosers) html += knockoutBracketSheetHTML(state.knockoutLosers);
+  if(state.printSettings.teamHandoutEnabled && isTeamUnit(state)) html += teamHandoutSheetsHTML();
+  if(state.printSettings.lineupSheetEnabled) html += teamLineupSheetsHTML();
+  mount.innerHTML = html;
+  setTimeout(()=>{ window.print(); }, 60);
+}
+
+/* ---------- Init ---------- */
+window.onload = function(){
+  const all = Object.values(loadAll()).sort((a,b)=>b.updatedAt-a.updatedAt);
+  if(all.length){ openTournament(all[0].id); } else { render(); }
+};
+</script>
+</body>
+</html>
