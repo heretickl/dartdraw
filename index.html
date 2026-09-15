@@ -205,10 +205,10 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .ro-sheet{display:flex;flex-direction:column}
 .ro-title{font-family:Georgia,serif;font-size:19px;color:var(--navy);margin:16px 0 10px}
 .ro-table{border:1px solid #b5bdc5;border-radius:6px;overflow:hidden}
-.ro-row{display:grid;grid-template-columns:90px 90px 110px 1fr;gap:10px;padding:9px 12px;font-size:11px;border-top:1px solid #d7dce1;align-items:center}
+.ro-row{display:grid;grid-template-columns:90px 110px 1fr;gap:10px;padding:9px 12px;font-size:11px;border-top:1px solid #d7dce1;align-items:center}
 .ro-row:first-child{border-top:none}
 .ro-row.ro-hdr{background:var(--navy);color:#fff;font-weight:800;font-size:10px;text-transform:uppercase}
-.ro-board,.ro-time{font-weight:700;color:var(--navy)}
+.ro-board{font-weight:700;color:var(--navy)}
 .ro-matches{color:#3d4a58}
 .lineup-sheet{flex-direction:row !important;padding:14px 16px;gap:0}
 .lineup-card{flex:1;display:flex;flex-direction:column;min-width:0;padding:0 14px}
@@ -334,11 +334,24 @@ function blankTournament(){
       /* Applies to any unit: avoid grouping/seeding entries from the same org together */
       orgSplit:false,
       /* Free-text walkover / conduct / other rules, printed on the auto-generated rules & format sheet */
-      rulesNotes:''
+      rulesNotes:'',
+      /* Scheduling: used only for the live "on schedule / behind schedule" indicator in
+         Manage Tournament — never printed. minutesPerLegFor()/matchDurationMinutes() below
+         turn levelOfPlay into a per-match time estimate. */
+      levelOfPlay:'amateur', anticipatedStartTime:'',
+      breaks: {
+        roundRobin: {enabled:false, time:'', minutes:30},
+        knockout: {enabled:false, time:'', minutes:30},
+        transition: {enabled:false, minutes:15}
+      }
     },
     entriesList: [],
     groups: [],
     knockout: null,
+    /* Stamped once, the first time generateKnockoutFromRR() runs, so a round-robin->knockout
+       tournament's knockout schedule anchors off when round robin *actually* finished rather
+       than a pure estimate. */
+    rrFinishedAt: null,
     activeGroupId: null,
     printSettings: { sponsorFooterEnabled:true, teamHandoutEnabled:false, rulesSheetEnabled:true, lineupSheetEnabled:false },
     tieBreakOrder: ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'],
@@ -474,6 +487,186 @@ function recommendGroups(entries){
   return best;
 }
 function matchesPerGroup(n){ return n*(n-1)/2; }
+
+/* ---------- Scheduling / timing estimates (live indicator only — never printed) ---------- */
+const MINUTES_PER_LEG = { professional:7, amateur:10, novice:12 };
+function minutesPerLegFor(t){
+  const base = MINUTES_PER_LEG[t.format.levelOfPlay] || MINUTES_PER_LEG.amateur;
+  return t.eventCreation.eventType==='Women' ? base*1.2 : base;
+}
+function roundUpTo5(mins){ return Math.ceil(mins/5)*5; }
+/* One match's duration. Knockout is always a plain race (even for Teams — Team
+   knockout matches are never broken into rubbers). Round-robin Teams+mixed sums
+   each rubber's own legs, since an encounter there is several rubbers played in
+   sequence on one board; foursome (and every other unit) is one race to bestOfLegs. */
+function matchDurationMinutes(t, opts){
+  opts = opts || {};
+  const mpl = minutesPerLegFor(t);
+  if(!opts.isKnockout && t.eventCreation.competitionUnit==='Teams' && t.format.teamMatchFormat==='mixed'){
+    const total = (t.format.mixedRubbers||[]).reduce((sum,r)=> sum + mpl*(parseInt(r.legs)||3), 0);
+    return roundUpTo5(total);
+  }
+  return roundUpTo5(mpl * (parseInt(t.format.bestOfLegs)||5));
+}
+function clockToMinutes(hhmm){
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm||'');
+  if(!m) return null;
+  return (parseInt(m[1])||0)*60 + (parseInt(m[2])||0);
+}
+/* today's date + a 'HH:MM' time-of-day, as an epoch ms — the whole engine works
+   in epoch ms so real (Date.now()) and planned times share one timeline. */
+function anticipatedStartEpoch(t){
+  const mins = clockToMinutes(t.format.anticipatedStartTime);
+  if(mins==null) return null;
+  const d = new Date();
+  d.setHours(Math.floor(mins/60), mins%60, 0, 0);
+  return d.getTime();
+}
+function epochClockLabel(ms){
+  if(ms==null) return '';
+  return new Date(ms).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+}
+function formatDurationLabel(mins){
+  mins = Math.max(0, Math.round(mins));
+  const h = Math.floor(mins/60), m = mins%60;
+  if(h && m) return h+'h '+m+'m';
+  if(h) return h+'h';
+  return m+'m';
+}
+/* Applies a clock-time-anchored break once `cursor` (epoch ms) reaches it. Each
+   board/round simulation calls this independently, so a break is "soft" —
+   applied the moment that board/round's own running clock crosses the target
+   time, rather than perfectly synchronized across boards. */
+function applyBreakIfDue(cursor, brk, appliedRef){
+  if(cursor==null || !brk || !brk.enabled || !brk.time || appliedRef.done) return cursor;
+  const mins = clockToMinutes(brk.time);
+  if(mins==null) return cursor;
+  const base = new Date(cursor);
+  base.setHours(Math.floor(mins/60), mins%60, 0, 0);
+  if(cursor >= base.getTime()){
+    appliedRef.done = true;
+    return cursor + (parseInt(brk.minutes)||0)*60000;
+  }
+  return cursor;
+}
+/* Simple pre-build estimate (Format & Branding, before groups/bracket exist) —
+   just entries+boards math, no real board assignment yet. */
+function estimateTotalMinutes(t){
+  const boards = Math.max(1, parseInt(t.eventCreation.boards)||1);
+  const n = Math.max(0, parseInt(t.eventCreation.entries)||0);
+  const perMatch = matchDurationMinutes(t, {isKnockout:false});
+  const perMatchKO = matchDurationMinutes(t, {isKnockout:true});
+  const breaks = t.format.breaks || {};
+  function roundRobinMinutes(entryCount){
+    if(entryCount<2) return 0;
+    const rec = recommendGroups(entryCount);
+    let matches = rec.remainder
+      ? (rec.groups-1)*matchesPerGroup(rec.size) + matchesPerGroup(rec.remainder)
+      : rec.groups*matchesPerGroup(rec.size);
+    return matches*perMatch;
+  }
+  function knockoutMinutes(entryCount){
+    // Single-elimination always has exactly entries-1 matches, byes included.
+    return entryCount<2 ? 0 : (entryCount-1)*perMatchKO;
+  }
+  let minutes;
+  if(t.format.formatType==='knockout'){
+    minutes = knockoutMinutes(n)/boards + (breaks.knockout&&breaks.knockout.enabled ? parseInt(breaks.knockout.minutes)||0 : 0);
+  } else if(t.format.formatType==='rrknockout'){
+    const rec = recommendGroups(n);
+    const qualPerGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
+    const advancing = Math.min(n, qualPerGroup*rec.groups);
+    minutes = roundRobinMinutes(n)/boards
+      + (breaks.roundRobin&&breaks.roundRobin.enabled ? parseInt(breaks.roundRobin.minutes)||0 : 0)
+      + (breaks.transition&&breaks.transition.enabled ? parseInt(breaks.transition.minutes)||0 : 0)
+      + knockoutMinutes(advancing)/boards
+      + (breaks.knockout&&breaks.knockout.enabled ? parseInt(breaks.knockout.minutes)||0 : 0);
+  } else {
+    minutes = roundRobinMinutes(n)/boards + (breaks.roundRobin&&breaks.roundRobin.enabled ? parseInt(breaks.roundRobin.minutes)||0 : 0);
+  }
+  minutes = roundUpTo5(minutes);
+  const startEpoch = anticipatedStartEpoch(t);
+  return { minutes, finishClock: startEpoch!=null ? epochClockLabel(startEpoch+minutes*60000) : null };
+}
+/* Board-aware round-robin simulation, using the real state.groups[]/board
+   assignments. Anchors to the earliest actual g.startedAt once play has
+   begun (so the plan self-corrects to reality), falling back to the
+   anticipated start time beforehand. */
+function computeRoundRobinSchedule(t){
+  const groups = (t.groups||[]).filter(g=>g.confirmed);
+  const started = groups.map(g=>g.startedAt).filter(Boolean);
+  const t0 = started.length ? Math.min(...started) : anticipatedStartEpoch(t);
+  const perMatch = matchDurationMinutes(t, {isKnockout:false});
+  const brk = (t.format.breaks||{}).roundRobin;
+  const byBoard = {};
+  groups.forEach(g=>{ const b=String(g.board||1); (byBoard[b]=byBoard[b]||[]).push(g); });
+  const schedule = {};
+  let phaseEndMs = t0;
+  Object.keys(byBoard).forEach(boardKey=>{
+    let cursor = t0;
+    const appliedRef = {done:false};
+    byBoard[boardKey].forEach(g=>{
+      cursor = applyBreakIfDue(cursor, brk, appliedRef);
+      const durMs = perMatch * groupMatches(g).length * 60000;
+      schedule[g.id] = { startMs: cursor, endMs: cursor!=null ? cursor+durMs : null };
+      if(cursor!=null) cursor += durMs;
+    });
+    if(cursor!=null) phaseEndMs = phaseEndMs==null ? cursor : Math.max(phaseEndMs, cursor);
+  });
+  return { t0, schedule, phaseEndMs };
+}
+/* Board-aware knockout simulation. Rounds are inherently sequential (you can't
+   play a semifinal before the quarterfinal is decided); within a round,
+   matches queue in waves of `boards` at a time. Any round already actually
+   started (bracket.roundStartedAt[idx]) overrides the estimate with reality,
+   so later rounds' estimates self-correct as real data comes in. */
+function computeKnockoutSchedule(t, bracket, fallbackStartMs){
+  if(!bracket) return { rounds: [], phaseEndMs:null };
+  const boards = Math.max(1, parseInt(t.eventCreation.boards)||1);
+  const perMatch = matchDurationMinutes(t, {isKnockout:true});
+  const brk = (t.format.breaks||{}).knockout;
+  const roundStartedAt = bracket.roundStartedAt || [];
+  const appliedRef = {done:false};
+  let cursor = roundStartedAt[0] || fallbackStartMs;
+  const rounds = bracket.rounds.map((round, idx)=>{
+    if(roundStartedAt[idx]) cursor = roundStartedAt[idx];
+    cursor = applyBreakIfDue(cursor, brk, appliedRef);
+    const matchesToPlay = round.filter(m=>!m.bye && m.aEntryId && m.bEntryId).length;
+    const waves = Math.max(1, Math.ceil(matchesToPlay / boards));
+    const durMs = waves * perMatch * 60000;
+    const entry = { startMs: cursor, endMs: cursor!=null ? cursor+durMs : null, actualStart: !!roundStartedAt[idx] };
+    if(cursor!=null) cursor += durMs;
+    return entry;
+  });
+  return { rounds, phaseEndMs: cursor };
+}
+/* Anchor for a round-robin->knockout bracket's schedule: round robin's real
+   finish (rrFinishedAt) once known, else its planned finish, plus the
+   transition break. */
+function knockoutStartOffset(t, roundRobinSchedule){
+  const trBrk = (t.format.breaks||{}).transition;
+  let base = t.rrFinishedAt || (roundRobinSchedule && roundRobinSchedule.phaseEndMs) || null;
+  if(base!=null && trBrk && trBrk.enabled) base += (parseInt(trBrk.minutes)||0)*60000;
+  return base;
+}
+/* Always compares the current wall clock against the plan (rather than a
+   per-group actual-start timestamp) — round-robin games can only be started
+   all together (see startAllGames()), so a per-group actual/planned diff
+   isn't meaningful for boards queued behind another group. */
+/* Live-only convenience for the (unprinted) confirm/manage screens — never
+   used by any print sheet. */
+function plannedGroupStartLabel(g){
+  const sched = computeRoundRobinSchedule(state).schedule[g.id];
+  if(!sched || sched.startMs==null) return 'Not scheduled yet';
+  return epochClockLabel(sched.startMs);
+}
+function scheduleStatusLabel(plannedStartMs, plannedEndMs){
+  if(plannedStartMs==null) return '';
+  const now = Date.now();
+  if(now < plannedStartMs) return 'Due to start ~'+epochClockLabel(plannedStartMs);
+  if(plannedEndMs!=null && now > plannedEndMs) return 'Running behind — planned '+epochClockLabel(plannedStartMs);
+  return 'On schedule';
+}
 function nearestBracket(entries){
   const sizes=[4,8,16,32,64,128];
   let pick = sizes.find(s=>s>=entries) || sizes[sizes.length-1];
@@ -544,7 +737,7 @@ function generateBracket(orderedEntries, label){
     rounds.push(round);
   }
   propagateByes(rounds);
-  return { id: uid('kb'), label: label||'Bracket', size, rounds };
+  return { id: uid('kb'), label: label||'Bracket', size, rounds, roundStartedAt: rounds.map(()=>null) };
 }
 /* Pushes any already-known winners (from round-1 byes) forward into the next
    round's slots — called after generation and after every score is saved. */
@@ -754,7 +947,7 @@ function buildGroups(t){
   for(let i=0;i<numGroups;i++){
     const label = letters[i]||('G'+(i+1));
     let g = t.groups[i];
-    if(!g){ g = { id: uid('g'), label, board: i+1, startTime:'', entryIds:[], confirmed:false, gameStarted:false, scores:{} }; }
+    if(!g){ g = { id: uid('g'), label, board: i+1, startedAt:null, entryIds:[], confirmed:false, gameStarted:false, scores:{} }; }
     else { g.label = label; }
     newGroups.push(g);
   }
@@ -1000,6 +1193,15 @@ async function openTournament(id){
       if(r.legs===undefined) r.legs = parseInt(state.format.bestOfLegs)||3;
       if(r.isTieBreaker===undefined) r.isTieBreaker = false;
     });
+    /* Backfill scheduling fields for tournaments saved before this feature existed. */
+    if(state.format.levelOfPlay===undefined) state.format.levelOfPlay = 'amateur';
+    if(state.format.anticipatedStartTime===undefined) state.format.anticipatedStartTime = '';
+    if(!state.format.breaks) state.format.breaks = { roundRobin:{enabled:false,time:'',minutes:30}, knockout:{enabled:false,time:'',minutes:30}, transition:{enabled:false,minutes:15} };
+    if(state.rrFinishedAt===undefined) state.rrFinishedAt = null;
+    (state.groups||[]).forEach(g=>{ if(g.startedAt===undefined) g.startedAt = null; });
+    [state.knockout, state.knockoutLosers].forEach(b=>{
+      if(b && !b.roundStartedAt) b.roundStartedAt = b.rounds.map(()=>null);
+    });
     ensureEntries(state); // adds org/players fields to entries saved before this feature existed
     currentStage = computeStageFor(state);
     render();
@@ -1195,15 +1397,33 @@ function stage1(){
     '</div>'+
     '<div class="grid2">'+
       '<div class="field"><label>Tournament date</label><input id="f_date" type="date" value="'+escapeHtml(e.date)+'"></div>'+
-      '<div class="field"><label id="f_entries_label">Number of entries</label><input id="f_entries" type="number" min="2" value="'+e.entries+'"></div>'+
+      '<div class="field"><label id="f_entries_label">Number of entries</label><input id="f_entries" type="number" min="2" value="'+e.entries+'" oninput="updateStage1Preview()"></div>'+
     '</div>'+
-    '<div class="field"><label>Number of boards available</label><input id="f_boards" type="number" min="1" value="'+(e.boards||4)+'"></div>'+
+    '<div class="field"><label>Number of boards available</label><input id="f_boards" type="number" min="1" value="'+(e.boards||4)+'" oninput="updateStage1Preview()"></div>'+
     '<div class="hint">How many boards will run at the venue. Sets the choices in each chart\'s board dropdown later on.</div>'+
+    '<div class="recommend" id="stage1Preview">'+stage1PreviewHTML(e.entries, e.boards)+'</div>'+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="newTournament()">Discard / New tournament</button>'+
       '<button class="btn primary" onclick="saveStage1()">Save event creation →</button>'+
     '</div>'+
   '</div>';
+}
+/* Purely informational — reuses recommendGroups() unchanged (boards don't
+   change the grouping algorithm, only how many groups can run at once). */
+function stage1PreviewHTML(entries, boards){
+  entries = Math.max(2, parseInt(entries)||2);
+  boards = Math.max(1, parseInt(boards)||1);
+  const rec = recommendGroups(entries);
+  const groupsLabel = rec.remainder ? (rec.groups-1)+' of '+rec.size+', 1 of '+rec.remainder : rec.groups+' of '+rec.size;
+  const totalMatches = rec.remainder ? (rec.groups-1)*matchesPerGroup(rec.size)+matchesPerGroup(rec.remainder) : rec.groups*matchesPerGroup(rec.size);
+  const running = Math.min(boards, rec.groups);
+  const waves = Math.ceil(rec.groups/boards);
+  return '<b>If you choose round robin:</b> ≈'+rec.groups+' group'+(rec.groups===1?'':'s')+' ('+groupsLabel+' entries) — '+totalMatches+' matches total. With '+boards+' board'+(boards===1?'':'s')+' available, '+running+' group'+(running===1?'':'s')+' can run at once'+(waves>1?' ('+waves+' groups back-to-back per board)':'')+'. The exact split is chosen in Format &amp; Branding.';
+}
+function updateStage1Preview(){
+  const entries = document.getElementById('f_entries').value;
+  const boards = document.getElementById('f_boards').value;
+  document.getElementById('stage1Preview').innerHTML = stage1PreviewHTML(entries, boards);
 }
 function saveStage1(){
   const e = state.eventCreation;
@@ -1247,8 +1467,16 @@ function stage2(){
       '<div class="choice'+(f.formatType==='knockout'?' selected':'')+'" onclick="setFormatType(\'knockout\')"><strong>Knockout</strong><small>Direct elimination bracket</small></div>'+
       '<div class="choice'+(f.formatType==='rrknockout'?' selected':'')+'" onclick="setFormatType(\'rrknockout\')"><strong>Round robin → Knockout</strong><small>Group stage, then top finishers go to a bracket</small></div>'+
     '</div></div>'+
+    '<div class="grid2" style="margin-top:12px">'+
+      '<div class="field"><label>Level of play</label><select id="f_level" onchange="updateStage2Timing()">'+
+        ['professional','amateur','novice'].map(v=>'<option value="'+v+'"'+(f.levelOfPlay===v?' selected':'')+'>'+v.charAt(0).toUpperCase()+v.slice(1)+'</option>').join('')+
+      '</select></div>'+
+      '<div class="field"><label>Anticipated start time</label><input id="f_starttime" type="time" value="'+(f.anticipatedStartTime||'')+'" oninput="updateStage2Timing()"></div>'+
+    '</div>'+
+    breaksFieldsHTML(f)+
+    '<div class="recommend" id="stage2Timing">'+stage2TimingHTML()+'</div>'+
     '<div class="grid2">'+
-      '<div class="field"><label>Best of legs (odd numbers preferred)</label><input id="f_bestof" type="number" min="1" step="2" value="'+f.bestOfLegs+'" oninput="warnBestOf(this)"><div class="hint" id="bestOfHint"></div></div>'+
+      '<div class="field"><label>Best of legs (odd numbers preferred)</label><input id="f_bestof" type="number" min="1" step="2" value="'+f.bestOfLegs+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>'+
       (f.formatType!=='knockout' ?
         '<div class="field"><label>Maximum entries per group</label><select id="f_maxgroup">'+ [3,4,5,6].map(v=>'<option value="'+v+'"'+(f.maxPerGroup==v?' selected':'')+'>'+v+' entries</option>').join('') +'</select></div>'
         : '<div class="field"><label>Bracket size (auto)</label><input type="text" value="'+bracket.size+' ('+bracket.byes+' bye'+(bracket.byes===1?'':'s')+')" disabled></div>'
@@ -1259,7 +1487,7 @@ function stage2(){
       : '<div class="recommend"><b>Nearest bracket:</b> '+bracket.size+'-entry bracket for '+n+' entries — '+bracket.byes+' bye'+(bracket.byes===1?'':'s')+' required in round 1.</div>'
     )+
     (f.formatType==='rrknockout' ? '<div class="grid2" style="margin-top:12px">'+
-      '<div class="field"><label>Qualifiers per group (advance to knockout)</label><input id="f_qualifiers" type="number" min="1" value="'+f.qualifiersPerGroup+'"></div>'+
+      '<div class="field"><label>Qualifiers per group (advance to knockout)</label><input id="f_qualifiers" type="number" min="1" value="'+f.qualifiersPerGroup+'" oninput="updateStage2Timing()"></div>'+
       '<div class="field"><label>How qualifiers are placed into the bracket</label><select id="f_advancemode">'+
         '<option value="seeded"'+(f.advanceMode==='seeded'?' selected':'')+'>Seeded by group standing (recommended)</option>'+
         '<option value="random"'+(f.advanceMode==='random'?' selected':'')+'>Random draw</option>'+
@@ -1331,6 +1559,59 @@ function moveTieBreak(i, dir){
 function warnBestOf(el){
   const v = parseInt(el.value)||0;
   document.getElementById('bestOfHint').textContent = (v%2===0 && v>0) ? 'Even numbers can end in a tie — an odd number is recommended.' : '';
+}
+/* Break fields, gated by format type — round robin gets one, knockout gets
+   one, and round-robin->knockout additionally gets a transition break. */
+function breaksFieldsHTML(f){
+  let html = '';
+  if(f.formatType==='roundrobin' || f.formatType==='rrknockout'){
+    html += breakRowHTML('rr', 'Break during round robin', f.breaks.roundRobin, true);
+  }
+  if(f.formatType==='rrknockout'){
+    html += breakRowHTML('transition', 'Break between round robin and knockout', f.breaks.transition, false);
+  }
+  if(f.formatType==='knockout' || f.formatType==='rrknockout'){
+    html += breakRowHTML('ko', 'Break during knockout', f.breaks.knockout, true);
+  }
+  return html;
+}
+function breakRowHTML(key, label, brk, withTime){
+  return '<div class="field" style="margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px">'+
+    '<div class="toggle-row" style="margin:0 0 8px"><input type="checkbox" id="f_break_'+key+'_enabled" '+(brk.enabled?'checked':'')+' onchange="updateStage2Timing()"> <label for="f_break_'+key+'_enabled">'+label+'</label></div>'+
+    '<div class="grid2">'+
+      (withTime ? '<div class="field"><label>At</label><input id="f_break_'+key+'_time" type="time" value="'+(brk.time||'')+'" oninput="updateStage2Timing()"></div>' : '')+
+      '<div class="field"><label>Duration (minutes)</label><input id="f_break_'+key+'_minutes" type="number" min="0" step="5" value="'+(brk.minutes||0)+'" oninput="updateStage2Timing()"></div>'+
+    '</div></div>';
+}
+/* Reads the live form (falling back to the saved value for any field not
+   currently rendered, e.g. a break section hidden for the current format
+   type) so the timing estimate updates before Save is clicked. */
+function stage2FormatDraft(){
+  const f = state.format;
+  const val = (id,fallback)=>{ const el=document.getElementById(id); return el ? el.value : fallback; };
+  const checked = (id,fallback)=>{ const el=document.getElementById(id); return el ? el.checked : fallback; };
+  return {
+    formatType: f.formatType,
+    bestOfLegs: val('f_bestof', f.bestOfLegs),
+    qualifiersPerGroup: val('f_qualifiers', f.qualifiersPerGroup),
+    teamMatchFormat: f.teamMatchFormat,
+    mixedRubbers: f.mixedRubbers,
+    levelOfPlay: val('f_level', f.levelOfPlay),
+    anticipatedStartTime: val('f_starttime', f.anticipatedStartTime),
+    breaks: {
+      roundRobin: { enabled:checked('f_break_rr_enabled', f.breaks.roundRobin.enabled), time:val('f_break_rr_time', f.breaks.roundRobin.time), minutes:val('f_break_rr_minutes', f.breaks.roundRobin.minutes) },
+      knockout: { enabled:checked('f_break_ko_enabled', f.breaks.knockout.enabled), time:val('f_break_ko_time', f.breaks.knockout.time), minutes:val('f_break_ko_minutes', f.breaks.knockout.minutes) },
+      transition: { enabled:checked('f_break_transition_enabled', f.breaks.transition.enabled), minutes:val('f_break_transition_minutes', f.breaks.transition.minutes) }
+    }
+  };
+}
+function stage2TimingHTML(){
+  const est = estimateTotalMinutes({ eventCreation: state.eventCreation, format: stage2FormatDraft() });
+  return '<b>Estimated duration:</b> ~'+formatDurationLabel(est.minutes)+(est.finishClock?' — finishing around '+est.finishClock:' (set an anticipated start time above to see an estimated finish time)')+'. Rough planning estimate only — once boards/bracket are set up, Manage Tournament shows a live schedule instead (not printed).';
+}
+function updateStage2Timing(){
+  const el = document.getElementById('stage2Timing');
+  if(el) el.innerHTML = stage2TimingHTML();
 }
 function setFormatType(v){ state.format.formatType = v; render(); }
 function setTeamMatchFormat(v){ state.format.teamMatchFormat = v; render(); }
@@ -1497,6 +1778,18 @@ function saveStage2(){
   f.orgSplit = document.getElementById('f_orgsplit').checked;
   f.footerText = document.getElementById('f_footer').value;
   f.rulesNotes = document.getElementById('f_rulesnotes').value;
+  f.levelOfPlay = document.getElementById('f_level').value;
+  f.anticipatedStartTime = document.getElementById('f_starttime').value;
+  const readBreak = (key, withTime)=>{
+    const enabled = document.getElementById('f_break_'+key+'_enabled');
+    const time = withTime ? document.getElementById('f_break_'+key+'_time') : null;
+    const minutes = document.getElementById('f_break_'+key+'_minutes');
+    if(!enabled) return null; // this break isn't offered for the current format type — leave as-is
+    return { enabled: enabled.checked, time: time ? time.value : '', minutes: Math.max(0, parseInt(minutes.value)||0) };
+  };
+  f.breaks.roundRobin = readBreak('rr', true) || f.breaks.roundRobin;
+  f.breaks.knockout = readBreak('ko', true) || f.breaks.knockout;
+  f.breaks.transition = readBreak('transition', false) || f.breaks.transition;
   f.saved = true;
   ensureEntries(state); // resync roster length if teamSize changed
   if(f.formatType==='roundrobin' || f.formatType==='rrknockout'){ buildGroups(state); }
@@ -1590,7 +1883,6 @@ function entriesPanel(){
         '</span></div>'+
         '<div class="group-block-controls" style="grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:-2px 0 8px;padding-bottom:8px;border-bottom:1px solid var(--line)">'+
           '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">Board <select style="width:auto;padding:4px 7px;font-size:11px'+(clash?';border-color:#c0392b;color:#c0392b':'')+'" onchange="setBoard(\''+g.id+'\',this.value)">'+ boardOptions(g.board) +'</select>'+(clash?' <span style="color:#c0392b;font-weight:700">⚠ clash</span>':'')+'</span>'+
-          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">Start time <input type="time" style="width:auto;padding:4px 7px;font-size:11px" value="'+(g.startTime||'')+'" onchange="setStartTime(\''+g.id+'\',this.value)"></span>'+
         '</div>'+
         '<div class="group-entries-col">'+
         g.entryIds.map(eid=>{
@@ -1767,22 +2059,6 @@ function boardClashWarning(g){
   if(!clashes.length) return '';
   return '<div class="confirm-box" style="background:#fdeceb;border-color:#eab6b0;color:#7a2318"><b>Board '+g.board+' is already assigned</b>Also used by Group '+clashes.map(c=>c.label).join(', ')+'. Give this chart a different board number, or set different start times if they play in sequence on the same board.</div>';
 }
-function chartDetailsCard(g){
-  if(!g) return '';
-  return '<div class="card"><h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#526171;margin:0 0 13px">Chart details — confirm each chart</h3>'+
-    '<div class="grid3">'+
-      '<div class="field"><label>Group alphabet</label><select onchange="setActiveGroup(this.value)">'+ state.groups.map(x=>'<option value="'+x.id+'"'+(x.id===g.id?' selected':'')+'>Group '+x.label+'</option>').join('') +'</select></div>'+
-      '<div class="field"><label>Board number</label><input type="number" min="1" value="'+g.board+'" onchange="setBoard(\''+g.id+'\',this.value)"></div>'+
-      '<div class="field"><label>Optional start time</label><input type="time" value="'+(g.startTime||'')+'" onchange="setStartTime(\''+g.id+'\',this.value)"></div>'+
-    '</div>'+
-    boardClashWarning(g)+
-    (g.unconfirmReason ? '<div class="confirm-box" style="background:#fff0e0;border-color:#eec488;color:#7a4a12"><b>Heads up</b>'+g.unconfirmReason+'</div>' : '')+
-    '<div class="confirm-box"><b>Before this chart is added to the print pack</b>Confirm the group letter, board number and entries are correct. Every group chart must be confirmed individually.</div>'+
-    '<div class="buttonrow"><button class="btn '+(g.confirmed?'secondary':'primary')+'" onclick="toggleConfirm(\''+g.id+'\')">'+(g.confirmed?'Un-confirm this chart':'Confirm this group chart')+'</button></div>'+
-    '<div class="confirm-box" style="'+(g.gameStarted?'background:#eaf7ee;border-color:#bfe6cc;color:#175c33':'background:#f3f5f7;border-color:#dbe2ea;color:#42505e')+'"><b>'+(g.gameStarted?'Game started':'Game not started')+'</b>'+(g.gameStarted?'Scores can be entered and positions are being calculated for this chart.':'This chart can still be confirmed and printed blank. Scores stay locked and positions stay uncalculated until you start the game.')+'</div>'+
-    '<div class="buttonrow"><button class="btn '+(g.gameStarted?'secondary':'primary')+'" onclick="toggleGameStarted(\''+g.id+'\')">'+(g.gameStarted?'Mark as not started':'Start game (unlock scores)')+'</button></div>'+
-  '</div>';
-}
 function setActiveGroup(id){ state.activeGroupId = id; persist(); render(); }
 function setBoard(id,val){ const g=state.groups.find(x=>x.id===id); g.board=parseInt(val)||1; persist(); render(); }
 function boardOptions(selected){
@@ -1791,7 +2067,6 @@ function boardOptions(selected){
   for(let i=1;i<=max;i++){ html += '<option value="'+i+'"'+(String(i)===String(selected)?' selected':'')+'>Board '+i+'</option>'; }
   return html;
 }
-function setStartTime(id,val){ const g=state.groups.find(x=>x.id===id); g.startTime=val; persist(); render(); }
 function toggleGameStarted(id){
   const g=state.groups.find(x=>x.id===id);
   if(!g.gameStarted){
@@ -1799,10 +2074,10 @@ function toggleGameStarted(id){
       title:'Start this game?',
       body:'Group '+g.label+' will unlock for score entry, and positions will start being calculated from results as they come in. You can still edit or reprint the chart afterwards.',
       confirmLabel:'Start game', confirmClass:'primary',
-      onConfirm:()=>{ g.gameStarted = true; persist(); render(); }
+      onConfirm:()=>{ g.gameStarted = true; g.startedAt = Date.now(); persist(); render(); }
     });
   } else {
-    g.gameStarted = false; persist(); render();
+    g.gameStarted = false; g.startedAt = null; persist(); render();
   }
 }
 function toggleConfirm(id){
@@ -1831,7 +2106,7 @@ function openConfirmChartModal(id){
   const summaryHTML = '<div class="summary-grid" style="margin-bottom:12px">'+
       '<div><label>Group</label><strong>Group '+escapeHtml(g.label)+'</strong></div>'+
       '<div><label>Board</label><strong>'+(g.board||'Not set')+'</strong></div>'+
-      '<div><label>Start time</label><strong>'+(g.startTime||'Not set')+'</strong></div>'+
+      '<div><label>Planned start</label><strong>'+plannedGroupStartLabel(g)+'</strong></div>'+
     '</div>'+
     '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">Entries ('+entries.length+')</div>'+
     '<ol style="margin:0 0 4px;padding-left:20px;font-size:12px;line-height:1.7">'+ (entries.length? entries.map(e=>'<li>'+escapeHtml(e.name)+'</li>').join('') : '<li style="color:var(--muted)">No entries assigned yet</li>') +'</ol>';
@@ -2030,7 +2305,7 @@ function chartSheetHTML(g, forPrint){
       mainLogoBoxHTML()+
       '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
       '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Round Robin Stage · Best of '+t.format.bestOfLegs+' Legs · '+escapeHtml(t.eventCreation.date||'')+'</div></div>'+
-      '<div class="group-label"><strong>GROUP '+g.label+'</strong><span>Board '+g.board+(g.startTime?' · '+g.startTime:'')+'</span></div>'+
+      '<div class="group-label"><strong>GROUP '+g.label+'</strong><span>Board '+g.board+'</span></div>'+
     '</div>'+
     '<div class="chart" style="grid-template-columns:'+colTemplate+'">'+rows+'</div>'+
     '<div class="schedule" style="grid-template-columns:repeat('+scheduleCols+',1fr)">'+schedule+'</div>'+
@@ -2042,14 +2317,14 @@ function chartSheetHTML(g, forPrint){
 }
 function runningOrderSheetHTML(confirmed){
   const t = state;
-  const sorted = confirmed.slice().sort((a,b)=> (a.board-b.board) || String(a.startTime||'').localeCompare(String(b.startTime||'')) || a.label.localeCompare(b.label));
+  const sorted = confirmed.slice().sort((a,b)=> (a.board-b.board) || a.label.localeCompare(b.label));
   const rows = sorted.map(g=>{
     const entries = g.entryIds.map(id=>t.entriesList.find(e=>e.id===id)).filter(Boolean);
     const matchList = groupMatches(g).map((m,i)=>{
       const ai = entries.findIndex(x=>x.id===m[0])+1, bi = entries.findIndex(x=>x.id===m[1])+1;
       return (i+1)+') '+ai+' v '+bi;
     }).join('   ·   ');
-    return '<div class="ro-row"><div class="ro-board">Board '+g.board+'</div><div class="ro-time">'+(g.startTime||'—')+'</div><div>Group '+g.label+'</div><div class="ro-matches">'+matchList+'</div></div>';
+    return '<div class="ro-row"><div class="ro-board">Board '+g.board+'</div><div>Group '+g.label+'</div><div class="ro-matches">'+matchList+'</div></div>';
   }).join('');
   return '<div class="print-sheet ro-sheet">'+
     '<div class="sheet-top">'+
@@ -2059,7 +2334,7 @@ function runningOrderSheetHTML(confirmed){
       '<div class="group-label"><strong>RUNNING ORDER</strong><span>'+sorted.length+' group'+(sorted.length===1?'':'s')+' · all boards</span></div>'+
     '</div>'+
     '<div class="ro-title">Master running order — board by board</div>'+
-    '<div class="ro-table"><div class="ro-row ro-hdr"><div>Board</div><div>Start time</div><div>Group</div><div>Matches</div></div>'+rows+'</div>'+
+    '<div class="ro-table"><div class="ro-row ro-hdr"><div>Board</div><div>Group</div><div>Matches</div></div>'+rows+'</div>'+
   '</div>';
 }
 /* ---------- Rules & format summary sheet ---------- */
@@ -2251,7 +2526,7 @@ function stage4(){
       return '<div class="group-block"><div class="group-block-head">'+
         '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" style="width:auto;height:auto" '+(bulkSelected.has(g.id)?'checked':'')+' onchange="toggleBulkSelect(\''+g.id+'\',this.checked)"><strong>Group '+g.label+'</strong></label>'+
         '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-          g.entryIds.length+' / '+state.format.maxPerGroup+' entries · Board '+g.board+(g.startTime?' · '+g.startTime:'')+' · <span class="confirm-flag '+(g.confirmed?'yes':'no')+'">'+(g.confirmed?'Confirmed':'Not confirmed')+'</span>'+
+          g.entryIds.length+' / '+state.format.maxPerGroup+' entries · Board '+g.board+(g.confirmed?' · planned start '+plannedGroupStartLabel(g):'')+' · <span class="confirm-flag '+(g.confirmed?'yes':'no')+'">'+(g.confirmed?'Confirmed':'Not confirmed')+'</span>'+
         '</span></div>'+
         '<div class="buttonrow" style="margin:6px 0 2px"><button class="btn '+(g.confirmed?'secondary':'primary')+'" onclick="toggleConfirm(\''+g.id+'\')">'+(g.confirmed?'Un-confirm':'Confirm this chart')+'</button></div>'+
         livePreviewBlock(g)+
@@ -2337,15 +2612,63 @@ function stage5KnockoutSection(){
       (!allStarted ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Round robin still in progress</b>Generating now uses whatever standings exist so far — usually best to wait until every group\'s games are finished.</div>' : '')+
       '<div class="buttonrow"><button class="btn primary" onclick="generateKnockoutFromRR()">Generate knockout bracket</button></div>';
   } else {
+    const startOffset = knockoutStartOffset(t, computeRoundRobinSchedule(t));
     html += '<p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
       '<div class="buttonrow" style="margin-bottom:10px"><button class="btn ghost" onclick="regenerateKnockoutFromRR()">Regenerate from current standings</button></div>'+
+      knockoutScheduleSummaryHTML(t, t.knockout, 'knockout', startOffset)+
       bracketColumnsHTML(t.knockout, t, {interactive:true, bracketKey:'knockout'});
   }
   html += '</div>';
   if(t.format.losersPool && t.knockoutLosers){
-    html += '<div class="card"><h3 style="margin:0 0 10px">Losers\' pool (Plate)</h3>'+bracketColumnsHTML(t.knockoutLosers, t, {interactive:true, bracketKey:'knockoutLosers'})+'</div>';
+    const startOffset = knockoutStartOffset(t, computeRoundRobinSchedule(t));
+    html += '<div class="card"><h3 style="margin:0 0 10px">Losers\' pool (Plate)</h3>'+
+      knockoutScheduleSummaryHTML(t, t.knockoutLosers, 'knockoutLosers', startOffset)+
+      bracketColumnsHTML(t.knockoutLosers, t, {interactive:true, bracketKey:'knockoutLosers'})+'</div>';
   }
   return html;
+}
+/* Which round is next eligible for an explicit "Start round" click — round 0
+   any time, or a later round once every match in the round before it has a
+   winner (or is a bye/unplayable). Returns -1 if nothing is currently
+   eligible (e.g. the previous round is still being played). */
+function nextEligibleKnockoutRound(bracket){
+  const rsa = bracket.roundStartedAt || [];
+  for(let i=0;i<bracket.rounds.length;i++){
+    if(rsa[i]) continue;
+    if(i===0) return 0;
+    const prevRound = bracket.rounds[i-1];
+    const prevDecided = prevRound.every(m=> m.winnerId || m.bye || !m.aEntryId || !m.bEntryId);
+    return prevDecided ? i : -1;
+  }
+  return -1;
+}
+function startKnockoutRound(bracketKey, roundIdx){
+  const bracket = state[bracketKey];
+  if(!bracket) return;
+  if(!bracket.roundStartedAt) bracket.roundStartedAt = bracket.rounds.map(()=>null);
+  bracket.roundStartedAt[roundIdx] = Date.now();
+  persist(); render();
+}
+/* Live-only schedule summary shown above the bracket in Manage Tournament —
+   planned time per round (self-correcting once a round's real start is
+   stamped), a status label, and a "Start round" button for whichever round
+   is next eligible. */
+function knockoutScheduleSummaryHTML(t, bracket, bracketKey, startOffsetMs){
+  const sched = computeKnockoutSchedule(t, bracket, startOffsetMs);
+  const nextRound = nextEligibleKnockoutRound(bracket);
+  const rows = bracket.rounds.map((round, idx)=>{
+    const entry = sched.rounds[idx];
+    const statusLabel = entry.actualStart ? 'Started '+epochClockLabel(entry.startMs) : scheduleStatusLabel(entry.startMs, entry.endMs);
+    const canStart = idx===nextRound && !entry.actualStart;
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:12px">'+
+      '<span><strong>'+koRoundName(bracket, idx)+'</strong>'+(entry.startMs!=null?' · planned '+epochClockLabel(entry.startMs):'')+'</span>'+
+      '<span style="display:flex;align-items:center;gap:8px">'+
+        (statusLabel?'<span class="save-status" style="margin:0;color:var(--muted)">'+statusLabel+'</span>':'')+
+        (canStart?'<button class="btn ghost" style="padding:4px 9px;font-size:11px" onclick="startKnockoutRound(\''+bracketKey+'\','+idx+')">Start round</button>':'')+
+      '</span>'+
+    '</div>';
+  }).join('');
+  return '<div style="margin-bottom:12px;border-top:1px solid var(--line)">'+rows+'</div>';
 }
 function generateKnockoutFromRR(){
   const t = state;
@@ -2361,6 +2684,9 @@ function generateKnockoutFromRR(){
       t.knockoutLosers = generateBracket(orderedL, "Losers' pool (Plate)");
     }
   }
+  /* Stamped once, the first time this runs, so the knockout schedule anchors
+     off when round robin *actually* finished rather than a pure estimate. */
+  if(!t.rrFinishedAt) t.rrFinishedAt = Date.now();
   persist(); render();
 }
 function regenerateKnockoutFromRR(){
@@ -2433,18 +2759,22 @@ function stage5(){
   if(!confirmed.length){
     html += '<div class="card"><p class="intro" style="margin:0">Confirm at least one group chart in Confirm & Print Bracket before you can manage scores here.</p></div>';
   } else {
-    html += confirmed.map(g=>
-      '<div class="manage-chart-card">'+
+    const rrSchedule = computeRoundRobinSchedule(state);
+    html += confirmed.map(g=>{
+      const sched = rrSchedule.schedule[g.id];
+      const statusLabel = sched ? scheduleStatusLabel(sched.startMs, sched.endMs) : '';
+      return '<div class="manage-chart-card">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">'+
-          '<strong>Group '+g.label+' · Board '+g.board+(g.startTime?' · '+g.startTime:'')+'</strong>'+
-          '<span style="display:flex;align-items:center;gap:8px">'+
+          '<strong>Group '+g.label+' · Board '+g.board+'</strong>'+
+          '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+            (statusLabel?'<span class="save-status" style="margin:0;color:var(--muted)">'+statusLabel+'</span>':'')+
             (g.gameStarted?'<button class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="openNoShowPicker(\''+g.id+'\')">Mark no-show…</button>':'')+
             '<span class="confirm-flag '+(g.gameStarted?'yes':'no')+'">'+(g.gameStarted?'Game started':'Not started')+'</span>'+
           '</span>'+
         '</div>'+
         '<div class="manage-chart-wrap"><div class="manage-chart-inner" id="manageChart_'+g.id+'" style="width:1000px">'+ chartSheetHTML(g, false) +'</div></div>'+
-      '</div>'
-    ).join('');
+      '</div>';
+    }).join('');
   }
   if(state.format.formatType==='rrknockout') html += stage5KnockoutSection();
   html += incidentLogCardHTML();
@@ -2455,6 +2785,7 @@ function stage5Knockout(){
     return '<div class="card"><h2>Manage tournament</h2><p class="intro">Generate the bracket in Confirm &amp; Print Bracket before you can enter results here.</p><div class="buttonrow"><button class="btn primary" onclick="goStage(4)">Confirm & print bracket</button></div></div>';
   }
   let html = '<div class="card"><h2>Manage tournament</h2><p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
+    knockoutScheduleSummaryHTML(state, state.knockout, 'knockout', anticipatedStartEpoch(state))+
     bracketColumnsHTML(state.knockout, state, {interactive:true, bracketKey:'knockout'})+
   '</div>';
   html += incidentLogCardHTML();
@@ -2582,7 +2913,8 @@ function startAllGames(afterStart){
       '<p>This starts the game for all '+confirmed.length+' confirmed chart'+(confirmed.length===1?'':'s')+' at once — unlocking score entry and position calculation for every one of them. Games can\'t be started individually, only all together like this.</p>',
     confirmLabel: suggestPrint ? 'Start without printing' : 'Start all games', confirmClass:'primary',
     onConfirm:()=>{
-      notYetStarted.forEach(g=> g.gameStarted = true);
+      const now = Date.now();
+      notYetStarted.forEach(g=>{ g.gameStarted = true; g.startedAt = now; });
       persist(); render();
       if(afterStart) afterStart(confirmed);
     }
@@ -2651,7 +2983,7 @@ function teamHandoutSheetHTML(e){
   const g = t.groups.find(gr=> gr.entryIds.includes(e.id));
   if(g){
     const opponents = g.entryIds.filter(id=>id!==e.id).map(id=>t.entriesList.find(x=>x.id===id)).filter(Boolean);
-    rows += opponents.map(opp=> '<div class="ro-row"><div>Group '+g.label+'</div><div class="ro-board">Board '+g.board+'</div><div class="ro-time">'+(g.startTime||'—')+'</div><div class="ro-matches">Round robin vs '+escapeHtml(opp.name)+'</div></div>').join('');
+    rows += opponents.map(opp=> '<div class="ro-row"><div>Group '+g.label+'</div><div class="ro-board">Board '+g.board+'</div><div class="ro-matches">Round robin vs '+escapeHtml(opp.name)+'</div></div>').join('');
   }
   [ {b:t.knockout, l:t.knockout&&t.knockout.label}, {b:t.knockoutLosers, l:t.knockoutLosers&&t.knockoutLosers.label} ].forEach(x=>{
     if(!x.b) return;
@@ -2660,7 +2992,7 @@ function teamHandoutSheetHTML(e){
         if(m.aEntryId!==e.id && m.bEntryId!==e.id) return;
         const oppId = m.aEntryId===e.id ? m.bEntryId : m.aEntryId;
         const oppName = oppId ? bracketEntryName(t,oppId) : (m.bye ? 'BYE' : 'TBD (winner of earlier match)');
-        rows += '<div class="ro-row"><div>'+escapeHtml(x.l)+'</div><div class="ro-board">'+koRoundName(x.b,ri)+'</div><div class="ro-time"></div><div class="ro-matches">vs '+escapeHtml(oppName)+'</div></div>';
+        rows += '<div class="ro-row"><div>'+escapeHtml(x.l)+'</div><div class="ro-board">'+koRoundName(x.b,ri)+'</div><div class="ro-matches">vs '+escapeHtml(oppName)+'</div></div>';
       });
     });
   });
@@ -2673,7 +3005,7 @@ function teamHandoutSheetHTML(e){
     '</div>'+
     rosterHTML+
     '<div class="ro-title">Fixtures</div>'+
-    '<div class="ro-table"><div class="ro-row ro-hdr"><div>Stage</div><div>Board/Round</div><div>Start time</div><div>Opponent</div></div>'+rows+'</div>'+
+    '<div class="ro-table"><div class="ro-row ro-hdr"><div>Stage</div><div>Board/Round</div><div>Opponent</div></div>'+rows+'</div>'+
     '<div class="footer"><small>Hand this sheet to the team captain — full roster and fixture list.</small>'+
     (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
     '</div>'+
