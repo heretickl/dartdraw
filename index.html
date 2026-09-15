@@ -266,7 +266,7 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
     <button class="open-btn" onclick="scrollToLibrary()">Open saved tournament</button>
     <div class="step" id="navstep1" onclick="goStage(1)"><h3>1. Event creation</h3><p>Identity, category and entry count.</p></div>
     <div class="step" id="navstep2" onclick="goStage(2)"><h3>2. Format &amp; branding</h3><p>Round robin/knockout, legs, logos.</p></div>
-    <div class="step" id="navstep3" onclick="goStage(3)"><h3>3. Chart details</h3><p>Groups, entries, boards, start times.</p></div>
+    <div class="step" id="navstep3" onclick="goStage(3)"><h3>3. Chart details</h3><p>Groups, entries, boards.</p></div>
     <div class="step" id="navstep4" onclick="goStage(4)"><h3>4. Confirm &amp; Print Bracket</h3><p>Confirm each chart, print the blank pack.</p></div>
     <div class="step" id="navstep5" onclick="goStage(5)"><h3>5. Manage Tournament</h3><p>Start games, enter scores.</p></div>
     <div class="step" id="navstep6" onclick="goStage(6)"><h3>6. Finalize Standings</h3><p>Review final standings.</p></div>
@@ -1359,7 +1359,7 @@ function render(){
   const subs = {
     1:'Name the event, choose its category and how many entries will play.',
     2:'Choose round robin or knockout, set legs and branding.',
-    3:'Assign entries to groups, and set boards and start times.',
+    3:'Assign entries to groups, and set boards.',
     4:'Confirm every chart is correct, then print the blank bracket pack.',
     5:'Start all games, then enter scores directly on each chart.',
     6:'Review the final standings for every group before printing.',
@@ -1414,11 +1414,11 @@ function stage1PreviewHTML(entries, boards){
   entries = Math.max(2, parseInt(entries)||2);
   boards = Math.max(1, parseInt(boards)||1);
   const rec = recommendGroups(entries);
-  const groupsLabel = rec.remainder ? (rec.groups-1)+' of '+rec.size+', 1 of '+rec.remainder : rec.groups+' of '+rec.size;
+  const groupsLabel = rec.remainder ? '('+(rec.groups-1)+' of '+rec.size+' entries, 1 of '+rec.remainder+' entries)' : '('+rec.size+' entries each)';
   const totalMatches = rec.remainder ? (rec.groups-1)*matchesPerGroup(rec.size)+matchesPerGroup(rec.remainder) : rec.groups*matchesPerGroup(rec.size);
   const running = Math.min(boards, rec.groups);
   const waves = Math.ceil(rec.groups/boards);
-  return '<b>If you choose round robin:</b> ≈'+rec.groups+' group'+(rec.groups===1?'':'s')+' ('+groupsLabel+' entries) — '+totalMatches+' matches total. With '+boards+' board'+(boards===1?'':'s')+' available, '+running+' group'+(running===1?'':'s')+' can run at once'+(waves>1?' ('+waves+' groups back-to-back per board)':'')+'. The exact split is chosen in Format &amp; Branding.';
+  return '<b>If you choose round robin:</b> ≈'+rec.groups+' group'+(rec.groups===1?'':'s')+' '+groupsLabel+' — '+totalMatches+' matches total. With '+boards+' board'+(boards===1?'':'s')+' available, '+running+' group'+(running===1?'':'s')+' can run at once'+(waves>1?' ('+waves+' groups back-to-back per board)':'')+'. The exact split is chosen in Format &amp; Branding.';
 }
 function updateStage1Preview(){
   const entries = document.getElementById('f_entries').value;
@@ -1873,16 +1873,15 @@ function shuffleSeedOrder(){
 }
 let bulkSelected = new Set();
 function entriesPanel(){
-  return '<div class="entries-panel"><h2>Draw & groups</h2><p class="intro">Edit entry names, withdraw, or swap entries between groups/positions, and set each group\'s board and start time. Confirming charts and printing the bracket happens in the next step.</p>'+
+  return '<div class="entries-panel"><h2>Draw & groups</h2><p class="intro">Edit entry names, withdraw, or swap entries between groups/positions, and set each group\'s board. Groups sharing a board simply queue one after another. Confirming charts and printing the bracket happens in the next step.</p>'+
     state.groups.map(g=>{
-      const clash = state.groups.some(x=> x.id!==g.id && String(x.board)===String(g.board) && g.board!=='' && g.board!=null);
       return '<div class="group-block"><div class="group-block-head">'+
         '<strong>Group '+g.label+'</strong>'+
         '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
           g.entryIds.length+' / '+state.format.maxPerGroup+' entries · <span class="confirm-flag '+(g.confirmed?'yes':'no')+'">'+(g.confirmed?'Confirmed':'Not confirmed')+'</span> · <span class="confirm-flag '+(g.gameStarted?'yes':'no')+'">'+(g.gameStarted?'Game started':'Not started')+'</span>'+
         '</span></div>'+
         '<div class="group-block-controls" style="grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:-2px 0 8px;padding-bottom:8px;border-bottom:1px solid var(--line)">'+
-          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">Board <select style="width:auto;padding:4px 7px;font-size:11px'+(clash?';border-color:#c0392b;color:#c0392b':'')+'" onchange="setBoard(\''+g.id+'\',this.value)">'+ boardOptions(g.board) +'</select>'+(clash?' <span style="color:#c0392b;font-weight:700">⚠ clash</span>':'')+'</span>'+
+          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">Board <select style="width:auto;padding:4px 7px;font-size:11px" onchange="setBoard(\''+g.id+'\',this.value)">'+ boardOptions(g.board) +'</select></span>'+
         '</div>'+
         '<div class="group-entries-col">'+
         g.entryIds.map(eid=>{
@@ -2054,11 +2053,6 @@ function performSwap(entryId, targetGroupId, slotIndex){
     }
   }
 }
-function boardClashWarning(g){
-  const clashes = state.groups.filter(x=> x.id!==g.id && String(x.board)===String(g.board) && g.board!=='' && g.board!=null);
-  if(!clashes.length) return '';
-  return '<div class="confirm-box" style="background:#fdeceb;border-color:#eab6b0;color:#7a2318"><b>Board '+g.board+' is already assigned</b>Also used by Group '+clashes.map(c=>c.label).join(', ')+'. Give this chart a different board number, or set different start times if they play in sequence on the same board.</div>';
-}
 function setActiveGroup(id){ state.activeGroupId = id; persist(); render(); }
 function setBoard(id,val){ const g=state.groups.find(x=>x.id===id); g.board=parseInt(val)||1; persist(); render(); }
 function boardOptions(selected){
@@ -2092,10 +2086,8 @@ function toggleConfirm(id){
 function openConfirmChartModal(id){
   const g = state.groups.find(x=>x.id===id);
   const entries = g.entryIds.map(eid=> state.entriesList.find(e=>e.id===eid)).filter(Boolean);
-  const clashes = state.groups.filter(x=> x.id!==g.id && String(x.board)===String(g.board) && g.board!=='' && g.board!=null);
   const warnings = [];
   if(!g.board) warnings.push('No board number has been set for this chart.');
-  if(clashes.length) warnings.push('Board '+g.board+' is already assigned to Group '+clashes.map(c=>c.label).join(', ')+'.');
   if(entries.length < 2) warnings.push('This chart only has '+entries.length+' entr'+(entries.length===1?'y':'ies')+' — it can\'t be played as-is.');
   else if(entries.length < state.format.maxPerGroup) warnings.push('This group has '+entries.length+' of '+state.format.maxPerGroup+' possible entries — the remaining slot'+(state.format.maxPerGroup-entries.length===1?'':'s')+' will print blank.');
   const dupNames = entries.map(e=>e.name.trim().toLowerCase()).filter((n,i,arr)=> n && arr.indexOf(n)!==i);
@@ -2517,7 +2509,7 @@ function stage4(){
   const allConfirmed = state.groups.length && state.groups.every(g=>g.confirmed);
   const readyCount = state.groups.filter(g=>!g.confirmed && bulkSelected.has(g.id)).length;
   let html = checkInCardHTML();
-  html += '<div class="entries-panel"><h2>Confirm each chart</h2><p class="intro">Check the board, start time and entries for every group, then confirm it. Once confirmed, print the blank bracket pack below — you can keep editing and reprinting right up until you start games in Manage Tournament.</p>'+
+  html += '<div class="entries-panel"><h2>Confirm each chart</h2><p class="intro">Check the board and entries for every group, then confirm it. Once confirmed, print the blank bracket pack below — you can keep editing and reprinting right up until you start games in Manage Tournament.</p>'+
     '<div class="buttonrow" style="margin:0 0 14px">'+
       '<button class="btn ghost" onclick="bulkSelectAll()">Select all unconfirmed</button>'+
       '<button class="btn primary" '+(readyCount?'':'disabled')+' onclick="bulkConfirmSelected()">Confirm selected ('+readyCount+')</button>'+
