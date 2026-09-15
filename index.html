@@ -557,13 +557,18 @@ function estimateTotalMinutes(t){
   const perMatch = matchDurationMinutes(t, {isKnockout:false});
   const perMatchKO = matchDurationMinutes(t, {isKnockout:true});
   const breaks = t.format.breaks || {};
+  /* Per the organiser's model: every board's slot duration is benchmarked
+     against the LARGEST group (rec.size is always the largest — remainder
+     groups are smaller by definition), not each group's own real size. A
+     board hosting multiple groups just takes that many multiples of the
+     benchmark. This already accounts for boards, so callers should not
+     divide by boards again. */
   function roundRobinMinutes(entryCount){
     if(entryCount<2) return 0;
     const rec = recommendGroups(entryCount);
-    let matches = rec.remainder
-      ? (rec.groups-1)*matchesPerGroup(rec.size) + matchesPerGroup(rec.remainder)
-      : rec.groups*matchesPerGroup(rec.size);
-    return matches*perMatch;
+    const benchmark = matchesPerGroup(rec.size)*perMatch;
+    const maxGroupsPerBoard = Math.ceil(rec.groups/boards);
+    return benchmark*maxGroupsPerBoard;
   }
   function knockoutMinutes(entryCount){
     // Single-elimination always has exactly entries-1 matches, byes included.
@@ -576,13 +581,13 @@ function estimateTotalMinutes(t){
     const rec = recommendGroups(n);
     const qualPerGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
     const advancing = Math.min(n, qualPerGroup*rec.groups);
-    minutes = roundRobinMinutes(n)/boards
+    minutes = roundRobinMinutes(n)
       + (breaks.roundRobin&&breaks.roundRobin.enabled ? parseInt(breaks.roundRobin.minutes)||0 : 0)
       + (breaks.transition&&breaks.transition.enabled ? parseInt(breaks.transition.minutes)||0 : 0)
       + knockoutMinutes(advancing)/boards
       + (breaks.knockout&&breaks.knockout.enabled ? parseInt(breaks.knockout.minutes)||0 : 0);
   } else {
-    minutes = roundRobinMinutes(n)/boards + (breaks.roundRobin&&breaks.roundRobin.enabled ? parseInt(breaks.roundRobin.minutes)||0 : 0);
+    minutes = roundRobinMinutes(n) + (breaks.roundRobin&&breaks.roundRobin.enabled ? parseInt(breaks.roundRobin.minutes)||0 : 0);
   }
   minutes = roundUpTo5(minutes);
   const startEpoch = anticipatedStartEpoch(t);
@@ -591,13 +596,18 @@ function estimateTotalMinutes(t){
 /* Board-aware round-robin simulation, using the real state.groups[]/board
    assignments. Anchors to the earliest actual g.startedAt once play has
    begun (so the plan self-corrects to reality), falling back to the
-   anticipated start time beforehand. */
+   anticipated start time beforehand.
+   Per the organiser's model, every group's slot is benchmarked against the
+   LARGEST confirmed group's duration (not each group's own real size) — a
+   board hosting multiple groups just takes that many multiples of the
+   single benchmark. */
 function computeRoundRobinSchedule(t){
   const groups = (t.groups||[]).filter(g=>g.confirmed);
   const started = groups.map(g=>g.startedAt).filter(Boolean);
   const t0 = started.length ? Math.min(...started) : anticipatedStartEpoch(t);
   const perMatch = matchDurationMinutes(t, {isKnockout:false});
   const brk = (t.format.breaks||{}).roundRobin;
+  const slotDurMs = groups.length ? Math.max(...groups.map(g=>perMatch*groupMatches(g).length))*60000 : 0;
   const byBoard = {};
   groups.forEach(g=>{ const b=String(g.board||1); (byBoard[b]=byBoard[b]||[]).push(g); });
   const schedule = {};
@@ -607,9 +617,8 @@ function computeRoundRobinSchedule(t){
     const appliedRef = {done:false};
     byBoard[boardKey].forEach(g=>{
       cursor = applyBreakIfDue(cursor, brk, appliedRef);
-      const durMs = perMatch * groupMatches(g).length * 60000;
-      schedule[g.id] = { startMs: cursor, endMs: cursor!=null ? cursor+durMs : null };
-      if(cursor!=null) cursor += durMs;
+      schedule[g.id] = { startMs: cursor, endMs: cursor!=null ? cursor+slotDurMs : null };
+      if(cursor!=null) cursor += slotDurMs;
     });
     if(cursor!=null) phaseEndMs = phaseEndMs==null ? cursor : Math.max(phaseEndMs, cursor);
   });
