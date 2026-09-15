@@ -9,7 +9,7 @@ const { requireAuth } = require('../_lib/auth');
 //   stale client never silently clobbers a newer save.
 // DELETE /api/tournaments/:id
 module.exports = async (req, res) => {
-  const organizer = requireAuth(req, res);
+  const organizer = await requireAuth(req, res);
   if (!organizer) return;
 
   const { id } = req.query;

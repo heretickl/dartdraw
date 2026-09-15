@@ -3,7 +3,7 @@ const { requireAuth } = require('../_lib/auth');
 
 // GET /api/tournaments - list of this organizer's tournaments (for the sidebar).
 module.exports = async (req, res) => {
-  const organizer = requireAuth(req, res);
+  const organizer = await requireAuth(req, res);
   if (!organizer) return;
   if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
 

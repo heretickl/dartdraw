@@ -919,6 +919,10 @@ document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState=
 function renderOrganizerBar(){
   const el = document.getElementById('organizerBar');
   if(!el || !currentOrganizer) return;
+  if(currentOrganizer.publicMode){
+    el.innerHTML = '<span>Public mode — no login required</span>';
+    return;
+  }
   el.innerHTML = '<span>'+escapeHtml(currentOrganizer.name||currentOrganizer.email)+'</span><button onclick="logout()">Log out</button>';
 }
 async function logout(){

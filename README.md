@@ -27,6 +27,15 @@ Each organizer only sees their own tournaments. Local development: copy
 `.env.example` to `.env` (or `.env.local`), fill in the values, and run
 `vercel dev`.
 
+### Temporarily opening the app to the public
+
+Set the `AUTH_DISABLED` environment variable to `true` and redeploy to bypass
+login entirely — every visitor shares one implicit "Public" account, with no
+sign-in required, and all tournaments are visible/editable by anyone who has
+the URL. Set it back to `false` (or remove it) and redeploy to require
+organizer login again; existing accounts and their tournaments are unaffected
+either way.
+
 ## Features
 
 - Round robin, knockout, and round robin → knockout tournament formats
