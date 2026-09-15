@@ -654,9 +654,14 @@ function knockoutStartOffset(t, roundRobinSchedule){
    all together (see startAllGames()), so a per-group actual/planned diff
    isn't meaningful for boards queued behind another group. */
 /* Live-only convenience for the (unprinted) confirm/manage screens — never
-   used by any print sheet. */
-function plannedGroupStartLabel(g){
-  const sched = computeRoundRobinSchedule(state).schedule[g.id];
+   used by any print sheet. `assumeConfirmed` previews the schedule as if
+   this group were already confirmed — used by the confirm-chart modal
+   itself, which is exactly the decision point where that's useful. */
+function plannedGroupStartLabel(g, assumeConfirmed){
+  const t = assumeConfirmed
+    ? Object.assign({}, state, { groups: state.groups.map(x=> x.id===g.id ? Object.assign({}, x, {confirmed:true}) : x) })
+    : state;
+  const sched = computeRoundRobinSchedule(t).schedule[g.id];
   if(!sched || sched.startMs==null) return 'Not scheduled yet';
   return epochClockLabel(sched.startMs);
 }
@@ -2098,7 +2103,7 @@ function openConfirmChartModal(id){
   const summaryHTML = '<div class="summary-grid" style="margin-bottom:12px">'+
       '<div><label>Group</label><strong>Group '+escapeHtml(g.label)+'</strong></div>'+
       '<div><label>Board</label><strong>'+(g.board||'Not set')+'</strong></div>'+
-      '<div><label>Planned start</label><strong>'+plannedGroupStartLabel(g)+'</strong></div>'+
+      '<div><label>Planned start</label><strong>'+plannedGroupStartLabel(g, true)+'</strong></div>'+
     '</div>'+
     '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">Entries ('+entries.length+')</div>'+
     '<ol style="margin:0 0 4px;padding-left:20px;font-size:12px;line-height:1.7">'+ (entries.length? entries.map(e=>'<li>'+escapeHtml(e.name)+'</li>').join('') : '<li style="color:var(--muted)">No entries assigned yet</li>') +'</ol>';
