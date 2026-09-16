@@ -782,24 +782,36 @@ function generateBracket(orderedEntries, label){
   for(let i=0;i<size;i+=2){
     round1.push({ id: uid('km'), aEntryId: slots[i]?slots[i].entryId:null, bEntryId: slots[i+1]?slots[i+1].entryId:null,
       aOrg: slots[i]?slots[i].org:'', bOrg: slots[i+1]?slots[i+1].org:'',
+      aGroupId: slots[i]?slots[i].groupId:null, bGroupId: slots[i+1]?slots[i+1].groupId:null,
       aLegs:null, bLegs:null, winnerId:null, bye:false });
   }
-  // Best-effort: if both sides of a round-1 match share a non-blank org, try
-  // swapping the "second" (lower-seed) slot with another match's second slot
-  // to break the clash without disturbing top-seed placement. Never fails —
-  // if no safe swap exists the clash is simply left in place.
+  /* Best-effort: if both sides of a round-1 match share a non-blank org, or
+     already played each other in the same round-robin group, try swapping
+     the "second" (lower-seed) slot with another match's second slot to
+     break the clash without disturbing top-seed placement. Never fails —
+     if no safe swap exists the clash is simply left in place. Group clashes
+     only arise when qualifiersPerGroup>1 sends more than one entry from the
+     same group forward — those two land in different seed bands (one in
+     the winners' band, one in the runners-up band, etc.) so nothing else
+     already keeps them apart the way it does for round-robin grouping. */
+  function isClash(aOrg,bOrg,aGroupId,bGroupId){
+    if(aOrg && aOrg===bOrg) return true;
+    if(aGroupId && aGroupId===bGroupId) return true;
+    return false;
+  }
   round1.forEach((m,i)=>{
-    if(!m.aEntryId || !m.bEntryId || !m.aOrg || m.aOrg!==m.bOrg) return;
+    if(!m.aEntryId || !m.bEntryId) return;
+    if(!isClash(m.aOrg,m.bOrg,m.aGroupId,m.bGroupId)) return;
     for(let j=0;j<round1.length;j++){
       if(j===i) continue;
       const other = round1[j];
       if(!other.bEntryId) continue;
-      const wouldFixThis = other.bOrg!==m.aOrg;
-      const wouldFixOther = (!other.aOrg || other.aOrg!==m.bOrg);
+      const wouldFixThis = !isClash(m.aOrg, other.bOrg, m.aGroupId, other.bGroupId);
+      const wouldFixOther = !isClash(other.aOrg, m.bOrg, other.aGroupId, m.bGroupId);
       if(wouldFixThis && wouldFixOther){
-        const tmpId = m.bEntryId, tmpOrg = m.bOrg;
-        m.bEntryId = other.bEntryId; m.bOrg = other.bOrg;
-        other.bEntryId = tmpId; other.bOrg = tmpOrg;
+        const tmpId = m.bEntryId, tmpOrg = m.bOrg, tmpGroupId = m.bGroupId;
+        m.bEntryId = other.bEntryId; m.bOrg = other.bOrg; m.bGroupId = other.bGroupId;
+        other.bEntryId = tmpId; other.bOrg = tmpOrg; other.bGroupId = tmpGroupId;
         return;
       }
     }
@@ -2742,6 +2754,7 @@ function formatDescriptionLines(t){
     lines.push('Format: Round robin group stage, followed by a knockout bracket.');
     lines.push('Group stage scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of '+bestOf+' legs (first to '+majority+').');
     lines.push('Advancing to the knockout: top '+f.qualifiersPerGroup+' entr'+(f.qualifiersPerGroup==1?'y':'ies')+' from each group, '+(f.advanceMode==='seeded'?'seeded by group finishing position':'drawn at random')+'.'+(f.losersPool ? ' Entries who don\'t advance go into a separate Plate pool knockout bracket' + (f.plateQualifiersPerGroup ? ' (next '+f.plateQualifiersPerGroup+' entr'+(f.plateQualifiersPerGroup==1?'y':'ies')+' per group; anyone ranked below that is eliminated)' : ' (everyone who doesn\'t advance to the main bracket)') + '.' : ''));
+    if(f.qualifiersPerGroup>1) lines.push('Two entries advancing from the same group are kept apart in the first knockout round where possible, so they don\'t immediately face a rematch of their round robin group.');
     if(f.knockoutLegs.main.variable){
       const k = f.knockoutLegs.main;
       lines.push('Knockout stage legs increase by round: early rounds best of '+k.early+', quarterfinal best of '+k.quarterfinal+', semifinal best of '+k.semifinal+', final best of '+k.final+'. Cannot end in a draw.');
