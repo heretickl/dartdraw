@@ -49,6 +49,10 @@ button{font-family:inherit}
 .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 4px 15px #26394a0b;margin-bottom:22px;max-width:820px}
 .card h2{font-size:17px;margin:0 0 4px}
 .card .intro{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 18px}
+.form-section{margin-top:26px;padding-top:22px;border-top:2px solid var(--line)}
+.form-section:first-of-type{margin-top:0;padding-top:0;border-top:none}
+.form-section-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--navy);margin:0 0 3px}
+.form-section-sub{font-size:11px;color:var(--muted);margin:0 0 14px}
 .field{margin:0 0 13px}
 .field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
 .hint{font-size:11px;color:var(--muted);margin-top:4px}
@@ -1540,21 +1544,12 @@ function stage2(){
   const rec = recommendGroups(n);
   const bracket = nearestBracket(n);
   const unit = state.eventCreation.competitionUnit;
-  return '<div class="card">'+
-    '<h2>Competition format</h2><p class="intro">Choose the format, legs, group size and print branding.</p>'+
+  const formatSectionHTML =
     '<div class="field"><label>Competition format</label><div class="options">'+
       '<div class="choice'+(f.formatType==='roundrobin'?' selected':'')+'" onclick="setFormatType(\'roundrobin\')"><strong>Round robin</strong><small>Play within assigned groups</small></div>'+
       '<div class="choice'+(f.formatType==='knockout'?' selected':'')+'" onclick="setFormatType(\'knockout\')"><strong>Knockout</strong><small>Direct elimination bracket</small></div>'+
       '<div class="choice'+(f.formatType==='rrknockout'?' selected':'')+'" onclick="setFormatType(\'rrknockout\')"><strong>Round robin → Knockout</strong><small>Group stage, then top finishers go to a bracket</small></div>'+
     '</div></div>'+
-    '<div class="grid2" style="margin-top:12px">'+
-      '<div class="field"><label>Level of play</label><select id="f_level" onchange="updateStage2Timing()">'+
-        ['professional','amateur','novice'].map(v=>'<option value="'+v+'"'+(f.levelOfPlay===v?' selected':'')+'>'+v.charAt(0).toUpperCase()+v.slice(1)+'</option>').join('')+
-      '</select></div>'+
-      '<div class="field"><label>Anticipated start time</label><input id="f_starttime" type="time" value="'+(f.anticipatedStartTime||'')+'" oninput="updateStage2Timing()"></div>'+
-    '</div>'+
-    breaksFieldsHTML(f)+
-    '<div class="recommend" id="stage2Timing">'+stage2TimingHTML()+'</div>'+
     '<div class="grid2">'+
       '<div class="field"><label>Best of legs (odd numbers preferred)</label><input id="f_bestof" type="number" min="1" step="2" value="'+f.bestOfLegs+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>'+
       (f.formatType!=='knockout' ?
@@ -1585,9 +1580,18 @@ function stage2(){
       '</div></div>'+
       (unit==='Teams' ? '<div class="field"><label>Players per team</label><input id="f_teamsize" type="number" min="2" value="'+f.teamSize+'"></div>' : '')+
       (unit==='Teams' && f.teamMatchFormat==='mixed' ? rubberEditor() : '')
-      : '')+
-    '<div class="toggle-row"><input type="checkbox" id="f_orgsplit" '+(f.orgSplit?'checked':'')+'> <label for="f_orgsplit">Avoid placing entries from the same organisation together (same round robin group, or facing off in the first knockout round)</label></div>'+
-    '<div class="field" style="margin-top:16px"><label>Tournament logo</label><div class="upload-row">'+
+      : '');
+  const schedulingSectionHTML =
+    '<div class="grid2">'+
+      '<div class="field"><label>Level of play</label><select id="f_level" onchange="updateStage2Timing()">'+
+        ['professional','amateur','novice'].map(v=>'<option value="'+v+'"'+(f.levelOfPlay===v?' selected':'')+'>'+v.charAt(0).toUpperCase()+v.slice(1)+'</option>').join('')+
+      '</select></div>'+
+      '<div class="field"><label>Anticipated start time</label><input id="f_starttime" type="time" value="'+(f.anticipatedStartTime||'')+'" oninput="updateStage2Timing()"></div>'+
+    '</div>'+
+    breaksFieldsHTML(f)+
+    '<div class="recommend" id="stage2Timing">'+stage2TimingHTML()+'</div>';
+  const brandingSectionHTML =
+    '<div class="field"><label>Tournament logo</label><div class="upload-row">'+
       (f.logo? '<img class="logo-thumb" src="'+f.logo+'">' : '<div class="logo-placeholder-sm">NO<br>LOGO</div>')+
       '<input type="file" accept="image/*" onchange="handleLogoUpload(this)">'+
       (f.logo?'<button class="btn ghost" onclick="clearLogo()">Remove</button>':'')+
@@ -1605,10 +1609,31 @@ function stage2(){
       ).join('') +'</div>'+
       '<div class="hint">'+f.sponsors.length+' logo'+(f.sponsors.length===1?'':'s')+' added. Click a thumbnail to remove it, or pick rectangle/square for how it displays on the chart footer. Auto-resized either way — no need to pre-crop.</div>'+
     '</div>'+
-    '<div class="field"><label>Optional print rules / footer text</label><textarea id="f_footer">'+escapeHtml(f.footerText)+'</textarea></div>'+
-    '<div class="field"><label>Walkover, conduct &amp; other rules <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — printed on its own rules &amp; format sheet, see below)</span></label>'+
+    '<div class="field"><label>Optional print rules / footer text</label><textarea id="f_footer">'+escapeHtml(f.footerText)+'</textarea></div>';
+  const rulesSectionHTML =
+    '<div class="toggle-row"><input type="checkbox" id="f_orgsplit" '+(f.orgSplit?'checked':'')+'> <label for="f_orgsplit">Avoid placing entries from the same organisation together (same round robin group, or facing off in the first knockout round)</label></div>'+
+    '<div class="field" style="margin-top:12px"><label>Walkover, conduct &amp; other rules <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — printed on its own rules &amp; format sheet, see below)</span></label>'+
       '<textarea id="f_rulesnotes" placeholder="e.g. A no-show forfeits after 10 minutes past the scheduled start. Players must check in at the desk before their first game. Unsporting conduct may result in disqualification at the organiser’s discretion.">'+escapeHtml(f.rulesNotes||'')+'</textarea></div>'+
-    tieBreakEditor()+
+    tieBreakEditor();
+  return '<div class="card">'+
+    '<h2>Competition format</h2><p class="intro">Choose the format, timing, branding and rules.</p>'+
+    '<div class="form-section">'+
+      '<div class="form-section-title">Format</div>'+
+      formatSectionHTML+
+    '</div>'+
+    '<div class="form-section">'+
+      '<div class="form-section-title">Scheduling</div>'+
+      '<div class="form-section-sub">Optional — powers a live on-schedule indicator in Manage Tournament. Never printed.</div>'+
+      schedulingSectionHTML+
+    '</div>'+
+    '<div class="form-section">'+
+      '<div class="form-section-title">Branding &amp; print</div>'+
+      brandingSectionHTML+
+    '</div>'+
+    '<div class="form-section">'+
+      '<div class="form-section-title">Rules</div>'+
+      rulesSectionHTML+
+    '</div>'+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="goStage(1)">Back</button>'+
       '<button class="btn primary" onclick="saveStage2()">Save format & branding →</button>'+
