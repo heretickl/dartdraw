@@ -156,7 +156,8 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .footer{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #cbd1d6;margin-top:14px;padding-top:10px;flex-shrink:0;flex-wrap:wrap;row-gap:8px}
 .footer small{font-size:9px;color:#6c7883;flex:1;min-width:220px}
 .footer-right{display:flex;align-items:center;gap:10px}
-.dd-credit{font-size:8px;color:#a2adb8;white-space:nowrap}
+.dd-credit{font-size:8px;color:#a2adb8;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.dd-credit-mark{width:11px;height:11px;border:1.3px solid var(--gold);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:6.5px;font-weight:800;color:var(--gold);flex-shrink:0;box-sizing:border-box}
 .sponsors{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center;max-width:58%}
 .sponsor{width:64px;height:28px;border:none;border-radius:4px;color:#81909c;font-size:7px;display:grid;place-items:stretch;overflow:hidden;flex-shrink:0;background:#fff;box-sizing:border-box;padding:2px}
 .sponsor.square{width:34px;height:34px}
@@ -2516,7 +2517,7 @@ function chartSheetHTML(g, forPrint){
     '<div class="footer-right">'+
       (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' :
         (t.printSettings.sponsorFooterEnabled && !forPrint ? '<div class="sponsors"><div class="sponsor">SPONSOR</div><div class="sponsor">SPONSOR</div></div>' : ''))+
-      '<span class="dd-credit">Generated with DartDraw</span>'+
+      '<span class="dd-credit"><span class="dd-credit-mark">D</span>Generated with DartDraw</span>'+
     '</div>'+
     '</div>'+
   '</div>';
