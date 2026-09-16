@@ -179,9 +179,14 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .manage-chart-wrap{width:100%;overflow:hidden}
 .manage-chart-inner{transform-origin:top left}
 .bracket-cols{display:flex;gap:16px;overflow-x:auto;padding:4px 2px}
-.bracket-col{display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-width:170px;flex-shrink:0}
+.bracket-col{display:flex;flex-direction:column;min-width:170px;flex-shrink:0}
 .bracket-col-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center;margin-bottom:4px}
-.bracket-match{border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12px;background:#fff}
+.bracket-slot{flex:1;display:flex;align-items:center;position:relative;min-height:50px}
+.bracket-slot.has-next::after{content:'';position:absolute;top:50%;right:-8px;width:8px;height:1px;background:var(--line)}
+.bracket-slot.pair-top::before{content:'';position:absolute;top:50%;right:-8px;width:1px;height:50%;background:var(--line)}
+.bracket-slot.pair-bottom::before{content:'';position:absolute;bottom:50%;right:-8px;width:1px;height:50%;background:var(--line)}
+.bracket-connect-mid{position:absolute;top:0;right:-16px;width:8px;height:1px;background:var(--line)}
+.bracket-match{border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12px;background:#fff;width:100%}
 .bracket-match.clickable{cursor:pointer}
 .bracket-match.clickable:hover{border-color:var(--navy)}
 .bracket-side{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 9px;border-top:1px solid var(--line)}
@@ -255,6 +260,8 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
   .print-sheet{box-shadow:none;border:none;width:277mm;height:190mm;aspect-ratio:auto;page-break-after:always;margin:0 auto}
   .print-sheet:last-child{page-break-after:auto}
   #printSheets{display:block !important}
+  .bracket-cols{overflow-x:visible}
+  .bracket-col{min-width:0;flex:1 1 0}
   @page{size:A4 landscape;margin:8mm}
 }
 #printSheets{display:none}
@@ -932,6 +939,18 @@ function koRoundName(bracket, idx){
    matches with both sides filled clickable to enter a result (score cells
    route through koMatchScoreModal, keyed by opts.bracketKey so it knows
    which of state.knockout / state.knockoutLosers to update). */
+/* A bracket-slot's connector lines are determined purely by its own match
+   index within its round: even indices are the "top" of their next-round
+   pair, odd indices the "bottom" — see projectedBracketColumnsHTML's header
+   comment for why this lines up exactly with the following round's slots
+   regardless of round size. `hasNext` is false only for the Final. */
+function bracketSlotClasses(mi, hasNext){
+  if(!hasNext) return '';
+  return ' has-next'+(mi%2===0?' pair-top':' pair-bottom');
+}
+function bracketConnectMidHTML(mi, hasNext){
+  return (hasNext && mi%2===1) ? '<div class="bracket-connect-mid"></div>' : '';
+}
 function bracketColumnsHTML(bracket, t, opts){
   opts = opts||{};
   const interactive = !!opts.interactive;
@@ -941,21 +960,25 @@ function bracketColumnsHTML(bracket, t, opts){
   return '<div class="bracket-cols">'+
     bracket.rounds.map((round, ri)=>{
       const legsNote = legsCfg && legsCfg.variable ? ' · Best of '+legsForKnockoutRound(t, bracketKey, totalRounds, ri) : '';
+      const hasNext = ri<totalRounds-1;
       return '<div class="bracket-col"><div class="bracket-col-title">'+koRoundName(bracket,ri)+legsNote+'</div>'+
         round.map((m,mi)=>{
-          const aName = bracketEntryName(t, m.aEntryId) || (ri===0?'—':'TBD');
-          const bName = bracketEntryName(t, m.bEntryId) || (ri===0?'—':'TBD');
+          const aName = bracketEntryName(t, m.aEntryId) || '';
+          const bName = bracketEntryName(t, m.bEntryId) || '';
           const aSeed = (ri===0 && bracket.seeds) ? bracket.seeds[m.aEntryId] : null;
           const bSeed = (ri===0 && bracket.seeds) ? bracket.seeds[m.bEntryId] : null;
           const aWin = m.winnerId && m.winnerId===m.aEntryId;
           const bWin = m.winnerId && m.winnerId===m.bEntryId;
           const clickable = interactive && m.aEntryId && m.bEntryId && !m.bye;
-          return '<div class="bracket-match'+(clickable?' clickable':'')+'" '+(clickable?'onclick="koMatchScoreModal(\''+bracketKey+'\','+ri+','+mi+')"':'')+'>'+
-            '<div class="bracket-side'+(aWin?' win':'')+'"><span>'+(aSeed?'<span class="bracket-seed">'+aSeed+'</span>':'')+escapeHtml(aName)+'</span>'+(m.aLegs!=null?'<span class="bracket-score">'+m.aLegs+'</span>':'')+'</div>'+
-            '<div class="bracket-side'+(bWin?' win':'')+'"><span>'+(bSeed?'<span class="bracket-seed">'+bSeed+'</span>':'')+escapeHtml(bName)+'</span>'+(m.bLegs!=null?'<span class="bracket-score">'+m.bLegs+'</span>':'')+'</div>'+
-            (m.bye?'<div class="bracket-bye-tag">BYE</div>':'')+
-            (m.wo && !m.bye?'<div class="bracket-bye-tag">WO</div>':'')+
-            (clickable?'<div class="bracket-wo-action" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>':'')+
+          return '<div class="bracket-slot'+bracketSlotClasses(mi,hasNext)+'">'+
+            '<div class="bracket-match'+(clickable?' clickable':'')+'" '+(clickable?'onclick="koMatchScoreModal(\''+bracketKey+'\','+ri+','+mi+')"':'')+'>'+
+              '<div class="bracket-side'+(aWin?' win':'')+'"><span>'+(aSeed?'<span class="bracket-seed">'+aSeed+'</span>':'')+escapeHtml(aName)+'</span>'+(m.aLegs!=null?'<span class="bracket-score">'+m.aLegs+'</span>':'')+'</div>'+
+              '<div class="bracket-side'+(bWin?' win':'')+'"><span>'+(bSeed?'<span class="bracket-seed">'+bSeed+'</span>':'')+escapeHtml(bName)+'</span>'+(m.bLegs!=null?'<span class="bracket-score">'+m.bLegs+'</span>':'')+'</div>'+
+              (m.bye?'<div class="bracket-bye-tag">BYE</div>':'')+
+              (m.wo && !m.bye?'<div class="bracket-bye-tag">WO</div>':'')+
+              (clickable?'<div class="bracket-wo-action" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>':'')+
+            '</div>'+
+            bracketConnectMidHTML(mi,hasNext)+
           '</div>';
         }).join('')+
       '</div>';
@@ -1068,16 +1091,20 @@ function projectedBracketColumnsHTML(labels, size){
     const count = size / Math.pow(2, ri+1);
     const fromEnd = totalRounds-ri;
     const title = fromEnd===1?'Final':fromEnd===2?'Semifinal':fromEnd===3?'Quarterfinal':'Round of '+(size/Math.pow(2,ri));
+    const hasNext = ri<totalRounds-1;
     html += '<div class="bracket-col"><div class="bracket-col-title">'+title+'</div>'+
       Array.from({length:count}).map((_,mi)=>{
         const aLab = ri===0 ? slots[mi*2] : null, bLab = ri===0 ? slots[mi*2+1] : null;
         const isBye = ri===0 && (!!aLab !== !!bLab);
-        const aTxt = ri===0 ? (aLab?escapeHtml(aLab):'—') : 'TBD';
-        const bTxt = ri===0 ? (bLab?escapeHtml(bLab):'—') : 'TBD';
-        return '<div class="bracket-match">'+
-          '<div class="bracket-side"><span>'+aTxt+'</span></div>'+
-          '<div class="bracket-side"><span>'+bTxt+'</span></div>'+
-          (isBye?'<div class="bracket-bye-tag">BYE</div>':'')+
+        const aTxt = ri===0 && aLab ? escapeHtml(aLab) : '';
+        const bTxt = ri===0 && bLab ? escapeHtml(bLab) : '';
+        return '<div class="bracket-slot'+bracketSlotClasses(mi,hasNext)+'">'+
+          '<div class="bracket-match">'+
+            '<div class="bracket-side"><span>'+aTxt+'</span></div>'+
+            '<div class="bracket-side"><span>'+bTxt+'</span></div>'+
+            (isBye?'<div class="bracket-bye-tag">BYE</div>':'')+
+          '</div>'+
+          bracketConnectMidHTML(mi,hasNext)+
         '</div>';
       }).join('')+
     '</div>';
@@ -1663,16 +1690,16 @@ function stage2(){
     )+
     (advanced && (f.formatType==='knockout' || f.formatType==='rrknockout') ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)') : '')+
     (f.formatType==='rrknockout' ? '<div class="grid2" style="margin-top:12px">'+
-      '<div class="field"><label>Qualifiers per group (advance to knockout)</label><input id="f_qualifiers" type="number" min="1" value="'+f.qualifiersPerGroup+'" oninput="updateStage2Timing()"></div>'+
-      '<div class="field"><label>How qualifiers are placed into the bracket</label><select id="f_advancemode">'+
+      '<div class="field"><label>Entries per group (advance to knockout)</label><input id="f_qualifiers" type="number" min="1" value="'+f.qualifiersPerGroup+'" oninput="updateStage2Timing()"></div>'+
+      '<div class="field"><label>How entries are placed into the bracket</label><select id="f_advancemode">'+
         '<option value="seeded"'+(f.advanceMode==='seeded'?' selected':'')+'>Seeded by group standing (recommended)</option>'+
         '<option value="random"'+(f.advanceMode==='random'?' selected':'')+'>Random draw</option>'+
       '</select></div>'+
     '</div>'+
     (advanced ?
-      '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a losers\' pool (Plate) knockout bracket for entries that don\'t qualify</label></div>'+
-      '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate qualifiers per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+(f.plateQualifiersPerGroup||'')+'"></div>'+
-      '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group qualifiers across the bracket where the numbers allow it. Leave Plate qualifiers blank to send everyone who doesn\'t qualify for the main bracket into the Plate (today\'s default); set a number to cap the Plate too, e.g. top 2 → winner bracket, next 2 → Plate, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'+
+      '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a Plate pool knockout bracket for entries that don\'t advance</label></div>'+
+      '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate entries per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate pool is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+(f.plateQualifiersPerGroup||'')+'"></div>'+
+      '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group entries across the bracket where the numbers allow it. Leave Plate entries blank to send everyone who doesn\'t advance to the main bracket into the Plate pool (today\'s default); set a number to cap the Plate pool too, e.g. top 2 → winner bracket, next 2 → Plate pool, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'+
       knockoutLegsFieldsHTML('plate', f.knockoutLegs.plate, 'Plate bracket: also increase legs by stage (independent of the winner bracket above)')
       : '')
       : '')+
@@ -2705,7 +2732,7 @@ function formatDescriptionLines(t){
   } else if(f.formatType==='rrknockout'){
     lines.push('Format: Round robin group stage, followed by a knockout bracket.');
     lines.push('Group stage scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of '+bestOf+' legs (first to '+majority+').');
-    lines.push('Advancing to the knockout: top '+f.qualifiersPerGroup+' from each group, '+(f.advanceMode==='seeded'?'seeded by group finishing position':'drawn at random')+'.'+(f.losersPool ? ' Non-qualifiers go into a separate losers’ pool (Plate) knockout bracket' + (f.plateQualifiersPerGroup ? ' (next '+f.plateQualifiersPerGroup+' per group; anyone ranked below that is eliminated)' : ' (everyone who doesn\'t qualify for the main bracket)') + '.' : ''));
+    lines.push('Advancing to the knockout: top '+f.qualifiersPerGroup+' entries from each group, '+(f.advanceMode==='seeded'?'seeded by group finishing position':'drawn at random')+'.'+(f.losersPool ? ' Entries who don\'t advance go into a separate Plate pool knockout bracket' + (f.plateQualifiersPerGroup ? ' (next '+f.plateQualifiersPerGroup+' entries per group; anyone ranked below that is eliminated)' : ' (everyone who doesn\'t advance to the main bracket)') + '.' : ''));
     if(f.knockoutLegs.main.variable){
       const k = f.knockoutLegs.main;
       lines.push('Knockout stage legs increase by round: early rounds best of '+k.early+', quarterfinal best of '+k.quarterfinal+', semifinal best of '+k.semifinal+', final best of '+k.final+'. Cannot end in a draw.');
@@ -2976,7 +3003,7 @@ function stage5KnockoutSection(){
     const confirmedGroups = t.groups.filter(g=>g.confirmed);
     const allStarted = confirmedGroups.length && confirmedGroups.every(g=>g.gameStarted);
     const plateNote = t.format.losersPool ? (t.format.plateQualifiersPerGroup ? ', next '+t.format.plateQualifiersPerGroup+' per group to the Plate, anyone below that eliminated' : ', everyone else to the Plate') : '';
-    html += '<p class="intro">Generates the knockout bracket from each group\'s current standings ('+t.format.qualifiersPerGroup+' qualifier'+(t.format.qualifiersPerGroup==1?'':'s')+' per group, '+(t.format.advanceMode==='seeded'?'seeded by group position':'random draw')+plateNote+').</p>'+
+    html += '<p class="intro">Generates the knockout bracket from each group\'s current standings ('+t.format.qualifiersPerGroup+' entr'+(t.format.qualifiersPerGroup==1?'y':'ies')+' per group, '+(t.format.advanceMode==='seeded'?'seeded by group position':'random draw')+plateNote+').</p>'+
       (!allStarted ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Round robin still in progress</b>Generating now uses whatever standings exist so far — usually best to wait until every group\'s games are finished.</div>' : '')+
       '<div class="buttonrow"><button class="btn primary" onclick="generateKnockoutFromRR()">Generate knockout bracket</button></div>';
   } else {
@@ -3041,7 +3068,7 @@ function knockoutScheduleSummaryHTML(t, bracket, bracketKey, startOffsetMs){
 function generateKnockoutFromRR(){
   const t = state;
   const qualifiers = collectQualifiers(t);
-  if(qualifiers.length<2){ openModal({title:'Not enough qualifiers', body:'At least 2 entries need to qualify — check group standings and the qualifiers-per-group setting in Format & branding.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
+  if(qualifiers.length<2){ openModal({title:'Not enough entries', body:'At least 2 entries need to advance — check group standings and the entries-per-group setting in Format & branding.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
   let ordered = t.format.advanceMode==='random' ? shuffleArray(qualifiers) : qualifiers;
   t.knockout = generateBracket(ordered, 'Main bracket');
   t.knockoutLosers = null;
@@ -3049,7 +3076,7 @@ function generateKnockoutFromRR(){
     const nonQual = collectNonQualifiers(t);
     if(nonQual.length>=2){
       const orderedL = t.format.advanceMode==='random' ? shuffleArray(nonQual) : nonQual;
-      t.knockoutLosers = generateBracket(orderedL, "Losers' pool (Plate)");
+      t.knockoutLosers = generateBracket(orderedL, "Plate pool");
     }
   }
   /* Stamped once, the first time this runs, so the knockout schedule anchors
@@ -3223,7 +3250,7 @@ function stage6KnockoutSection(){
   const t = state;
   let html = '';
   if(t.knockout) html += knockoutPlacementsCard(t.knockout, 'Knockout stage — main bracket');
-  if(t.knockoutLosers) html += knockoutPlacementsCard(t.knockoutLosers, "Losers' pool (Plate)");
+  if(t.knockoutLosers) html += knockoutPlacementsCard(t.knockoutLosers, "Plate pool");
   return html;
 }
 /* ---------- Stage 7: Print Final Chart ---------- */
@@ -3418,7 +3445,7 @@ function runPrintPack(confirmed){
     if(qualLabels.length>=2) html += projectedBracketSheetHTML(qualLabels, 'Main bracket (projected)');
     if(state.format.losersPool){
       const nonQualLabels = projectedNonQualifierLabels(state);
-      if(nonQualLabels.length>=2) html += projectedBracketSheetHTML(nonQualLabels, "Losers' pool / Plate (projected)");
+      if(nonQualLabels.length>=2) html += projectedBracketSheetHTML(nonQualLabels, "Plate pool (projected)");
     }
   }
   if(state.printSettings.teamHandoutEnabled && isTeamUnit(state)) html += teamHandoutSheetsHTML();
