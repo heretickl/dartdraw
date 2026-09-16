@@ -188,6 +188,7 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .bracket-side:first-child{border-top:none}
 .bracket-side.win{font-weight:800;background:#eaf7ee}
 .bracket-score{font-weight:800;font-size:12px;flex-shrink:0}
+.bracket-seed{display:inline-block;min-width:14px;font-size:9px;font-weight:700;color:var(--muted);margin-right:5px}
 .bracket-bye-tag{font-size:9px;color:var(--muted);text-align:center;padding:2px 0;border-top:1px solid var(--line)}
 .bracket-wo-action{font-size:9px;color:var(--blue);text-align:center;padding:3px 0;cursor:pointer;text-decoration:underline}
 .wo-tag{font-size:9px;font-weight:800;color:var(--muted);vertical-align:middle}
@@ -809,7 +810,9 @@ function generateBracket(orderedEntries, label){
     rounds.push(round);
   }
   propagateByes(rounds);
-  return { id: uid('kb'), label: label||'Bracket', size, rounds, roundStartedAt: rounds.map(()=>null) };
+  const seeds = {};
+  orderedEntries.forEach((e,i)=>{ seeds[e.entryId] = i+1; });
+  return { id: uid('kb'), label: label||'Bracket', size, rounds, roundStartedAt: rounds.map(()=>null), seeds };
 }
 /* Pushes any already-known winners (from round-1 byes) forward into the next
    round's slots — called after generation and after every score is saved. */
@@ -914,12 +917,14 @@ function bracketColumnsHTML(bracket, t, opts){
         round.map((m,mi)=>{
           const aName = bracketEntryName(t, m.aEntryId) || (ri===0?'—':'TBD');
           const bName = bracketEntryName(t, m.bEntryId) || (ri===0?'—':'TBD');
+          const aSeed = (ri===0 && bracket.seeds) ? bracket.seeds[m.aEntryId] : null;
+          const bSeed = (ri===0 && bracket.seeds) ? bracket.seeds[m.bEntryId] : null;
           const aWin = m.winnerId && m.winnerId===m.aEntryId;
           const bWin = m.winnerId && m.winnerId===m.bEntryId;
           const clickable = interactive && m.aEntryId && m.bEntryId && !m.bye;
           return '<div class="bracket-match'+(clickable?' clickable':'')+'" '+(clickable?'onclick="koMatchScoreModal(\''+bracketKey+'\','+ri+','+mi+')"':'')+'>'+
-            '<div class="bracket-side'+(aWin?' win':'')+'"><span>'+escapeHtml(aName)+'</span>'+(m.aLegs!=null?'<span class="bracket-score">'+m.aLegs+'</span>':'')+'</div>'+
-            '<div class="bracket-side'+(bWin?' win':'')+'"><span>'+escapeHtml(bName)+'</span>'+(m.bLegs!=null?'<span class="bracket-score">'+m.bLegs+'</span>':'')+'</div>'+
+            '<div class="bracket-side'+(aWin?' win':'')+'"><span>'+(aSeed?'<span class="bracket-seed">'+aSeed+'</span>':'')+escapeHtml(aName)+'</span>'+(m.aLegs!=null?'<span class="bracket-score">'+m.aLegs+'</span>':'')+'</div>'+
+            '<div class="bracket-side'+(bWin?' win':'')+'"><span>'+(bSeed?'<span class="bracket-seed">'+bSeed+'</span>':'')+escapeHtml(bName)+'</span>'+(m.bLegs!=null?'<span class="bracket-score">'+m.bLegs+'</span>':'')+'</div>'+
             (m.bye?'<div class="bracket-bye-tag">BYE</div>':'')+
             (m.wo && !m.bye?'<div class="bracket-bye-tag">WO</div>':'')+
             (clickable?'<div class="bracket-wo-action" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>':'')+
