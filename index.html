@@ -498,7 +498,7 @@ function recommendGroups(entries){
 function matchesPerGroup(n){ return n*(n-1)/2; }
 
 /* ---------- Scheduling / timing estimates (live indicator only — never printed) ---------- */
-const MINUTES_PER_LEG = { professional:7, amateur:10, novice:12 };
+const MINUTES_PER_LEG = { professional:5, amateur:7, novice:9 };
 function minutesPerLegFor(t){
   const base = MINUTES_PER_LEG[t.format.levelOfPlay] || MINUTES_PER_LEG.amateur;
   return t.eventCreation.eventType==='Women' ? base*1.2 : base;
