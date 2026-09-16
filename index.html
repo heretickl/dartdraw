@@ -886,6 +886,34 @@ function collectNonQualifiers(t){
   const hasPlateCap = !isNaN(plateSize) && plateSize>=1;
   return collectRankedEntries(t, (r,perGroup)=> r>=perGroup && (!hasPlateCap || r<perGroup+plateSize));
 }
+/* Seeded advancement is decided purely by group order + qualifiersPerGroup —
+   it never depends on actual round-robin results (unlike random draw, which
+   can only happen once real standings exist). So before a single leg is
+   played, we already know which group+position lands in which bracket slot.
+   These mirror collectQualifiers/collectNonQualifiers's rank-then-group walk,
+   but on group *composition* (entryIds.length) rather than live standings,
+   producing placeholder labels like "A1" (Group A, 1st place) instead of
+   entry names — used only for the pre-round-robin projected bracket sheet. */
+function projectedQualifierLabels(t){
+  const perGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
+  const out = [];
+  for(let r=0;r<perGroup;r++){
+    t.groups.forEach(g=>{ if(g.entryIds.length>r) out.push(g.label+(r+1)); });
+  }
+  return out;
+}
+function projectedNonQualifierLabels(t){
+  const perGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
+  const plateSize = parseInt(t.format.plateQualifiersPerGroup);
+  const hasPlateCap = !isNaN(plateSize) && plateSize>=1;
+  const maxRank = Math.max(...t.groups.map(g=>g.entryIds.length), 0);
+  const out = [];
+  for(let r=perGroup;r<maxRank;r++){
+    if(hasPlateCap && r>=perGroup+plateSize) continue;
+    t.groups.forEach(g=>{ if(g.entryIds.length>r) out.push(g.label+(r+1)); });
+  }
+  return out;
+}
 function shuffleArray(arr){
   const a = arr.slice();
   for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
@@ -1018,6 +1046,56 @@ function knockoutBracketSheetHTML(bracket){
     '</div>'+
     '<div style="flex:1;display:flex;align-items:center;margin-top:16px">'+bracketColumnsHTML(bracket, t, {interactive:false})+'</div>'+
     '<div class="footer"><small>'+legsFooter+'</small>'+
+    '<div class="footer-right">'+
+      (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
+      DD_CREDIT_HTML+
+    '</div>'+
+    '</div>'+
+  '</div>';
+}
+/* Placeholder bracket printed before the round robin is confirmed, seeded
+   mode only (see projectedQualifierLabels/projectedNonQualifierLabels — the
+   slot placement is deterministic ahead of results). Round 1 shows group
+   position labels like "A1" instead of names; every later round is TBD,
+   same as a freshly-generated real bracket. */
+function projectedBracketColumnsHTML(labels, size){
+  const slotOrder = seedSlotOrder(size);
+  const bySeed = {}; labels.forEach((lab,i)=> bySeed[i+1] = lab);
+  const slots = slotOrder.map(seed=> bySeed[seed] || null);
+  const totalRounds = Math.log2(size);
+  let html = '<div class="bracket-cols">';
+  for(let ri=0; ri<totalRounds; ri++){
+    const count = size / Math.pow(2, ri+1);
+    const fromEnd = totalRounds-ri;
+    const title = fromEnd===1?'Final':fromEnd===2?'Semifinal':fromEnd===3?'Quarterfinal':'Round of '+(size/Math.pow(2,ri));
+    html += '<div class="bracket-col"><div class="bracket-col-title">'+title+'</div>'+
+      Array.from({length:count}).map((_,mi)=>{
+        const aLab = ri===0 ? slots[mi*2] : null, bLab = ri===0 ? slots[mi*2+1] : null;
+        const isBye = ri===0 && (!!aLab !== !!bLab);
+        const aTxt = ri===0 ? (aLab?escapeHtml(aLab):'—') : 'TBD';
+        const bTxt = ri===0 ? (bLab?escapeHtml(bLab):'—') : 'TBD';
+        return '<div class="bracket-match">'+
+          '<div class="bracket-side"><span>'+aTxt+'</span></div>'+
+          '<div class="bracket-side"><span>'+bTxt+'</span></div>'+
+          (isBye?'<div class="bracket-bye-tag">BYE</div>':'')+
+        '</div>';
+      }).join('')+
+    '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+function projectedBracketSheetHTML(labels, title){
+  const t = state;
+  const size = nearestBracket(Math.max(labels.length,2)).size;
+  return '<div class="print-sheet">'+
+    '<div class="sheet-top">'+ mainLogoBoxHTML()+
+      '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
+      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Projected Knockout Placement</div></div>'+
+      '<div class="group-label"><strong>'+escapeHtml(title.toUpperCase())+'</strong><span>'+size+'-entry bracket</span></div>'+
+    '</div>'+
+    '<div style="flex:1;display:flex;align-items:center;margin-top:16px">'+projectedBracketColumnsHTML(labels, size)+'</div>'+
+    '<div class="footer"><small>Labels show group + projected finishing position (e.g. A1 = Group A, 1st place) — seeded automatically once the round robin is confirmed. The actual bracket with real names is generated in Manage Tournament after results are entered.</small>'+
     '<div class="footer-right">'+
       (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
       DD_CREDIT_HTML+
@@ -3332,8 +3410,17 @@ function runPrintPack(confirmed){
   let html = '';
   if(state.printSettings.rulesSheetEnabled) html += rulesSheetHTML();
   if(confirmed && confirmed.length) html += runningOrderSheetHTML(confirmed) + confirmed.map(g=> chartSheetHTML(g, true) ).join('');
-  if(state.knockout) html += knockoutBracketSheetHTML(state.knockout);
-  if(state.knockoutLosers) html += knockoutBracketSheetHTML(state.knockoutLosers);
+  if(state.knockout){
+    html += knockoutBracketSheetHTML(state.knockout);
+    if(state.knockoutLosers) html += knockoutBracketSheetHTML(state.knockoutLosers);
+  } else if(state.format.formatType==='rrknockout' && state.format.advanceMode==='seeded'){
+    const qualLabels = projectedQualifierLabels(state);
+    if(qualLabels.length>=2) html += projectedBracketSheetHTML(qualLabels, 'Main bracket (projected)');
+    if(state.format.losersPool){
+      const nonQualLabels = projectedNonQualifierLabels(state);
+      if(nonQualLabels.length>=2) html += projectedBracketSheetHTML(nonQualLabels, "Losers' pool / Plate (projected)");
+    }
+  }
   if(state.printSettings.teamHandoutEnabled && isTeamUnit(state)) html += teamHandoutSheetsHTML();
   if(state.printSettings.lineupSheetEnabled) html += teamLineupSheetsHTML();
   mount.innerHTML = html;
