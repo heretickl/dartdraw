@@ -770,53 +770,16 @@ function seedSlotOrder(size){
    `orderedEntries[0]` is the best seed. Slots beyond the list are byes.
    `label` marks which bracket this is (used when a losers' pool exists
    alongside the main bracket) and is purely informational. */
-function generateBracket(orderedEntries, label){
-  const n = orderedEntries.length;
-  const size = nearestBracket(Math.max(n,2)).size;
-  const slotOrder = seedSlotOrder(size); // seed number (1-indexed) per slot
-  const bySeed = {};
-  orderedEntries.forEach((e,i)=> bySeed[i+1] = e );
-  const slots = slotOrder.map(seed=> bySeed[seed] || null);
-  // Round 1 pairs from adjacent slots
+/* Builds round 1 (from a slot array) plus every empty later round, then
+   propagates round-1 byes forward — used both to produce the real bracket
+   and, repeatedly, to test candidate slot arrangements while resolving
+   clashes below. */
+function bracketFromSlots(slots, size){
   let round1 = [];
   for(let i=0;i<size;i+=2){
     round1.push({ id: uid('km'), aEntryId: slots[i]?slots[i].entryId:null, bEntryId: slots[i+1]?slots[i+1].entryId:null,
-      aOrg: slots[i]?slots[i].org:'', bOrg: slots[i+1]?slots[i+1].org:'',
-      aGroupId: slots[i]?slots[i].groupId:null, bGroupId: slots[i+1]?slots[i+1].groupId:null,
       aLegs:null, bLegs:null, winnerId:null, bye:false });
   }
-  /* Best-effort: if both sides of a round-1 match share a non-blank org, or
-     already played each other in the same round-robin group, try swapping
-     the "second" (lower-seed) slot with another match's second slot to
-     break the clash without disturbing top-seed placement. Never fails —
-     if no safe swap exists the clash is simply left in place. Group clashes
-     only arise when qualifiersPerGroup>1 sends more than one entry from the
-     same group forward — those two land in different seed bands (one in
-     the winners' band, one in the runners-up band, etc.) so nothing else
-     already keeps them apart the way it does for round-robin grouping. */
-  function isClash(aOrg,bOrg,aGroupId,bGroupId){
-    if(aOrg && aOrg===bOrg) return true;
-    if(aGroupId && aGroupId===bGroupId) return true;
-    return false;
-  }
-  round1.forEach((m,i)=>{
-    if(!m.aEntryId || !m.bEntryId) return;
-    if(!isClash(m.aOrg,m.bOrg,m.aGroupId,m.bGroupId)) return;
-    for(let j=0;j<round1.length;j++){
-      if(j===i) continue;
-      const other = round1[j];
-      if(!other.bEntryId) continue;
-      const wouldFixThis = !isClash(m.aOrg, other.bOrg, m.aGroupId, other.bGroupId);
-      const wouldFixOther = !isClash(other.aOrg, m.bOrg, other.aGroupId, m.bGroupId);
-      if(wouldFixThis && wouldFixOther){
-        const tmpId = m.bEntryId, tmpOrg = m.bOrg, tmpGroupId = m.bGroupId;
-        m.bEntryId = other.bEntryId; m.bOrg = other.bOrg; m.bGroupId = other.bGroupId;
-        other.bEntryId = tmpId; other.bOrg = tmpOrg; other.bGroupId = tmpGroupId;
-        return;
-      }
-    }
-  });
-  // Auto-advance byes
   round1.forEach(m=>{
     if(m.aEntryId && !m.bEntryId){ m.winnerId = m.aEntryId; m.bye = true; }
     else if(!m.aEntryId && m.bEntryId){ m.winnerId = m.bEntryId; m.bye = true; }
@@ -830,6 +793,68 @@ function generateBracket(orderedEntries, label){
     rounds.push(round);
   }
   propagateByes(rounds);
+  return rounds;
+}
+function generateBracket(orderedEntries, label){
+  const n = orderedEntries.length;
+  const size = nearestBracket(Math.max(n,2)).size;
+  const slotOrder = seedSlotOrder(size); // seed number (1-indexed) per slot
+  const bySeed = {};
+  orderedEntries.forEach((e,i)=> bySeed[i+1] = e );
+  let slots = slotOrder.map(seed=> bySeed[seed] || null);
+
+  const infoByEntry = {};
+  orderedEntries.forEach(e=>{ infoByEntry[e.entryId] = { org: e.org, groupId: e.groupId }; });
+  function isClash(idA, idB){
+    if(!idA || !idB) return false;
+    const a = infoByEntry[idA], b = infoByEntry[idB];
+    if(!a || !b) return false;
+    if(a.org && a.org===b.org) return true;
+    if(a.groupId && a.groupId===b.groupId) return true;
+    return false;
+  }
+  /* A pairing counts as a clash to fix only if it's already decided the
+     moment the bracket is generated — i.e. both sides are known without
+     anyone needing to win a real match first. That's every round-1 match
+     with two real entries, but also any later-round match where both
+     sides arrived purely via byes (a very bye-heavy bracket can put two
+     same-group/org entries into an immediate "final" of a bye chain one
+     round early — the same clash in spirit, just one round removed from
+     round 1). Anything decided by an actual result is out of scope: we
+     can't steer who wins. */
+  function findImmediateClashes(rounds){
+    const found = [];
+    rounds.forEach((round,ri)=> round.forEach((m,mi)=>{
+      if(m.aEntryId && m.bEntryId && isClash(m.aEntryId, m.bEntryId)) found.push({ri, mi, b:m.bEntryId});
+    }));
+    return found;
+  }
+  /* Best-effort: try swapping the clashing match's "second" entry into
+     another slot to break the clash without disturbing top-seed
+     placement — same philosophy as the original round-1-only version,
+     just verified by fully rebuilding the bracket (byes and all) after
+     each candidate swap, since a swap can ripple through bye chains in
+     ways a single-round check can't see. Bounded and never fails; if no
+     improving swap exists the clash is simply left in place. */
+  let rounds = bracketFromSlots(slots, size);
+  let clashes = findImmediateClashes(rounds);
+  let attempts = 0;
+  while(clashes.length && attempts < size){
+    attempts++;
+    const bSlot = slots.findIndex(s=> s && s.entryId===clashes[0].b);
+    let fixed = false;
+    for(let j=0;j<slots.length && !fixed;j++){
+      if(j===bSlot) continue;
+      const candidate = slots.slice();
+      const tmp = candidate[bSlot]; candidate[bSlot] = candidate[j]; candidate[j] = tmp;
+      const candidateRounds = bracketFromSlots(candidate, size);
+      const candidateClashes = findImmediateClashes(candidateRounds);
+      if(candidateClashes.length < clashes.length){
+        slots = candidate; rounds = candidateRounds; clashes = candidateClashes; fixed = true;
+      }
+    }
+    if(!fixed) break;
+  }
   const seeds = {};
   orderedEntries.forEach((e,i)=>{ seeds[e.entryId] = i+1; });
   return { id: uid('kb'), label: label||'Bracket', size, rounds, roundStartedAt: rounds.map(()=>null), seeds };
