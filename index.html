@@ -1594,7 +1594,7 @@ function render(){
 function stage1(){
   const e = state.eventCreation;
   return '<div class="card">'+
-    '<h2>Create your event</h2><p class="intro">For singles, doubles, triples or team events. No login or internet connection required.</p>'+
+    '<h2>Create your event</h2><p class="intro">For singles or team events. No login or internet connection required.</p>'+
     '<div class="field"><label>Setup mode</label><div class="options">'+
       '<div class="choice'+(!e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(false)"><strong>Basic</strong><small>Just the essentials — format, groups, scores</small></div>'+
       '<div class="choice'+(e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(true)"><strong>Advanced</strong><small>Scheduling, knockout leg progression, Plate bracket, custom team lineups, and more</small></div>'+
@@ -1706,7 +1706,7 @@ function stage2(){
     (isTeamUnit(state) ? (
       (advanced && unit==='Teams' ? '<div class="field" style="margin-top:12px"><label>Team format</label><div class="options">'+
         '<div class="choice'+(f.teamMatchFormat==='foursome'?' selected':'')+'" onclick="setTeamMatchFormat(\'foursome\')"><strong>Foursome</strong><small>Each encounter is one match, full team vs full team</small></div>'+
-        '<div class="choice'+(f.teamMatchFormat==='mixed'?' selected':'')+'" onclick="setTeamMatchFormat(\'mixed\')"><strong>Rubber lineup (custom)</strong><small>A mix of singles/doubles/triples/foursome rubbers, in any order — decided by rubbers won</small></div>'+
+        '<div class="choice'+(f.teamMatchFormat==='mixed'?' selected':'')+'" onclick="setTeamMatchFormat(\'mixed\')"><strong>Rubber lineup (custom)</strong><small>A mix of singles/doubles/foursome rubbers, in any order — decided by rubbers won</small></div>'+
       '</div></div>' : '')+
       (unit==='Teams' ? '<div class="field"><label>Players per team</label><input id="f_teamsize" type="number" min="2" value="'+f.teamSize+'"></div>' : '')+
       (advanced && unit==='Teams' && f.teamMatchFormat==='mixed' ? rubberEditor() : '')
@@ -1908,10 +1908,18 @@ function toggleKnockoutLegsVariable(key){
 }
 function rubberEditor(){
   const rubbers = state.format.mixedRubbers;
-  const typeOptions = [['singles','Singles'],['doubles','Doubles'],['triples','Triples'],['foursome','Foursome (quad)']];
+  /* Triples is no longer offered for new rubbers (Doubles stays — a doubles
+     rubber is a normal part of a Team event's lineup), but a rubber already
+     saved as Triples (e.g. a tournament created before this change) still
+     shows and keeps working correctly — its own type is added to that row's
+     options so the dropdown never silently mismatches what's actually
+     stored. */
+  const baseTypeOptions = [['singles','Singles'],['doubles','Doubles'],['foursome','Foursome (quad)']];
+  const typeLabels = {singles:'Singles', doubles:'Doubles', triples:'Triples', foursome:'Foursome (quad)'};
   return '<div class="field"><label>Rubbers played per encounter (in order)</label>'+
     '<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">'+
       rubbers.map((r,i)=>{
+        const typeOptions = baseTypeOptions.some(([v])=>v===r.type) ? baseTypeOptions : baseTypeOptions.concat([[r.type, typeLabels[r.type]||r.type]]);
         return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;flex-wrap:wrap;'+(i?'border-top:1px solid var(--line)':'')+(r.isTieBreaker?';background:#fdf8ea':'')+'">'+
           '<span style="font-size:11px;font-weight:800;color:#8a97a5;width:16px">'+(i+1)+'</span>'+
           '<input type="text" style="flex:1;min-width:110px" value="'+escapeHtml(r.name)+'" onchange="setRubberName('+i+',this.value)" placeholder="e.g. Singles 1">'+
