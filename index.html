@@ -139,6 +139,7 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .diag{background:repeating-linear-gradient(-45deg,#e7eaed 0,#e7eaed 4px,#f8f8f8 4px,#f8f8f8 8px);display:grid;place-items:stretch;color:#71808d;font-size:8px;padding:3px;box-sizing:border-box}
 .diag-logo{width:100%;height:100%;min-width:0;min-height:0;border:1px solid #1a1a1a;border-radius:6px;background:#fff;display:grid;place-items:stretch;font-size:5px;font-weight:800;overflow:hidden;box-sizing:border-box;padding:0}
 .diag-logo:not(:has(img)){padding:2px;place-items:center;border:1px dashed #8192a1}
+.diag-logo.diag-logo-blank{padding:0;border:1px solid #000;background:#000}
 .diag-logo img{width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;display:block}
 .score-cell{position:relative;text-align:center;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px}
 .score-cell.empty{color:#c3cad2;font-size:12px}
@@ -1012,7 +1013,10 @@ function knockoutBracketSheetHTML(bracket){
     '</div>'+
     '<div style="flex:1;display:flex;align-items:center;margin-top:16px">'+bracketColumnsHTML(bracket, t, {interactive:false})+'</div>'+
     '<div class="footer"><small>'+legsFooter+'</small>'+
-    (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
+    '<div class="footer-right">'+
+      (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
+      DD_CREDIT_HTML+
+    '</div>'+
     '</div>'+
   '</div>';
 }
@@ -1912,20 +1916,25 @@ function clearLogo(){ state.format.logo = null; state.format.logoAspect = null; 
 /* Issue 1: logo box hugs the actual uploaded logo's aspect ratio (bounded by a max
    envelope) instead of forcing every logo into the same fixed square — no more
    letterboxed empty space, and nothing gets clipped since box == image shape. */
+/* Permanent app credit shown on every printed sheet (footer, small print) —
+   not a toggleable organiser setting like the sponsor footer. */
+const DD_CREDIT_HTML = '<span class="dd-credit"><span class="dd-credit-mark">D</span>Generated with DartDraw</span>';
 function mainLogoBoxHTML(){
   const t = state;
   if(t.format.logo){
     const box = fitBox(t.format.logoAspect||1, 88, 64, 40, 40);
     return '<div class="logo-placeholder" style="width:'+box.w+'px;height:'+box.h+'px"><img src="'+t.format.logo+'"></div>';
   }
-  return '<div class="logo-placeholder" style="width:58px;height:58px">YOUR<br>LOGO</div>';
+  // No logo uploaded — reserve the same space (keeps sheet-top's grid columns
+  // aligned whether or not a logo is set) but show nothing, not a hint box.
+  return '<div class="logo-placeholder" style="width:58px;height:58px;border:none"></div>';
 }
 function diagLogoBoxHTML(){
   const t = state;
   if(t.format.logo){
     return '<span class="diag-logo"><img src="'+t.format.logo+'"></span>';
   }
-  return '<span class="diag-logo">LOGO</span>';
+  return '<span class="diag-logo diag-logo-blank"></span>';
 }
 async function handleSponsorUpload(input){
   const files = Array.from(input.files);
@@ -2515,9 +2524,8 @@ function chartSheetHTML(g, forPrint){
     '<div class="schedule" style="grid-template-columns:repeat('+scheduleCols+',1fr)">'+schedule+'</div>'+
     '<div class="footer"><small>Points: Win 2 · Draw 1 · Loss 0 &nbsp;|&nbsp; Tie-break: '+ t.tieBreakOrder.map((x,i)=>(i+1)+') '+x).join(', ') +(t.format.footerText?(' &nbsp;|&nbsp; '+escapeHtml(t.format.footerText)):'')+'</small>'+
     '<div class="footer-right">'+
-      (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' :
-        (t.printSettings.sponsorFooterEnabled && !forPrint ? '<div class="sponsors"><div class="sponsor">SPONSOR</div><div class="sponsor">SPONSOR</div></div>' : ''))+
-      '<span class="dd-credit"><span class="dd-credit-mark">D</span>Generated with DartDraw</span>'+
+      (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
+      DD_CREDIT_HTML+
     '</div>'+
     '</div>'+
   '</div>';
@@ -2542,6 +2550,7 @@ function runningOrderSheetHTML(confirmed){
     '</div>'+
     '<div class="ro-title">Master running order — board by board</div>'+
     '<div class="ro-table"><div class="ro-row ro-hdr"><div>Board</div><div>Group</div><div>Matches</div></div>'+rows+'</div>'+
+    '<div class="footer"><small></small><div class="footer-right">'+DD_CREDIT_HTML+'</div></div>'+
   '</div>';
 }
 /* ---------- Rules & format summary sheet ---------- */
@@ -2618,7 +2627,7 @@ function rulesSheetHTML(){
     '</div>'+
     (t.format.rulesNotes ? '<div class="ro-title">Walkover, conduct &amp; other rules</div>'+
       '<div style="border:1px solid #b5bdc5;border-radius:6px;padding:12px 14px;font-size:12px;line-height:1.55;white-space:pre-line">'+escapeHtml(t.format.rulesNotes)+'</div>' : '')+
-    (t.format.footerText ? '<div class="footer" style="margin-top:14px"><small>'+escapeHtml(t.format.footerText)+'</small></div>' : '')+
+    '<div class="footer" style="margin-top:14px"><small>'+(t.format.footerText?escapeHtml(t.format.footerText):'')+'</small><div class="footer-right">'+DD_CREDIT_HTML+'</div></div>'+
   '</div>';
 }
 function renderChartPreview(){
@@ -3201,6 +3210,7 @@ function lineupCardHTML(entry, opponent, meta){
     segsHTML+
     '<div class="lineup-seg lineup-total"><div class="lineup-seg-head"><div class="lineup-seg-title">TOTAL POINTS</div><div class="lineup-seg-pts"></div></div><div class="lineup-seg-body"><div class="lineup-seg-lines" style="min-height:14px"></div><div class="lineup-seg-pts-box"></div></div></div>'+
     '<div class="lineup-sig">Captain/Manager Signature</div>'+
+    '<div style="margin-top:3px">'+DD_CREDIT_HTML+'</div>'+
   '</div>';
 }
 function teamHandoutSheetsHTML(){
@@ -3239,7 +3249,10 @@ function teamHandoutSheetHTML(e){
     '<div class="ro-title">Fixtures</div>'+
     '<div class="ro-table"><div class="ro-row ro-hdr"><div>Stage</div><div>Board/Round</div><div>Opponent</div></div>'+rows+'</div>'+
     '<div class="footer"><small>Hand this sheet to the team captain — full roster and fixture list.</small>'+
-    (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
+    '<div class="footer-right">'+
+      (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
+      DD_CREDIT_HTML+
+    '</div>'+
     '</div>'+
   '</div>';
 }
