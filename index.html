@@ -1609,20 +1609,22 @@ function stage2(){
       '<input type="file" accept="image/*" onchange="handleLogoUpload(this)">'+
       (f.logo?'<button class="btn ghost" onclick="clearLogo()">Remove</button>':'')+
     '</div><div class="hint">Best as a square or near-square image with a transparent background (PNG). Automatically resized to fit — no need to pre-resize.</div></div>'+
-    '<div class="field"><label>Sponsor logos</label>'+
-      '<input type="file" accept="image/*" multiple onchange="handleSponsorUpload(this)">'+
-      '<div class="sponsor-thumbs">'+ f.sponsors.map((s,i)=>
-        '<div class="sponsor-thumb-item">'+
-          '<img src="'+s.src+'" onclick="removeSponsor('+i+')" title="Click to remove">'+
-          '<div class="shape-toggle">'+
-            '<button type="button" class="'+(s.shape!=='square'?'active':'')+'" onclick="setSponsorShape('+i+',\'rect\')">▭ Rect</button>'+
-            '<button type="button" class="'+(s.shape==='square'?'active':'')+'" onclick="setSponsorShape('+i+',\'square\')">▢ Square</button>'+
-          '</div>'+
-        '</div>'
-      ).join('') +'</div>'+
-      '<div class="hint">'+f.sponsors.length+' logo'+(f.sponsors.length===1?'':'s')+' added. Click a thumbnail to remove it, or pick rectangle/square for how it displays on the chart footer. Auto-resized either way — no need to pre-crop.</div>'+
-    '</div>'+
-    '<div class="field"><label>Optional print rules / footer text</label><textarea id="f_footer">'+escapeHtml(f.footerText)+'</textarea></div>';
+    (advanced ?
+      '<div class="field"><label>Sponsor logos</label>'+
+        '<input type="file" accept="image/*" multiple onchange="handleSponsorUpload(this)">'+
+        '<div class="sponsor-thumbs">'+ f.sponsors.map((s,i)=>
+          '<div class="sponsor-thumb-item">'+
+            '<img src="'+s.src+'" onclick="removeSponsor('+i+')" title="Click to remove">'+
+            '<div class="shape-toggle">'+
+              '<button type="button" class="'+(s.shape!=='square'?'active':'')+'" onclick="setSponsorShape('+i+',\'rect\')">▭ Rect</button>'+
+              '<button type="button" class="'+(s.shape==='square'?'active':'')+'" onclick="setSponsorShape('+i+',\'square\')">▢ Square</button>'+
+            '</div>'+
+          '</div>'
+        ).join('') +'</div>'+
+        '<div class="hint">'+f.sponsors.length+' logo'+(f.sponsors.length===1?'':'s')+' added. Click a thumbnail to remove it, or pick rectangle/square for how it displays on the chart footer. Auto-resized either way — no need to pre-crop.</div>'+
+      '</div>'+
+      '<div class="field"><label>Optional print rules / footer text</label><textarea id="f_footer">'+escapeHtml(f.footerText)+'</textarea></div>'
+      : '');
   const rulesSectionHTML =
     (advanced ? '<div class="toggle-row"><input type="checkbox" id="f_orgsplit" '+(f.orgSplit?'checked':'')+'> <label for="f_orgsplit">Avoid placing entries from the same organisation together (same round robin group, or facing off in the first knockout round)</label></div>' : '')+
     '<div class="field" style="margin-top:12px"><label>Walkover, conduct &amp; other rules <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — printed on its own rules &amp; format sheet, see below)</span></label>'+
@@ -1957,7 +1959,8 @@ function saveStage2(){
   // Org-split, level of play, anticipated start time only exist in Advanced mode.
   const orgSplitEl = document.getElementById('f_orgsplit');
   if(orgSplitEl) f.orgSplit = orgSplitEl.checked;
-  f.footerText = document.getElementById('f_footer').value;
+  const footerEl = document.getElementById('f_footer');
+  if(footerEl) f.footerText = footerEl.value;
   f.rulesNotes = document.getElementById('f_rulesnotes').value;
   const levelEl = document.getElementById('f_level');
   if(levelEl) f.levelOfPlay = levelEl.value;
