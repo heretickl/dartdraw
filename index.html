@@ -224,9 +224,8 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .ro-row.ro-hdr{background:var(--navy);color:#fff;font-weight:800;font-size:10px;text-transform:uppercase}
 .ro-board{font-weight:700;color:var(--navy)}
 .ro-matches{color:#3d4a58}
-.lineup-sheet{flex-direction:row !important;padding:14px 16px;gap:0}
-.lineup-card{flex:1;display:flex;flex-direction:column;min-width:0;padding:0 14px}
-.lineup-card+.lineup-card{border-left:1px dashed #c3cad2}
+.lineup-sheet{aspect-ratio:210/297;width:700px;padding:24px 26px}
+.lineup-card{flex:1;display:flex;flex-direction:column;min-width:0}
 .lineup-head-row{display:flex;gap:6px;margin-bottom:8px}
 .lineup-head-box{flex:1;text-align:center;min-width:0}
 .lineup-head-box .bar{background:#141414;color:#fff;font-size:8px;font-weight:800;border-radius:10px 10px 0 0;padding:4px 0;text-transform:uppercase;letter-spacing:.04em}
@@ -262,7 +261,9 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
   #printSheets{display:block !important}
   .bracket-cols{overflow-x:visible}
   .bracket-col{min-width:0;flex:1 1 0}
+  .lineup-sheet{page:lineupportrait;width:190mm;height:277mm}
   @page{size:A4 landscape;margin:8mm}
+  @page lineupportrait{size:A4 portrait;margin:8mm}
 }
 #printSheets{display:none}
 </style>
@@ -3383,8 +3384,12 @@ function knockoutLineupSheetsHTML(){
   });
   return html;
 }
+/* One A4 portrait page per side — each team gets a full-size lineup sheet
+   to work from during play, rather than a half-width landscape page that
+   needed to be cut in two. */
 function lineupSheetHTML(entryA, entryB, meta){
-  return '<div class="print-sheet lineup-sheet">'+ lineupCardHTML(entryA, entryB, meta) + lineupCardHTML(entryB, entryA, meta) + '</div>';
+  return '<div class="print-sheet lineup-sheet">'+ lineupCardHTML(entryA, entryB, meta) + '</div>'+
+         '<div class="print-sheet lineup-sheet">'+ lineupCardHTML(entryB, entryA, meta) + '</div>';
 }
 function lineupCardHTML(entry, opponent, meta){
   const rubbers = state.format.mixedRubbers||[];
