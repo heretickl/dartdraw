@@ -281,14 +281,14 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
       <span id="cwSub">-</span>
     </div>
     <div class="side-label" id="libraryLabel">Saved tournaments</div>
-    <div class="saved-list" id="savedList"></div>
+    <div class="saved-list" id="savedList"><div style="color:#7f93a8;font-size:12px;padding:8px 2px">Loading…</div></div>
   </aside>
   <main class="main">
     <div class="topbar">
-      <div><h1 id="pageTitle">Round-robin chart builder</h1><p id="pageSub">Set the event details on the left. The print-ready chart updates as you work.</p></div>
+      <div><h1 id="pageTitle">Loading…</h1><p id="pageSub">Fetching your tournaments.</p></div>
       <span class="tag">Synced to your account</span>
     </div>
-    <div id="stageArea"></div>
+    <div id="stageArea"><div class="card"><h2>Loading…</h2><p class="intro" style="margin:0">Fetching your tournaments…</p></div></div>
   </main>
 </div>
 <div id="printSheets"></div>
@@ -2124,6 +2124,15 @@ function bulkConfirmSelected(){
   bulkSelected.clear();
   persist(); render();
 }
+/* Fast path for the common case (confirm everything at once) — same
+   direct-confirm behaviour as bulkConfirmSelected (no per-chart modal). */
+function confirmAllCharts(){
+  state.groups.forEach(g=>{
+    if(!g.confirmed){ g.confirmed = true; g.confirmedEntryIds=[...g.entryIds]; g.unconfirmReason=null; }
+  });
+  bulkSelected.clear();
+  persist(); render();
+}
 function renameEntry(id, val){
   const ent = state.entriesList.find(e=>e.id===id);
   if(ent && val.trim()){ ent.name = val.trim(); ent.autoName = false; persist(); render(); }
@@ -2691,12 +2700,16 @@ function stage4(){
   if(state.format.formatType==='knockout') return stage4Knockout();
   const confirmed = state.groups.filter(g=>g.confirmed);
   const allConfirmed = state.groups.length && state.groups.every(g=>g.confirmed);
+  const unconfirmedCount = state.groups.length - confirmed.length;
   const readyCount = state.groups.filter(g=>!g.confirmed && bulkSelected.has(g.id)).length;
   let html = checkInCardHTML();
   html += '<div class="entries-panel"><h2>Confirm each chart</h2><p class="intro">Check the board and entries for every group, then confirm it. Once confirmed, print the blank bracket pack below — you can keep editing and reprinting right up until you start games in Manage Tournament.</p>'+
-    '<div class="buttonrow" style="margin:0 0 14px">'+
-      '<button class="btn ghost" onclick="bulkSelectAll()">Select all unconfirmed</button>'+
-      '<button class="btn primary" '+(readyCount?'':'disabled')+' onclick="bulkConfirmSelected()">Confirm selected ('+readyCount+')</button>'+
+    '<div class="buttonrow" style="margin:0 0 8px;align-items:center">'+
+      '<button class="btn primary" '+(unconfirmedCount?'':'disabled')+' onclick="confirmAllCharts()">'+(unconfirmedCount?'Confirm all '+state.groups.length+' charts':'All charts confirmed')+'</button>'+
+      (unconfirmedCount>1 ? '<span style="color:var(--muted);font-size:11px">or confirm only some:</span>'+
+        '<button class="btn ghost" onclick="bulkSelectAll()">Select all unconfirmed</button>'+
+        '<button class="btn secondary" '+(readyCount?'':'disabled')+' onclick="bulkConfirmSelected()">Confirm selected ('+readyCount+')</button>'
+        : '')+
     '</div>'+
     state.groups.map(g=>{
       return '<div class="group-block"><div class="group-block-head">'+
