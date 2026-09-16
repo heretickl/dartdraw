@@ -1603,7 +1603,7 @@ function stage1(){
     '<div class="field"><label>Event name</label><input id="f_ename" type="text" value="'+escapeHtml(e.eventName)+'" placeholder="e.g. Open Singles"></div>'+
     '<div class="grid2">'+
       '<div class="field"><label>Event category</label><select id="f_etype">'+ ['Open','Women','Youth'].map(o=>'<option'+(e.eventType===o?' selected':'')+'>'+o+'</option>').join('') +'</select></div>'+
-      '<div class="field"><label>Competition unit</label><select id="f_unit">'+ ['Singles','Doubles','Triples','Teams'].map(o=>'<option'+(e.competitionUnit===o?' selected':'')+'>'+o+'</option>').join('') +'</select></div>'+
+      '<div class="field"><label>Competition type</label><select id="f_unit">'+ ['Singles','Teams'].map(o=>'<option'+(e.competitionUnit===o?' selected':'')+'>'+o+'</option>').join('') +'</select></div>'+
     '</div>'+
     '<div class="grid2">'+
       '<div class="field"><label>Tournament date</label><input id="f_date" type="date" value="'+escapeHtml(e.date)+'"></div>'+
