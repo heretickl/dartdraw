@@ -1034,7 +1034,7 @@ function buildGroups(t){
   for(let i=0;i<numGroups;i++){
     const label = letters[i]||('G'+(i+1));
     let g = t.groups[i];
-    if(!g){ g = { id: uid('g'), label, board: i+1, startedAt:null, entryIds:[], confirmed:false, gameStarted:false, scores:{} }; }
+    if(!g){ g = { id: uid('g'), label, board: i+1, startedAt:null, entryIds:[], confirmed:false, gameStarted:false, scores:{}, positionOverrides:{} }; }
     else { g.label = label; }
     newGroups.push(g);
   }
@@ -1294,7 +1294,7 @@ async function openTournament(id){
       main: { variable:false, early:5, quarterfinal:5, semifinal:5, final:5 },
       plate: { variable:false, flatLegs:5, early:5, quarterfinal:5, semifinal:5, final:5 }
     };
-    (state.groups||[]).forEach(g=>{ if(g.startedAt===undefined) g.startedAt = null; });
+    (state.groups||[]).forEach(g=>{ if(g.startedAt===undefined) g.startedAt = null; if(!g.positionOverrides) g.positionOverrides = {}; });
     [state.knockout, state.knockoutLosers].forEach(b=>{
       if(b && !b.roundStartedAt) b.roundStartedAt = b.rounds.map(()=>null);
     });
@@ -2446,8 +2446,53 @@ function computeStandings(g){
     }
     return 0;
   });
-  arr.forEach((r,i)=> r.position = i+1);
+  arr.forEach((r,i)=> r.autoPosition = i+1);
+  const overrides = g.positionOverrides || {};
+  arr.forEach(r=>{
+    const ov = overrides[r.id];
+    if(ov!==undefined && ov!==null && ov!==''){ r.position = parseInt(ov); r.manualOverride = true; }
+    else { r.position = r.autoPosition; r.manualOverride = false; }
+  });
+  arr.sort((x,y)=> (x.position-y.position) || (x.autoPosition-y.autoPosition));
   return arr;
+}
+function groupHasPositionOverrides(g){
+  const ov = g.positionOverrides || {};
+  return Object.keys(ov).some(k=> ov[k]!==undefined && ov[k]!==null && ov[k]!=='');
+}
+function openPositionOverridePicker(groupId){
+  const g = state.groups.find(x=>x.id===groupId);
+  if(!g) return;
+  const standings = computeStandings(g);
+  const rows = standings.map(st=>{
+    const ent = state.entriesList.find(e=>e.id===st.id);
+    return '<div class="picker-row" style="display:flex;align-items:center;gap:10px;cursor:default">'+
+      '<span style="flex:1">'+escapeHtml(ent?ent.name:'—')+' <span style="color:var(--muted);font-size:11px">('+st.pts+' pts'+(st.manualOverride?' · auto pos. '+st.autoPosition:'')+')</span></span>'+
+      '<input type="number" min="1" id="posov_'+st.id+'" value="'+(st.manualOverride?st.position:'')+'" placeholder="'+st.autoPosition+'" style="width:64px">'+
+      (st.manualOverride ? '<a href="javascript:void(0)" onclick="document.getElementById(\'posov_'+st.id+'\').value=\'\'">Reset</a>' : '<span style="width:36px"></span>')+
+    '</div>';
+  }).join('');
+  openModal({
+    title:'Adjust positions — Group '+g.label,
+    bodyHTML: '<p style="margin-top:-4px">Override the final position for any entry. Leave blank to use the automatically calculated position. Manually-set positions are marked with an asterisk (*) on the chart and printed sheet.</p><div class="picker-list">'+rows+'</div>',
+    confirmLabel:'Save', confirmClass:'primary',
+    onConfirm:()=>{
+      const newOverrides = {};
+      standings.forEach(st=>{
+        const el = document.getElementById('posov_'+st.id);
+        const v = el ? el.value.trim() : '';
+        if(v!=='') newOverrides[st.id] = parseInt(v);
+      });
+      g.positionOverrides = newOverrides;
+      persist(); render();
+    }
+  });
+}
+function resetAllPositionOverrides(groupId){
+  const g = state.groups.find(x=>x.id===groupId);
+  if(!g) return;
+  g.positionOverrides = {};
+  persist(); render();
 }
 function compareByRule(rule, x, y){
   if(rule==='Head-to-head result'){
@@ -2504,8 +2549,10 @@ function chartSheetHTML(g, forPrint){
     const st = posById[rowEnt.id];
     const ptsInner = g.gameStarted ? (st?st.pts:0) : '—';
     const legsInner = (g.gameStarted && st && st.played) ? '<span class="legs-sub"><span class="legs-won">'+st.legsFor+'</span>–<span class="legs-lost">'+st.legsAgainst+'</span></span>' : '';
-    rows += '<div class="cell standing'+(legsInner?' with-legs':'')+'">'+ptsInner+legsInner+'</div><div class="cell standing">'+(g.gameStarted ? (st?st.position:'') : '—')+'</div>';
+    const posInner = g.gameStarted ? (st?(st.position+(st.manualOverride?'*':'')):'') : '—';
+    rows += '<div class="cell standing'+(legsInner?' with-legs':'')+'">'+ptsInner+legsInner+'</div><div class="cell standing">'+posInner+'</div>';
   });
+  const hasOverrides = groupHasPositionOverrides(g);
   const matches = groupMatches(g);
   const schedule = matches.map((m,i)=>{
     const a = t.entriesList.find(x=>x.id===m[0]), b = t.entriesList.find(x=>x.id===m[1]);
@@ -2522,7 +2569,7 @@ function chartSheetHTML(g, forPrint){
     '</div>'+
     '<div class="chart" style="grid-template-columns:'+colTemplate+'">'+rows+'</div>'+
     '<div class="schedule" style="grid-template-columns:repeat('+scheduleCols+',1fr)">'+schedule+'</div>'+
-    '<div class="footer"><small>Points: Win 2 · Draw 1 · Loss 0 &nbsp;|&nbsp; Tie-break: '+ t.tieBreakOrder.map((x,i)=>(i+1)+') '+x).join(', ') +(t.format.footerText?(' &nbsp;|&nbsp; '+escapeHtml(t.format.footerText)):'')+'</small>'+
+    '<div class="footer"><small>Points: Win 2 · Draw 1 · Loss 0 &nbsp;|&nbsp; Tie-break: '+ t.tieBreakOrder.map((x,i)=>(i+1)+') '+x).join(', ') +(t.format.footerText?(' &nbsp;|&nbsp; '+escapeHtml(t.format.footerText)):'')+(hasOverrides?' &nbsp;|&nbsp; <b>* Position set manually by organiser</b>':'')+'</small>'+
     '<div class="footer-right">'+
       (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
       DD_CREDIT_HTML+
@@ -3007,6 +3054,8 @@ function stage5(){
           '<strong>Group '+g.label+' · Board '+g.board+'</strong>'+
           '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
             (statusLabel?'<span class="save-status" style="margin:0;color:var(--muted)">'+statusLabel+'</span>':'')+
+            (groupHasPositionOverrides(g)?'<span class="save-status" style="margin:0;color:#c0392b">Positions manually adjusted · <a href="javascript:void(0)" onclick="resetAllPositionOverrides(\''+g.id+'\')">Reset all</a></span>':'')+
+            (g.gameStarted?'<button class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="openPositionOverridePicker(\''+g.id+'\')">Adjust positions…</button>':'')+
             (g.gameStarted?'<button class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="openNoShowPicker(\''+g.id+'\')">Mark no-show…</button>':'')+
             '<span class="confirm-flag '+(g.gameStarted?'yes':'no')+'">'+(g.gameStarted?'Game started':'Not started')+'</span>'+
           '</span>'+
@@ -3056,14 +3105,16 @@ function stage6(){
   }
   html += confirmed.map(g=>{
     const standings = g.gameStarted ? computeStandings(g) : [];
+    const hasOverrides = groupHasPositionOverrides(g);
     const rows = standings.map(st=>{
       const ent = state.entriesList.find(e=>e.id===st.id);
-      return '<tr><td style="padding:7px 6px;border-top:1px solid var(--line);font-weight:700">'+st.position+'</td><td style="padding:7px 6px;border-top:1px solid var(--line)">'+escapeHtml(ent?ent.name:'—')+'</td><td style="padding:7px 6px;border-top:1px solid var(--line);font-weight:700">'+st.pts+'</td><td style="padding:7px 6px;border-top:1px solid var(--line);color:var(--muted)">'+st.played+'</td></tr>';
+      return '<tr><td style="padding:7px 6px;border-top:1px solid var(--line);font-weight:700">'+st.position+(st.manualOverride?'*':'')+'</td><td style="padding:7px 6px;border-top:1px solid var(--line)">'+escapeHtml(ent?ent.name:'—')+'</td><td style="padding:7px 6px;border-top:1px solid var(--line);font-weight:700">'+st.pts+'</td><td style="padding:7px 6px;border-top:1px solid var(--line);color:var(--muted)">'+st.played+'</td></tr>';
     }).join('');
     return '<div class="card">'+
       '<h3 style="margin:0 0 10px;font-size:15px">Group '+g.label+' · Board '+g.board+'</h3>'+
       (!g.gameStarted ? '<div class="confirm-box" style="margin:0">Game hasn\'t started yet — standings will appear here once scores are entered in Manage Tournament.</div>' :
-        '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em"><th style="padding:0 6px 7px">Pos.</th><th style="padding:0 6px 7px">Entry</th><th style="padding:0 6px 7px">Pts</th><th style="padding:0 6px 7px">Played</th></tr></thead><tbody>'+rows+'</tbody></table>')+
+        '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em"><th style="padding:0 6px 7px">Pos.</th><th style="padding:0 6px 7px">Entry</th><th style="padding:0 6px 7px">Pts</th><th style="padding:0 6px 7px">Played</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+        (hasOverrides?'<div style="margin-top:6px;font-size:11px;color:var(--muted)"><b>* Position set manually by organiser</b></div>':''))+
     '</div>';
   }).join('');
   if(state.format.formatType==='rrknockout') html += stage6KnockoutSection();
