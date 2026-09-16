@@ -2732,7 +2732,7 @@ function formatDescriptionLines(t){
   } else if(f.formatType==='rrknockout'){
     lines.push('Format: Round robin group stage, followed by a knockout bracket.');
     lines.push('Group stage scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of '+bestOf+' legs (first to '+majority+').');
-    lines.push('Advancing to the knockout: top '+f.qualifiersPerGroup+' entries from each group, '+(f.advanceMode==='seeded'?'seeded by group finishing position':'drawn at random')+'.'+(f.losersPool ? ' Entries who don\'t advance go into a separate Plate pool knockout bracket' + (f.plateQualifiersPerGroup ? ' (next '+f.plateQualifiersPerGroup+' entries per group; anyone ranked below that is eliminated)' : ' (everyone who doesn\'t advance to the main bracket)') + '.' : ''));
+    lines.push('Advancing to the knockout: top '+f.qualifiersPerGroup+' entr'+(f.qualifiersPerGroup==1?'y':'ies')+' from each group, '+(f.advanceMode==='seeded'?'seeded by group finishing position':'drawn at random')+'.'+(f.losersPool ? ' Entries who don\'t advance go into a separate Plate pool knockout bracket' + (f.plateQualifiersPerGroup ? ' (next '+f.plateQualifiersPerGroup+' entr'+(f.plateQualifiersPerGroup==1?'y':'ies')+' per group; anyone ranked below that is eliminated)' : ' (everyone who doesn\'t advance to the main bracket)') + '.' : ''));
     if(f.knockoutLegs.main.variable){
       const k = f.knockoutLegs.main;
       lines.push('Knockout stage legs increase by round: early rounds best of '+k.early+', quarterfinal best of '+k.quarterfinal+', semifinal best of '+k.semifinal+', final best of '+k.final+'. Cannot end in a draw.');
