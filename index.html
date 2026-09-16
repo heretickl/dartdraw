@@ -178,14 +178,14 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .manage-chart-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 4px 15px #26394a0b;margin-bottom:22px;max-width:1080px}
 .manage-chart-wrap{width:100%;overflow:hidden}
 .manage-chart-inner{transform-origin:top left}
-.bracket-cols{display:flex;gap:16px;overflow-x:auto;padding:4px 2px}
-.bracket-col{display:flex;flex-direction:column;min-width:170px;flex-shrink:0}
+.bracket-cols{display:flex;gap:32px;overflow-x:auto;padding:4px 2px}
+.bracket-col{display:flex;flex-direction:column;min-width:130px;flex-shrink:0}
 .bracket-col-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center;margin-bottom:4px}
 .bracket-slot{flex:1;display:flex;align-items:center;position:relative;min-height:50px}
-.bracket-slot.has-next::after{content:'';position:absolute;top:50%;right:-8px;width:8px;height:1px;background:var(--line)}
-.bracket-slot.pair-top::before{content:'';position:absolute;top:50%;right:-8px;width:1px;height:50%;background:var(--line)}
-.bracket-slot.pair-bottom::before{content:'';position:absolute;bottom:50%;right:-8px;width:1px;height:50%;background:var(--line)}
-.bracket-connect-mid{position:absolute;top:0;right:-16px;width:8px;height:1px;background:var(--line)}
+.bracket-slot.has-next::after{content:'';position:absolute;top:50%;right:-16px;width:16px;height:1px;background:var(--line)}
+.bracket-slot.pair-top::before{content:'';position:absolute;top:50%;right:-16px;width:1px;height:50%;background:var(--line)}
+.bracket-slot.pair-bottom::before{content:'';position:absolute;bottom:50%;right:-16px;width:1px;height:50%;background:var(--line)}
+.bracket-connect-mid{position:absolute;top:0;right:-32px;width:16px;height:1px;background:var(--line)}
 .bracket-match{border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12px;background:#fff;width:100%}
 .bracket-match.clickable{cursor:pointer}
 .bracket-match.clickable:hover{border-color:var(--navy)}
