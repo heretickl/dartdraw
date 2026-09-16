@@ -324,7 +324,7 @@ function blankTournament(){
     id: uid('t'),
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    eventCreation: { tournamentName:'', eventName:'', eventType:'Open', competitionUnit:'Singles', date:'', entries:8, boards:4, saved:false },
+    eventCreation: { tournamentName:'', eventName:'', eventType:'Open', competitionUnit:'Singles', date:'', entries:8, boards:4, advancedMode:false, saved:false },
     format: {
       formatType:'roundrobin', bestOfLegs:5, maxPerGroup:4, logo:null, sponsors:[], footerText:'Tie-break: head-to-head, leg difference, legs won', saved:false,
       /* Round robin -> knockout hybrid */
@@ -1273,6 +1273,11 @@ async function openTournament(id){
       if(r.legs===undefined) r.legs = parseInt(state.format.bestOfLegs)||3;
       if(r.isTieBreaker===undefined) r.isTieBreaker = false;
     });
+    /* Tournaments saved before Basic/Advanced setup existed default to Advanced,
+       so nothing they already configured (scheduling, knockout-legs, Plate,
+       custom rubber lineups, etc.) suddenly disappears. New tournaments start
+       Basic instead (blankTournament()). */
+    if(state.eventCreation.advancedMode===undefined) state.eventCreation.advancedMode = true;
     /* Backfill scheduling fields for tournaments saved before this feature existed. */
     if(state.format.levelOfPlay===undefined) state.format.levelOfPlay = 'amateur';
     if(state.format.anticipatedStartTime===undefined) state.format.anticipatedStartTime = '';
@@ -1473,6 +1478,10 @@ function stage1(){
   const e = state.eventCreation;
   return '<div class="card">'+
     '<h2>Create your event</h2><p class="intro">For singles, doubles, triples or team events. No login or internet connection required.</p>'+
+    '<div class="field"><label>Setup mode</label><div class="options">'+
+      '<div class="choice'+(!e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(false)"><strong>Basic</strong><small>Just the essentials — format, groups, scores</small></div>'+
+      '<div class="choice'+(e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(true)"><strong>Advanced</strong><small>Scheduling, knockout leg progression, Plate bracket, custom team lineups, and more</small></div>'+
+    '</div></div>'+
     '<div class="field"><label>Tournament name</label><input id="f_tname" type="text" value="'+escapeHtml(e.tournamentName)+'" placeholder="e.g. KLDA State League 2026"></div>'+
     '<div class="field"><label>Event name</label><input id="f_ename" type="text" value="'+escapeHtml(e.eventName)+'" placeholder="e.g. Open Singles"></div>'+
     '<div class="grid2">'+
@@ -1544,6 +1553,7 @@ function stage2(){
   const rec = recommendGroups(n);
   const bracket = nearestBracket(n);
   const unit = state.eventCreation.competitionUnit;
+  const advanced = !!state.eventCreation.advancedMode;
   const formatSectionHTML =
     '<div class="field"><label>Competition format</label><div class="options">'+
       '<div class="choice'+(f.formatType==='roundrobin'?' selected':'')+'" onclick="setFormatType(\'roundrobin\')"><strong>Round robin</strong><small>Play within assigned groups</small></div>'+
@@ -1561,7 +1571,7 @@ function stage2(){
       '<div class="recommend"><b>Recommended:</b> '+rec.groups+' group'+(rec.groups===1?'':'s')+' of '+rec.size+' ('+n+' entries total'+(rec.remainder?', last group has '+rec.remainder:'')+'). Each group plays '+matchesPerGroup(rec.size)+' matches. Change "Maximum entries per group" above if you prefer a different split.</div>'
       : '<div class="recommend"><b>Nearest bracket:</b> '+bracket.size+'-entry bracket for '+n+' entries — '+bracket.byes+' bye'+(bracket.byes===1?'':'s')+' required in round 1.</div>'
     )+
-    (f.formatType==='knockout' || f.formatType==='rrknockout' ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)') : '')+
+    (advanced && (f.formatType==='knockout' || f.formatType==='rrknockout') ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)') : '')+
     (f.formatType==='rrknockout' ? '<div class="grid2" style="margin-top:12px">'+
       '<div class="field"><label>Qualifiers per group (advance to knockout)</label><input id="f_qualifiers" type="number" min="1" value="'+f.qualifiersPerGroup+'" oninput="updateStage2Timing()"></div>'+
       '<div class="field"><label>How qualifiers are placed into the bracket</label><select id="f_advancemode">'+
@@ -1569,18 +1579,21 @@ function stage2(){
         '<option value="random"'+(f.advanceMode==='random'?' selected':'')+'>Random draw</option>'+
       '</select></div>'+
     '</div>'+
-    '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a losers\' pool (Plate) knockout bracket for entries that don\'t qualify</label></div>'+
-    '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate qualifiers per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+(f.plateQualifiersPerGroup||'')+'"></div>'+
-    '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group qualifiers across the bracket where the numbers allow it. Leave Plate qualifiers blank to send everyone who doesn\'t qualify for the main bracket into the Plate (today\'s default); set a number to cap the Plate too, e.g. top 2 → winner bracket, next 2 → Plate, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'+
-    knockoutLegsFieldsHTML('plate', f.knockoutLegs.plate, 'Plate bracket: also increase legs by stage (independent of the winner bracket above)')
+    (advanced ?
+      '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a losers\' pool (Plate) knockout bracket for entries that don\'t qualify</label></div>'+
+      '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate qualifiers per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+(f.plateQualifiersPerGroup||'')+'"></div>'+
+      '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group qualifiers across the bracket where the numbers allow it. Leave Plate qualifiers blank to send everyone who doesn\'t qualify for the main bracket into the Plate (today\'s default); set a number to cap the Plate too, e.g. top 2 → winner bracket, next 2 → Plate, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'+
+      knockoutLegsFieldsHTML('plate', f.knockoutLegs.plate, 'Plate bracket: also increase legs by stage (independent of the winner bracket above)')
+      : '')
       : '')+
-    (isTeamUnit(state) ? '<div class="field" style="margin-top:12px"><label>Team format</label><div class="options">'+
-        (unit==='Teams' ? '<div class="choice'+(f.teamMatchFormat==='foursome'?' selected':'')+'" onclick="setTeamMatchFormat(\'foursome\')"><strong>Foursome</strong><small>Each encounter is one match, full team vs full team</small></div>'+
-        '<div class="choice'+(f.teamMatchFormat==='mixed'?' selected':'')+'" onclick="setTeamMatchFormat(\'mixed\')"><strong>Rubber lineup (custom)</strong><small>A mix of singles/doubles/triples/foursome rubbers, in any order — decided by rubbers won</small></div>' : '')+
-      '</div></div>'+
+    (isTeamUnit(state) ? (
+      (advanced && unit==='Teams' ? '<div class="field" style="margin-top:12px"><label>Team format</label><div class="options">'+
+        '<div class="choice'+(f.teamMatchFormat==='foursome'?' selected':'')+'" onclick="setTeamMatchFormat(\'foursome\')"><strong>Foursome</strong><small>Each encounter is one match, full team vs full team</small></div>'+
+        '<div class="choice'+(f.teamMatchFormat==='mixed'?' selected':'')+'" onclick="setTeamMatchFormat(\'mixed\')"><strong>Rubber lineup (custom)</strong><small>A mix of singles/doubles/triples/foursome rubbers, in any order — decided by rubbers won</small></div>'+
+      '</div></div>' : '')+
       (unit==='Teams' ? '<div class="field"><label>Players per team</label><input id="f_teamsize" type="number" min="2" value="'+f.teamSize+'"></div>' : '')+
-      (unit==='Teams' && f.teamMatchFormat==='mixed' ? rubberEditor() : '')
-      : '');
+      (advanced && unit==='Teams' && f.teamMatchFormat==='mixed' ? rubberEditor() : '')
+    ) : '');
   const schedulingSectionHTML =
     '<div class="grid2">'+
       '<div class="field"><label>Level of play</label><select id="f_level" onchange="updateStage2Timing()">'+
@@ -1611,21 +1624,22 @@ function stage2(){
     '</div>'+
     '<div class="field"><label>Optional print rules / footer text</label><textarea id="f_footer">'+escapeHtml(f.footerText)+'</textarea></div>';
   const rulesSectionHTML =
-    '<div class="toggle-row"><input type="checkbox" id="f_orgsplit" '+(f.orgSplit?'checked':'')+'> <label for="f_orgsplit">Avoid placing entries from the same organisation together (same round robin group, or facing off in the first knockout round)</label></div>'+
+    (advanced ? '<div class="toggle-row"><input type="checkbox" id="f_orgsplit" '+(f.orgSplit?'checked':'')+'> <label for="f_orgsplit">Avoid placing entries from the same organisation together (same round robin group, or facing off in the first knockout round)</label></div>' : '')+
     '<div class="field" style="margin-top:12px"><label>Walkover, conduct &amp; other rules <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — printed on its own rules &amp; format sheet, see below)</span></label>'+
       '<textarea id="f_rulesnotes" placeholder="e.g. A no-show forfeits after 10 minutes past the scheduled start. Players must check in at the desk before their first game. Unsporting conduct may result in disqualification at the organiser’s discretion.">'+escapeHtml(f.rulesNotes||'')+'</textarea></div>'+
-    tieBreakEditor();
+    (advanced ? tieBreakEditor() : '');
   return '<div class="card">'+
     '<h2>Competition format</h2><p class="intro">Choose the format, timing, branding and rules.</p>'+
+    (!advanced ? '<div class="recommend">Using <b>Basic</b> setup. <span style="text-decoration:underline;cursor:pointer" onclick="setAdvancedMode(true)">Switch to Advanced</span> for scheduling, knockout leg progression, the Plate bracket, custom team rubber lineups, and more.</div>' : '')+
     '<div class="form-section">'+
       '<div class="form-section-title">Format</div>'+
       formatSectionHTML+
     '</div>'+
-    '<div class="form-section">'+
+    (advanced ? '<div class="form-section">'+
       '<div class="form-section-title">Scheduling</div>'+
       '<div class="form-section-sub">Optional — powers a live on-schedule indicator in Manage Tournament. Never printed.</div>'+
       schedulingSectionHTML+
-    '</div>'+
+    '</div>' : '')+
     '<div class="form-section">'+
       '<div class="form-section-title">Branding &amp; print</div>'+
       brandingSectionHTML+
@@ -1738,6 +1752,12 @@ function updateStage2Timing(){
   if(el) el.innerHTML = stage2TimingHTML();
 }
 function setFormatType(v){ state.format.formatType = v; render(); }
+/* Per-tournament Basic/Advanced toggle -- only gates which fields are shown
+   on this page (Format & Branding); it never resets or discards data, so
+   switching back and forth is always safe. Callable both from Event
+   Creation's own chooser and from the quick-switch link on Format &
+   Branding itself. */
+function setAdvancedMode(v){ state.eventCreation.advancedMode = v; render(); }
 function setTeamMatchFormat(v){ state.format.teamMatchFormat = v; render(); }
 /* WDF-style "legs increase closer to the final" fields for one bracket
    ('main' = winner bracket, 'plate' = losers' pool) — fully independent of
@@ -1914,29 +1934,40 @@ function removeSponsor(i){ state.format.sponsors.splice(i,1); render(); }
 function setSponsorShape(i, shape){ state.format.sponsors[i].shape = shape; persist(); render(); }
 function saveStage2(){
   const f = state.format;
+  const advanced = !!state.eventCreation.advancedMode;
   f.bestOfLegs = Math.max(1, parseInt(document.getElementById('f_bestof').value)||5);
   if(f.formatType!=='knockout') f.maxPerGroup = parseInt(document.getElementById('f_maxgroup').value)||4;
   if(f.formatType==='rrknockout'){
     f.qualifiersPerGroup = Math.max(1, parseInt(document.getElementById('f_qualifiers').value)||2);
     f.advanceMode = document.getElementById('f_advancemode').value;
-    f.losersPool = document.getElementById('f_loserspool').checked;
-    const plateVal = parseInt(document.getElementById('f_platequalifiers').value);
-    f.plateQualifiersPerGroup = (isNaN(plateVal) || plateVal<1) ? null : plateVal;
+    // Plate fields only exist in the DOM in Advanced mode — leave losersPool/
+    // plateQualifiersPerGroup untouched otherwise (Basic-mode default is off).
+    const loserspoolEl = document.getElementById('f_loserspool');
+    if(loserspoolEl) f.losersPool = loserspoolEl.checked;
+    const plateEl = document.getElementById('f_platequalifiers');
+    if(plateEl){
+      const plateVal = parseInt(plateEl.value);
+      f.plateQualifiersPerGroup = (isNaN(plateVal) || plateVal<1) ? null : plateVal;
+    }
   }
   if(isTeamUnit(state) && state.eventCreation.competitionUnit==='Teams'){
     const sizeEl = document.getElementById('f_teamsize');
     if(sizeEl) f.teamSize = Math.max(2, parseInt(sizeEl.value)||4);
   }
-  f.orgSplit = document.getElementById('f_orgsplit').checked;
+  // Org-split, level of play, anticipated start time only exist in Advanced mode.
+  const orgSplitEl = document.getElementById('f_orgsplit');
+  if(orgSplitEl) f.orgSplit = orgSplitEl.checked;
   f.footerText = document.getElementById('f_footer').value;
   f.rulesNotes = document.getElementById('f_rulesnotes').value;
-  f.levelOfPlay = document.getElementById('f_level').value;
-  f.anticipatedStartTime = document.getElementById('f_starttime').value;
+  const levelEl = document.getElementById('f_level');
+  if(levelEl) f.levelOfPlay = levelEl.value;
+  const starttimeEl = document.getElementById('f_starttime');
+  if(starttimeEl) f.anticipatedStartTime = starttimeEl.value;
   const readBreak = (key, withTime)=>{
     const enabled = document.getElementById('f_break_'+key+'_enabled');
     const time = withTime ? document.getElementById('f_break_'+key+'_time') : null;
     const minutes = document.getElementById('f_break_'+key+'_minutes');
-    if(!enabled) return null; // this break isn't offered for the current format type — leave as-is
+    if(!enabled) return null; // this break isn't offered for the current format type (or Basic mode) — leave as-is
     return { enabled: enabled.checked, time: time ? time.value : '', minutes: Math.max(0, parseInt(minutes.value)||0) };
   };
   f.breaks.roundRobin = readBreak('rr', true) || f.breaks.roundRobin;
@@ -1954,8 +1985,8 @@ function saveStage2(){
       if(el) cfg.flatLegs = Math.max(1, parseInt(el.value)||5);
     }
   };
-  if(f.formatType==='knockout' || f.formatType==='rrknockout') readKnockoutLegs('main');
-  if(f.formatType==='rrknockout') readKnockoutLegs('plate');
+  if(advanced && (f.formatType==='knockout' || f.formatType==='rrknockout')) readKnockoutLegs('main');
+  if(advanced && f.formatType==='rrknockout') readKnockoutLegs('plate');
   f.saved = true;
   ensureEntries(state); // resync roster length if teamSize changed
   if(f.formatType==='roundrobin' || f.formatType==='rrknockout'){ buildGroups(state); }
