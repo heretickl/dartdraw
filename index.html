@@ -3359,6 +3359,30 @@ function teamLineupSheetsHTML(){
   });
   return html;
 }
+/* Knockout equivalent of teamLineupSheetsHTML — one lineup sheet per
+   knockout fixture that currently has both sides known. Only Round 1 has
+   concrete opponents the moment the bracket is generated; later rounds'
+   sheets become available as the organiser reprints the pack once earlier
+   rounds resolve, exactly like the bracket sheet itself. "Group"/"Board"
+   are repurposed for knockout: bracket name and round name, since matches
+   here aren't tied to a group or a fixed board. */
+function knockoutLineupSheetsHTML(){
+  if(!isTeamMixed(state)) return '';
+  const t = state;
+  let html = '';
+  [t.knockout, t.knockoutLosers].forEach(bracket=>{
+    if(!bracket) return;
+    bracket.rounds.forEach((round, ri)=>{
+      round.forEach((m, mi)=>{
+        if(!m.aEntryId || !m.bEntryId || m.bye) return;
+        const a = t.entriesList.find(e=>e.id===m.aEntryId), b = t.entriesList.find(e=>e.id===m.bEntryId);
+        if(!a || !b) return;
+        html += lineupSheetHTML(a, b, { groupLabel: bracket.label, board: koRoundName(bracket,ri), gameNo: mi+1 });
+      });
+    });
+  });
+  return html;
+}
 function lineupSheetHTML(entryA, entryB, meta){
   return '<div class="print-sheet lineup-sheet">'+ lineupCardHTML(entryA, entryB, meta) + lineupCardHTML(entryB, entryA, meta) + '</div>';
 }
@@ -3457,7 +3481,7 @@ function runPrintPack(confirmed){
     }
   }
   if(state.printSettings.teamHandoutEnabled && isTeamUnit(state)) html += teamHandoutSheetsHTML();
-  if(state.printSettings.lineupSheetEnabled) html += teamLineupSheetsHTML();
+  if(state.printSettings.lineupSheetEnabled) html += teamLineupSheetsHTML() + knockoutLineupSheetsHTML();
   mount.innerHTML = html;
   setTimeout(()=>{ window.print(); }, 60);
 }
