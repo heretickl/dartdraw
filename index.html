@@ -2924,9 +2924,11 @@ function stage5(){
   if(state.format.formatType==='knockout') return stage5Knockout();
   const confirmed = state.groups.filter(g=>g.confirmed);
   const startedCount = confirmed.filter(g=>g.gameStarted).length;
+  const rrSchedule = computeRoundRobinSchedule(state);
   let html = '<div class="card">'+
     '<h2>Manage tournament</h2><p class="intro">Start all games when play begins, then enter scores directly on each chart below. Positions and points calculate live as results come in.</p>'+
     '<div class="confirm-box" style="background:#f3f5f7;border-color:#dbe2ea;color:#42505e"><b>Games start all together, not individually</b>'+(confirmed.length? (startedCount+' of '+confirmed.length+' confirmed chart'+(confirmed.length===1?'':'s')+' started.') : 'No charts confirmed yet — go to Confirm & Print Bracket first.')+'</div>'+
+    (rrSchedule.t0==null ? '<div class="recommend"><b>Want live on-schedule tracking here?</b> Set an anticipated start time in Format &amp; Branding and each board will show whether it\'s on schedule as play happens. <span style="text-decoration:underline;cursor:pointer" onclick="goStage(2)">Go to Format &amp; Branding</span></div>' : '')+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="goStage(4)">Confirm & print bracket</button>'+
       '<button class="btn '+(confirmed.length && startedCount<confirmed.length?'primary':'secondary')+'" '+(confirmed.length?'':'disabled')+' onclick="startAllGames()">Start all games</button>'+
@@ -2935,7 +2937,6 @@ function stage5(){
   if(!confirmed.length){
     html += '<div class="card"><p class="intro" style="margin:0">Confirm at least one group chart in Confirm & Print Bracket before you can manage scores here.</p></div>';
   } else {
-    const rrSchedule = computeRoundRobinSchedule(state);
     html += confirmed.map(g=>{
       const sched = rrSchedule.schedule[g.id];
       const statusLabel = sched ? scheduleStatusLabel(sched.startMs, sched.endMs) : '';
@@ -2960,8 +2961,10 @@ function stage5Knockout(){
   if(!state.knockout){
     return '<div class="card"><h2>Manage tournament</h2><p class="intro">Generate the bracket in Confirm &amp; Print Bracket before you can enter results here.</p><div class="buttonrow"><button class="btn primary" onclick="goStage(4)">Confirm & print bracket</button></div></div>';
   }
+  const startOffset = anticipatedStartEpoch(state);
   let html = '<div class="card"><h2>Manage tournament</h2><p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
-    knockoutScheduleSummaryHTML(state, state.knockout, 'knockout', anticipatedStartEpoch(state))+
+    (startOffset==null && !(state.knockout.roundStartedAt||[])[0] ? '<div class="recommend"><b>Want live on-schedule tracking here?</b> Set an anticipated start time in Format &amp; Branding and each round will show whether it\'s on schedule as play happens. <span style="text-decoration:underline;cursor:pointer" onclick="goStage(2)">Go to Format &amp; Branding</span></div>' : '')+
+    knockoutScheduleSummaryHTML(state, state.knockout, 'knockout', startOffset)+
     bracketColumnsHTML(state.knockout, state, {interactive:true, bracketKey:'knockout'})+
   '</div>';
   html += incidentLogCardHTML();
