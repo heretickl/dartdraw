@@ -795,9 +795,21 @@ function bracketFromSlots(slots, size){
   propagateByes(rounds);
   return rounds;
 }
+/* The round index (0-based; last index = the Final) at which two ROUND-1
+   SLOT POSITIONS could first possibly meet, if both sides keep winning —
+   a fixed structural property of the bracket tree, independent of byes or
+   who's actually in those slots. This is exactly the property that makes
+   seed 1 and seed 2 meet only in the Final: they always land in slots
+   whose earliest-possible-meeting round is the last one. */
+function earliestMeetingRound(slotA, slotB){
+  let mA = Math.floor(slotA/2), mB = Math.floor(slotB/2), r = 0;
+  while(Math.floor(mA/Math.pow(2,r)) !== Math.floor(mB/Math.pow(2,r))) r++;
+  return r;
+}
 function generateBracket(orderedEntries, label){
   const n = orderedEntries.length;
   const size = nearestBracket(Math.max(n,2)).size;
+  const totalRounds = Math.log2(size);
   const slotOrder = seedSlotOrder(size); // seed number (1-indexed) per slot
   const bySeed = {};
   orderedEntries.forEach((e,i)=> bySeed[i+1] = e );
@@ -805,56 +817,64 @@ function generateBracket(orderedEntries, label){
 
   const infoByEntry = {};
   orderedEntries.forEach(e=>{ infoByEntry[e.entryId] = { org: e.org, groupId: e.groupId }; });
-  function isClash(idA, idB){
-    if(!idA || !idB) return false;
-    const a = infoByEntry[idA], b = infoByEntry[idB];
-    if(!a || !b) return false;
-    if(a.org && a.org===b.org) return true;
-    if(a.groupId && a.groupId===b.groupId) return true;
-    return false;
-  }
-  /* A pairing counts as a clash to fix only if it's already decided the
-     moment the bracket is generated — i.e. both sides are known without
-     anyone needing to win a real match first. That's every round-1 match
-     with two real entries, but also any later-round match where both
-     sides arrived purely via byes (a very bye-heavy bracket can put two
-     same-group/org entries into an immediate "final" of a bye chain one
-     round early — the same clash in spirit, just one round removed from
-     round 1). Anything decided by an actual result is out of scope: we
-     can't steer who wins. */
-  function findImmediateClashes(rounds){
-    const found = [];
-    rounds.forEach((round,ri)=> round.forEach((m,mi)=>{
-      if(m.aEntryId && m.bEntryId && isClash(m.aEntryId, m.bEntryId)) found.push({ri, mi, b:m.bEntryId});
-    }));
-    return found;
-  }
-  /* Best-effort: try swapping the clashing match's "second" entry into
-     another slot to break the clash without disturbing top-seed
-     placement — same philosophy as the original round-1-only version,
-     just verified by fully rebuilding the bracket (byes and all) after
-     each candidate swap, since a swap can ripple through bye chains in
-     ways a single-round check can't see. Bounded and never fails; if no
-     improving swap exists the clash is simply left in place. */
-  let rounds = bracketFromSlots(slots, size);
-  let clashes = findImmediateClashes(rounds);
-  let attempts = 0;
-  while(clashes.length && attempts < size){
-    attempts++;
-    const bSlot = slots.findIndex(s=> s && s.entryId===clashes[0].b);
-    let fixed = false;
-    for(let j=0;j<slots.length && !fixed;j++){
-      if(j===bSlot) continue;
-      const candidate = slots.slice();
-      const tmp = candidate[bSlot]; candidate[bSlot] = candidate[j]; candidate[j] = tmp;
-      const candidateRounds = bracketFromSlots(candidate, size);
-      const candidateClashes = findImmediateClashes(candidateRounds);
-      if(candidateClashes.length < clashes.length){
-        slots = candidate; rounds = candidateRounds; clashes = candidateClashes; fixed = true;
+  /* Every pair of entries that share a non-blank org, or already played
+     each other in the same round-robin group (possible whenever
+     qualifiersPerGroup>1), needs separating — not just kept out of an
+     immediate meeting, but pushed as late as the bracket allows, the same
+     guarantee ordinary seeding already gives seed 1 vs seed 2. */
+  const clashPairs = [];
+  for(let i=0;i<orderedEntries.length;i++){
+    for(let j=i+1;j<orderedEntries.length;j++){
+      const a = infoByEntry[orderedEntries[i].entryId], b = infoByEntry[orderedEntries[j].entryId];
+      if((a.org && a.org===b.org) || (a.groupId && a.groupId===b.groupId)){
+        clashPairs.push([orderedEntries[i].entryId, orderedEntries[j].entryId]);
       }
     }
-    if(!fixed) break;
   }
+  if(clashPairs.length){
+    const slotOf = id => slots.findIndex(s=> s && s.entryId===id);
+    const pairSeparation = ([a,b]) => earliestMeetingRound(slotOf(a), slotOf(b));
+    const worstSeparation = () => clashPairs.reduce((w,p)=> Math.min(w, pairSeparation(p)), Infinity);
+    /* Greedy local search: repeatedly take whichever clash pair is
+       currently worst-separated and try every alternative slot for its
+       second entry, keeping the swap only if it pushes THIS pair later
+       without ever letting any pair anywhere become worse-separated than
+       the current global worst (never trade one pair's fairness for
+       another's — but do grab a free improvement for a pair even when
+       it isn't the current worst). Repeat full passes until nothing
+       improves or the bound is hit — best-effort, same as before, it
+       just aims for the latest possible round instead of merely
+       not-immediate. */
+    let pass = 0;
+    const maxPasses = clashPairs.length * 2 + 4;
+    let improvedThisPass = true;
+    while(improvedThisPass && pass < maxPasses){
+      pass++;
+      improvedThisPass = false;
+      const order = clashPairs.slice().sort((p,q)=> pairSeparation(p)-pairSeparation(q));
+      for(const pair of order){
+        const oldSep = pairSeparation(pair);
+        if(oldSep >= totalRounds-1) continue; // already final-only — can't do better
+        const globalFloor = worstSeparation();
+        const fromSlot = slotOf(pair[1]);
+        let bestJ = -1, bestPairSep = oldSep;
+        for(let j=0;j<slots.length;j++){
+          if(j===fromSlot) continue;
+          const tmp = slots[fromSlot]; slots[fromSlot]=slots[j]; slots[j]=tmp;
+          const newPairSep = pairSeparation(pair);
+          const newFloor = worstSeparation();
+          slots[j]=slots[fromSlot]; slots[fromSlot]=tmp;
+          if(newPairSep > bestPairSep && newFloor >= globalFloor){ bestPairSep = newPairSep; bestJ = j; }
+        }
+        if(bestJ>=0){
+          const tmp = slots[fromSlot]; slots[fromSlot]=slots[bestJ]; slots[bestJ]=tmp;
+          improvedThisPass = true;
+        }
+      }
+    }
+  }
+
+  const rounds = bracketFromSlots(slots, size);
   const seeds = {};
   orderedEntries.forEach((e,i)=>{ seeds[e.entryId] = i+1; });
   return { id: uid('kb'), label: label||'Bracket', size, rounds, roundStartedAt: rounds.map(()=>null), seeds };
