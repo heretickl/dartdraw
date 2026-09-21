@@ -361,12 +361,14 @@ function blankTournament(){
     eventCreation: { tournamentName:'', eventName:'', eventType:'Open', competitionUnit:'Singles', date:'', entries:8, boards:4, advancedMode:false, saved:false },
     format: {
       formatType:'roundrobin', bestOfLegs:5, maxPerGroup:4, logo:null, sponsors:[], footerText:'', saved:false,
-      /* Pure knockout only (formatType:'knockout') — how many entries at
-         the top of the seed order (stage3Knockout) are shown with a seed
-         number on the printed chart. Display-only: bracket generation,
-         byes and slot placement are unaffected by this, every entry is
-         still placed via the full seed order regardless of this cutoff. */
-      numSeeds:8,
+      /* Pure knockout only (formatType:'knockout'). Off by default — no
+         seeds, no manual order; the bracket is a fresh random draw each
+         time it's generated (see regenerateKnockoutBracket()). When the
+         organiser turns it on, seedOrder (set on stage3Knockout) is used
+         as-is, and numSeeds caps how many of those ranks show a seed
+         badge on the printed chart (display-only — every entry is still
+         placed via the full order regardless of this cutoff). */
+      seedingEnabled:false, numSeeds:8,
       /* Round robin -> knockout hybrid */
       qualifiersPerGroup:2, advanceMode:'seeded', losersPool:false,
       /* Plate (losers' pool) band size per group — null/blank means "rest of the group"
@@ -1047,7 +1049,7 @@ function bracketSeedForDisplay(t, seedsMap, entryId){
   if(!seedsMap) return null;
   const rank = seedsMap[entryId];
   if(!rank) return null;
-  if(t.format.formatType==='knockout') return rank<=(t.format.numSeeds||8) ? rank : null;
+  if(t.format.formatType==='knockout') return (t.format.seedingEnabled && rank<=(t.format.numSeeds||8)) ? rank : null;
   return rank;
 }
 function bracketColumnsHTML(bracket, t, opts){
@@ -1917,6 +1919,7 @@ async function openTournament(id){
     if(state.printSettings.rulesSheetEnabled===undefined) state.printSettings.rulesSheetEnabled = true;
     if(state.printSettings.lineupSheetEnabled===undefined) state.printSettings.lineupSheetEnabled = false;
     if(state.printSettings.koPaperSize===undefined) state.printSettings.koPaperSize = 'A4';
+    if(state.format.seedingEnabled===undefined) state.format.seedingEnabled = false;
     if(state.format.numSeeds===undefined) state.format.numSeeds = 8;
     if(state.format.rulesNotes===undefined) state.format.rulesNotes = '';
     if(state.incidents===undefined) state.incidents = [];
@@ -2299,7 +2302,11 @@ function stage2(){
       '<div class="field"><label>Optional print rules / footer text</label><textarea id="f_footer">'+escapeHtml(f.footerText)+'</textarea></div>'
       : '');
   const rulesSectionHTML =
-    (advanced ? '<div class="toggle-row"><input type="checkbox" id="f_orgsplit" '+(f.orgSplit?'checked':'')+'> <label for="f_orgsplit">Avoid placing entries from the same organisation together (same round robin group, or facing off in the first knockout round)</label></div>' : '')+
+    // For pure knockout, this same toggle lives on the Participants
+    // subsection of Chart details instead (Stage 3) — organisation only
+    // matters there once entries exist, so it moved next to them rather
+    // than sitting here gated behind Advanced mode.
+    (advanced && f.formatType!=='knockout' ? '<div class="toggle-row"><input type="checkbox" id="f_orgsplit" '+(f.orgSplit?'checked':'')+'> <label for="f_orgsplit">Avoid placing entries from the same organisation together (same round robin group, or facing off in the first knockout round)</label></div>' : '')+
     '<div class="field" style="margin-top:12px"><label>Walkover, conduct &amp; other rules <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — printed on its own rules &amp; format sheet, see below)</span></label>'+
       '<textarea id="f_rulesnotes" placeholder="e.g. A no-show forfeits after 10 minutes past the scheduled start. Players must check in at the desk before their first game. Unsporting conduct may result in disqualification at the organiser’s discretion.">'+escapeHtml(f.rulesNotes||'')+'</textarea></div>'+
     (advanced ? tieBreakEditor() : '');
@@ -2792,34 +2799,61 @@ function numSeedsSelectHTML(){
 }
 function setNumSeeds(v){ state.format.numSeeds = parseInt(v); persist(); render(); }
 
-/* ---------- Stage 3 (Knockout format): seeding list, no groups ---------- */
+function setSeedingEnabled(v){ state.format.seedingEnabled = v; persist(); render(); }
+function setKnockoutOrgSplit(v){ state.format.orgSplit = v; persist(); render(); }
+/* ---------- Stage 3 (Knockout format): Participants & Seeding, no groups ----------
+   Split into two subsections: Participants (entry details — name, and
+   organisation only if the organiser turns that on) and Seeding (off by
+   default — the bracket is a random draw at generation time until the
+   organiser explicitly opts in and sets an order). Both toggles are live
+   (persist immediately) matching this stage's existing pattern, not
+   Format & Branding's batch-save-on-Continue pattern. */
 function stage3Knockout(){
   ensureSeedOrder(state);
   const t = state;
   const order = t.seedOrder;
-  return '<div class="entries-panel"><h2>Seeding</h2><p class="intro">Edit entry names, then set the seed order (1 = best seed, kept apart from other top seeds for as long as possible). The bracket is generated from this order in the next step.</p>'+
-    numSeedsSelectHTML()+
-    '<div class="hint" style="margin:-8px 0 14px">Only the top '+(state.format.numSeeds||8)+' shown below get a seed number on the printed chart — everyone is still placed using the full order either way.</div>'+
-    order.map((eid,i)=>{
+  const orgOn = !!t.format.orgSplit;
+  const seedingOn = !!t.format.seedingEnabled;
+
+  const participantsHTML =
+    '<div class="toggle-row"><input type="checkbox" id="f_ko_orgsplit" '+(orgOn?'checked':'')+' onchange="setKnockoutOrgSplit(this.checked)"> <label for="f_ko_orgsplit">Track organisation (avoid same-organisation matchups in the first round)</label></div>'+
+    order.map((eid)=>{
       const ent = t.entriesList.find(e=>e.id===eid);
       if(!ent) return '';
-      return '<div class="entry-row" style="align-items:center">'+
-        '<span class="num" style="flex-shrink:0">'+(i+1)+'</span>'+
-        entryFieldsHTML(ent)+
-        '<button class="btn ghost" style="padding:6px 9px;font-size:10px" '+(i===0?'disabled':'')+' onclick="moveSeed('+i+',-1)">↑</button>'+
-        '<button class="btn ghost" style="padding:6px 9px;font-size:10px" '+(i===order.length-1?'disabled':'')+' onclick="moveSeed('+i+',1)">↓</button>'+
-      '</div>';
-    }).join('')+
+      return '<div class="entry-row" style="align-items:center">'+entryFieldsHTML(ent, orgOn)+'</div>';
+    }).join('');
+
+  const seedingHTML =
+    '<div class="toggle-row"><input type="checkbox" id="f_ko_seeding" '+(seedingOn?'checked':'')+' onchange="setSeedingEnabled(this.checked)"> <label for="f_ko_seeding">Seed this bracket</label></div>'+
+    (seedingOn ?
+      numSeedsSelectHTML()+
+      '<div class="hint" style="margin:-8px 0 14px">Only the top '+(t.format.numSeeds||8)+' shown below get a seed number on the printed chart — everyone is still placed using this order either way.</div>'+
+      order.map((eid,i)=>{
+        const ent = t.entriesList.find(e=>e.id===eid);
+        if(!ent) return '';
+        return '<div class="entry-row" style="align-items:center">'+
+          '<span class="num" style="flex-shrink:0">'+(i+1)+'</span>'+
+          '<div style="flex:1;font-size:13px">'+escapeHtml(ent.name)+'</div>'+
+          '<button class="btn ghost" style="padding:6px 9px;font-size:10px" '+(i===0?'disabled':'')+' onclick="moveSeed('+i+',-1)">↑</button>'+
+          '<button class="btn ghost" style="padding:6px 9px;font-size:10px" '+(i===order.length-1?'disabled':'')+' onclick="moveSeed('+i+',1)">↓</button>'+
+        '</div>';
+      }).join('')
+      : '<div class="hint">No seeding — entries will be randomly drawn into the bracket each time it\'s generated.</div>');
+
+  return '<div class="entries-panel"><h2>Participants &amp; Seeding</h2><p class="intro">Edit entry details, then optionally seed the bracket. Generating the bracket happens in the next step.</p>'+
+    '<div class="form-section" style="margin-top:0;padding-top:0;border-top:none"><div class="form-section-title">Participants</div>'+participantsHTML+'</div>'+
+    '<div class="form-section"><div class="form-section-title">Seeding</div>'+seedingHTML+'</div>'+
   '</div>'+printControls();
 }
 /* Shared entry-editing fields (name, optional org, optional team roster) used
    by both the round-robin entries panel and the knockout seeding list. */
-function entryFieldsHTML(ent){
+function entryFieldsHTML(ent, showOrg){
+  if(showOrg===undefined) showOrg = true;
   const team = isTeamUnit(state);
   return '<div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:160px">'+
     '<div style="display:flex;gap:6px;align-items:center">'+
       '<input type="text" style="flex:1" value="'+escapeHtml(ent.name)+'" onchange="renameEntry(\''+ent.id+'\',this.value)" placeholder="'+(team?'Team name':'Name')+'">'+
-      '<input type="text" style="flex:1;max-width:150px" value="'+escapeHtml(ent.org||'')+'" onchange="setEntryOrg(\''+ent.id+'\',this.value)" placeholder="Organisation (optional)">'+
+      (showOrg ? '<input type="text" style="flex:1;max-width:150px" value="'+escapeHtml(ent.org||'')+'" onchange="setEntryOrg(\''+ent.id+'\',this.value)" placeholder="Organisation (optional)">' : '')+
     '</div>'+
     (team ? '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
       ent.players.map((p,pi)=>'<input type="text" style="flex:1;min-width:110px;height:28px;font-size:11px" value="'+escapeHtml(p)+'" onchange="setEntryPlayer(\''+ent.id+'\','+pi+',this.value)" placeholder="Player '+(pi+1)+'">').join('')+
@@ -3627,8 +3661,9 @@ function lineupSheetToggleHTML(){
 /* ---------- Stage 4 (Knockout format): generate + confirm + print bracket ---------- */
 function stage4Knockout(){
   ensureSeedOrder(state);
+  const seeded = !!state.format.seedingEnabled;
   let html = checkInCardHTML();
-  html += '<div class="card"><h2>Generate &amp; confirm bracket</h2><p class="intro">Builds the knockout bracket from the seed order set in Chart details. You can regenerate it any time before you start entering results.</p>'+
+  html += '<div class="card"><h2>Generate &amp; confirm bracket</h2><p class="intro">'+(seeded ? 'Builds the knockout bracket from the seed order set in Chart details.' : 'Builds the knockout bracket from a fresh random draw (seeding is off — turn it on in Chart details to use a set order instead).')+' You can regenerate it any time before you start entering results.</p>'+
     '<div class="buttonrow">'+
       '<button class="btn primary" onclick="regenerateKnockoutBracket()">'+(state.knockout?'Regenerate bracket':'Generate bracket')+'</button>'+
       (state.knockout?'<button class="btn secondary" onclick="doFinalPrint()">Print bracket pack</button>':'')+
@@ -3638,16 +3673,23 @@ function stage4Knockout(){
   return html;
 }
 function regenerateKnockoutBracket(){
+  const seeded = !!state.format.seedingEnabled;
   const doIt = ()=>{
     ensureSeedOrder(state);
-    const ordered = state.seedOrder.map(id=>{ const e=state.entriesList.find(x=>x.id===id); return {entryId:id, org:e?e.org:''}; });
+    // Unseeded: a fresh random draw every time, rather than reusing
+    // state.seedOrder as-is — that array stays untouched so it's still a
+    // sensible starting point if the organiser turns seeding on later.
+    const idOrder = seeded ? state.seedOrder : shuffleArray(state.seedOrder);
+    const ordered = idOrder.map(id=>{ const e=state.entriesList.find(x=>x.id===id); return {entryId:id, org:e?e.org:''}; });
     state.knockout = generateBracket(ordered, 'Bracket');
     persist(); render();
   };
   const hasScores = state.knockout && bracketHasScores(state.knockout);
   const notCheckedIn = notCheckedInEntries();
   if(hasScores || notCheckedIn.length){
-    let body = hasScores ? '<p>This discards all results entered so far and rebuilds a fresh blank bracket from the current seed order.</p>' : '<p>Builds the knockout bracket from the current seed order.</p>';
+    let body = hasScores
+      ? (seeded ? '<p>This discards all results entered so far and rebuilds a fresh blank bracket from the current seed order.</p>' : '<p>This discards all results entered so far and rebuilds a fresh blank bracket from a new random draw.</p>')
+      : (seeded ? '<p>Builds the knockout bracket from the current seed order.</p>' : '<p>Builds the knockout bracket from a fresh random draw.</p>');
     body += noShowWarningHTML(notCheckedIn);
     openModal({title: hasScores?'Regenerate bracket?':'Generate bracket?', bodyHTML: body, confirmLabel: hasScores?'Regenerate':'Generate', confirmClass: hasScores?'danger':'primary', onConfirm:doIt});
   } else { doIt(); }
