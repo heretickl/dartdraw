@@ -262,8 +262,24 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
   .bracket-cols{overflow-x:visible}
   .bracket-col{min-width:0;flex:1 1 0}
   .lineup-sheet{page:lineupportrait;width:190mm;height:277mm}
+  /* Mirrored knockout chart sheets — paper size is organiser-selectable
+     (printSettings.koPaperSize), unlike every other sheet in the pack
+     which is fixed A4. Each sheet carries a size modifier class picking
+     both its printed width/height and which named @page it uses, since
+     a single @page rule can't vary per element but CSS Paged Media's
+     named pages can (same mechanism already used for lineupportrait). */
+  .mko-print-sheet{box-shadow:none;border:none;aspect-ratio:auto;page-break-after:always;margin:0 auto;overflow:hidden}
+  .mko-print-sheet:last-child{page-break-after:auto}
+  .mko-print-sheet.mko-paper-A4{page:mkoA4;width:281mm;height:194mm}
+  .mko-print-sheet.mko-paper-A3{page:mkoA3;width:404mm;height:281mm}
+  .mko-print-sheet.mko-paper-A2{page:mkoA2;width:578mm;height:404mm}
+  .mko-print-sheet.mko-paper-A1{page:mkoA1;width:825mm;height:578mm}
   @page{size:A4 landscape;margin:8mm}
   @page lineupportrait{size:A4 portrait;margin:8mm}
+  @page mkoA4{size:A4 landscape;margin:8mm}
+  @page mkoA3{size:A3 landscape;margin:8mm}
+  @page mkoA2{size:A2 landscape;margin:8mm}
+  @page mkoA1{size:A1 landscape;margin:8mm}
 }
 #printSheets{display:none}
 </style>
@@ -340,6 +356,12 @@ function blankTournament(){
     eventCreation: { tournamentName:'', eventName:'', eventType:'Open', competitionUnit:'Singles', date:'', entries:8, boards:4, advancedMode:false, saved:false },
     format: {
       formatType:'roundrobin', bestOfLegs:5, maxPerGroup:4, logo:null, sponsors:[], footerText:'', saved:false,
+      /* Pure knockout only (formatType:'knockout') — how many entries at
+         the top of the seed order (stage3Knockout) are shown with a seed
+         number on the printed chart. Display-only: bracket generation,
+         byes and slot placement are unaffected by this, every entry is
+         still placed via the full seed order regardless of this cutoff. */
+      numSeeds:8,
       /* Round robin -> knockout hybrid */
       qualifiersPerGroup:2, advanceMode:'seeded', losersPool:false,
       /* Plate (losers' pool) band size per group — null/blank means "rest of the group"
@@ -379,7 +401,7 @@ function blankTournament(){
        than a pure estimate. */
     rrFinishedAt: null,
     activeGroupId: null,
-    printSettings: { sponsorFooterEnabled:true, teamHandoutEnabled:false, rulesSheetEnabled:true, lineupSheetEnabled:false },
+    printSettings: { sponsorFooterEnabled:true, teamHandoutEnabled:false, rulesSheetEnabled:true, lineupSheetEnabled:false, koPaperSize:'A4' },
     tieBreakOrder: ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'],
     /* Disciplinary / incident log (Day-of-the-event) — organiser-only record, not printed. */
     incidents: []
@@ -1009,6 +1031,20 @@ function bracketSlotClasses(mi, hasNext){
 function bracketConnectMidHTML(mi, hasNext){
   return (hasNext && mi%2===1) ? '<div class="bracket-connect-mid"></div>' : '';
 }
+/* bracket.seeds ranks every entry 1..N for slot-placement purposes (byes,
+   clash avoidance) — that's not the same as being an officially seeded
+   entry. Pure knockout events have an organiser-set cutoff
+   (format.numSeeds, from the Seeding screen) for how many of those ranks
+   actually count as "seeded" for display; round-robin+knockout brackets
+   don't have that concept (every qualifier's rank comes from group
+   finishing position), so every qualifier there still shows its rank. */
+function bracketSeedForDisplay(t, seedsMap, entryId){
+  if(!seedsMap) return null;
+  const rank = seedsMap[entryId];
+  if(!rank) return null;
+  if(t.format.formatType==='knockout') return rank<=(t.format.numSeeds||8) ? rank : null;
+  return rank;
+}
 function bracketColumnsHTML(bracket, t, opts){
   opts = opts||{};
   const interactive = !!opts.interactive;
@@ -1023,8 +1059,8 @@ function bracketColumnsHTML(bracket, t, opts){
         round.map((m,mi)=>{
           const aName = bracketEntryName(t, m.aEntryId) || '';
           const bName = bracketEntryName(t, m.bEntryId) || '';
-          const aSeed = (ri===0 && bracket.seeds) ? bracket.seeds[m.aEntryId] : null;
-          const bSeed = (ri===0 && bracket.seeds) ? bracket.seeds[m.bEntryId] : null;
+          const aSeed = ri===0 ? bracketSeedForDisplay(t, bracket.seeds, m.aEntryId) : null;
+          const bSeed = ri===0 ? bracketSeedForDisplay(t, bracket.seeds, m.bEntryId) : null;
           const aWin = m.winnerId && m.winnerId===m.aEntryId;
           const bWin = m.winnerId && m.winnerId===m.bEntryId;
           const clickable = interactive && m.aEntryId && m.bEntryId && !m.bye;
@@ -1110,6 +1146,403 @@ function openKoNoShowPicker(bracketKey, roundIdx, matchIdx){
     onConfirm:()=>{}
   });
 }
+/* ---- Mirrored knockout chart — pixel-precise implementation of
+   design_handoff_knockout_brackets/README.md, reading real
+   bracket.rounds[][] / koRoundName() / bracketEntryName() / escapeHtml()
+   above unchanged, in a new .mko-* namespace so it doesn't collide with
+   the existing single-direction .bracket-* chart used everywhere else
+   (interactive Manage Tournament views keep using bracketColumnsHTML;
+   only the PRINTED chart sheet below uses this). Validated as a
+   standalone prototype before merging in; see mko_precise.js /
+   mko_paper.js in that prototype for the original build notes.
+
+   Colour/font tokens are the app's real chart tokens (var(--navy),
+   var(--muted), var(--line), the #eaf7ee winner-green already used by
+   .bracket-side.win) and the app's real body font, so this chart matches
+   the round-robin chart and the existing linear knockout chart instead
+   of introducing its own look. ---- */
+// ROW[2] and ROW[4] are never a real bracket.size on their own via the
+// seeds policy (minimum draw is 4) except a genuine 4-entry tournament —
+// they're mostly used as mkoPaginate()'s synthetic "remainder" geometry
+// once splitting has whittled a bracket down to just the Final(+
+// Semifinal). Kept equal to ROW[32] (52) rather than a big, roomy value:
+// that's high enough that fontSize still hits its 15px cap (so this
+// remainder is never LESS legible than whatever the rest of the pages
+// are showing), while keeping the champion block's fixed spacing
+// overhead small enough that even the smallest paper size (A4) can
+// always fit it — see MKO_CHROME_HEIGHT_MM / mkoPaginate's derivation.
+const ROW = { 2: 52, 4: 52, 8: 110, 16: 72, 32: 52, 64: 34, 128: 26, 256: 24, 512: 22 };
+
+// Bracket size policy, as specified for the "Number of seeds" organiser
+// control: seeds is a dropdown limited to 4/8/16/32/64 only, and the
+// bracket is always fixed at 2x whatever seed count is chosen — so 128
+// slots is the largest knockout draw this app is ever meant to produce.
+// nearestBracket() already enforces this on the GENERATION side (falls
+// back to 128 for anything bigger); this is the same rule enforced
+// explicitly on the CHART side too.
+const MAX_SEEDS = 64;
+const MAX_BRACKET_SIZE = MAX_SEEDS * 2; // 128
+
+// Per-round match-box / connector-zone widths. Trimmed slightly from the
+// design-handoff spec's original 140/44 (184 total) so a standard 32-
+// entry bracket clears the 9px floor on A4 in one sheet again — the
+// original values left it just 1.4% short (a pure width constraint, not
+// a font/legibility issue), which meant needlessly splitting into
+// several sheets for a size that printed fine on one page before this
+// chart existed. Every dimension below is derived from these two
+// numbers so trimming stays consistent everywhere it's used.
+const MKO_BOX_W = 126;
+const MKO_CONN_W = 36;
+const MKO_COL_W = MKO_BOX_W + MKO_CONN_W; // 174
+const MKO_CENTRE_W = 2*MKO_BOX_W + MKO_CONN_W; // 308
+
+function mkoValidateBracketSize(size){
+  if(size > MAX_BRACKET_SIZE){
+    return { ok:false, message:'Bracket size '+size+' exceeds the '+MAX_BRACKET_SIZE+'-slot maximum for this chart (organiser can select at most '+MAX_SEEDS+' seeds, and the bracket is fixed at 2× that count).' };
+  }
+  return { ok:true };
+}
+
+function mkoGeom(n, showChampion){
+  if(showChampion==null) showChampion = true;
+  const cc = Math.log2(n) - 1;
+  const boxHeight = Math.round(ROW[n] * 0.78);
+  const fontSize = Math.min(15, Math.max(8, Math.round(ROW[n] * 0.30)));
+  const finalBoxH = Math.max(44, boxHeight * 1.5);
+  // The champion block's own space only needs to be budgeted when it's
+  // actually going to be drawn — a blank pre-tournament chart passes
+  // showChampion:false and shouldn't pay for vertical room it never uses.
+  const belowMid = showChampion ? (finalBoxH/2 + 56 + 15 + 12 + finalBoxH + 10) : (finalBoxH/2 + 56);
+  const bodyHeight = Math.max((n/2) * ROW[n], belowMid * 2);
+  const artW = 2 * (cc * MKO_COL_W) + MKO_CENTRE_W;
+  const artH = bodyHeight + 44;
+  return { cc, boxHeight, fontSize, finalBoxH, bodyHeight, artW, artH };
+}
+
+/* Auto-shrink instead of ellipsis truncation: find the longest name/seed/
+   legs actually in this bracket's data, measure for real (canvas, not a
+   character-count guess) at the base font size using the heaviest
+   weight in play (winner = 800), and — only if that wouldn't fit a slot
+   at the base size — scale the whole bracket's font down uniformly. */
+var __mkoMeasureCtx = document.createElement('canvas').getContext('2d');
+function mkoFitFontSize(bracket, t, baseFontSize, slotWidth){
+  var names = {}, legsSet = {}, maxSeed = 0;
+  bracket.rounds.forEach(function(round){
+    round.forEach(function(m){
+      ['a','b'].forEach(function(side){
+        var id = m[side+'EntryId'];
+        if(id) names[bracketEntryName(t, id) || ''] = true;
+        var legs = m[side+'Legs'];
+        if(legs != null) legsSet[String(legs)] = true;
+      });
+    });
+  });
+  if(bracket.seeds) Object.keys(bracket.seeds).forEach(function(k){ if(bracket.seeds[k] > maxSeed) maxSeed = bracket.seeds[k]; });
+  var nameList = Object.keys(names); if(!nameList.length) nameList = ['Player 88'];
+  var legsList = Object.keys(legsSet); if(!legsList.length) legsList = ['0'];
+  var seedStr = maxSeed ? String(maxSeed) : '';
+
+  var ctx = __mkoMeasureCtx;
+  var availW = slotWidth - 12 - 10;
+  ctx.font = '700 ' + (baseFontSize*0.78) + 'px Inter,Segoe UI,Arial,sans-serif';
+  var seedW = seedStr ? ctx.measureText(seedStr).width : 0;
+  ctx.font = '800 ' + baseFontSize + 'px Inter,Segoe UI,Arial,sans-serif';
+  var nameW = Math.max.apply(null, nameList.map(function(nm){ return ctx.measureText(nm).width; }));
+  var legsW = Math.max.apply(null, legsList.map(function(lg){ return ctx.measureText(lg).width; }));
+  var totalW = seedW + nameW + legsW;
+  if(totalW <= availW) return baseFontSize;
+  return Math.max(6, Math.floor(baseFontSize * (availW/totalW)));
+}
+
+function mkoSlot(m, side, t, ri, tokens){
+  const id = m[side+'EntryId'];
+  const legs = m[side+'Legs'];
+  const isWin = !!(m.winnerId && m.winnerId===id);
+  if(!id){
+    if(m.bye) return { text:'BYE', seed:'', legs:'', fw:600, color:tokens.muted, bg:'#fff', border:'1px solid '+tokens.line };
+    return { text:'', seed:'', legs:'', fw:400, color:tokens.ink, bg:'#fff', border:'1px solid '+tokens.line };
+  }
+  const name = escapeHtml(bracketEntryName(t, id) || 'Unknown');
+  const seed = (ri===0 && m.__seeds) ? (bracketSeedForDisplay(t, m.__seeds, id) || '') : '';
+  return {
+    text: name, seed: String(seed), legs: legs!=null ? String(legs) : '',
+    fw: isWin ? 800 : 400, color: tokens.ink, bg: isWin ? tokens.winBg : '#fff',
+    border: '1px solid '+tokens.line
+  };
+}
+
+function mkoBoxHTML(slot, boxHeight, fontSize, mirrored){
+  const rowDir = mirrored ? 'row-reverse' : 'row';
+  const textAlign = mirrored ? 'text-align:right;' : '';
+  const flip = mirrored ? 'transform:scaleX(-1);' : '';
+  return '<div style="width:100%;height:'+boxHeight+'px;background:'+slot.bg+';border:'+slot.border+';border-radius:6px;'+
+    'display:flex;flex-direction:'+rowDir+';align-items:center;gap:5px;padding:0 6px;box-sizing:border-box;overflow:hidden;'+flip+'">'+
+    '<span style="flex:0 0 auto;font-size:'+(fontSize*0.78).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+slot.seed+'</span>'+
+    '<span style="flex:1;min-width:0;'+textAlign+'font-size:'+fontSize+'px;color:'+slot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:'+slot.fw+';">'+slot.text+'</span>'+
+    '<span style="flex:0 0 auto;font-size:'+fontSize+'px;color:'+slot.color+';font-weight:'+slot.fw+';">'+slot.legs+'</span>'+
+    '</div>';
+}
+
+function mkoConnectorHTML(vsText, mirrored, lineColor){
+  const vsTransform = mirrored ? 'translateY(-50%) scaleX(-1)' : 'translateY(-50%)';
+  return '<div style="flex:1;position:relative;">'+
+    '<div style="position:absolute;left:15px;right:11px;top:25%;height:50%;border:1.5px solid '+lineColor+';border-left:none;border-radius:0 4px 4px 0;box-sizing:border-box;"></div>'+
+    '<div style="position:absolute;right:0;width:11px;top:50%;border-top:1.5px solid '+lineColor+';"></div>'+
+    '<div style="position:absolute;left:0;width:15px;text-align:center;top:50%;transform:'+vsTransform+';font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);">'+vsText+'</div>'+
+    '</div>';
+}
+
+function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice){
+  slice = slice || {};
+  const roundStart = slice.roundStart || 0;
+  const roundEnd = slice.roundEnd != null ? slice.roundEnd : geom.cc;
+  const boxHeight = geom.boxHeight, fontSize = geom.fontSize;
+  const outerTransform = mirror===-1 ? 'transform:scaleX(-1);' : '';
+  let cols = '';
+  for(let ri=roundStart; ri<roundEnd; ri++){
+    const round = bracket.rounds[ri];
+    const half = round.length/2;
+    const sideMatches = mirror===1 ? round.slice(0, half) : round.slice(half);
+    // `half` is already THIS round's own match count (it halves every
+    // round on its own via bracket.rounds), so dividing it by wingCount
+    // directly gives the right per-wing count at any round — this also
+    // works unmodified for roundStart>0 (a second splitting level).
+    let matches = sideMatches;
+    if(slice.wingCount != null){
+      const perWingHere = Math.max(1, half / slice.wingCount);
+      const start = Math.round(slice.wingIndex * perWingHere);
+      const end = Math.round((slice.wingIndex+1) * perWingHere);
+      matches = sideMatches.slice(start, end);
+    }
+    const label = koRoundName(bracket, ri);
+    const labelFlip = mirror===-1 ? 'transform:scaleX(-1);' : '';
+
+    let groupsHtml = '', connectorsHtml = '';
+    matches.forEach(function(m){
+      const aSlot = mkoSlot(m, 'a', t, ri, tokens);
+      const bSlot = mkoSlot(m, 'b', t, ri, tokens);
+      groupsHtml += '<div style="flex:1;display:flex;flex-direction:column;">'+
+        '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(aSlot, boxHeight, fontSize, mirror===-1)+'</div>'+
+        '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(bSlot, boxHeight, fontSize, mirror===-1)+'</div>'+
+        '</div>';
+      connectorsHtml += mkoConnectorHTML(showVs ? 'VS' : '', mirror===-1, tokens.line);
+    });
+
+    cols += '<div style="display:flex;align-items:stretch;width:'+MKO_COL_W+'px;">'+
+      '<div style="width:'+MKO_BOX_W+'px;display:flex;flex-direction:column;">'+
+      '<div style="height:44px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:9px;box-sizing:border-box;font-size:11px;font-weight:800;letter-spacing:0.06em;color:var(--muted);white-space:nowrap;text-transform:uppercase;'+labelFlip+'">'+escapeHtml(label)+'</div>'+
+      '<div style="flex:1;display:flex;flex-direction:column;">'+groupsHtml+'</div>'+
+      '</div>'+
+      '<div style="width:'+MKO_CONN_W+'px;display:flex;flex-direction:column;">'+
+      '<div style="height:44px;"></div>'+
+      '<div style="flex:1;display:flex;flex-direction:column;">'+connectorsHtml+'</div>'+
+      '</div>'+
+      '</div>';
+  }
+  return '<div style="display:flex;align-items:stretch;'+outerTransform+'">'+cols+'</div>';
+}
+
+function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion){
+  const finalMatch = bracket.rounds[bracket.rounds.length-1][0];
+  const aSlot = mkoSlot(finalMatch, 'a', t, bracket.rounds.length-1, tokens);
+  const bSlot = mkoSlot(finalMatch, 'b', t, bracket.rounds.length-1, tokens);
+  const finalBoxH = geom.finalBoxH;
+  const championId = bracketIsComplete(bracket) ? bracketChampion(bracket) : null;
+  const championName = championId ? escapeHtml(bracketEntryName(t, championId)) : '';
+
+  let championHtml = '';
+  if(showChampion){
+    championHtml = '<div style="position:absolute;left:0;right:0;top:calc(100% + 56px);display:flex;flex-direction:column;align-items:center;">'+
+      '<div style="font-size:15px;font-weight:800;letter-spacing:0.1em;color:var(--green);">CHAMPION</div>'+
+      '<div style="width:150px;height:'+finalBoxH+'px;margin-top:12px;background:#eaf7ee;border:3px solid var(--green);box-sizing:border-box;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:'+geom.fontSize+'px;font-weight:800;color:var(--ink);">'+championName+'</div>'+
+      '</div>';
+  }
+
+  return '<div style="width:'+MKO_CENTRE_W+'px;display:flex;flex-direction:column;">'+
+    '<div style="height:44px;"></div>'+
+    '<div style="flex:1;position:relative;">'+
+    '<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;justify-content:center;">'+
+    '<div style="position:relative;display:flex;align-items:center;">'+
+    '<div style="position:absolute;left:0;right:0;bottom:calc(100% + 14px);text-align:center;font-size:22px;font-weight:800;letter-spacing:0.03em;color:var(--navy);">FINAL</div>'+
+    '<div style="width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;background:'+aSlot.bg+';border:'+aSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
+    '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+aSlot.text+'</span>'+
+    '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';">'+aSlot.legs+'</span></div>'+
+    '<div style="width:'+MKO_CONN_W+'px;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.06em;color:var(--muted);">'+(showVs ? 'VS' : '')+'</div>'+
+    '<div style="width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;background:'+bSlot.bg+';border:'+bSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
+    '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+bSlot.text+'</span>'+
+    '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';">'+bSlot.legs+'</span></div>'+
+    championHtml+
+    '</div></div></div></div>';
+}
+
+function mirroredChartHTML(bracket, t, opts){
+  opts = opts || {};
+  const n = bracket.size;
+  const sizeCheck = mkoValidateBracketSize(n);
+  if(!sizeCheck.ok){
+    return '<div class="mko-artboard mko-size-error" style="padding:20px 24px;max-width:520px;font-family:Inter,Segoe UI,Arial,sans-serif;font-size:13px;line-height:1.5;color:var(--red);background:#fdeceb;border:1px solid #f3c6c2;border-radius:8px;">'+escapeHtml(sizeCheck.message)+'</div>';
+  }
+  const tokens = { line:'var(--line)', muted:'var(--muted)', ink:'var(--ink)', navy:'var(--navy)', winBg:'#eaf7ee' };
+  const showVs = opts.showVs !== false;
+  const showChampion = opts.showChampion !== false;
+  const geom = mkoGeom(n, showChampion);
+  geom.fontSize = mkoFitFontSize(bracket, t, geom.fontSize, MKO_BOX_W);
+
+  bracket.rounds[0].forEach(function(m){ m.__seeds = bracket.seeds; });
+
+  const left = mkoSideHTML(bracket, t, 1, geom, tokens, showVs);
+  const centre = mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion);
+  const right = mkoSideHTML(bracket, t, -1, geom, tokens, showVs);
+
+  return '<div class="mko-artboard" style="position:relative;width:'+geom.artW+'px;height:'+geom.artH+'px;display:flex;align-items:stretch;background:var(--paper);font-family:Inter,Segoe UI,Arial,sans-serif;">'+
+    left + centre + right +
+    '</div>';
+}
+
+/* ---- Multi-page split, for whenever one physical sheet can't hold the
+   whole bracket at a legible font size (organiser-configurable floor,
+   9px by default). Splits along the bracket's own round structure: early
+   rounds become self-contained "wing" section sheets (one per
+   sub-bracket — the same way large real tournaments are printed on
+   paper today, one sheet per quarter/eighth of the draw), and whatever's
+   left once a remainder is small enough converges onto one "finals"
+   sheet. Applied repeatedly (not just once) until what's left fits one
+   page, so this naturally produces as many levels as a given paper size
+   needs. See the mko_precise.js prototype file for the full derivation
+   notes on why this model (not "grow the sheet") is used. */
+function mkoPaginate(bracket, geom, fit, minFontPx, showChampion){
+  minFontPx = minFontPx || 9;
+  if(showChampion==null) showChampion = true;
+  const sizeCheck = mkoValidateBracketSize(bracket.size);
+  if(!sizeCheck.ok){
+    return { mode:'policy-violation', reason:sizeCheck.message };
+  }
+  const sSinglePage = fit.scale;
+  const sFloor = minFontPx / geom.fontSize;
+  if(sSinglePage >= sFloor){
+    return { mode:'single', scale:sSinglePage, pages:[{type:'full'}] };
+  }
+  const s = sFloor;
+  const levels = [];
+  let curGeom = geom, curRoundStart = 0;
+  const maxLevels = 6;
+  while(levels.length < maxLevels && (curGeom.artH*s > fit.pageHpx || curGeom.artW*s > fit.pageWpx)){
+    let wingCount = 2, found = false;
+    for(; wingCount <= Math.pow(2, Math.max(0, curGeom.cc-1)); wingCount *= 2){
+      const wingH = curGeom.bodyHeight / wingCount;
+      const wingW = (curGeom.cc - Math.log2(wingCount)) * MKO_COL_W;
+      if(wingH*s <= fit.pageHpx && wingW*s <= fit.pageWpx){ found = true; break; }
+    }
+    if(!found){
+      return { mode:'infeasible', scale:s, reason:'No wing split at splitting level '+(levels.length+1)+' fits '+fit.paperKey+' at a '+minFontPx+'px floor for this draw size.' };
+    }
+    const pRounds = Math.log2(wingCount);
+    const roundEnd = curRoundStart + (curGeom.cc - pRounds);
+    levels.push({ geom:curGeom, roundStart:curRoundStart, roundEnd:roundEnd, wingCount:wingCount });
+    curRoundStart = roundEnd;
+    curGeom = mkoGeom(Math.min(512, 2*wingCount), showChampion);
+  }
+  if(curGeom.artH*s > fit.pageHpx || curGeom.artW*s > fit.pageWpx){
+    return { mode:'infeasible', scale:s, reason:'Could not fit within '+maxLevels+' splitting levels for '+fit.paperKey+' at a '+minFontPx+'px floor.' };
+  }
+  const pages = [];
+  levels.forEach(function(lvl, li){
+    [1,-1].forEach(function(side){
+      for(let w=0; w<lvl.wingCount; w++){
+        pages.push({ type:'wing', level:li, side:side, wingIndex:w, wingCount:lvl.wingCount, roundStart:lvl.roundStart, roundEnd:lvl.roundEnd, geom:lvl.geom });
+      }
+    });
+  });
+  pages.push({ type:'finals', roundStart:curRoundStart, roundEnd:curRoundStart+curGeom.cc, geom:curGeom });
+  return { mode:'multi', scale:s, levels:levels, pages:pages };
+}
+
+/* Renders one page from an mkoPaginate() plan, reusing the exact same
+   mkoSideHTML/mkoCentreHTML box-rendering the single-page chart uses. */
+function mkoPageHTML(bracket, t, geom, tokens, showVs, showChampion, page){
+  bracket.rounds[0].forEach(function(m){ m.__seeds = bracket.seeds; });
+  var inner, w, h, label;
+  if(page.type==='full'){
+    inner = mkoSideHTML(bracket, t, 1, geom, tokens, showVs) +
+      mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion) +
+      mkoSideHTML(bracket, t, -1, geom, tokens, showVs);
+    w = geom.artW; h = geom.artH;
+    label = 'Full chart';
+  } else if(page.type==='wing'){
+    const g = page.geom;
+    inner = mkoSideHTML(bracket, t, page.side, g, tokens, showVs, {
+      roundStart: page.roundStart, roundEnd: page.roundEnd, wingIndex: page.wingIndex, wingCount: page.wingCount
+    });
+    w = (page.roundEnd - page.roundStart) * MKO_COL_W;
+    h = g.bodyHeight / page.wingCount;
+    label = 'Section '+(page.side===1 ? 'L' : 'R')+(page.wingIndex+1)+' of '+page.wingCount;
+  } else { // finals
+    const fg = page.geom;
+    inner = mkoSideHTML(bracket, t, 1, fg, tokens, showVs, { roundStart:page.roundStart, roundEnd:page.roundEnd }) +
+      mkoCentreHTML(bracket, t, fg, tokens, showVs, showChampion) +
+      mkoSideHTML(bracket, t, -1, fg, tokens, showVs, { roundStart:page.roundStart, roundEnd:page.roundEnd });
+    w = fg.artW; h = fg.artH;
+    label = 'Finals';
+  }
+  return {
+    label: label, w: w, h: h,
+    html: '<div class="mko-artboard mko-page-'+page.type+'" style="position:relative;width:'+w+'px;height:'+h+'px;display:flex;align-items:stretch;background:var(--paper);font-family:Inter,Segoe UI,Arial,sans-serif;">'+inner+'</div>'
+  };
+}
+
+/* Paper-size fit for the mirrored KO print sheet: the physical page is
+   always landscape at whichever of the four sizes the organiser picks;
+   the bracket's own native artboard (mkoGeom — tuned for legibility) is
+   then scaled UNIFORMLY (never distorted, never re-oriented) to fit
+   MKO_ARTBOARD_BUDGET — the space left for the bracket art itself once
+   the sheet's header/footer chrome is accounted for. */
+var MKO_PAPER_SIZES = {
+  A4: { w:297, h:210 },
+  A3: { w:420, h:297 },
+  A2: { w:594, h:420 },
+  A1: { w:841, h:594 }
+};
+var MKO_PAGE_MARGIN_MM = 8; // matches the app's own @page{margin:8mm}
+var MKO_PX_PER_MM = 96/25.4; // CSS reference pixel — same mapping the browser itself uses for mm-sized print sheets
+// Vertical space the sheet's header (logo/titles) + footer (legend +
+// sponsors/credit) + the sheet's own padding + the artboard's own
+// margin-top take up within the page. Measured directly against the
+// real .sheet-top/.footer markup this chart is wrapped in below (a
+// rendered sample came out to ~52.65mm; rounded up slightly for margin).
+var MKO_CHROME_HEIGHT_MM = 53;
+// Horizontal space the sheet's own left+right padding (.print-sheet's
+// padding:28px 30px 20px — 30px each side) eats out of the page's
+// printable width, on top of the page margin already subtracted below.
+var MKO_CHROME_WIDTH_MM = 16;
+
+function mkoPaperFit(artW, artH, paperKey){
+  var p = MKO_PAPER_SIZES[paperKey];
+  var printableWmm = p.w - MKO_PAGE_MARGIN_MM*2 - MKO_CHROME_WIDTH_MM;
+  var printableHmm = p.h - MKO_PAGE_MARGIN_MM*2 - MKO_CHROME_HEIGHT_MM;
+  var pageWpx = printableWmm * MKO_PX_PER_MM;
+  var pageHpx = printableHmm * MKO_PX_PER_MM;
+  var scale = Math.min(pageWpx/artW, pageHpx/artH);
+  return {
+    paperKey: paperKey,
+    pageWmm: p.w, pageHmm: p.h,
+    printableWmm: printableWmm, printableHmm: printableHmm,
+    pageWpx: pageWpx, pageHpx: pageHpx,
+    scale: scale,
+    isLandscape: p.w > p.h
+  };
+}
+
+function koPaperSizeSelectHTML(){
+  const cur = state.printSettings.koPaperSize || 'A4';
+  const opts = ['A4','A3','A2','A1'].map(k=>{
+    const p = MKO_PAPER_SIZES[k];
+    return '<option value="'+k+'"'+(cur===k?' selected':'')+'>'+k+' ('+p.w+'×'+p.h+'mm)</option>';
+  }).join('');
+  return '<div class="field" style="max-width:260px"><label>Knockout bracket paper size</label>'+
+    '<select onchange="setKoPaperSize(this.value)">'+opts+'</select></div>';
+}
+function setKoPaperSize(v){ state.printSettings.koPaperSize = v; persist(); render(); }
+
 function knockoutBracketSheetHTML(bracket){
   const t = state;
   const bracketKey = bracket===t.knockoutLosers ? 'knockoutLosers' : 'knockout';
@@ -1119,20 +1552,67 @@ function knockoutBracketSheetHTML(bracket){
   const legsFooter = variableLegs
     ? 'Legs per match increase by knockout stage — see each round\'s heading above.'
     : 'Best of '+t.format.bestOfLegs+' legs per match — no draws, the winner needs '+(Math.floor((parseInt(t.format.bestOfLegs)||5)/2)+1)+' legs.';
-  return '<div class="print-sheet">'+
-    '<div class="sheet-top">'+ mainLogoBoxHTML()+
-      '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
-      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Knockout Stage'+legsSub+'</div></div>'+
-      '<div class="group-label"><strong>'+escapeHtml((bracket.label||'BRACKET').toUpperCase())+'</strong><span>'+bracket.size+'-entry bracket</span></div>'+
-    '</div>'+
-    '<div style="flex:1;display:flex;align-items:center;margin-top:16px">'+bracketColumnsHTML(bracket, t, {interactive:false})+'</div>'+
-    '<div class="footer"><small>'+legsFooter+'</small>'+
-    '<div class="footer-right">'+
-      (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
-      DD_CREDIT_HTML+
-    '</div>'+
-    '</div>'+
-  '</div>';
+  const paperKey = t.printSettings.koPaperSize || 'A4';
+  const tokens = { line:'var(--line)', muted:'var(--muted)', ink:'var(--ink)', navy:'var(--navy)', winBg:'#eaf7ee' };
+
+  function sheetShellHTML(innerHTML, sheetLabel, sheetIndex, totalSheets){
+    return '<div class="print-sheet mko-print-sheet mko-paper-'+paperKey+'">'+
+      '<div class="sheet-top">'+ mainLogoBoxHTML()+
+        '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
+        '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Knockout Stage'+legsSub+(totalSheets>1?' · '+escapeHtml(sheetLabel):'')+'</div></div>'+
+        '<div class="group-label"><strong>'+escapeHtml((bracket.label||'BRACKET').toUpperCase())+'</strong><span>'+bracket.size+'-entry bracket'+(totalSheets>1?' · Sheet '+sheetIndex+' of '+totalSheets:'')+'</span></div>'+
+      '</div>'+
+      '<div class="mko-sheet-body" style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:12px;overflow:hidden;">'+innerHTML+'</div>'+
+      '<div class="footer"><small>'+legsFooter+'</small>'+
+      '<div class="footer-right">'+
+        (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '')+
+        DD_CREDIT_HTML+
+      '</div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  const geom = mkoGeom(bracket.size, true);
+  geom.fontSize = mkoFitFontSize(bracket, t, geom.fontSize, MKO_BOX_W);
+  const fit = mkoPaperFit(geom.artW, geom.artH, paperKey);
+  const plan = mkoPaginate(bracket, geom, fit, 9, true);
+
+  if(plan.mode==='policy-violation' || plan.mode==='infeasible'){
+    // Shouldn't happen in practice (nearestBracket already caps draws at
+    // 128, which always fits at least A2/A1 in one piece) — fall back to
+    // the plain linear chart rather than showing nothing if it ever does.
+    return sheetShellHTML(bracketColumnsHTML(bracket, t, {interactive:false}), '', 1, 1);
+  }
+
+  // transform:scale() only changes how an element PAINTS, not its layout
+  // box — the scaled-down artboard still occupies its full, unscaled
+  // footprint for layout purposes. Centering it (mko-sheet-body's
+  // align-items/justify-content:center) inside an overflow:hidden
+  // container then clips it symmetrically from both edges, since the
+  // container has no way to know it should treat the content as
+  // actually smaller. Fixed the same way the standalone prototype did:
+  // an outer div explicitly sized to the SCALED footprint (so the flex
+  // container centers the right box) wrapping an inner div holding the
+  // real, full-size artboard, scaled from its own top-left corner so it
+  // exactly fills that outer box with nothing left over to clip.
+  function scaledArtHTML(pageInfo, scale){
+    return '<div style="width:'+(pageInfo.w*scale)+'px;height:'+(pageInfo.h*scale)+'px;">'+
+      '<div style="width:'+pageInfo.w+'px;height:'+pageInfo.h+'px;transform:scale('+scale+');transform-origin:top left;">'+pageInfo.html+'</div>'+
+      '</div>';
+  }
+
+  if(plan.mode==='single'){
+    const pageInfo = mkoPageHTML(bracket, t, geom, tokens, true, true, {type:'full'});
+    return sheetShellHTML(scaledArtHTML(pageInfo, plan.scale), '', 1, 1);
+  }
+
+  // Multi-page: one physical sheet per page in the plan, each fully
+  // self-identifying (same header/footer as any other sheet) since
+  // sheets in a printed pack can end up separated.
+  return plan.pages.map(function(page, pi){
+    const pageInfo = mkoPageHTML(bracket, t, geom, tokens, true, true, page);
+    return sheetShellHTML(scaledArtHTML(pageInfo, plan.scale), pageInfo.label, pi+1, plan.pages.length);
+  }).join('');
 }
 /* Placeholder bracket printed before the round robin is confirmed, seeded
    mode only (see projectedQualifierLabels/projectedNonQualifierLabels — the
@@ -1431,6 +1911,8 @@ async function openTournament(id){
     if(state.printSettings.teamHandoutEnabled===undefined) state.printSettings.teamHandoutEnabled = false;
     if(state.printSettings.rulesSheetEnabled===undefined) state.printSettings.rulesSheetEnabled = true;
     if(state.printSettings.lineupSheetEnabled===undefined) state.printSettings.lineupSheetEnabled = false;
+    if(state.printSettings.koPaperSize===undefined) state.printSettings.koPaperSize = 'A4';
+    if(state.format.numSeeds===undefined) state.format.numSeeds = 8;
     if(state.format.rulesNotes===undefined) state.format.rulesNotes = '';
     if(state.incidents===undefined) state.incidents = [];
     if(state.format.plateQualifiersPerGroup===undefined) state.format.plateQualifiersPerGroup = null;
@@ -2204,12 +2686,28 @@ function stage3(){
   buildGroups(state);
   return entriesPanel() + printControls();
 }
+/* Pure knockout only — which of the (already fully-ordered) seed list
+   counts as officially "seeded" for display on the printed chart. Every
+   entry still has a rank and is still placed via the full seed order
+   either way; this only controls whether that rank shows as a seed
+   badge in the box, so an organiser doesn't have to explain why entry
+   #19 out of 26 looks "seeded" when only the top few really are. */
+function numSeedsSelectHTML(){
+  const cur = state.format.numSeeds || 8;
+  const opts = [4,8,16,32,64].map(n=> '<option value="'+n+'"'+(cur===n?' selected':'')+'>'+n+'</option>').join('');
+  return '<div class="field" style="max-width:200px;margin-bottom:14px"><label>Number of seeds</label>'+
+    '<select onchange="setNumSeeds(this.value)">'+opts+'</select></div>';
+}
+function setNumSeeds(v){ state.format.numSeeds = parseInt(v); persist(); render(); }
+
 /* ---------- Stage 3 (Knockout format): seeding list, no groups ---------- */
 function stage3Knockout(){
   ensureSeedOrder(state);
   const t = state;
   const order = t.seedOrder;
   return '<div class="entries-panel"><h2>Seeding</h2><p class="intro">Edit entry names, then set the seed order (1 = best seed, kept apart from other top seeds for as long as possible). The bracket is generated from this order in the next step.</p>'+
+    numSeedsSelectHTML()+
+    '<div class="hint" style="margin:-8px 0 14px">Only the top '+(state.format.numSeeds||8)+' shown below get a seed number on the printed chart — everyone is still placed using the full order either way.</div>'+
     order.map((eid,i)=>{
       const ent = t.entriesList.find(e=>e.id===eid);
       if(!ent) return '';
@@ -3338,6 +3836,7 @@ function stage7(){
     teamHandoutToggleHTML()+
     lineupSheetToggleHTML()+
     rulesSheetToggleHTML()+
+    (state.knockout ? koPaperSizeSelectHTML() : '')+
     (confirmed.length && startedCount<confirmed.length ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Some games haven\'t started</b>'+(confirmed.length-startedCount)+' confirmed chart'+((confirmed.length-startedCount)===1?'':'s')+' will print with scores still locked/blank. Go to Manage Tournament to start '+((confirmed.length-startedCount)===1?'it':'them')+' first if that\'s not intended.</div>' : '')+
     '<div class="printlist">'+ state.groups.map(g=> '<div><span>Group '+g.label+' — Board '+g.board+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">Confirmed</b>':'<b style="color:#c0392b">Not confirmed</b>')+(g.confirmed?' · '+(g.gameStarted?'<b style="color:#1d8a4a">Started</b>':'<b style="color:#c0392b">Not started</b>'):'')+'</span></div>' ).join('') +'</div>'+
     '<div class="buttonrow">'+
@@ -3354,6 +3853,7 @@ function stage7Knockout(){
     teamHandoutToggleHTML()+
     lineupSheetToggleHTML()+
     rulesSheetToggleHTML()+
+    (state.knockout ? koPaperSizeSelectHTML() : '')+
     (!state.knockout ? '<div class="confirm-box">No bracket generated yet — go to Confirm & Print Bracket first.</div>' : '')+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="goStage(6)">Back to standings</button>'+
