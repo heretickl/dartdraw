@@ -53,6 +53,11 @@ button{font-family:inherit}
 .form-section:first-of-type{margin-top:0;padding-top:0;border-top:none}
 .form-section-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--navy);margin:0 0 3px}
 .form-section-sub{font-size:11px;color:var(--muted);margin:0 0 14px}
+.form-section-header{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;user-select:none}
+.form-section-header .form-section-title{margin:0}
+.form-section-toggle{font-size:24px;line-height:1;color:var(--navy);font-weight:800;flex-shrink:0;transition:transform .15s;transform:rotate(180deg)}
+.form-section-toggle.collapsed{transform:rotate(0deg)}
+.form-section-body{margin-top:14px}
 .field{margin:0 0 13px}
 .field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
 .hint{font-size:11px;color:var(--muted);margin-top:4px}
@@ -2149,9 +2154,8 @@ function stage1(){
       '<div class="field"><label>Tournament date</label><input id="f_date" type="date" value="'+escapeHtml(e.date)+'"></div>'+
       '<div class="field"><label id="f_entries_label">Number of entries</label><input id="f_entries" type="number" min="2" value="'+e.entries+'" oninput="updateStage1Preview()"></div>'+
     '</div>'+
-    '<div class="field"><label>Number of boards available</label><input id="f_boards" type="number" min="1" value="'+(e.boards||4)+'" oninput="updateStage1Preview()"></div>'+
-    '<div class="hint">How many boards will run at the venue. Sets the choices in each chart\'s board dropdown later on.</div>'+
     '<div class="recommend" id="stage1Preview">'+stage1PreviewHTML(e.entries, e.boards)+'</div>'+
+    '<div class="hint">Number of boards is set in Scheduling (Format &amp; branding, next step).</div>'+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="newTournament()">Discard / New tournament</button>'+
       '<button class="btn primary" onclick="saveStage1()">Save event creation →</button>'+
@@ -2172,8 +2176,7 @@ function stage1PreviewHTML(entries, boards){
 }
 function updateStage1Preview(){
   const entries = document.getElementById('f_entries').value;
-  const boards = document.getElementById('f_boards').value;
-  document.getElementById('stage1Preview').innerHTML = stage1PreviewHTML(entries, boards);
+  document.getElementById('stage1Preview').innerHTML = stage1PreviewHTML(entries, state.eventCreation.boards);
 }
 function saveStage1(){
   const e = state.eventCreation;
@@ -2183,7 +2186,6 @@ function saveStage1(){
   e.competitionUnit = document.getElementById('f_unit').value;
   e.date = document.getElementById('f_date').value;
   e.entries = Math.max(2, parseInt(document.getElementById('f_entries').value)||2);
-  e.boards = Math.max(1, parseInt(document.getElementById('f_boards').value)||1);
   e.saved = true;
   ensureEntries(state);
   persist();
@@ -2203,6 +2205,29 @@ function eventSummaryCard(){
     '</div><button class="btn ghost" onclick="goStage(1)">Edit</button></div>';
 }
 
+/* ---------- Collapsible form sections (Format & Branding) ----------
+   Purely a view preference, not tournament data — deliberately NOT
+   persisted (no `state`/localStorage write), so it just resets to
+   everything expanded next time the tournament is opened rather than
+   leaking into saved data or needing its own migration. Expanded by
+   default: collapsing only ever happens on the organiser's own click,
+   so nothing is hidden the first time this page is seen. */
+let formSectionCollapsed = {};
+function toggleFormSection(key){
+  formSectionCollapsed[key] = !formSectionCollapsed[key];
+  render();
+}
+function collapsibleSectionHTML(key, title, subHTML, bodyHTML){
+  const collapsed = !!formSectionCollapsed[key];
+  return '<div class="form-section">'+
+    '<div class="form-section-header" onclick="toggleFormSection(\''+key+'\')">'+
+      '<div class="form-section-title">'+title+'</div>'+
+      '<span class="form-section-toggle'+(collapsed?' collapsed':'')+'">▾</span>'+
+    '</div>'+
+    (subHTML||'')+
+    (collapsed ? '' : '<div class="form-section-body">'+bodyHTML+'</div>')+
+  '</div>';
+}
 /* ---------- Stage 2: Format & Branding ---------- */
 function stage2(){
   const f = state.format;
@@ -2251,15 +2276,6 @@ function stage2(){
       (unit==='Teams' ? '<div class="field"><label>Players per team</label><input id="f_teamsize" type="number" min="2" value="'+f.teamSize+'"></div>' : '')+
       (advanced && unit==='Teams' && f.teamMatchFormat==='mixed' ? rubberEditor() : '')
     ) : '');
-  const schedulingSectionHTML =
-    '<div class="grid2">'+
-      '<div class="field"><label>Level of play</label><select id="f_level" onchange="updateStage2Timing()">'+
-        ['professional','amateur','novice'].map(v=>'<option value="'+v+'"'+(f.levelOfPlay===v?' selected':'')+'>'+v.charAt(0).toUpperCase()+v.slice(1)+'</option>').join('')+
-      '</select></div>'+
-      '<div class="field"><label>Anticipated start time</label><input id="f_starttime" type="time" value="'+(f.anticipatedStartTime||'')+'" oninput="updateStage2Timing()"></div>'+
-    '</div>'+
-    breaksFieldsHTML(f)+
-    '<div class="recommend" id="stage2Timing">'+stage2TimingHTML()+'</div>';
   const brandingSectionHTML =
     '<div class="field"><label>Tournament logo</label><div class="upload-row">'+
       (f.logo? '<img class="logo-thumb" src="'+f.logo+'">' : '<div class="logo-placeholder-sm">NO<br>LOGO</div>')+
@@ -2289,24 +2305,13 @@ function stage2(){
     (advanced ? tieBreakEditor() : '');
   return '<div class="card">'+
     '<h2>Competition format</h2><p class="intro">Choose the format, timing, branding and rules.</p>'+
-    (!advanced ? '<div class="recommend">Using <b>Basic</b> setup. <span style="text-decoration:underline;cursor:pointer" onclick="setAdvancedMode(true)">Switch to Advanced</span> for scheduling, knockout leg progression, the Plate bracket, custom team rubber lineups, and more.</div>' : '')+
-    '<div class="form-section">'+
-      '<div class="form-section-title">Format</div>'+
-      formatSectionHTML+
-    '</div>'+
-    (advanced ? '<div class="form-section">'+
-      '<div class="form-section-title">Scheduling</div>'+
-      '<div class="form-section-sub">Optional — powers a live on-schedule indicator in Manage Tournament. Never printed.</div>'+
-      schedulingSectionHTML+
-    '</div>' : '')+
-    '<div class="form-section">'+
-      '<div class="form-section-title">Branding &amp; print</div>'+
-      brandingSectionHTML+
-    '</div>'+
-    '<div class="form-section">'+
-      '<div class="form-section-title">Rules</div>'+
-      rulesSectionHTML+
-    '</div>'+
+    (!advanced ? '<div class="recommend">Using <b>Basic</b> setup. <span style="text-decoration:underline;cursor:pointer" onclick="setAdvancedMode(true)">Switch to Advanced</span> for a live on-schedule indicator, knockout leg progression, the Plate bracket, custom team rubber lineups, and more.</div>' : '')+
+    collapsibleSectionHTML('format', 'Format', '', formatSectionHTML)+
+    collapsibleSectionHTML('scheduling', 'Scheduling',
+      '<div class="form-section-sub">Board count is used for group-to-board assignment for Round Robin, and to predict the schedule.'+(advanced?' Level of play, start time and breaks are optional and power a live on-schedule indicator in Manage Tournament — never printed.':'')+'</div>',
+      schedulingSummaryHTML())+
+    collapsibleSectionHTML('branding', 'Branding & print', '', brandingSectionHTML)+
+    collapsibleSectionHTML('rules', 'Rules', '', rulesSectionHTML)+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="goStage(1)">Back</button>'+
       '<button class="btn primary" onclick="saveStage2()">Save format & branding →</button>'+
@@ -2402,13 +2407,112 @@ function stage2FormatDraft(){
     }
   };
 }
-function stage2TimingHTML(){
-  const est = estimateTotalMinutes({ eventCreation: state.eventCreation, format: stage2FormatDraft() });
+/* The timing estimate now only appears inside the Scheduling modal (its
+   inputs — boards, level of play, start time, breaks — all live there),
+   but the fields that ALSO feed it (best-of-legs, qualifiers-per-group,
+   knockout legs progression) stay on Format & Branding's main form, so
+   their oninput/onchange handlers still call updateStage2Timing() — it's
+   just a harmless no-op via the `el` guard whenever the modal isn't the
+   thing currently open. */
+function schedulingModalDraft(){
+  const val = (id, fallback)=>{ const el=document.getElementById(id); return el ? el.value : fallback; };
+  const eDraft = Object.assign({}, state.eventCreation, { boards: val('f_boards', state.eventCreation.boards) });
+  return { eventCreation: eDraft, format: stage2FormatDraft() };
+}
+function schedulingModalTimingHTML(){
+  const est = estimateTotalMinutes(schedulingModalDraft());
   return '<b>Estimated duration:</b> ~'+formatDurationLabel(est.minutes)+(est.finishClock?' — finishing around '+est.finishClock:' (set an anticipated start time above to see an estimated finish time)')+'. Rough planning estimate only — once boards/bracket are set up, Manage Tournament shows a live schedule instead (not printed).';
 }
 function updateStage2Timing(){
-  const el = document.getElementById('stage2Timing');
-  if(el) el.innerHTML = stage2TimingHTML();
+  const el = document.getElementById('schedulingModalTiming');
+  if(el) el.innerHTML = schedulingModalTimingHTML();
+}
+/* Compact always-visible summary on Format & Branding, so the current
+   scheduling settings are visible without opening the modal. */
+function schedulingSummaryHTML(){
+  const e = state.eventCreation, f = state.format;
+  const advanced = !!e.advancedMode;
+  const boards = e.boards||4;
+  const parts = [ boards+' board'+(boards===1?'':'s') ];
+  if(advanced){
+    parts.push('Level: '+f.levelOfPlay.charAt(0).toUpperCase()+f.levelOfPlay.slice(1));
+    parts.push(f.anticipatedStartTime ? 'Starts '+f.anticipatedStartTime : 'No start time set');
+  }
+  return '<div class="recommend">'+parts.join(' &middot; ')+'</div>'+
+    '<button type="button" class="btn secondary" onclick="openSchedulingModal()">Edit scheduling settings</button>';
+}
+/* Read-only context shown at the top of the Scheduling modal — entries,
+   groups (or bracket size for pure knockout), matches per group, and
+   best-of-legs — so the organiser has the numbers that actually drive
+   board planning right in front of them while setting board count.
+   Group sizing mirrors buildGroups()'s real Math.ceil(n/maxPerGroup)
+   group count and its round-robin balanced distribution (extras spread
+   one-per-group rather than dumped in a single last group), not the
+   separate, purely illustrative recommendGroups() suggestion shown
+   elsewhere — this should reflect what the organiser actually configured. */
+function schedulingContextHTML(){
+  const e = state.eventCreation, f = state.format;
+  const n = e.entries;
+  const parts = ['<b>'+n+'</b> entr'+(n===1?'y':'ies'), 'best of <b>'+f.bestOfLegs+'</b> legs'];
+  if(f.formatType==='knockout'){
+    const bracket = nearestBracket(n);
+    parts.splice(1, 0, '<b>'+bracket.size+'</b>-entry bracket ('+bracket.byes+' bye'+(bracket.byes===1?'':'s')+')');
+  } else {
+    const maxPer = Math.max(2, parseInt(f.maxPerGroup)||4);
+    const groups = Math.max(1, Math.ceil(n/maxPer));
+    const size = Math.floor(n/groups), remainder = n - size*groups; // `remainder` groups get one extra entry
+    const groupsDesc = remainder===0
+      ? '<b>'+groups+'</b> group'+(groups===1?'':'s')+' of '+size+' (<b>'+matchesPerGroup(size)+'</b> match'+(matchesPerGroup(size)===1?'':'es')+' each)'
+      : '<b>'+groups+'</b> group'+(groups===1?'':'s')+' — '+(groups-remainder)+' of '+size+' entries ('+matchesPerGroup(size)+' matches), '+remainder+' of '+(size+1)+' entries ('+matchesPerGroup(size+1)+' matches)';
+    parts.splice(1, 0, groupsDesc);
+  }
+  return '<div class="recommend" style="margin-bottom:12px">'+parts.join(' &middot; ')+'</div>';
+}
+function schedulingModalBodyHTML(){
+  const e = state.eventCreation, f = state.format;
+  const advanced = !!e.advancedMode;
+  return schedulingContextHTML()+
+    '<div class="field"><label>Number of boards available</label><input id="f_boards" type="number" min="1" value="'+(e.boards||4)+'" oninput="updateStage2Timing()"></div>'+
+    '<div class="hint">How many boards will run at the venue. Sets the choices in each chart\'s board dropdown later on.</div>'+
+    (advanced ?
+      '<div class="grid2" style="margin-top:12px">'+
+        '<div class="field"><label>Level of play</label><select id="f_level" onchange="updateStage2Timing()">'+
+          ['professional','amateur','novice'].map(v=>'<option value="'+v+'"'+(f.levelOfPlay===v?' selected':'')+'>'+v.charAt(0).toUpperCase()+v.slice(1)+'</option>').join('')+
+        '</select></div>'+
+        '<div class="field"><label>Anticipated start time</label><input id="f_starttime" type="time" value="'+(f.anticipatedStartTime||'')+'" oninput="updateStage2Timing()"></div>'+
+      '</div>'+
+      breaksFieldsHTML(f)
+      : '<div class="hint">Level of play, start time and breaks are available in Advanced setup.</div>')+
+    '<div class="recommend" id="schedulingModalTiming">'+schedulingModalTimingHTML()+'</div>';
+}
+function openSchedulingModal(){
+  openModal({
+    title: 'Scheduling',
+    bodyHTML: schedulingModalBodyHTML(),
+    confirmLabel: 'Save scheduling',
+    onConfirm: saveSchedulingModal
+  });
+}
+function saveSchedulingModal(){
+  const e = state.eventCreation, f = state.format;
+  const boardsEl = document.getElementById('f_boards');
+  e.boards = Math.max(1, parseInt(boardsEl.value)||1);
+  const levelEl = document.getElementById('f_level');
+  if(levelEl) f.levelOfPlay = levelEl.value;
+  const starttimeEl = document.getElementById('f_starttime');
+  if(starttimeEl) f.anticipatedStartTime = starttimeEl.value;
+  const readBreak = (key, withTime)=>{
+    const enabled = document.getElementById('f_break_'+key+'_enabled');
+    const time = withTime ? document.getElementById('f_break_'+key+'_time') : null;
+    const minutes = document.getElementById('f_break_'+key+'_minutes');
+    if(!enabled) return null;
+    return { enabled: enabled.checked, time: time ? time.value : '', minutes: Math.max(0, parseInt(minutes.value)||0) };
+  };
+  f.breaks.roundRobin = readBreak('rr', true) || f.breaks.roundRobin;
+  f.breaks.knockout = readBreak('ko', true) || f.breaks.knockout;
+  f.breaks.transition = readBreak('transition', false) || f.breaks.transition;
+  persist();
+  render();
 }
 function setFormatType(v){ state.format.formatType = v; render(); }
 /* Per-tournament Basic/Advanced toggle -- only gates which fields are shown
@@ -2632,20 +2736,8 @@ function saveStage2(){
   const footerEl = document.getElementById('f_footer');
   if(footerEl) f.footerText = footerEl.value;
   f.rulesNotes = document.getElementById('f_rulesnotes').value;
-  const levelEl = document.getElementById('f_level');
-  if(levelEl) f.levelOfPlay = levelEl.value;
-  const starttimeEl = document.getElementById('f_starttime');
-  if(starttimeEl) f.anticipatedStartTime = starttimeEl.value;
-  const readBreak = (key, withTime)=>{
-    const enabled = document.getElementById('f_break_'+key+'_enabled');
-    const time = withTime ? document.getElementById('f_break_'+key+'_time') : null;
-    const minutes = document.getElementById('f_break_'+key+'_minutes');
-    if(!enabled) return null; // this break isn't offered for the current format type (or Basic mode) — leave as-is
-    return { enabled: enabled.checked, time: time ? time.value : '', minutes: Math.max(0, parseInt(minutes.value)||0) };
-  };
-  f.breaks.roundRobin = readBreak('rr', true) || f.breaks.roundRobin;
-  f.breaks.knockout = readBreak('ko', true) || f.breaks.knockout;
-  f.breaks.transition = readBreak('transition', false) || f.breaks.transition;
+  // Board count, level of play, anticipated start time and breaks are all
+  // edited exclusively via the Scheduling modal (saveSchedulingModal) now.
   const readKnockoutLegs = (key)=>{
     const cfg = f.knockoutLegs[key];
     if(cfg.variable){
