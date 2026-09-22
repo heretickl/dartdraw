@@ -1311,11 +1311,24 @@ function mkoBoxHTML(slot, boxHeight, fontSize, mirrored){
     '</div>';
 }
 
-function mkoConnectorHTML(vsText, mirrored, lineColor){
+/* winSide ('a'|'b'|null) is which entry of this match has won so far —
+   the connector's two arms (top = a's path, bottom = b's path, same top/
+   bottom mapping mkoSlot uses regardless of mirroring) are colored
+   independently so a decided match's winning arm (and the stub feeding
+   the next round) turns green, while the other arm stays the default
+   line color. Splitting what used to be one bordered box into two
+   (each covering half the original's height, meeting at the same
+   vertical center) reproduces the exact same shape when both arms
+   share a color, but lets them diverge when they don't. */
+function mkoConnectorHTML(vsText, mirrored, lineColor, winColor, winSide){
   const vsTransform = mirrored ? 'translateY(-50%) scaleX(-1)' : 'translateY(-50%)';
+  const topColor = winSide==='a' ? winColor : lineColor;
+  const botColor = winSide==='b' ? winColor : lineColor;
+  const stubColor = winSide ? winColor : lineColor;
   return '<div style="flex:1;position:relative;">'+
-    '<div style="position:absolute;left:15px;right:11px;top:25%;height:50%;border:1.5px solid '+lineColor+';border-left:none;border-radius:0 4px 4px 0;box-sizing:border-box;"></div>'+
-    '<div style="position:absolute;right:0;width:11px;top:50%;border-top:1.5px solid '+lineColor+';"></div>'+
+    '<div style="position:absolute;left:15px;right:11px;top:25%;height:25%;border:1.5px solid '+topColor+';border-left:none;border-bottom:none;border-radius:0 4px 0 0;box-sizing:border-box;"></div>'+
+    '<div style="position:absolute;left:15px;right:11px;top:50%;height:25%;border:1.5px solid '+botColor+';border-left:none;border-top:none;border-radius:0 0 4px 0;box-sizing:border-box;"></div>'+
+    '<div style="position:absolute;right:0;width:11px;top:50%;border-top:1.5px solid '+stubColor+';"></div>'+
     '<div style="position:absolute;left:0;width:15px;text-align:center;top:50%;transform:'+vsTransform+';font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);">'+vsText+'</div>'+
     '</div>';
 }
@@ -1364,7 +1377,8 @@ function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice, interactiv
         '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(bSlot, boxHeight, fontSize, mirror===-1)+'</div>'+
         woLink+
         '</div>';
-      connectorsHtml += mkoConnectorHTML(showVs ? 'VS' : '', mirror===-1, tokens.line);
+      const winSide = m.winnerId ? (m.winnerId===m.aEntryId ? 'a' : 'b') : null;
+      connectorsHtml += mkoConnectorHTML(showVs ? 'VS' : '', mirror===-1, tokens.line, tokens.winLine, winSide);
     });
 
     cols += '<div style="display:flex;align-items:stretch;width:'+MKO_COL_W+'px;">'+
@@ -1429,7 +1443,7 @@ function mirroredChartHTML(bracket, t, opts){
   if(!sizeCheck.ok){
     return '<div class="mko-artboard mko-size-error" style="padding:20px 24px;max-width:520px;font-family:Inter,Segoe UI,Arial,sans-serif;font-size:13px;line-height:1.5;color:var(--red);background:#fdeceb;border:1px solid #f3c6c2;border-radius:8px;">'+escapeHtml(sizeCheck.message)+'</div>';
   }
-  const tokens = { line:'var(--line)', muted:'var(--muted)', ink:'var(--ink)', navy:'var(--navy)', winBg:'#eaf7ee' };
+  const tokens = { line:'var(--line)', muted:'var(--muted)', ink:'var(--ink)', navy:'var(--navy)', winBg:'#eaf7ee', winLine:'var(--green)' };
   const showVs = opts.showVs !== false;
   const showChampion = opts.showChampion !== false;
   // interactive: used by Manage Tournament (on-screen, click-to-score) —
@@ -1606,7 +1620,7 @@ function knockoutBracketSheetHTML(bracket){
     ? 'Legs per match increase by knockout stage — see each round\'s heading above.'
     : 'Best of '+t.format.bestOfLegs+' legs per match — no draws, the winner needs '+(Math.floor((parseInt(t.format.bestOfLegs)||5)/2)+1)+' legs.';
   const paperKey = t.printSettings.koPaperSize || 'A4';
-  const tokens = { line:'var(--line)', muted:'var(--muted)', ink:'var(--ink)', navy:'var(--navy)', winBg:'#eaf7ee' };
+  const tokens = { line:'var(--line)', muted:'var(--muted)', ink:'var(--ink)', navy:'var(--navy)', winBg:'#eaf7ee', winLine:'var(--green)' };
 
   function sheetShellHTML(innerHTML, sheetLabel, sheetIndex, totalSheets){
     return '<div class="print-sheet mko-print-sheet mko-paper-'+paperKey+'">'+
