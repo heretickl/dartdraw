@@ -194,6 +194,10 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .bracket-match{border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12px;background:#fff;width:100%}
 .bracket-match.clickable{cursor:pointer}
 .bracket-match.clickable:hover{border-color:var(--navy)}
+.mko-clickable{cursor:pointer}
+.mko-clickable:hover > div{border-color:var(--navy) !important}
+.mko-clickable:hover > div > div{border-color:var(--navy) !important}
+.mko-artboard-scroll{overflow:auto;max-width:100%;padding-bottom:4px}
 .bracket-side{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 9px;border-top:1px solid var(--line)}
 .bracket-side:first-child{border-top:none}
 .bracket-side.win{font-weight:800;background:#eaf7ee}
@@ -1266,15 +1270,16 @@ function mkoSlot(m, side, t, ri, tokens){
   const legs = m[side+'Legs'];
   const isWin = !!(m.winnerId && m.winnerId===id);
   if(!id){
-    if(m.bye) return { text:'BYE', seed:'', legs:'', fw:600, color:tokens.muted, bg:'#fff', border:'1px solid '+tokens.line };
-    return { text:'', seed:'', legs:'', fw:400, color:tokens.ink, bg:'#fff', border:'1px solid '+tokens.line };
+    if(m.bye) return { text:'BYE', seed:'', legs:'', fw:600, color:tokens.muted, bg:'#fff', border:'1px solid '+tokens.line, wo:false };
+    return { text:'', seed:'', legs:'', fw:400, color:tokens.ink, bg:'#fff', border:'1px solid '+tokens.line, wo:false };
   }
   const name = escapeHtml(bracketEntryName(t, id) || 'Unknown');
   const seed = (ri===0 && m.__seeds) ? (bracketSeedForDisplay(t, m.__seeds, id) || '') : '';
   return {
     text: name, seed: String(seed), legs: legs!=null ? String(legs) : '',
     fw: isWin ? 800 : 400, color: tokens.ink, bg: isWin ? tokens.winBg : '#fff',
-    border: '1px solid '+tokens.line
+    border: '1px solid '+tokens.line,
+    wo: !!(m.wo && m.winnerId && !isWin) // this side is the one who no-showed
   };
 }
 
@@ -1286,6 +1291,7 @@ function mkoBoxHTML(slot, boxHeight, fontSize, mirrored){
     'display:flex;flex-direction:'+rowDir+';align-items:center;gap:5px;padding:0 6px;box-sizing:border-box;overflow:hidden;'+flip+'">'+
     '<span style="flex:0 0 auto;font-size:'+(fontSize*0.78).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+slot.seed+'</span>'+
     '<span style="flex:1;min-width:0;'+textAlign+'font-size:'+fontSize+'px;color:'+slot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:'+slot.fw+';">'+slot.text+'</span>'+
+    (slot.wo ? '<span style="flex:0 0 auto;font-size:'+(fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+fontSize+'px;color:'+slot.color+';font-weight:'+slot.fw+';">'+slot.legs+'</span>'+
     '</div>';
 }
@@ -1299,7 +1305,7 @@ function mkoConnectorHTML(vsText, mirrored, lineColor){
     '</div>';
 }
 
-function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice){
+function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice, interactive, bracketKey){
   slice = slice || {};
   const roundStart = slice.roundStart || 0;
   const roundEnd = slice.roundEnd != null ? slice.roundEnd : geom.cc;
@@ -1309,6 +1315,11 @@ function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice){
   for(let ri=roundStart; ri<roundEnd; ri++){
     const round = bracket.rounds[ri];
     const half = round.length/2;
+    // Real index of this side's first match within bracket.rounds[ri] —
+    // needed so a click can call koMatchScoreModal(bracketKey, ri, mi)
+    // with the actual match position, not the position within whatever
+    // local slice (side half, then wing) this round got sliced down to.
+    let matchOffset = mirror===1 ? 0 : half;
     const sideMatches = mirror===1 ? round.slice(0, half) : round.slice(half);
     // `half` is already THIS round's own match count (it halves every
     // round on its own via bracket.rounds), so dividing it by wingCount
@@ -1320,17 +1331,23 @@ function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice){
       const start = Math.round(slice.wingIndex * perWingHere);
       const end = Math.round((slice.wingIndex+1) * perWingHere);
       matches = sideMatches.slice(start, end);
+      matchOffset += start;
     }
     const label = koRoundName(bracket, ri);
     const labelFlip = mirror===-1 ? 'transform:scaleX(-1);' : '';
 
     let groupsHtml = '', connectorsHtml = '';
-    matches.forEach(function(m){
+    matches.forEach(function(m, localIdx){
+      const mi = matchOffset + localIdx;
       const aSlot = mkoSlot(m, 'a', t, ri, tokens);
       const bSlot = mkoSlot(m, 'b', t, ri, tokens);
-      groupsHtml += '<div style="flex:1;display:flex;flex-direction:column;">'+
+      const clickable = interactive && m.aEntryId && m.bEntryId && !m.bye;
+      const clickAttr = clickable ? ' class="mko-clickable" onclick="koMatchScoreModal(\''+bracketKey+'\','+ri+','+mi+')"' : '';
+      const woLink = clickable ? '<div style="flex:0 0 auto;text-align:center;font-size:'+Math.max(7,fontSize*0.6).toFixed(1)+'px;color:var(--blue);text-decoration:underline;cursor:pointer;padding:1px 0 0;'+(mirror===-1?'transform:scaleX(-1);':'')+'" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>' : '';
+      groupsHtml += '<div style="flex:1;display:flex;flex-direction:column;"'+clickAttr+'>'+
         '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(aSlot, boxHeight, fontSize, mirror===-1)+'</div>'+
         '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(bSlot, boxHeight, fontSize, mirror===-1)+'</div>'+
+        woLink+
         '</div>';
       connectorsHtml += mkoConnectorHTML(showVs ? 'VS' : '', mirror===-1, tokens.line);
     });
@@ -1349,13 +1366,16 @@ function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice){
   return '<div style="display:flex;align-items:stretch;'+outerTransform+'">'+cols+'</div>';
 }
 
-function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion){
-  const finalMatch = bracket.rounds[bracket.rounds.length-1][0];
-  const aSlot = mkoSlot(finalMatch, 'a', t, bracket.rounds.length-1, tokens);
-  const bSlot = mkoSlot(finalMatch, 'b', t, bracket.rounds.length-1, tokens);
+function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interactive, bracketKey){
+  const finalRi = bracket.rounds.length-1;
+  const finalMatch = bracket.rounds[finalRi][0];
+  const aSlot = mkoSlot(finalMatch, 'a', t, finalRi, tokens);
+  const bSlot = mkoSlot(finalMatch, 'b', t, finalRi, tokens);
   const finalBoxH = geom.finalBoxH;
   const championId = bracketIsComplete(bracket) ? bracketChampion(bracket) : null;
   const championName = championId ? escapeHtml(bracketEntryName(t, championId)) : '';
+  const clickable = interactive && finalMatch.aEntryId && finalMatch.bEntryId && !finalMatch.bye;
+  const clickAttr = clickable ? ' class="mko-clickable" onclick="koMatchScoreModal(\''+bracketKey+'\','+finalRi+',0)"' : '';
 
   let championHtml = '';
   if(showChampion){
@@ -1369,15 +1389,20 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion){
     '<div style="height:44px;"></div>'+
     '<div style="flex:1;position:relative;">'+
     '<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;justify-content:center;">'+
-    '<div style="position:relative;display:flex;align-items:center;">'+
+    '<div style="position:relative;display:flex;flex-direction:column;align-items:center;">'+
     '<div style="position:absolute;left:0;right:0;bottom:calc(100% + 14px);text-align:center;font-size:22px;font-weight:800;letter-spacing:0.03em;color:var(--navy);">FINAL</div>'+
+    '<div style="display:flex;align-items:center;"'+clickAttr+'>'+
     '<div style="width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;background:'+aSlot.bg+';border:'+aSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
     '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+aSlot.text+'</span>'+
+    (aSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';">'+aSlot.legs+'</span></div>'+
     '<div style="width:'+MKO_CONN_W+'px;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.06em;color:var(--muted);">'+(showVs ? 'VS' : '')+'</div>'+
     '<div style="width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;background:'+bSlot.bg+';border:'+bSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
     '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+bSlot.text+'</span>'+
+    (bSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';">'+bSlot.legs+'</span></div>'+
+    '</div>'+
+    (clickable ? '<div style="font-size:11px;color:var(--blue);text-decoration:underline;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+finalRi+',0)">Mark no-show…</div>' : '')+
     championHtml+
     '</div></div></div></div>';
 }
@@ -1392,14 +1417,20 @@ function mirroredChartHTML(bracket, t, opts){
   const tokens = { line:'var(--line)', muted:'var(--muted)', ink:'var(--ink)', navy:'var(--navy)', winBg:'#eaf7ee' };
   const showVs = opts.showVs !== false;
   const showChampion = opts.showChampion !== false;
+  // interactive: used by Manage Tournament (on-screen, click-to-score) —
+  // opts.bracketKey identifies which of state.knockout/state.knockoutLosers
+  // this is, same convention bracketColumnsHTML already uses. Never set
+  // from the print path (knockoutBracketSheetHTML), which stays static.
+  const interactive = !!opts.interactive;
+  const bracketKey = opts.bracketKey || (bracket===t.knockoutLosers ? 'knockoutLosers' : 'knockout');
   const geom = mkoGeom(n, showChampion);
   geom.fontSize = mkoFitFontSize(bracket, t, geom.fontSize, MKO_BOX_W);
 
   bracket.rounds[0].forEach(function(m){ m.__seeds = bracket.seeds; });
 
-  const left = mkoSideHTML(bracket, t, 1, geom, tokens, showVs);
-  const centre = mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion);
-  const right = mkoSideHTML(bracket, t, -1, geom, tokens, showVs);
+  const left = mkoSideHTML(bracket, t, 1, geom, tokens, showVs, null, interactive, bracketKey);
+  const centre = mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interactive, bracketKey);
+  const right = mkoSideHTML(bracket, t, -1, geom, tokens, showVs, null, interactive, bracketKey);
 
   return '<div class="mko-artboard" style="position:relative;width:'+geom.artW+'px;height:'+geom.artH+'px;display:flex;align-items:stretch;background:var(--paper);font-family:Inter,Segoe UI,Arial,sans-serif;">'+
     left + centre + right +
@@ -1881,6 +1912,23 @@ function goStage(n){
   if(n>3 && !state.entriesList.length){ return; }
   currentStage = n;
   render();
+}
+/* Opens Manage Tournament (stage 5) for the current tournament in a
+   fresh browser tab, via a deep-link URL window.onload reads (see
+   above). Two separate windows share the same saved backend record —
+   each independently fetches/saves like any other tab of this app —
+   so this is really just "open this tournament, straight to Manage
+   Tournament, without disturbing this window's own place in the app". */
+function openInNewWindow(){
+  if(!state || !state.id){
+    openModal({title:'Save first', body:'Save this tournament (Event Creation → Save) before opening it in a new window.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
+    return;
+  }
+  const url = location.origin + location.pathname + '?t=' + encodeURIComponent(state.id) + '&stage=5';
+  window.open(url, '_blank');
+}
+function openInNewWindowButtonHTML(){
+  return '<button class="btn ghost" style="flex-shrink:0" onclick="openInNewWindow()">Open in new window ↗</button>';
 }
 function newTournament(){
   state = blankTournament();
@@ -3710,14 +3758,14 @@ function stage5KnockoutSection(){
     html += '<p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
       '<div class="buttonrow" style="margin-bottom:10px"><button class="btn ghost" onclick="regenerateKnockoutFromRR()">Regenerate from current standings</button></div>'+
       knockoutScheduleSummaryHTML(t, t.knockout, 'knockout', startOffset)+
-      bracketColumnsHTML(t.knockout, t, {interactive:true, bracketKey:'knockout'});
+      '<div class="mko-artboard-scroll">'+mirroredChartHTML(t.knockout, t, {interactive:true, bracketKey:'knockout'})+'</div>';
   }
   html += '</div>';
   if(t.format.losersPool && t.knockoutLosers){
     const startOffset = knockoutStartOffset(t, computeRoundRobinSchedule(t));
     html += '<div class="card"><h3 style="margin:0 0 10px">Losers\' pool (Plate)</h3>'+
       knockoutScheduleSummaryHTML(t, t.knockoutLosers, 'knockoutLosers', startOffset)+
-      bracketColumnsHTML(t.knockoutLosers, t, {interactive:true, bracketKey:'knockoutLosers'})+'</div>';
+      '<div class="mko-artboard-scroll">'+mirroredChartHTML(t.knockoutLosers, t, {interactive:true, bracketKey:'knockoutLosers'})+'</div></div>';
   }
   return html;
 }
@@ -3844,7 +3892,8 @@ function stage5(){
   const startedCount = confirmed.filter(g=>g.gameStarted).length;
   const rrSchedule = computeRoundRobinSchedule(state);
   let html = '<div class="card">'+
-    '<h2>Manage tournament</h2><p class="intro">Start all games when play begins, then enter scores directly on each chart below. Positions and points calculate live as results come in.</p>'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2 style="margin:0">Manage tournament</h2>'+openInNewWindowButtonHTML()+'</div>'+
+    '<p class="intro">Start all games when play begins, then enter scores directly on each chart below. Positions and points calculate live as results come in.</p>'+
     '<div class="confirm-box" style="background:#f3f5f7;border-color:#dbe2ea;color:#42505e"><b>Games start all together, not individually</b>'+(confirmed.length? (startedCount+' of '+confirmed.length+' confirmed chart'+(confirmed.length===1?'':'s')+' started.') : 'No charts confirmed yet — go to Confirm & Print Bracket first.')+'</div>'+
     (rrSchedule.t0==null ? '<div class="recommend"><b>Want live on-schedule tracking here?</b> Set an anticipated start time in Format &amp; Branding and each board will show whether it\'s on schedule as play happens. <span style="text-decoration:underline;cursor:pointer" onclick="goStage(2)">Go to Format &amp; Branding</span></div>' : '')+
     '<div class="buttonrow">'+
@@ -3882,10 +3931,10 @@ function stage5Knockout(){
     return '<div class="card"><h2>Manage tournament</h2><p class="intro">Generate the bracket in Confirm &amp; Print Bracket before you can enter results here.</p><div class="buttonrow"><button class="btn primary" onclick="goStage(4)">Confirm & print bracket</button></div></div>';
   }
   const startOffset = anticipatedStartEpoch(state);
-  let html = '<div class="card"><h2>Manage tournament</h2><p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
+  let html = '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2 style="margin:0">Manage tournament</h2>'+openInNewWindowButtonHTML()+'</div><p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
     (startOffset==null && !(state.knockout.roundStartedAt||[])[0] ? '<div class="recommend"><b>Want live on-schedule tracking here?</b> Set an anticipated start time in Format &amp; Branding and each round will show whether it\'s on schedule as play happens. <span style="text-decoration:underline;cursor:pointer" onclick="goStage(2)">Go to Format &amp; Branding</span></div>' : '')+
     knockoutScheduleSummaryHTML(state, state.knockout, 'knockout', startOffset)+
-    bracketColumnsHTML(state.knockout, state, {interactive:true, bracketKey:'knockout'})+
+    '<div class="mko-artboard-scroll">'+mirroredChartHTML(state.knockout, state, {interactive:true, bracketKey:'knockout'})+'</div>'+
   '</div>';
   html += incidentLogCardHTML();
   return html;
@@ -4188,6 +4237,17 @@ window.onload = async function(){
   }catch(e){ window.location.href = '/login.html'; return; }
   renderOrganizerBar();
   await fetchTournamentList();
+  // Deep link for "open in a new window" (see openInNewWindow()) — a
+  // fresh tab lands directly on the requested tournament/stage instead
+  // of whatever tournament was most recently edited.
+  const params = new URLSearchParams(location.search);
+  const wantId = params.get('t');
+  if(wantId && tournamentsCache[wantId]){
+    await openTournament(wantId);
+    const wantStage = parseInt(params.get('stage'));
+    if(wantStage && wantStage!==currentStage){ currentStage = wantStage; render(); }
+    return;
+  }
   const all = Object.values(tournamentsCache).sort((a,b)=>b.updatedAt-a.updatedAt);
   if(all.length){ openTournament(all[0].id); } else { render(); }
 };
