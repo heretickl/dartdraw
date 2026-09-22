@@ -3552,8 +3552,26 @@ function groupBoardLabel(g){
 /* Which board a given match (by its index in groupMatches(g)) runs on —
    round-robin across the group's assigned boards, so a multi-board group's
    matches split evenly rather than all queuing on its first board. */
+/* Real matches per round is constant for a given group size — floor(n/2)
+   whether n is even (every seat plays) or odd (one seat always sits out
+   against the rotating bye) — see groupMatches' round-by-round build. */
+function matchesPerRoundFor(g){
+  return Math.max(1, Math.floor(g.entryIds.length/2));
+}
+/* Cycles boards by position WITHIN the match's own round, not by raw
+   match index — so the cycle restarts at every round boundary instead of
+   drifting across them. Matches in the same round never share a player
+   (that's the whole point of the circle method above), so this
+   guarantees two matches sharing a board's "slot" can never need the same
+   player at the same time; the flat-index version this replaced could
+   let a round's tail bleed into the next round's head on the same board
+   position. If a group has more boards than matches-per-round, the
+   extra board(s) simply see no work for this group — there's never more
+   than matches-per-round matches happening at once regardless. */
 function matchBoardFor(g, matchIndex){
-  return g.boards[matchIndex % g.boards.length];
+  const perRound = matchesPerRoundFor(g);
+  const posInRound = matchIndex % perRound;
+  return g.boards[posInRound % g.boards.length];
 }
 /* Compact "Board 1: 5 matches · Board 3: 5 matches" breakdown, shown only
    once a group actually spans more than one board — a single-board group
@@ -3636,10 +3654,37 @@ function printControls(){
 }
 
 /* ---------- Match / standings logic ---------- */
+/* Circle method: every pair still appears exactly once (same total match
+   count as before), but ordered round by round so no entry's matches are
+   clustered at one end of the list — the naive i<j enumeration this
+   replaced always front-loaded entry 1's matches and back-loaded the last
+   entry's. Odd entry counts get a phantom "bye" seat that rotates through
+   the circle with everyone else; whichever real entry lands opposite it in
+   a given round sits that round out, same as classic round-robin
+   scheduling. A useful side effect: within any single round, every match
+   involves a different entry, so distributing a round's matches across
+   several boards (matchBoardFor) never needs the same player in two
+   places at once *within that round* — rounds bleeding into each other
+   when boards don't evenly divide a round is a separate, not-yet-handled
+   concern. */
 function groupMatches(g){
-  const ids = g.entryIds;
+  const real = g.entryIds;
+  const n = real.length;
+  if(n<2) return [];
+  const hasBye = n%2===1;
+  let circle = hasBye ? real.concat([null]) : real.slice();
+  const size = circle.length, half = size/2, rounds = size-1;
   const matches = [];
-  for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++) matches.push([ids[i], ids[j]]);
+  for(let r=0;r<rounds;r++){
+    for(let i=0;i<half;i++){
+      const a = circle[i], b = circle[size-1-i];
+      if(a!=null && b!=null) matches.push([a,b]);
+    }
+    const fixed = circle[0];
+    const rest = circle.slice(1);
+    rest.unshift(rest.pop());
+    circle = [fixed].concat(rest);
+  }
   return matches;
 }
 function scoreKey(a,b){ return a<b ? a+'|'+b : b+'|'+a; }
