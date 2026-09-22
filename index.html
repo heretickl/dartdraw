@@ -546,19 +546,53 @@ function applyAutoNames(t){
   });
 }
 
-/* ---------- Round robin recommendation ---------- */
+/* ---------- Round robin recommendation ----------
+   `size` is always the LARGEST group size a given group count produces
+   (never below MIN_PER_GROUP) — `smallSize`/`smallCount`/`bigCount`
+   describe the balanced round-robin split buildGroups() actually produces
+   (extras spread one-per-group, same math as schedulingContextHTML's real
+   calculation), not a single oversized "last group". */
+const MIN_PER_GROUP = 3;
+function describeGroupSplit(entries, groups){
+  const smallSize = Math.floor(entries/groups);
+  const bigCount = entries % groups; // this many groups get smallSize+1
+  const size = bigCount>0 ? smallSize+1 : smallSize;
+  return { groups, size, smallSize, bigCount, smallCount: groups-bigCount };
+}
 function recommendGroups(entries){
-  let best=null;
-  for(const size of [4,3,5,6]){
-    if(entries < size) continue;
-    const groups = Math.ceil(entries/size);
-    const remainder = entries % size;
-    const score = (size===4?0:1) + (remainder && remainder<3 ? 1:0);
-    const cand = {size, groups, remainder, score};
-    if(!best || cand.score < best.score) best = cand;
+  if(entries < 13){
+    let best=null;
+    for(const size of [4,3,5,6]){
+      if(entries < size) continue;
+      const groups = Math.ceil(entries/size);
+      const cand = describeGroupSplit(entries, groups);
+      if(cand.smallSize < MIN_PER_GROUP) continue; // never leave a group under the floor
+      const remainder = entries % size;
+      const score = (size===4?0:1) + (remainder && remainder<3 ? 1:0);
+      if(!best || score < best.score) best = Object.assign(cand, {score});
+    }
+    if(!best) best = Object.assign(describeGroupSplit(entries, 1), {score:0});
+    return best;
   }
-  if(!best) best = {size: entries, groups:1, remainder:0, score:0};
-  return best;
+  /* entries >= 13: always suggest a number of GROUPS that's a multiple of
+     4 (the organiser can still pick any "Maximum entries per group" they
+     like below — this is only the starting suggestion), choosing whichever
+     multiple keeps the average group size closest to the long-standing
+     default of ~4 entries per group, and never dropping any group below
+     MIN_PER_GROUP. Larger group counts only ever shrink groups further, so
+     the first one that violates the floor ends the search. */
+  let best = null;
+  for(let groups=4; ; groups+=4){
+    const cand = describeGroupSplit(entries, groups);
+    if(cand.smallSize < MIN_PER_GROUP) break;
+    const distance = Math.abs(entries/groups - 4);
+    if(!best || distance < best.distance) best = Object.assign(cand, {distance});
+  }
+  return best || describeGroupSplit(entries, 4);
+}
+function recommendGroupsSummaryHTML(rec, n){
+  const splitDesc = rec.bigCount ? '— '+rec.smallCount+' of '+rec.smallSize+' entries, '+rec.bigCount+' of '+rec.size+' entries' : 'of '+rec.size+' entries each';
+  return '<div class="recommend"><b>Recommended:</b> '+rec.groups+' group'+(rec.groups===1?'':'s')+' '+splitDesc+' ('+n+' entries total). Each group plays '+matchesPerGroup(rec.smallSize)+(rec.bigCount?'–'+matchesPerGroup(rec.size):'')+' matches. Change "Maximum entries per group" above if you prefer a different split.</div>';
 }
 function matchesPerGroup(n){ return n*(n-1)/2; }
 
@@ -2429,8 +2463,8 @@ function stage1PreviewHTML(entries, boards){
   entries = Math.max(2, parseInt(entries)||2);
   boards = Math.max(1, parseInt(boards)||1);
   const rec = recommendGroups(entries);
-  const groupsLabel = rec.remainder ? '('+(rec.groups-1)+' of '+rec.size+' entries, 1 of '+rec.remainder+' entries)' : '('+rec.size+' entries each)';
-  const totalMatches = rec.remainder ? (rec.groups-1)*matchesPerGroup(rec.size)+matchesPerGroup(rec.remainder) : rec.groups*matchesPerGroup(rec.size);
+  const groupsLabel = rec.bigCount ? '('+rec.smallCount+' of '+rec.smallSize+' entries, '+rec.bigCount+' of '+rec.size+' entries)' : '('+rec.size+' entries each)';
+  const totalMatches = rec.smallCount*matchesPerGroup(rec.smallSize) + rec.bigCount*matchesPerGroup(rec.size);
   const running = Math.min(boards, rec.groups);
   const waves = Math.ceil(rec.groups/boards);
   return '<b>If you choose round robin:</b> ≈'+rec.groups+' group'+(rec.groups===1?'':'s')+' '+groupsLabel+' — '+totalMatches+' matches total. With '+boards+' board'+(boards===1?'':'s')+' available, '+running+' group'+(running===1?'':'s')+' can run at once'+(waves>1?' ('+waves+' groups back-to-back per board)':'')+'. The exact split is chosen in Format &amp; Branding.';
@@ -2497,46 +2531,69 @@ function stage2(){
   const bracket = nearestBracket(n);
   const unit = state.eventCreation.competitionUnit;
   const advanced = !!state.eventCreation.advancedMode;
-  const formatSectionHTML =
+  const formatPickerHTML =
     '<div class="field"><label>Competition format</label><div class="options">'+
       '<div class="choice'+(f.formatType==='roundrobin'?' selected':'')+'" onclick="setFormatType(\'roundrobin\')"><strong>Round robin</strong><small>Play within assigned groups</small></div>'+
       '<div class="choice'+(f.formatType==='knockout'?' selected':'')+'" onclick="setFormatType(\'knockout\')"><strong>Knockout</strong><small>Direct elimination bracket</small></div>'+
       '<div class="choice'+(f.formatType==='rrknockout'?' selected':'')+'" onclick="setFormatType(\'rrknockout\')"><strong>Round robin → Knockout</strong><small>Group stage, then top finishers go to a bracket</small></div>'+
-    '</div></div>'+
-    '<div class="grid2">'+
-      '<div class="field"><label>Best of legs (odd numbers preferred)</label><input id="f_bestof" type="number" min="1" step="2" value="'+f.bestOfLegs+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>'+
+    '</div></div>';
+  const bestOfLegsFieldHTML =
+    '<div class="field"><label>Best of legs (odd numbers preferred)</label><input id="f_bestof" type="number" min="1" step="2" value="'+f.bestOfLegs+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>';
+  const teamSectionHTML = isTeamUnit(state) ? (
+    (advanced && unit==='Teams' ? '<div class="field" style="margin-top:12px"><label>Team format</label><div class="options">'+
+      '<div class="choice'+(f.teamMatchFormat==='foursome'?' selected':'')+'" onclick="setTeamMatchFormat(\'foursome\')"><strong>Foursome</strong><small>Each encounter is one match, full team vs full team</small></div>'+
+      '<div class="choice'+(f.teamMatchFormat==='mixed'?' selected':'')+'" onclick="setTeamMatchFormat(\'mixed\')"><strong>Rubber lineup (custom)</strong><small>A mix of singles/doubles/foursome rubbers, in any order — decided by rubbers won</small></div>'+
+    '</div></div>' : '')+
+    (unit==='Teams' ? '<div class="field"><label>Players per team</label><input id="f_teamsize" type="number" min="2" value="'+f.teamSize+'"></div>' : '')+
+    (advanced && unit==='Teams' && f.teamMatchFormat==='mixed' ? rubberEditor() : '')
+  ) : '';
+  let formatSectionHTML;
+  if(f.formatType==='rrknockout'){
+    /* Round robin, knockout and Plate pool options are visually segregated
+       into their own labelled sub-sections here (rather than one long mixed
+       list) since this format has all three at once — pure Round robin or
+       pure Knockout below only ever have one stage's worth of options, so
+       they don't need the same treatment. */
+    formatSectionHTML = formatPickerHTML + bestOfLegsFieldHTML +
+      '<div class="form-section" style="margin-top:20px"><div class="form-section-title">Round robin stage</div>'+
+        '<div class="field"><label>Maximum entries per group</label><select id="f_maxgroup">'+ [3,4,5,6].map(v=>'<option value="'+v+'"'+(f.maxPerGroup==v?' selected':'')+'>'+v+' entries</option>').join('') +'</select></div>'+
+        recommendGroupsSummaryHTML(rec, n)+
+      '</div>'+
+      '<div class="form-section"><div class="form-section-title">Knockout stage</div>'+
+        '<div class="grid2">'+
+          '<div class="field"><label>Entries per group (advance to knockout)</label><input id="f_qualifiers" type="number" min="1" value="'+f.qualifiersPerGroup+'" oninput="updateStage2Timing()"></div>'+
+          '<div class="field"><label>How entries are placed into the bracket</label><select id="f_advancemode">'+
+            '<option value="seeded"'+(f.advanceMode==='seeded'?' selected':'')+'>Seeded by group standing (recommended)</option>'+
+            '<option value="random"'+(f.advanceMode==='random'?' selected':'')+'>Random draw</option>'+
+          '</select></div>'+
+        '</div>'+
+        (advanced ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)') : '')+
+      '</div>'+
+      (advanced ?
+        '<div class="form-section"><div class="form-section-title">Plate pool</div>'+
+          '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a Plate pool knockout bracket for entries that don\'t advance</label></div>'+
+          '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate entries per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate pool is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+(f.plateQualifiersPerGroup||'')+'"></div>'+
+          '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group entries across the bracket where the numbers allow it. Leave Plate entries blank to send everyone who doesn\'t advance to the main bracket into the Plate pool (today\'s default); set a number to cap the Plate pool too, e.g. top 2 → winner bracket, next 2 → Plate pool, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'+
+          knockoutLegsFieldsHTML('plate', f.knockoutLegs.plate, 'Plate bracket: also increase legs by stage (independent of the winner bracket above)')+
+        '</div>'
+        : '')+
+      teamSectionHTML;
+  } else {
+    formatSectionHTML = formatPickerHTML +
+      '<div class="grid2">'+
+        bestOfLegsFieldHTML+
+        (f.formatType!=='knockout' ?
+          '<div class="field"><label>Maximum entries per group</label><select id="f_maxgroup">'+ [3,4,5,6].map(v=>'<option value="'+v+'"'+(f.maxPerGroup==v?' selected':'')+'>'+v+' entries</option>').join('') +'</select></div>'
+          : '<div class="field"><label>Bracket size (auto)</label><input type="text" value="'+bracket.size+' ('+bracket.byes+' bye'+(bracket.byes===1?'':'s')+')" disabled></div>'
+        )+
+      '</div>'+
       (f.formatType!=='knockout' ?
-        '<div class="field"><label>Maximum entries per group</label><select id="f_maxgroup">'+ [3,4,5,6].map(v=>'<option value="'+v+'"'+(f.maxPerGroup==v?' selected':'')+'>'+v+' entries</option>').join('') +'</select></div>'
-        : '<div class="field"><label>Bracket size (auto)</label><input type="text" value="'+bracket.size+' ('+bracket.byes+' bye'+(bracket.byes===1?'':'s')+')" disabled></div>'
+        recommendGroupsSummaryHTML(rec, n)
+        : '<div class="recommend"><b>Nearest bracket:</b> '+bracket.size+'-entry bracket for '+n+' entries — '+bracket.byes+' bye'+(bracket.byes===1?'':'s')+' required in round 1.</div>'
       )+
-    '</div>'+
-    (f.formatType!=='knockout' ?
-      '<div class="recommend"><b>Recommended:</b> '+rec.groups+' group'+(rec.groups===1?'':'s')+' of '+rec.size+' ('+n+' entries total'+(rec.remainder?', last group has '+rec.remainder:'')+'). Each group plays '+matchesPerGroup(rec.size)+' matches. Change "Maximum entries per group" above if you prefer a different split.</div>'
-      : '<div class="recommend"><b>Nearest bracket:</b> '+bracket.size+'-entry bracket for '+n+' entries — '+bracket.byes+' bye'+(bracket.byes===1?'':'s')+' required in round 1.</div>'
-    )+
-    (advanced && (f.formatType==='knockout' || f.formatType==='rrknockout') ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)') : '')+
-    (f.formatType==='rrknockout' ? '<div class="grid2" style="margin-top:12px">'+
-      '<div class="field"><label>Entries per group (advance to knockout)</label><input id="f_qualifiers" type="number" min="1" value="'+f.qualifiersPerGroup+'" oninput="updateStage2Timing()"></div>'+
-      '<div class="field"><label>How entries are placed into the bracket</label><select id="f_advancemode">'+
-        '<option value="seeded"'+(f.advanceMode==='seeded'?' selected':'')+'>Seeded by group standing (recommended)</option>'+
-        '<option value="random"'+(f.advanceMode==='random'?' selected':'')+'>Random draw</option>'+
-      '</select></div>'+
-    '</div>'+
-    (advanced ?
-      '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a Plate pool knockout bracket for entries that don\'t advance</label></div>'+
-      '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate entries per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate pool is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+(f.plateQualifiersPerGroup||'')+'"></div>'+
-      '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group entries across the bracket where the numbers allow it. Leave Plate entries blank to send everyone who doesn\'t advance to the main bracket into the Plate pool (today\'s default); set a number to cap the Plate pool too, e.g. top 2 → winner bracket, next 2 → Plate pool, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'+
-      knockoutLegsFieldsHTML('plate', f.knockoutLegs.plate, 'Plate bracket: also increase legs by stage (independent of the winner bracket above)')
-      : '')
-      : '')+
-    (isTeamUnit(state) ? (
-      (advanced && unit==='Teams' ? '<div class="field" style="margin-top:12px"><label>Team format</label><div class="options">'+
-        '<div class="choice'+(f.teamMatchFormat==='foursome'?' selected':'')+'" onclick="setTeamMatchFormat(\'foursome\')"><strong>Foursome</strong><small>Each encounter is one match, full team vs full team</small></div>'+
-        '<div class="choice'+(f.teamMatchFormat==='mixed'?' selected':'')+'" onclick="setTeamMatchFormat(\'mixed\')"><strong>Rubber lineup (custom)</strong><small>A mix of singles/doubles/foursome rubbers, in any order — decided by rubbers won</small></div>'+
-      '</div></div>' : '')+
-      (unit==='Teams' ? '<div class="field"><label>Players per team</label><input id="f_teamsize" type="number" min="2" value="'+f.teamSize+'"></div>' : '')+
-      (advanced && unit==='Teams' && f.teamMatchFormat==='mixed' ? rubberEditor() : '')
-    ) : '');
+      (advanced && f.formatType==='knockout' ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)') : '')+
+      teamSectionHTML;
+  }
   const brandingSectionHTML =
     '<div class="field"><label>Tournament logo</label><div class="upload-row">'+
       (f.logo? '<img class="logo-thumb" src="'+f.logo+'">' : '<div class="logo-placeholder-sm">NO<br>LOGO</div>')+
@@ -2568,7 +2625,7 @@ function stage2(){
     '<div class="field" style="margin-top:12px"><label>Walkover, conduct &amp; other rules <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — printed on its own rules &amp; format sheet, see below)</span></label>'+
       '<textarea id="f_rulesnotes" placeholder="e.g. A no-show forfeits after 10 minutes past the scheduled start. Players must check in at the desk before their first game. Unsporting conduct may result in disqualification at the organiser’s discretion.">'+escapeHtml(f.rulesNotes||'')+'</textarea></div>'+
     (advanced ? tieBreakEditor() : '');
-  return '<div class="card">'+
+  return '<div class="card" style="max-width:1000px">'+
     '<h2>Competition format</h2><p class="intro">Choose the format, timing, branding and rules.</p>'+
     (!advanced ? '<div class="recommend">Using <b>Basic</b> setup. <span style="text-decoration:underline;cursor:pointer" onclick="setAdvancedMode(true)">Switch to Advanced</span> for a live on-schedule indicator, knockout leg progression, the Plate bracket, custom team rubber lineups, and more.</div>' : '')+
     collapsibleSectionHTML('format', 'Format', '', formatSectionHTML)+
