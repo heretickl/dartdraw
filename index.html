@@ -198,6 +198,20 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .mko-clickable:hover > div{border-color:var(--navy) !important}
 .mko-clickable:hover > div > div{border-color:var(--navy) !important}
 .mko-artboard-scroll{overflow:auto;max-width:100%;padding-bottom:4px}
+body.mko-popout .app{grid-template-columns:1fr;min-height:100vh}
+body.mko-popout .sidebar,body.mko-popout .topbar{display:none}
+body.mko-popout .main{padding:0;overflow:hidden;height:100vh}
+body.mko-popout #stageArea{height:100vh;display:flex;flex-direction:column}
+.mko-popout-header{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.mko-popout-header .logo-placeholder{flex-shrink:0}
+.mko-popout-sponsors{max-width:none;margin-left:auto}
+.mko-popout-title{font-size:16px;font-weight:800;margin:0}
+.mko-popout-sub{font-size:12px;color:var(--muted);margin:2px 0 0}
+.mko-popout-tabs{display:flex;gap:6px;margin-left:auto}
+.mko-popout-tabs button{padding:6px 12px;font-size:12px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer}
+.mko-popout-tabs button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.mko-popout-fit{position:relative;flex:1 1 auto;overflow:hidden}
+.mko-popout-empty{padding:40px;color:var(--muted);font-size:14px}
 .bracket-side{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 9px;border-top:1px solid var(--line)}
 .bracket-side:first-child{border-top:none}
 .bracket-side.win{font-weight:800;background:#eaf7ee}
@@ -356,6 +370,7 @@ function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9)+Da
 /* ---------- Default / current state ---------- */
 let state = null;
 let currentStage = 1;
+let popoutMode = false;
 
 function blankTournament(){
   return {
@@ -1924,7 +1939,7 @@ function openInNewWindow(){
     openModal({title:'Save first', body:'Save this tournament (Event Creation → Save) before opening it in a new window.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
     return;
   }
-  const url = location.origin + location.pathname + '?t=' + encodeURIComponent(state.id) + '&stage=5';
+  const url = location.origin + location.pathname + '?t=' + encodeURIComponent(state.id) + '&stage=5&popout=1';
   window.open(url, '_blank');
 }
 function openInNewWindowButtonHTML(){
@@ -2150,6 +2165,7 @@ function renderSavedList(){
 
 /* ---------- Main render dispatcher ---------- */
 function render(){
+  if(popoutMode){ renderPopoutManage(); return; }
   if(!state){
     document.getElementById('pageTitle').textContent = 'Welcome to DartDraw';
     document.getElementById('pageSub').textContent = 'Start a new tournament or open a saved one from the left.';
@@ -2185,6 +2201,59 @@ function render(){
   if(currentStage===5) requestAnimationFrame(scaleManageCharts);
   renderSavedList();
 }
+
+/* ---------- Popout Manage Tournament window (see openInNewWindow()) ----------
+   Strips the sidebar/nav chrome entirely and shows just the bracket,
+   scaled with fitPopoutChart() to fill whatever space the window gives it. */
+let popoutBracketKey = 'knockout';
+function renderPopoutManage(){
+  document.body.classList.add('mko-popout');
+  const area = document.getElementById('stageArea');
+  if(!state){
+    area.innerHTML = '<div class="mko-popout-empty">No tournament open.</div>';
+    return;
+  }
+  const bracket = popoutBracketKey==='knockoutLosers' ? state.knockoutLosers : state.knockout;
+  if(!bracket){
+    area.innerHTML = '<div class="mko-popout-empty">No bracket yet — generate one in Confirm &amp; Print Bracket, then reopen this window.</div>';
+    return;
+  }
+  const champ = bracketChampion(bracket);
+  const status = champ ? 'Champion: '+escapeHtml(bracketEntryName(state,champ)||'') : 'In progress';
+  const tabs = state.knockoutLosers ?
+    '<div class="mko-popout-tabs">'+
+      '<button class="'+(popoutBracketKey==='knockout'?'active':'')+'" onclick="setPopoutBracket(\'knockout\')">Main bracket</button>'+
+      '<button class="'+(popoutBracketKey==='knockoutLosers'?'active':'')+'" onclick="setPopoutBracket(\'knockoutLosers\')">Plate pool</button>'+
+    '</div>' : '';
+  const sponsorLogos = state.format.sponsors.length ?
+    '<div class="sponsors mko-popout-sponsors">'+state.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '';
+  area.innerHTML =
+    '<div class="mko-popout-header">'+
+      (state.format.logo ? mainLogoBoxHTML() : '')+
+      '<div><div class="mko-popout-title">'+escapeHtml(state.eventCreation.tournamentName)+'</div>'+
+      '<div class="mko-popout-sub">'+escapeHtml(state.eventCreation.eventName)+' · '+escapeHtml(bracket.label||'Bracket')+' · '+status+'</div></div>'+
+      sponsorLogos+
+      tabs+
+      '<button class="btn ghost" onclick="window.print()">Print</button>'+
+    '</div>'+
+    '<div class="mko-popout-fit" id="popoutFit">'+mirroredChartHTML(bracket, state, {interactive:true, bracketKey:popoutBracketKey})+'</div>';
+  requestAnimationFrame(fitPopoutChart);
+}
+function setPopoutBracket(key){ popoutBracketKey = key; render(); }
+function fitPopoutChart(){
+  const wrap = document.getElementById('popoutFit');
+  const art = wrap && wrap.querySelector('.mko-artboard');
+  if(!wrap || !art) return;
+  const artW = art.offsetWidth, artH = art.offsetHeight;
+  if(!artW || !artH) return;
+  const scale = Math.min(wrap.clientWidth/artW, wrap.clientHeight/artH, 2);
+  art.style.transformOrigin = 'top left';
+  art.style.position = 'absolute';
+  art.style.left = Math.round((wrap.clientWidth - artW*scale)/2)+'px';
+  art.style.top = Math.round((wrap.clientHeight - artH*scale)/2)+'px';
+  art.style.transform = 'scale('+scale+')';
+}
+window.addEventListener('resize', ()=>{ if(popoutMode) fitPopoutChart(); });
 
 /* ---------- Stage 1: Event Creation ---------- */
 function stage1(){
@@ -3717,7 +3786,7 @@ function stage4Knockout(){
       (state.knockout?'<button class="btn secondary" onclick="doFinalPrint()">Print bracket pack</button>':'')+
       (state.knockout?'<button class="btn primary" onclick="goStage(5)">Continue to manage tournament →</button>':'')+
     '</div></div>';
-  if(state.knockout) html += '<div class="card">'+bracketColumnsHTML(state.knockout, state, {interactive:false})+'</div>';
+  if(state.knockout) html += '<div class="card"><div class="mko-artboard-scroll">'+mirroredChartHTML(state.knockout, state, {interactive:false})+'</div></div>';
   return html;
 }
 function regenerateKnockoutBracket(){
@@ -3984,7 +4053,7 @@ function knockoutPlacementsCard(bracket, title){
   const runnerUp = bracketRunnerUp(bracket);
   return '<div class="card"><h3 style="margin:0 0 10px;font-size:15px">'+escapeHtml(title)+'</h3>'+
     (champ ? '<div class="confirm-box" style="margin:0 0 14px;background:#eaf7ee;border-color:#bfe6cc;color:#175c33"><b>🏆 Winner: '+escapeHtml(bracketEntryName(state,champ))+'</b>Runner-up: '+escapeHtml(bracketEntryName(state,runnerUp)||'—')+'</div>' : '<div class="confirm-box" style="margin:0 0 14px">Not complete yet.</div>')+
-    bracketColumnsHTML(bracket, state, {interactive:false})+
+    '<div class="mko-artboard-scroll">'+mirroredChartHTML(bracket, state, {interactive:false})+'</div>'+
   '</div>';
 }
 function stage6Knockout(){
@@ -4242,6 +4311,7 @@ window.onload = async function(){
   // of whatever tournament was most recently edited.
   const params = new URLSearchParams(location.search);
   const wantId = params.get('t');
+  popoutMode = params.get('popout')==='1';
   if(wantId && tournamentsCache[wantId]){
     await openTournament(wantId);
     const wantStage = parseInt(params.get('stage'));
