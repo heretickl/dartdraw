@@ -98,6 +98,9 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .shape-toggle{display:flex;gap:2px}
 .shape-toggle button{font-size:9px;padding:2px 5px;border:1px solid var(--line);background:#fff;border-radius:4px;cursor:pointer;color:#5b6a78}
 .shape-toggle button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.board-toggle{display:flex;gap:6px;flex-wrap:wrap}
+.board-toggle button{font-size:11px;font-weight:700;padding:5px 10px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;color:#5b6a78}
+.board-toggle button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .group-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .group-nav select{width:auto;min-width:140px}
 .group-nav button{padding:8px 12px}
@@ -681,6 +684,29 @@ function applyBreakIfDue(cursor, brk, appliedRef){
   }
   return cursor;
 }
+/* Round-by-round knockout duration simulation — used both before a real
+   bracket exists (entryCount is a projection) and, by callers that already
+   have a real bracket, is skipped in favour of computeKnockoutSchedule
+   below. Needed as its own simulation (not just matches*perMatch) because
+   legs, and therefore duration, can vary round to round. Byes only ever
+   occur in round 0 (classic seeding), so every later round is a full, real
+   round. Already accounts for boards (matches queue in waves), so callers
+   should not divide by boards again. */
+function simulateKnockoutMinutes(t, entryCount, bracketKey, boards){
+  if(entryCount<2) return 0;
+  const bracketSize = nearestBracket(entryCount).size;
+  const totalRounds = Math.round(Math.log2(bracketSize));
+  let mins = 0;
+  for(let idx=0; idx<totalRounds; idx++){
+    const slotsThisRound = bracketSize/Math.pow(2, idx+1);
+    const matchesInRound = idx===0 ? Math.max(0, entryCount-bracketSize/2) : slotsThisRound;
+    const legs = legsForKnockoutRound(t, bracketKey, totalRounds, idx);
+    const roundPerMatch = matchDurationMinutes(t, {isKnockout:true, legs});
+    const waves = Math.max(1, Math.ceil(matchesInRound/boards));
+    mins += waves*roundPerMatch;
+  }
+  return mins;
+}
 /* Simple pre-build estimate (Format & Branding, before groups/bracket exist) —
    just entries+boards math, no real board assignment yet. */
 function estimateTotalMinutes(t){
@@ -701,29 +727,9 @@ function estimateTotalMinutes(t){
     const maxGroupsPerBoard = Math.ceil(rec.groups/boards);
     return benchmark*maxGroupsPerBoard;
   }
-  /* Round-by-round simulation (no real bracket exists yet, so round sizes are
-     synthetic) — needed because legs, and therefore duration, can vary by
-     round. Byes only ever occur in round 0 (classic seeding), so every later
-     round is a full, real round. Already accounts for boards (matches queue
-     in waves), so this should not be divided by boards again. */
-  function simulateKnockoutMinutes(entryCount, bracketKey){
-    if(entryCount<2) return 0;
-    const bracketSize = nearestBracket(entryCount).size;
-    const totalRounds = Math.round(Math.log2(bracketSize));
-    let mins = 0;
-    for(let idx=0; idx<totalRounds; idx++){
-      const slotsThisRound = bracketSize/Math.pow(2, idx+1);
-      const matchesInRound = idx===0 ? Math.max(0, entryCount-bracketSize/2) : slotsThisRound;
-      const legs = legsForKnockoutRound(t, bracketKey, totalRounds, idx);
-      const roundPerMatch = matchDurationMinutes(t, {isKnockout:true, legs});
-      const waves = Math.max(1, Math.ceil(matchesInRound/boards));
-      mins += waves*roundPerMatch;
-    }
-    return mins;
-  }
   let minutes;
   if(t.format.formatType==='knockout'){
-    minutes = simulateKnockoutMinutes(n, 'knockout') + (breaks.knockout&&breaks.knockout.enabled ? parseInt(breaks.knockout.minutes)||0 : 0);
+    minutes = simulateKnockoutMinutes(t, n, 'knockout', boards) + (breaks.knockout&&breaks.knockout.enabled ? parseInt(breaks.knockout.minutes)||0 : 0);
   } else if(t.format.formatType==='rrknockout'){
     const rec = recommendGroups(n);
     const qualPerGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
@@ -731,7 +737,7 @@ function estimateTotalMinutes(t){
     minutes = roundRobinMinutes(n)
       + (breaks.roundRobin&&breaks.roundRobin.enabled ? parseInt(breaks.roundRobin.minutes)||0 : 0)
       + (breaks.transition&&breaks.transition.enabled ? parseInt(breaks.transition.minutes)||0 : 0)
-      + simulateKnockoutMinutes(advancing, 'knockout')
+      + simulateKnockoutMinutes(t, advancing, 'knockout', boards)
       + (breaks.knockout&&breaks.knockout.enabled ? parseInt(breaks.knockout.minutes)||0 : 0);
   } else {
     minutes = roundRobinMinutes(n) + (breaks.roundRobin&&breaks.roundRobin.enabled ? parseInt(breaks.roundRobin.minutes)||0 : 0);
@@ -755,19 +761,37 @@ function computeRoundRobinSchedule(t){
   const perMatch = matchDurationMinutes(t, {isKnockout:false});
   const brk = (t.format.breaks||{}).roundRobin;
   const slotDurMs = groups.length ? Math.max(...groups.map(g=>perMatch*groupMatches(g).length))*60000 : 0;
+  /* A single-board group occupies one full benchmark slot on its board's
+     queue, same as always. A group spanning several boards instead gets
+     that same slot split proportionally by how many of its matches land
+     on each board (usually an even split — see matchBoardFor) — each of
+     its boards only queues that fraction, so the group finishes sooner in
+     wall-clock time without changing the benchmark model itself. */
   const byBoard = {};
-  groups.forEach(g=>{ const b=String(g.board||1); (byBoard[b]=byBoard[b]||[]).push(g); });
-  const schedule = {};
+  groups.forEach(g=>{ g.boards.forEach(b=>{ const key=String(b); (byBoard[key]=byBoard[key]||[]).push(g); }); });
+  const parts = {}; // groupId -> [{startMs,endMs}, ...] one per board it's on
   let phaseEndMs = t0;
   Object.keys(byBoard).forEach(boardKey=>{
     let cursor = t0;
     const appliedRef = {done:false};
     byBoard[boardKey].forEach(g=>{
       cursor = applyBreakIfDue(cursor, brk, appliedRef);
-      schedule[g.id] = { startMs: cursor, endMs: cursor!=null ? cursor+slotDurMs : null };
-      if(cursor!=null) cursor += slotDurMs;
+      const totalMatches = groupMatches(g).length;
+      const boardMatches = g.boards.length>1 && totalMatches ? groupBoardMatchCounts(g)[boardKey] : totalMatches;
+      const share = totalMatches ? boardMatches/totalMatches : 1;
+      const durMs = slotDurMs*share;
+      (parts[g.id] = parts[g.id]||[]).push({ startMs: cursor, endMs: cursor!=null ? cursor+durMs : null });
+      if(cursor!=null) cursor += durMs;
     });
     if(cursor!=null) phaseEndMs = phaseEndMs==null ? cursor : Math.max(phaseEndMs, cursor);
+  });
+  const schedule = {};
+  Object.keys(parts).forEach(gid=>{
+    const p = parts[gid];
+    schedule[gid] = {
+      startMs: p.some(x=>x.startMs==null) ? null : Math.min(...p.map(x=>x.startMs)),
+      endMs: p.some(x=>x.endMs==null) ? null : Math.max(...p.map(x=>x.endMs))
+    };
   });
   return { t0, schedule, phaseEndMs };
 }
@@ -775,10 +799,13 @@ function computeRoundRobinSchedule(t){
    play a semifinal before the quarterfinal is decided); within a round,
    matches queue in waves of `boards` at a time. Any round already actually
    started (bracket.roundStartedAt[idx]) overrides the estimate with reality,
-   so later rounds' estimates self-correct as real data comes in. */
-function computeKnockoutSchedule(t, bracket, bracketKey, fallbackStartMs){
+   so later rounds' estimates self-correct as real data comes in.
+   `boardsOverride` lets a caller running Main and Plate concurrently pass
+   each bracket's own exclusive share of the board count (see
+   splitExclusiveBoards) instead of the full event board count each. */
+function computeKnockoutSchedule(t, bracket, bracketKey, fallbackStartMs, boardsOverride){
   if(!bracket) return { rounds: [], phaseEndMs:null };
-  const boards = Math.max(1, parseInt(t.eventCreation.boards)||1);
+  const boards = Math.max(1, boardsOverride!=null ? boardsOverride : parseInt(t.eventCreation.boards)||1);
   const brk = (t.format.breaks||{}).knockout;
   const roundStartedAt = bracket.roundStartedAt || [];
   const totalRounds = bracket.rounds.length;
@@ -797,6 +824,19 @@ function computeKnockoutSchedule(t, bracket, bracketKey, fallbackStartMs){
     return entry;
   });
   return { rounds, phaseEndMs: cursor };
+}
+/* Main and Plate run on their own exclusive boards, not a shared pool — so
+   each only ever gets a fraction of the event's total board count, never
+   all of it at once. Split proportionally by bracket size (a bigger draw
+   reasonably claims more boards) rather than an even split; either size
+   may be 0 (bracket not generated/doesn't exist), in which case the other
+   gets the whole pool to itself. */
+function splitExclusiveBoards(totalBoards, mainSize, plateSize){
+  mainSize = mainSize||0; plateSize = plateSize||0;
+  if(!plateSize) return { main: totalBoards, plate: 0 };
+  if(!mainSize) return { main: 0, plate: totalBoards };
+  const mainBoards = Math.min(totalBoards-1, Math.max(1, Math.round(totalBoards*mainSize/(mainSize+plateSize))));
+  return { main: mainBoards, plate: totalBoards-mainBoards };
 }
 /* Anchor for a round-robin->knockout bracket's schedule: round robin's real
    finish (rrFinishedAt) once known, else its planned finish, plus the
@@ -829,6 +869,94 @@ function scheduleStatusLabel(plannedStartMs, plannedEndMs){
   if(now < plannedStartMs) return 'Due to start ~'+epochClockLabel(plannedStartMs);
   if(plannedEndMs!=null && now > plannedEndMs) return 'Running behind — planned '+epochClockLabel(plannedStartMs);
   return 'On schedule';
+}
+/* Permanent duration summary for Stages 3-5 (Chart details, Confirm & Print
+   Bracket, Manage Tournament). Unlike the rough pre-group Format & branding
+   estimate, this always runs against the real groups/board assignments
+   that exist from Stage 3 onward — via computeRoundRobinSchedule, which
+   reads each group's live g.boards — so reallocating a group to a
+   different board (or splitting it across several) changes the numbers
+   here immediately, on the very next render. Round robin and knockout are
+   reported as two separate lines for round-robin->knockout, since they're
+   scheduled completely differently (parallel boards vs. sequential
+   bracket rounds) rather than one blended total. Once games actually
+   start, computeRoundRobinSchedule/computeKnockoutSchedule already
+   self-correct to real g.startedAt/bracket.roundStartedAt timestamps, so
+   calling them here — unchanged — turns this into a live, self-correcting
+   estimate with no extra work. */
+function competitionDurationSummaryHTML(t){
+  const formatType = t.format.formatType;
+  const boards = Math.max(1, parseInt(t.eventCreation.boards)||1);
+  const activeEntries = t.entriesList.filter(e=>!e.withdrawn).length;
+  /* No anticipated start time set and nothing actually started yet: the
+     underlying schedule functions need SOME epoch to simulate against, so
+     hand them a throwaway midnight start purely to get a duration back —
+     hasAnchor gates whether a "finishing around HH:MM" clock time (which
+     would be meaningless against that throwaway start) is also shown. */
+  const hasAnchor = anticipatedStartEpoch(t)!=null || (t.groups||[]).some(g=>g.startedAt);
+  const tt = hasAnchor ? t : Object.assign({}, t, { format: Object.assign({}, t.format, { anticipatedStartTime: '00:00' }) });
+
+  function line(label, minutes, endMs){
+    if(minutes==null) return '';
+    return '<div>'+label+' <b>~'+formatDurationLabel(minutes)+'</b>'+(hasAnchor && endMs!=null?' — finishing around <b>'+epochClockLabel(endMs)+'</b>':'')+'</div>';
+  }
+  function knockoutPhase(bracket, bracketKey, entryCount, startMs, boardsForThis){
+    if(bracket){
+      const sched = computeKnockoutSchedule(tt, bracket, bracketKey, startMs, boardsForThis);
+      const realStart = (sched.rounds[0] && sched.rounds[0].startMs!=null) ? sched.rounds[0].startMs : startMs;
+      return { minutes: (realStart!=null && sched.phaseEndMs!=null) ? (sched.phaseEndMs-realStart)/60000 : null, endMs: sched.phaseEndMs };
+    }
+    if(entryCount<2) return { minutes:null, endMs:null };
+    const brk = (t.format.breaks||{}).knockout;
+    let mins = simulateKnockoutMinutes(t, entryCount, bracketKey, boardsForThis);
+    if(brk && brk.enabled) mins += parseInt(brk.minutes)||0;
+    return { minutes: mins, endMs: startMs!=null ? startMs+mins*60000 : null };
+  }
+
+  if(formatType==='knockout'){
+    const startMs = anticipatedStartEpoch(tt);
+    const ko = knockoutPhase(t.knockout, 'knockout', activeEntries, startMs, boards);
+    return '<div class="recommend">'+(line('Estimated duration:', ko.minutes, ko.endMs) || '<div>Not enough entries yet to estimate duration.</div>')+'</div>';
+  }
+
+  /* Stage 3 (Chart details) shows this before any group has actually been
+     confirmed — confirming only happens at Stage 4 — so, same as
+     plannedGroupStartLabel's assumeConfirmed option, groups are treated as
+     confirmed here purely for estimation; a group already really
+     confirmed (or started) is untouched. */
+  const ttForRR = Object.assign({}, tt, { groups: (tt.groups||[]).map(g=> g.confirmed ? g : Object.assign({}, g, {confirmed:true})) });
+  const rr = computeRoundRobinSchedule(ttForRR);
+  const rrMinutes = (ttForRR.groups.length && rr.t0!=null && rr.phaseEndMs!=null) ? (rr.phaseEndMs-rr.t0)/60000 : null;
+
+  if(formatType==='roundrobin'){
+    return '<div class="recommend">'+(line('Estimated duration:', rrMinutes, rr.phaseEndMs) || '<div>Add entries in Chart details to estimate duration.</div>')+'</div>';
+  }
+
+  const koStartMs = knockoutStartOffset(tt, rr);
+  const qualPerGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
+  const realGroups = (t.groups||[]).length;
+  const mainAdvancing = realGroups ? Math.min(activeEntries, qualPerGroup*realGroups) : 0;
+  const hasPlate = !!t.format.losersPool;
+  let plateAdvancing = 0;
+  if(hasPlate && realGroups){
+    const plateCap = parseInt(t.format.plateQualifiersPerGroup);
+    plateAdvancing = (!isNaN(plateCap) && plateCap>=1)
+      ? Math.min(Math.max(0, activeEntries-mainAdvancing), plateCap*realGroups)
+      : Math.max(0, activeEntries-mainAdvancing);
+  }
+  /* Main and Plate run on their own exclusive boards, not a shared pool —
+     split the event's board count between them (proportional to bracket
+     size) rather than letting each assume the full count to itself. */
+  const mainSize = t.knockout ? t.knockout.size : (mainAdvancing>=2 ? nearestBracket(mainAdvancing).size : 0);
+  const plateSize = t.knockoutLosers ? t.knockoutLosers.size : (hasPlate && plateAdvancing>=2 ? nearestBracket(plateAdvancing).size : 0);
+  const split = splitExclusiveBoards(boards, mainSize, plateSize);
+  const ko = knockoutPhase(t.knockout, 'knockout', mainAdvancing, koStartMs, split.main);
+  const plate = hasPlate ? knockoutPhase(t.knockoutLosers, 'knockoutLosers', plateAdvancing, koStartMs, split.plate) : null;
+  return '<div class="recommend">'+
+    (line('Round robin:', rrMinutes, rr.phaseEndMs) || '<div>Round robin: add entries in Chart details to estimate.</div>')+
+    (line(hasPlate?'Knockout (Main):':'Knockout:', ko.minutes, ko.endMs) || '<div>Knockout: not enough entries advancing yet to estimate.</div>')+
+    (hasPlate ? (line('Knockout (Plate):', plate.minutes, plate.endMs) || '<div>Knockout (Plate): not enough entries advancing yet to estimate.</div>') : '')+
+  '</div>';
 }
 function nearestBracket(entries){
   const sizes=[4,8,16,32,64,128];
@@ -1903,6 +2031,7 @@ function buildGroups(t){
   const n = activeEntries.length;
   const maxPer = parseInt(t.format.maxPerGroup)||4;
   const numGroups = Math.max(1, Math.ceil(n/maxPer));
+  const numBoards = Math.max(1, parseInt(t.eventCreation.boards)||4);
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const existing = {};
   t.groups.forEach(g=> existing[g.id]=g );
@@ -1910,7 +2039,7 @@ function buildGroups(t){
   for(let i=0;i<numGroups;i++){
     const label = letters[i]||('G'+(i+1));
     let g = t.groups[i];
-    if(!g){ g = { id: uid('g'), label, board: i+1, startedAt:null, entryIds:[], confirmed:false, gameStarted:false, scores:{}, positionOverrides:{} }; }
+    if(!g){ g = { id: uid('g'), label, boards: [(i%numBoards)+1], startedAt:null, entryIds:[], confirmed:false, gameStarted:false, scores:{}, positionOverrides:{} }; }
     else { g.label = label; }
     newGroups.push(g);
   }
@@ -2145,12 +2274,15 @@ async function openTournament(id){
        scores as already started, so existing progress isn't hidden/locked. */
     (state.groups||[]).forEach(g=>{
       if(g.gameStarted===undefined) g.gameStarted = !!(g.scores && Object.keys(g.scores).length>0);
+      /* Tournaments saved before a group could span multiple boards had a
+         single g.board number — carry it over as a one-element list. */
+      if(!g.boards) g.boards = [parseInt(g.board)||1];
     });
     /* Tournaments saved before "number of boards" was asked at event creation
        won't have it — default to the highest board number already assigned
        (or 4) so the board dropdowns still make sense. */
     if(!state.eventCreation.boards){
-      const usedBoards = (state.groups||[]).map(g=>parseInt(g.board)||0);
+      const usedBoards = (state.groups||[]).reduce((all,g)=> all.concat(g.boards), []);
       state.eventCreation.boards = Math.max(4, ...usedBoards, 0);
     }
     if(state.printSettings.teamHandoutEnabled===undefined) state.printSettings.teamHandoutEnabled = false;
@@ -3095,10 +3227,10 @@ function formatSummaryCard(){
 /* ---------- Stage 3: Chart Details ---------- */
 function stage3(){
   if(state.format.formatType==='knockout'){
-    return stage3Knockout();
+    return competitionDurationSummaryHTML(state) + stage3Knockout();
   }
   buildGroups(state);
-  return entriesPanel() + printControls();
+  return competitionDurationSummaryHTML(state) + entriesPanel() + printControls();
 }
 /* Pure knockout only — which of the (already fully-ordered) seed list
    counts as officially "seeded" for display on the printed chart. Every
@@ -3200,7 +3332,7 @@ function shuffleSeedOrder(){
 }
 let bulkSelected = new Set();
 function entriesPanel(){
-  return '<div class="entries-panel"><h2>Draw & groups</h2><p class="intro">Edit entry names, withdraw, or swap entries between groups/positions, and set each group\'s board. Groups sharing a board simply queue one after another. Confirming charts and printing the bracket happens in the next step.</p>'+
+  return '<div class="entries-panel"><h2>Draw & groups</h2><p class="intro">Edit entry names, withdraw, or swap entries between groups/positions, and set each group\'s board(s). Groups sharing a board queue one after another; tick more than one board for a group to split its matches across them instead. Confirming charts and printing the bracket happens in the next step.</p>'+
     state.groups.map(g=>{
       return '<div class="group-block"><div class="group-block-head">'+
         '<strong>Group '+g.label+'</strong>'+
@@ -3208,8 +3340,9 @@ function entriesPanel(){
           g.entryIds.length+' / '+state.format.maxPerGroup+' entries · <span class="confirm-flag '+(g.confirmed?'yes':'no')+'">'+(g.confirmed?'Confirmed':'Not confirmed')+'</span> · <span class="confirm-flag '+(g.gameStarted?'yes':'no')+'">'+(g.gameStarted?'Game started':'Not started')+'</span>'+
         '</span></div>'+
         '<div class="group-block-controls" style="grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:-2px 0 8px;padding-bottom:8px;border-bottom:1px solid var(--line)">'+
-          '<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)">Board <select style="width:auto;padding:4px 7px;font-size:11px" onchange="setBoard(\''+g.id+'\',this.value)">'+ boardOptions(g.board) +'</select></span>'+
+          '<span style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)">Board(s) '+ boardToggleHTML(g) +'</span>'+
         '</div>'+
+        groupBoardSplitHTML(g)+
         '<div class="group-entries-col">'+
         g.entryIds.map(eid=>{
           const ent = state.entriesList.find(e=>e.id===eid);
@@ -3253,7 +3386,7 @@ function renderExpandedPreview(){
     '<button class="preview-modal-close" onclick="closeExpandedPreview()" title="Close">&times;</button>'+
     '<div class="preview-modal-nav">'+
       '<button class="btn secondary" '+(prev?'':'disabled')+' onclick="'+(prev?'openExpandedPreview(\''+prev.id+'\')':'')+'">&larr; Previous</button>'+
-      '<strong>Group '+g.label+' · Board '+g.board+(g.confirmed?' · Confirmed':' · Not confirmed')+(g.gameStarted?' · Game started':' · Not started')+'</strong>'+
+      '<strong>Group '+g.label+' · '+groupBoardLabel(g)+(g.confirmed?' · Confirmed':' · Not confirmed')+(g.gameStarted?' · Game started':' · Not started')+'</strong>'+
       '<button class="btn secondary" '+(next?'':'disabled')+' onclick="'+(next?'openExpandedPreview(\''+next.id+'\')':'')+'">Next &rarr;</button>'+
     '</div>'+
     '<div class="preview-modal-scale-wrap" id="previewModalScaleWrap" style="height:'+h+'px">'+
@@ -3334,7 +3467,7 @@ function openSwapPicker(entryId){
   const srcIdx = source.entryIds.indexOf(entryId);
   let rows = '';
   state.groups.forEach(g=>{
-    rows += '<div class="picker-group-hdr">Group '+g.label+' · Board '+g.board+'</div>';
+    rows += '<div class="picker-group-hdr">Group '+g.label+' · '+groupBoardLabel(g)+'</div>';
     const slotsToShow = Math.min(maxPer, g.entryIds.length+1);
     for(let slot=0; slot<slotsToShow; slot++){
       const isCurrent = g.id===source.id && slot===srcIdx;
@@ -3390,12 +3523,54 @@ function performSwap(entryId, targetGroupId, slotIndex){
   }
 }
 function setActiveGroup(id){ state.activeGroupId = id; persist(); render(); }
-function setBoard(id,val){ const g=state.groups.find(x=>x.id===id); g.board=parseInt(val)||1; persist(); render(); }
-function boardOptions(selected){
-  const max = Math.max(parseInt(state.eventCreation.boards)||4, parseInt(selected)||0);
-  let html = '';
-  for(let i=1;i<=max;i++){ html += '<option value="'+i+'"'+(String(i)===String(selected)?' selected':'')+'>Board '+i+'</option>'; }
-  return html;
+/* A group normally runs on one board, but can span several — its own
+   matches are then auto-split round-robin by match index across whichever
+   boards are ticked (matchBoardFor below), so they can be worked in
+   parallel instead of queuing on a single board. Toggling off the last
+   remaining board is a no-op (a group must always have at least one). */
+function toggleGroupBoard(id, boardNum){
+  const g = state.groups.find(x=>x.id===id);
+  boardNum = parseInt(boardNum)||1;
+  const has = g.boards.includes(boardNum);
+  if(has && g.boards.length===1) return;
+  g.boards = has ? g.boards.filter(b=>b!==boardNum) : g.boards.concat(boardNum).sort((a,b)=>a-b);
+  persist(); render();
+}
+function boardToggleHTML(g){
+  const max = Math.max(parseInt(state.eventCreation.boards)||4, ...g.boards);
+  let html = '<div class="board-toggle">';
+  for(let i=1;i<=max;i++){
+    html += '<button type="button" class="'+(g.boards.includes(i)?'active':'')+'" onclick="toggleGroupBoard(\''+g.id+'\','+i+')">'+i+'</button>';
+  }
+  return html+'</div>';
+}
+/* Human-readable board label used everywhere a group's board(s) are shown
+   (print sheets, running order, confirm lists, etc). */
+function groupBoardLabel(g){
+  return (g.boards.length===1?'Board ':'Boards ')+g.boards.join(', ');
+}
+/* Which board a given match (by its index in groupMatches(g)) runs on —
+   round-robin across the group's assigned boards, so a multi-board group's
+   matches split evenly rather than all queuing on its first board. */
+function matchBoardFor(g, matchIndex){
+  return g.boards[matchIndex % g.boards.length];
+}
+/* Compact "Board 1: 5 matches · Board 3: 5 matches" breakdown, shown only
+   once a group actually spans more than one board — a single-board group
+   already says as much via groupBoardLabel(). */
+/* How many of a group's matches land on each of its assigned boards —
+   shared by the Draw & groups breakdown and the schedule simulation below
+   (which needs it to split a multi-board group's slot proportionally). */
+function groupBoardMatchCounts(g){
+  const counts = {};
+  g.boards.forEach(b=> counts[b]=0);
+  groupMatches(g).forEach((m,i)=>{ counts[matchBoardFor(g,i)]++; });
+  return counts;
+}
+function groupBoardSplitHTML(g){
+  if(g.boards.length<2) return '';
+  const counts = groupBoardMatchCounts(g);
+  return '<div class="hint" style="margin:4px 0 0">'+g.boards.map(b=>'Board '+b+': '+counts[b]+' match'+(counts[b]===1?'':'es')).join(' · ')+'</div>';
 }
 function toggleGameStarted(id){
   const g=state.groups.find(x=>x.id===id);
@@ -3423,7 +3598,6 @@ function openConfirmChartModal(id){
   const g = state.groups.find(x=>x.id===id);
   const entries = g.entryIds.map(eid=> state.entriesList.find(e=>e.id===eid)).filter(Boolean);
   const warnings = [];
-  if(!g.board) warnings.push('No board number has been set for this chart.');
   if(entries.length < 2) warnings.push('This chart only has '+entries.length+' entr'+(entries.length===1?'y':'ies')+' — it can\'t be played as-is.');
   else if(entries.length < state.format.maxPerGroup) warnings.push('This group has '+entries.length+' of '+state.format.maxPerGroup+' possible entries — the remaining slot'+(state.format.maxPerGroup-entries.length===1?'':'s')+' will print blank.');
   const dupNames = entries.map(e=>e.name.trim().toLowerCase()).filter((n,i,arr)=> n && arr.indexOf(n)!==i);
@@ -3433,7 +3607,7 @@ function openConfirmChartModal(id){
     : '<div class="confirm-box" style="background:#eaf7ee;border-color:#bfe6cc;color:#175c33"><b>Looks good</b>No issues found with this chart.</div>';
   const summaryHTML = '<div class="summary-grid" style="margin-bottom:12px">'+
       '<div><label>Group</label><strong>Group '+escapeHtml(g.label)+'</strong></div>'+
-      '<div><label>Board</label><strong>'+(g.board||'Not set')+'</strong></div>'+
+      '<div><label>Board</label><strong>'+g.boards.join(', ')+'</strong></div>'+
       '<div><label>Planned start</label><strong>'+plannedGroupStartLabel(g, true)+'</strong></div>'+
     '</div>'+
     '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">Entries ('+entries.length+')</div>'+
@@ -3453,7 +3627,7 @@ function groupNav(g){
   const prev = state.groups[idx-1]; const next = state.groups[idx+1];
   return '<div class="group-nav">'+
     '<button class="btn secondary" '+(prev?'':'disabled')+' onclick="'+(prev?'setActiveGroup(\''+prev.id+'\')':'')+'">&larr; Previous</button>'+
-    '<select onchange="setActiveGroup(this.value)">'+ state.groups.map(x=>'<option value="'+x.id+'"'+(x.id===g.id?' selected':'')+'>Group '+x.label+' · Board '+x.board+(x.confirmed?' ✓':'')+(x.gameStarted?' ▶':'')+'</option>').join('') +'</select>'+
+    '<select onchange="setActiveGroup(this.value)">'+ state.groups.map(x=>'<option value="'+x.id+'"'+(x.id===g.id?' selected':'')+'>Group '+x.label+' · '+groupBoardLabel(x)+(x.confirmed?' ✓':'')+(x.gameStarted?' ▶':'')+'</option>').join('') +'</select>'+
     '<button class="btn secondary" '+(next?'':'disabled')+' onclick="'+(next?'setActiveGroup(\''+next.id+'\')':'')+'">Next &rarr;</button>'+
   '</div>';
 }
@@ -3672,7 +3846,8 @@ function chartSheetHTML(g, forPrint){
   const schedule = matches.map((m,i)=>{
     const a = t.entriesList.find(x=>x.id===m[0]), b = t.entriesList.find(x=>x.id===m[1]);
     const ai = entries.findIndex(x=>x.id===m[0])+1, bi = entries.findIndex(x=>x.id===m[1])+1;
-    return '<div class="match"><strong>Match '+(i+1)+'</strong> · '+ai+' v '+bi+'</div>';
+    const boardNote = g.boards.length>1 ? ' (Bd '+matchBoardFor(g,i)+')' : '';
+    return '<div class="match"><strong>Match '+(i+1)+'</strong>'+boardNote+' · '+ai+' v '+bi+'</div>';
   }).join('');
   const scheduleCols = Math.min(6, matches.length)||1;
   return '<div class="print-sheet">'+
@@ -3680,7 +3855,7 @@ function chartSheetHTML(g, forPrint){
       mainLogoBoxHTML()+
       '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
       '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Round Robin Stage · Best of '+t.format.bestOfLegs+' Legs · '+escapeHtml(t.eventCreation.date||'')+'</div></div>'+
-      '<div class="group-label"><strong>GROUP '+g.label+'</strong><span>Board '+g.board+'</span></div>'+
+      '<div class="group-label"><strong>GROUP '+g.label+'</strong><span>'+groupBoardLabel(g)+'</span></div>'+
     '</div>'+
     '<div class="chart" style="grid-template-columns:'+colTemplate+'">'+rows+'</div>'+
     '<div class="schedule" style="grid-template-columns:repeat('+scheduleCols+',1fr)">'+schedule+'</div>'+
@@ -3694,14 +3869,14 @@ function chartSheetHTML(g, forPrint){
 }
 function runningOrderSheetHTML(confirmed){
   const t = state;
-  const sorted = confirmed.slice().sort((a,b)=> (a.board-b.board) || a.label.localeCompare(b.label));
+  const sorted = confirmed.slice().sort((a,b)=> (Math.min(...a.boards)-Math.min(...b.boards)) || a.label.localeCompare(b.label));
   const rows = sorted.map(g=>{
     const entries = g.entryIds.map(id=>t.entriesList.find(e=>e.id===id)).filter(Boolean);
     const matchList = groupMatches(g).map((m,i)=>{
       const ai = entries.findIndex(x=>x.id===m[0])+1, bi = entries.findIndex(x=>x.id===m[1])+1;
       return (i+1)+') '+ai+' v '+bi;
     }).join('   ·   ');
-    return '<div class="ro-row"><div class="ro-board">Board '+g.board+'</div><div>Group '+g.label+'</div><div class="ro-matches">'+matchList+'</div></div>';
+    return '<div class="ro-row"><div class="ro-board">'+groupBoardLabel(g)+'</div><div>Group '+g.label+'</div><div class="ro-matches">'+matchList+'</div></div>';
   }).join('');
   return '<div class="print-sheet ro-sheet">'+
     '<div class="sheet-top">'+
@@ -3914,7 +4089,7 @@ function stage4(){
   const allConfirmed = state.groups.length && state.groups.every(g=>g.confirmed);
   const unconfirmedCount = state.groups.length - confirmed.length;
   const readyCount = state.groups.filter(g=>!g.confirmed && bulkSelected.has(g.id)).length;
-  let html = checkInCardHTML();
+  let html = competitionDurationSummaryHTML(state) + checkInCardHTML();
   html += '<div class="entries-panel"><h2>Confirm each chart</h2><p class="intro">Check the board and entries for every group, then confirm it. Once confirmed, print the blank bracket pack below — you can keep editing and reprinting right up until you start games in Manage Tournament.</p>'+
     '<div class="buttonrow" style="margin:0 0 8px;align-items:center">'+
       '<button class="btn primary" '+(unconfirmedCount?'':'disabled')+' onclick="confirmAllCharts()">'+(unconfirmedCount?'Confirm all '+state.groups.length+' charts':'All charts confirmed')+'</button>'+
@@ -3927,7 +4102,7 @@ function stage4(){
       return '<div class="group-block"><div class="group-block-head">'+
         '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" style="width:auto;height:auto" '+(bulkSelected.has(g.id)?'checked':'')+' onchange="toggleBulkSelect(\''+g.id+'\',this.checked)"><strong>Group '+g.label+'</strong></label>'+
         '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-          g.entryIds.length+' / '+state.format.maxPerGroup+' entries · Board '+g.board+(g.confirmed?' · planned start '+plannedGroupStartLabel(g):'')+' · <span class="confirm-flag '+(g.confirmed?'yes':'no')+'">'+(g.confirmed?'Confirmed':'Not confirmed')+'</span>'+
+          g.entryIds.length+' / '+state.format.maxPerGroup+' entries · '+groupBoardLabel(g)+(g.confirmed?' · planned start '+plannedGroupStartLabel(g):'')+' · <span class="confirm-flag '+(g.confirmed?'yes':'no')+'">'+(g.confirmed?'Confirmed':'Not confirmed')+'</span>'+
         '</span></div>'+
         '<div class="buttonrow" style="margin:6px 0 2px"><button class="btn '+(g.confirmed?'secondary':'primary')+'" onclick="toggleConfirm(\''+g.id+'\')">'+(g.confirmed?'Un-confirm':'Confirm this chart')+'</button></div>'+
         livePreviewBlock(g)+
@@ -3946,7 +4121,7 @@ function stage4(){
     lineupSheetToggleHTML()+
     rulesSheetToggleHTML()+
     '<div class="hint" style="margin-bottom:6px">A master running order sheet (board-by-board match list) is generated automatically as the first page of the pack.</div>'+
-    '<div class="printlist">'+ state.groups.map(g=> '<div><span>Group '+g.label+' — Board '+g.board+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">Confirmed</b>':'<b style="color:#c0392b">Not confirmed</b>')+'</span></div>' ).join('') +'</div>'+
+    '<div class="printlist">'+ state.groups.map(g=> '<div><span>Group '+g.label+' — '+groupBoardLabel(g)+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">Confirmed</b>':'<b style="color:#c0392b">Not confirmed</b>')+'</span></div>' ).join('') +'</div>'+
     (!allConfirmed ? '<div class="confirm-box"><b>Some charts are not confirmed yet</b>You can still print the confirmed charts now, or go back and confirm the rest first.</div>' : '')+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="goStage(3)">Make changes</button>'+
@@ -3977,7 +4152,7 @@ function lineupSheetToggleHTML(){
 function stage4Knockout(){
   ensureSeedOrder(state);
   const seeded = !!state.format.seedingEnabled;
-  let html = checkInCardHTML();
+  let html = competitionDurationSummaryHTML(state) + checkInCardHTML();
   html += '<div class="card"><h2>Generate &amp; confirm bracket</h2><p class="intro">'+(seeded ? 'Builds the knockout bracket from the seed order set in Chart details.' : 'Builds the knockout bracket from a fresh random draw (seeding is off — turn it on in Chart details to use a set order instead).')+' You can regenerate it any time before you start entering results.</p>'+
     '<div class="buttonrow">'+
       '<button class="btn primary" onclick="regenerateKnockoutBracket()">'+(state.knockout?'Regenerate bracket':'Generate bracket')+'</button>'+
@@ -4022,16 +4197,21 @@ function stage5KnockoutSection(){
       '<div class="buttonrow"><button class="btn primary" onclick="generateKnockoutFromRR()">Generate knockout bracket</button></div>';
   } else {
     const startOffset = knockoutStartOffset(t, computeRoundRobinSchedule(t));
+    const totalBoards = Math.max(1, parseInt(t.eventCreation.boards)||1);
+    const split = splitExclusiveBoards(totalBoards, t.knockout.size, t.knockoutLosers ? t.knockoutLosers.size : 0);
     html += '<p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
       '<div class="buttonrow" style="margin-bottom:10px"><button class="btn ghost" onclick="regenerateKnockoutFromRR()">Regenerate from current standings</button></div>'+
-      knockoutScheduleSummaryHTML(t, t.knockout, 'knockout', startOffset)+
+      (t.knockoutLosers ? '<div class="hint" style="margin:-4px 0 10px">Main and Plate run on their own exclusive boards — '+split.main+' for Main, '+split.plate+' for Plate.</div>' : '')+
+      knockoutScheduleSummaryHTML(t, t.knockout, 'knockout', startOffset, split.main)+
       '<div class="mko-artboard-scroll">'+mirroredChartHTML(t.knockout, t, {interactive:true, bracketKey:'knockout'})+'</div>';
   }
   html += '</div>';
   if(t.format.losersPool && t.knockoutLosers){
     const startOffset = knockoutStartOffset(t, computeRoundRobinSchedule(t));
+    const totalBoards = Math.max(1, parseInt(t.eventCreation.boards)||1);
+    const split = splitExclusiveBoards(totalBoards, t.knockout ? t.knockout.size : 0, t.knockoutLosers.size);
     html += '<div class="card"><h3 style="margin:0 0 10px">Losers\' pool (Plate)</h3>'+
-      knockoutScheduleSummaryHTML(t, t.knockoutLosers, 'knockoutLosers', startOffset)+
+      knockoutScheduleSummaryHTML(t, t.knockoutLosers, 'knockoutLosers', startOffset, split.plate)+
       '<div class="mko-artboard-scroll">'+mirroredChartHTML(t.knockoutLosers, t, {interactive:true, bracketKey:'knockoutLosers'})+'</div></div>';
   }
   return html;
@@ -4062,8 +4242,8 @@ function startKnockoutRound(bracketKey, roundIdx){
    planned time per round (self-correcting once a round's real start is
    stamped), a status label, and a "Start round" button for whichever round
    is next eligible. */
-function knockoutScheduleSummaryHTML(t, bracket, bracketKey, startOffsetMs){
-  const sched = computeKnockoutSchedule(t, bracket, bracketKey, startOffsetMs);
+function knockoutScheduleSummaryHTML(t, bracket, bracketKey, startOffsetMs, boardsOverride){
+  const sched = computeKnockoutSchedule(t, bracket, bracketKey, startOffsetMs, boardsOverride);
   const nextRound = nextEligibleKnockoutRound(bracket);
   const rows = bracket.rounds.map((round, idx)=>{
     const entry = sched.rounds[idx];
@@ -4161,6 +4341,7 @@ function stage5(){
   let html = '<div class="card">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2 style="margin:0">Manage tournament</h2>'+openInNewWindowButtonHTML()+'</div>'+
     '<p class="intro">Start all games when play begins, then enter scores directly on each chart below. Positions and points calculate live as results come in.</p>'+
+    competitionDurationSummaryHTML(state)+
     '<div class="confirm-box" style="background:#f3f5f7;border-color:#dbe2ea;color:#42505e"><b>Games start all together, not individually</b>'+(confirmed.length? (startedCount+' of '+confirmed.length+' confirmed chart'+(confirmed.length===1?'':'s')+' started.') : 'No charts confirmed yet — go to Confirm & Print Bracket first.')+'</div>'+
     (rrSchedule.t0==null ? '<div class="recommend"><b>Want live on-schedule tracking here?</b> Set an anticipated start time in Format &amp; Branding and each board will show whether it\'s on schedule as play happens. <span style="text-decoration:underline;cursor:pointer" onclick="goStage(2)">Go to Format &amp; Branding</span></div>' : '')+
     '<div class="buttonrow">'+
@@ -4176,7 +4357,7 @@ function stage5(){
       const statusLabel = sched ? scheduleStatusLabel(sched.startMs, sched.endMs) : '';
       return '<div class="manage-chart-card">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">'+
-          '<strong>Group '+g.label+' · Board '+g.board+'</strong>'+
+          '<strong>Group '+g.label+' · '+groupBoardLabel(g)+'</strong>'+
           '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
             (statusLabel?'<span class="save-status" style="margin:0;color:var(--muted)">'+statusLabel+'</span>':'')+
             (groupHasPositionOverrides(g)?'<span class="save-status" style="margin:0;color:#c0392b">Positions manually adjusted · <a href="javascript:void(0)" onclick="resetAllPositionOverrides(\''+g.id+'\')">Reset all</a></span>':'')+
@@ -4195,10 +4376,11 @@ function stage5(){
 }
 function stage5Knockout(){
   if(!state.knockout){
-    return '<div class="card"><h2>Manage tournament</h2><p class="intro">Generate the bracket in Confirm &amp; Print Bracket before you can enter results here.</p><div class="buttonrow"><button class="btn primary" onclick="goStage(4)">Confirm & print bracket</button></div></div>';
+    return '<div class="card"><h2>Manage tournament</h2>'+competitionDurationSummaryHTML(state)+'<p class="intro">Generate the bracket in Confirm &amp; Print Bracket before you can enter results here.</p><div class="buttonrow"><button class="btn primary" onclick="goStage(4)">Confirm & print bracket</button></div></div>';
   }
   const startOffset = anticipatedStartEpoch(state);
   let html = '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2 style="margin:0">Manage tournament</h2>'+openInNewWindowButtonHTML()+'</div><p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
+    competitionDurationSummaryHTML(state)+
     (startOffset==null && !(state.knockout.roundStartedAt||[])[0] ? '<div class="recommend"><b>Want live on-schedule tracking here?</b> Set an anticipated start time in Format &amp; Branding and each round will show whether it\'s on schedule as play happens. <span style="text-decoration:underline;cursor:pointer" onclick="goStage(2)">Go to Format &amp; Branding</span></div>' : '')+
     knockoutScheduleSummaryHTML(state, state.knockout, 'knockout', startOffset)+
     '<div class="mko-artboard-scroll">'+mirroredChartHTML(state.knockout, state, {interactive:true, bracketKey:'knockout'})+'</div>'+
@@ -4236,7 +4418,7 @@ function stage6(){
       return '<tr><td style="padding:7px 6px;border-top:1px solid var(--line);font-weight:700">'+st.position+(st.manualOverride?'*':'')+'</td><td style="padding:7px 6px;border-top:1px solid var(--line)">'+escapeHtml(ent?ent.name:'—')+'</td><td style="padding:7px 6px;border-top:1px solid var(--line);font-weight:700">'+st.pts+'</td><td style="padding:7px 6px;border-top:1px solid var(--line);color:var(--muted)">'+st.played+'</td></tr>';
     }).join('');
     return '<div class="card">'+
-      '<h3 style="margin:0 0 10px;font-size:15px">Group '+g.label+' · Board '+g.board+'</h3>'+
+      '<h3 style="margin:0 0 10px;font-size:15px">Group '+g.label+' · '+groupBoardLabel(g)+'</h3>'+
       (!g.gameStarted ? '<div class="confirm-box" style="margin:0">Game hasn\'t started yet — standings will appear here once scores are entered in Manage Tournament.</div>' :
         '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em"><th style="padding:0 6px 7px">Pos.</th><th style="padding:0 6px 7px">Entry</th><th style="padding:0 6px 7px">Pts</th><th style="padding:0 6px 7px">Played</th></tr></thead><tbody>'+rows+'</tbody></table>'+
         (hasOverrides?'<div style="margin-top:6px;font-size:11px;color:var(--muted)"><b>* Position set manually by organiser</b></div>':''))+
@@ -4288,7 +4470,7 @@ function stage7(){
     rulesSheetToggleHTML()+
     (state.knockout ? koPaperSizeSelectHTML() : '')+
     (confirmed.length && startedCount<confirmed.length ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Some games haven\'t started</b>'+(confirmed.length-startedCount)+' confirmed chart'+((confirmed.length-startedCount)===1?'':'s')+' will print with scores still locked/blank. Go to Manage Tournament to start '+((confirmed.length-startedCount)===1?'it':'them')+' first if that\'s not intended.</div>' : '')+
-    '<div class="printlist">'+ state.groups.map(g=> '<div><span>Group '+g.label+' — Board '+g.board+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">Confirmed</b>':'<b style="color:#c0392b">Not confirmed</b>')+(g.confirmed?' · '+(g.gameStarted?'<b style="color:#1d8a4a">Started</b>':'<b style="color:#c0392b">Not started</b>'):'')+'</span></div>' ).join('') +'</div>'+
+    '<div class="printlist">'+ state.groups.map(g=> '<div><span>Group '+g.label+' — '+groupBoardLabel(g)+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">Confirmed</b>':'<b style="color:#c0392b">Not confirmed</b>')+(g.confirmed?' · '+(g.gameStarted?'<b style="color:#1d8a4a">Started</b>':'<b style="color:#c0392b">Not started</b>'):'')+'</span></div>' ).join('') +'</div>'+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="goStage(6)">Back to standings</button>'+
       '<button class="btn '+(confirmed.length?'primary':'secondary')+'" '+(confirmed.length?'':'disabled')+' onclick="doFinalPrint()">Print final chart — Save high-res A4 PDF</button>'+
@@ -4363,7 +4545,7 @@ function teamLineupSheetsHTML(){
     groupMatches(g).forEach((m,i)=>{
       const a = t.entriesList.find(e=>e.id===m[0]), b = t.entriesList.find(e=>e.id===m[1]);
       if(!a || !b) return;
-      html += lineupSheetHTML(a, b, { groupLabel:g.label, board:g.board, gameNo:i+1 });
+      html += lineupSheetHTML(a, b, { groupLabel:g.label, board:matchBoardFor(g,i), gameNo:i+1 });
     });
   });
   return html;
@@ -4427,7 +4609,7 @@ function teamHandoutSheetHTML(e){
   const g = t.groups.find(gr=> gr.entryIds.includes(e.id));
   if(g){
     const opponents = g.entryIds.filter(id=>id!==e.id).map(id=>t.entriesList.find(x=>x.id===id)).filter(Boolean);
-    rows += opponents.map(opp=> '<div class="ro-row"><div>Group '+g.label+'</div><div class="ro-board">Board '+g.board+'</div><div class="ro-matches">Round robin vs '+escapeHtml(opp.name)+'</div></div>').join('');
+    rows += opponents.map(opp=> '<div class="ro-row"><div>Group '+g.label+'</div><div class="ro-board">'+groupBoardLabel(g)+'</div><div class="ro-matches">Round robin vs '+escapeHtml(opp.name)+'</div></div>').join('');
   }
   [ {b:t.knockout, l:t.knockout&&t.knockout.label}, {b:t.knockoutLosers, l:t.knockoutLosers&&t.knockoutLosers.label} ].forEach(x=>{
     if(!x.b) return;
