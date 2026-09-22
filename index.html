@@ -861,7 +861,86 @@ function generateBracket(orderedEntries, label){
   const slotOrder = seedSlotOrder(size); // seed number (1-indexed) per slot
   const bySeed = {};
   orderedEntries.forEach((e,i)=> bySeed[i+1] = e );
+  /* When every entry here is a round-robin qualifier and every group
+     contributes exactly two of them (the normal qualifiersPerGroup=2
+     case), reassign seed NUMBERS within their existing rank block (all
+     rank-1s keep seeds 1..k, all rank-2s keep k+1..2k — bye priority is
+     untouched) so each group's two qualifiers land in opposite bracket
+     halves by construction. Round 1 always pairs a top-half seed with a
+     bottom-half one, so this simultaneously keeps every group's pair
+     off round 1 (already true) AND guarantees they can only meet again
+     at the very last round the bracket has — rather than leaving that
+     to the best-effort swap search below, which (once it also has to
+     dodge same-position round-1 pairings) doesn't always find it. */
+  const byGroupForHalving = {};
+  orderedEntries.forEach(e=>{ if(e.groupId!=null) (byGroupForHalving[e.groupId] = byGroupForHalving[e.groupId]||[]).push(e); });
+  const pairedGroupIds = Object.keys(byGroupForHalving).filter(g=>byGroupForHalving[g].length===2);
+  const distinctRanks = Array.from(new Set(orderedEntries.map(e=>e.rank))).filter(r=>r!=null).sort((a,b)=>a-b);
+  const betterRank = distinctRanks[0];
+  const rank1Count = orderedEntries.filter(e=>e.rank===betterRank).length;
+  if(pairedGroupIds.length && distinctRanks.length===2 && orderedEntries.every(e=>e.groupId!=null && distinctRanks.includes(e.rank)) && rank1Count*2===orderedEntries.length){
+    const halfLen = Math.floor(slotOrder.length/2);
+    const topSeeds = slotOrder.slice(0, halfLen);
+    const bottomSeeds = slotOrder.slice(halfLen);
+    const pool = {
+      top1: topSeeds.filter(s=>s<=rank1Count).sort((a,b)=>a-b),
+      bot1: bottomSeeds.filter(s=>s<=rank1Count).sort((a,b)=>a-b),
+      top2: topSeeds.filter(s=>s>rank1Count).sort((a,b)=>a-b),
+      bot2: bottomSeeds.filter(s=>s>rank1Count).sort((a,b)=>a-b)
+    };
+    const assigned = {};
+    pairedGroupIds.forEach((g,idx)=>{
+      const [t1, t2] = byGroupForHalving[g][0].rank===betterRank ? byGroupForHalving[g] : [byGroupForHalving[g][1], byGroupForHalving[g][0]];
+      const flip = idx%2===0;
+      const firstChoice = flip ? pool.top1 : pool.bot1, secondChoice = flip ? pool.bot2 : pool.top2;
+      const fallback1 = flip ? pool.bot1 : pool.top1, fallback2 = flip ? pool.top2 : pool.bot2;
+      const s1 = firstChoice.length ? firstChoice.shift() : fallback1.shift();
+      const s2 = secondChoice.length ? secondChoice.shift() : fallback2.shift();
+      assigned[t1.entryId] = s1; assigned[t2.entryId] = s2;
+    });
+    orderedEntries.forEach(e=>{ if(assigned[e.entryId]) bySeed[assigned[e.entryId]] = e; });
+  }
   let slots = slotOrder.map(seed=> bySeed[seed] || null);
+
+  /* Byes always go to the best-ranked entries under plain seeding — a low
+     seed number is paired against the highest (often empty) slot, so
+     seed 1 is the first to get a bye if any exist, then seed 2, and so
+     on. Since round-robin qualifiers are numbered group-champions-first
+     (see collectRankedEntries), this already means every group's winner
+     is ahead of every group's runner-up for bye priority — no group-
+     aware special-casing needed, just don't let the clash-avoidance pass
+     below undo it by handing a bye to a worse seed instead. Snapshot
+     which seed numbers are bye recipients here, before any swaps, and
+     restrict every swap to stay within that same bye/real-match cohort. */
+  const seedOfEntryId = {};
+  orderedEntries.forEach((e,i)=>{ seedOfEntryId[e.entryId] = i+1; });
+  const originalByeSeed = {};
+  for(let i=0;i<slots.length;i+=2){
+    if(slots[i] && !slots[i+1]) originalByeSeed[slotOrder[i]] = true;
+    else if(slots[i+1] && !slots[i]) originalByeSeed[slotOrder[i+1]] = true;
+  }
+  const cohortOf = entry => entry ? (originalByeSeed[seedOfEntryId[entry.entryId]] ? 'bye' : 'real') : 'empty';
+
+  /* Two different groups' same-position finishers (both group winners,
+     or both runners-up, etc.) must never meet in round 1 either — a
+     round-of-16 shouldn't pit one group's champion against another
+     group's champion while a champion elsewhere gets an easier-looking
+     runner-up. Standard seeding already guarantees this for free (seed i
+     always faces seed size+1-i, and group-champions-first numbering
+     means that's always a winner vs a runner-up) — this only needs
+     active fixing on top of that when qualifier counts don't divide the
+     bracket evenly (e.g. 9 groups into a 32-slot bracket can otherwise
+     leave two runners-up paired together). Unlike the group/org clashes
+     above, this only needs to clear round 1 — it doesn't chase the
+     latest possible round beyond that. */
+  const rankOfEntryId = {};
+  orderedEntries.forEach(e=>{ if(e.rank!=null) rankOfEntryId[e.entryId] = e.rank; });
+  function matchHasRankClash(evenSlot){
+    const a = slots[evenSlot], b = slots[evenSlot+1];
+    if(!a || !b) return false;
+    const ra = rankOfEntryId[a.entryId], rb = rankOfEntryId[b.entryId];
+    return ra!=null && rb!=null && ra===rb;
+  }
 
   const infoByEntry = {};
   orderedEntries.forEach(e=>{ infoByEntry[e.entryId] = { org: e.org, groupId: e.groupId }; });
@@ -908,11 +987,14 @@ function generateBracket(orderedEntries, label){
         let bestJ = -1, bestPairSep = oldSep;
         for(let j=0;j<slots.length;j++){
           if(j===fromSlot) continue;
+          if(cohortOf(slots[j]) !== cohortOf(slots[fromSlot])) continue; // never trade a bye to/from a worse/better seed
           const tmp = slots[fromSlot]; slots[fromSlot]=slots[j]; slots[j]=tmp;
+          const fromMatchStart = fromSlot - (fromSlot%2), jMatchStart = j - (j%2);
+          const rankClash = matchHasRankClash(fromMatchStart) || matchHasRankClash(jMatchStart);
           const newPairSep = pairSeparation(pair);
           const newFloor = worstSeparation();
           slots[j]=slots[fromSlot]; slots[fromSlot]=tmp;
-          if(newPairSep > bestPairSep && newFloor >= globalFloor){ bestPairSep = newPairSep; bestJ = j; }
+          if(!rankClash && newPairSep > bestPairSep && newFloor >= globalFloor){ bestPairSep = newPairSep; bestJ = j; }
         }
         if(bestJ>=0){
           const tmp = slots[fromSlot]; slots[fromSlot]=slots[bestJ]; slots[bestJ]=tmp;
@@ -922,10 +1004,51 @@ function generateBracket(orderedEntries, label){
     }
   }
 
+  /* Clean up any round-1 same-position clash pure seeding itself left
+     behind (only possible when qualifier counts don't split the bracket
+     exactly in half — see the comment above). For each, pull in a
+     same-cohort entry from elsewhere that doesn't itself clash (by
+     group, org, or position) with either side of the swap, preferring
+     one that doesn't disturb an already-resolved round-1 match. */
+  for(let m=0; m<slots.length; m+=2){
+    if(!matchHasRankClash(m)) continue;
+    const victimSlot = m+1; // keep the earlier-seeded side in place, move the other
+    const victim = slots[victimSlot];
+    for(let j=0;j<slots.length;j++){
+      if(j===victimSlot || j===m) continue;
+      if(cohortOf(slots[j]) !== cohortOf(victim)) continue;
+      const candidate = slots[j];
+      if(!candidate) continue;
+      const candStart = j - (j%2), candPartnerSlot = candStart===j ? j+1 : j-1;
+      const candPartner = slots[candPartnerSlot];
+      // The candidate must not clash (rank/org/group) with its new match's other side (slots[m]), and its old match's remaining side must not clash with the victim moving in.
+      const infoM = infoByEntry[slots[m].entryId], infoCand = infoByEntry[candidate.entryId];
+      const candClashesWithM = rankOfEntryId[candidate.entryId]===rankOfEntryId[slots[m].entryId] || (infoM.org && infoM.org===infoCand.org) || (infoM.groupId && infoM.groupId===infoCand.groupId);
+      if(candClashesWithM) continue;
+      if(candPartner){
+        const infoPartner = infoByEntry[candPartner.entryId], infoVictim = infoByEntry[victim.entryId];
+        const victimClashesWithPartner = rankOfEntryId[victim.entryId]===rankOfEntryId[candPartner.entryId] || (infoPartner.org && infoPartner.org===infoVictim.org) || (infoPartner.groupId && infoPartner.groupId===infoVictim.groupId);
+        if(victimClashesWithPartner) continue;
+      }
+      slots[victimSlot] = candidate; slots[j] = victim;
+      break;
+    }
+  }
+
   const rounds = bracketFromSlots(slots, size);
   const seeds = {};
   orderedEntries.forEach((e,i)=>{ seeds[e.entryId] = i+1; });
-  return { id: uid('kb'), label: label||'Bracket', size, rounds, roundStartedAt: rounds.map(()=>null), seeds };
+  /* Round-robin qualifiers carry a seedLabel (from collectRankedEntries) —
+     their group+finishing-position identity (e.g. "A1"). Groups aren't
+     ranked against each other, so that identity is what gets shown,
+     never the plain 1..N seed number bracket-slotting happens to use
+     internally (that would falsely imply group A's winner outranks
+     group H's). Pure-knockout entries have no seedLabel — their numeric
+     seed IS a real, organiser-chosen ranking, so it's shown as-is via
+     bracketSeedForDisplay's formatType==='knockout' branch instead. */
+  const seedLabels = {};
+  orderedEntries.forEach(e=>{ if(e.seedLabel) seedLabels[e.entryId] = e.seedLabel; });
+  return { id: uid('kb'), label: label||'Bracket', size, rounds, roundStartedAt: rounds.map(()=>null), seeds, seedLabels };
 }
 /* Pushes any already-known winners (from round-1 byes) forward into the next
    round's slots — called after generation and after every score is saved. */
@@ -981,7 +1104,7 @@ function collectRankedEntries(t, filterFn){
       const st = standings[r];
       if(st){
         const ent = t.entriesList.find(e=>e.id===st.id);
-        out.push({ entryId: st.id, org: ent?ent.org:'', groupId: g.id, rank:r+1 });
+        out.push({ entryId: st.id, org: ent?ent.org:'', groupId: g.id, rank:r+1, seedLabel: g.label+(r+1) });
       }
     });
   }
@@ -1063,13 +1186,17 @@ function bracketConnectMidHTML(mi, hasNext){
    (format.numSeeds, from the Seeding screen) for how many of those ranks
    actually count as "seeded" for display; round-robin+knockout brackets
    don't have that concept (every qualifier's rank comes from group
-   finishing position), so every qualifier there still shows its rank. */
-function bracketSeedForDisplay(t, seedsMap, entryId){
+   finishing position), so every qualifier there still shows a label —
+   but as its group+position identity (e.g. "A1"), never the bare 1..N
+   rank, since groups aren't ranked against each other (a group's winner
+   isn't "better seeded" than another group's winner just because
+   generateBracket happened to number them differently internally). */
+function bracketSeedForDisplay(t, seedsMap, seedLabelsMap, entryId){
   if(!seedsMap) return null;
   const rank = seedsMap[entryId];
   if(!rank) return null;
   if(t.format.formatType==='knockout') return (t.format.seedingEnabled && rank<=(t.format.numSeeds||8)) ? rank : null;
-  return rank;
+  return (seedLabelsMap && seedLabelsMap[entryId]) || rank;
 }
 function bracketColumnsHTML(bracket, t, opts){
   opts = opts||{};
@@ -1085,8 +1212,8 @@ function bracketColumnsHTML(bracket, t, opts){
         round.map((m,mi)=>{
           const aName = bracketEntryName(t, m.aEntryId) || '';
           const bName = bracketEntryName(t, m.bEntryId) || '';
-          const aSeed = ri===0 ? bracketSeedForDisplay(t, bracket.seeds, m.aEntryId) : null;
-          const bSeed = ri===0 ? bracketSeedForDisplay(t, bracket.seeds, m.bEntryId) : null;
+          const aSeed = ri===0 ? bracketSeedForDisplay(t, bracket.seeds, bracket.seedLabels, m.aEntryId) : null;
+          const bSeed = ri===0 ? bracketSeedForDisplay(t, bracket.seeds, bracket.seedLabels, m.bEntryId) : null;
           const aWin = m.winnerId && m.winnerId===m.aEntryId;
           const bWin = m.winnerId && m.winnerId===m.bEntryId;
           const clickable = interactive && m.aEntryId && m.bEntryId && !m.bye;
@@ -1289,7 +1416,7 @@ function mkoSlot(m, side, t, ri, tokens){
     return { text:'', seed:'', legs:'', fw:400, color:tokens.ink, bg:'#fff', border:'1px solid '+tokens.line, wo:false };
   }
   const name = escapeHtml(bracketEntryName(t, id) || 'Unknown');
-  const seed = (ri===0 && m.__seeds) ? (bracketSeedForDisplay(t, m.__seeds, id) || '') : '';
+  const seed = (ri===0 && m.__seeds) ? (bracketSeedForDisplay(t, m.__seeds, m.__seedLabels, id) || '') : '';
   return {
     text: name, seed: String(seed), legs: legs!=null ? String(legs) : '',
     fw: isWin ? 800 : 400, color: tokens.ink, bg: isWin ? tokens.winBg : '#fff',
@@ -1455,7 +1582,7 @@ function mirroredChartHTML(bracket, t, opts){
   const geom = mkoGeom(n, showChampion);
   geom.fontSize = mkoFitFontSize(bracket, t, geom.fontSize, MKO_BOX_W);
 
-  bracket.rounds[0].forEach(function(m){ m.__seeds = bracket.seeds; });
+  bracket.rounds[0].forEach(function(m){ m.__seeds = bracket.seeds; m.__seedLabels = bracket.seedLabels; });
 
   const left = mkoSideHTML(bracket, t, 1, geom, tokens, showVs, null, interactive, bracketKey);
   const centre = mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interactive, bracketKey);
@@ -1527,7 +1654,7 @@ function mkoPaginate(bracket, geom, fit, minFontPx, showChampion){
 /* Renders one page from an mkoPaginate() plan, reusing the exact same
    mkoSideHTML/mkoCentreHTML box-rendering the single-page chart uses. */
 function mkoPageHTML(bracket, t, geom, tokens, showVs, showChampion, page){
-  bracket.rounds[0].forEach(function(m){ m.__seeds = bracket.seeds; });
+  bracket.rounds[0].forEach(function(m){ m.__seeds = bracket.seeds; m.__seedLabels = bracket.seedLabels; });
   var inner, w, h, label;
   if(page.type==='full'){
     inner = mkoSideHTML(bracket, t, 1, geom, tokens, showVs) +
