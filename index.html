@@ -3747,6 +3747,13 @@ function setScore(g,a,b,legsA,legsB){
   const firstIsA = a<b;
   g.scores[key] = firstIsA ? {legs1:legsA, legs2:legsB} : {legs1:legsB, legs2:legsA};
 }
+/* True once every match in the group has a real score (a no-show's
+   walkover counts, since markGroupNoShow writes one via setScore).
+   Withdrawn entries are already gone from g.entryIds, so groupMatches
+   never lists a match for them and they can't block this. */
+function groupIsComplete(g){
+  return groupMatches(g).every(([a,b])=> !!getScore(g,a,b));
+}
 /* ---------- No-show / walkover (round robin) ----------
    Design decision (Check-in tracking, Sept 2026): marking an entry as a
    no-show auto-fills a majority-legs walkover loss into every one of their
@@ -4287,11 +4294,11 @@ function stage5KnockoutSection(){
   let html = '<div class="card"><h2>Knockout stage</h2>';
   if(!t.knockout){
     const confirmedGroups = t.groups.filter(g=>g.confirmed);
-    const allStarted = confirmedGroups.length && confirmedGroups.every(g=>g.gameStarted);
+    const incompleteGroups = confirmedGroups.filter(g=>!groupIsComplete(g));
     const plateNote = t.format.losersPool ? (t.format.plateQualifiersPerGroup ? ', next '+t.format.plateQualifiersPerGroup+' per group to the Plate, anyone below that eliminated' : ', everyone else to the Plate') : '';
     html += '<p class="intro">Generates the knockout bracket from each group\'s current standings ('+t.format.qualifiersPerGroup+' entr'+(t.format.qualifiersPerGroup==1?'y':'ies')+' per group, '+(t.format.advanceMode==='seeded'?'seeded by group position':'random draw')+plateNote+').</p>'+
-      (!allStarted ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Round robin still in progress</b>Generating now uses whatever standings exist so far — usually best to wait until every group\'s games are finished.</div>' : '')+
-      '<div class="buttonrow"><button class="btn primary" onclick="generateKnockoutFromRR()">Generate knockout bracket</button></div>';
+      (!confirmedGroups.length || incompleteGroups.length ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Round robin still in progress</b>'+(incompleteGroups.length ? 'Group'+(incompleteGroups.length===1?'':'s')+' '+incompleteGroups.map(g=>g.label).join(', ')+' still '+(incompleteGroups.length===1?'has':'have')+' unscored matches. ' : '')+'Generating now uses whatever standings exist so far — usually best to wait until every group\'s games are finished.</div>' : '')+
+      '<div class="buttonrow"><button class="btn primary" onclick="confirmGenerateKnockoutFromRR()">Generate knockout bracket</button></div>';
   } else {
     const startOffset = knockoutStartOffset(t, computeRoundRobinSchedule(t));
     const totalBoards = Math.max(1, parseInt(t.eventCreation.boards)||1);
@@ -4374,6 +4381,19 @@ function generateKnockoutFromRR(){
      off when round robin *actually* finished rather than a pure estimate. */
   if(!t.rrFinishedAt) t.rrFinishedAt = Date.now();
   persist(); render();
+}
+/* The gate: if any confirmed group still has unscored matches, require an
+   explicit "generate anyway" confirmation instead of proceeding straight
+   to generateKnockoutFromRR. */
+function confirmGenerateKnockoutFromRR(){
+  const t = state;
+  const incompleteGroups = t.groups.filter(g=>g.confirmed && !groupIsComplete(g));
+  if(incompleteGroups.length){
+    const names = incompleteGroups.map(g=>g.label).join(', ');
+    openModal({title:'Round robin isn\'t finished', body:'Group'+(incompleteGroups.length===1?'':'s')+' '+names+' still '+(incompleteGroups.length===1?'has':'have')+' unscored matches. Generating now will use whatever standings exist for '+(incompleteGroups.length===1?'it':'them')+' so far. Continue anyway?', confirmLabel:'Generate anyway', confirmClass:'danger', onConfirm: generateKnockoutFromRR});
+  } else {
+    generateKnockoutFromRR();
+  }
 }
 function regenerateKnockoutFromRR(){
   const doIt = ()=> generateKnockoutFromRR();
