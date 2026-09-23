@@ -112,12 +112,12 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .entries-panel{max-width:1180px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:22px}
 .entries-panel h2{font-size:15px;margin:0 0 4px}
 .entries-panel .intro{color:var(--muted);font-size:12px;margin:0 0 14px}
-.group-block{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:grid;grid-template-columns:1fr 300px;gap:6px 18px;align-items:start}
+.group-block{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:grid;grid-template-columns:1fr minmax(160px,300px);gap:6px 18px;align-items:start}
 .group-block-head{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px}
 .group-block-head strong{font-size:13px}
 .group-block-head span{font-size:11px;color:var(--muted)}
 .group-entries-col{display:flex;flex-direction:column}
-@media(max-width:980px){.group-block{grid-template-columns:1fr}}
+@media(max-width:600px){.group-block{grid-template-columns:1fr}}
 .entry-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #f0f2f5;font-size:12px}
 .entry-row:first-of-type{border-top:none}
 .entry-row input[type=text]{height:30px;font-size:12px;flex:1}
@@ -523,13 +523,31 @@ function checkInCardHTML(){
       '<button class="btn ghost" '+(allChecked?'disabled':'')+' onclick="checkInAll()">Check in all</button>'+
       '<span class="hint" style="margin:0">'+checkedCount+' of '+total+' checked in</span>'+
     '</div>'+
-    '<div class="checkin-list">'+ active.map(e=>
-      '<label style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-top:1px solid var(--line);cursor:pointer">'+
-        '<input type="checkbox" style="width:auto;height:auto" '+(e.checkedIn?'checked':'')+' onchange="toggleCheckedIn(\''+e.id+'\',this.checked)"> '+
-        escapeHtml(e.name)+(e.org?' <span style="color:var(--muted);font-size:11px">· '+escapeHtml(e.org)+'</span>':'')+
-      '</label>'
-    ).join('') +'</div>'+
+    '<div class="field" style="margin-bottom:2px"><input type="text" id="checkinSearch" list="checkinNamesList" autocomplete="off" placeholder="Search '+unitWord+' name…" oninput="filterCheckinList()"></div>'+
+    '<datalist id="checkinNamesList">'+ active.map(e=>'<option value="'+escapeHtml(e.name)+'">').join('') +'</datalist>'+
+    '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);margin:6px 0 6px;cursor:pointer"><input type="checkbox" id="checkinHideDone" style="width:auto;height:auto" onchange="filterCheckinList()"> Only show who hasn\'t checked in yet</label>'+
+    '<div class="checkin-list" id="checkinList">'+ checkinRowsHTML(active) +'</div>'+
   '</div>';
+}
+function checkinRowsHTML(list){
+  if(!list.length) return '<div class="hint" style="padding:7px 4px">No matching name.</div>';
+  return list.map(e=>
+    '<label style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-top:1px solid var(--line);cursor:pointer">'+
+      '<input type="checkbox" style="width:auto;height:auto" '+(e.checkedIn?'checked':'')+' onchange="toggleCheckedIn(\''+e.id+'\',this.checked)"> '+
+      escapeHtml(e.name)+(e.org?' <span style="color:var(--muted);font-size:11px">· '+escapeHtml(e.org)+'</span>':'')+
+    '</label>'
+  ).join('');
+}
+/* Live-filters in place (only #checkinList's innerHTML, not a full render())
+   so the search input never gets recreated mid-keystroke — a full render()
+   would rebuild it blank and drop focus/cursor position on every character. */
+function filterCheckinList(){
+  const q = (document.getElementById('checkinSearch').value||'').trim().toLowerCase();
+  const hideDone = document.getElementById('checkinHideDone').checked;
+  let list = state.entriesList.filter(e=>!e.withdrawn);
+  if(hideDone) list = list.filter(e=>!e.checkedIn);
+  if(q) list = list.filter(e=> e.name.toLowerCase().includes(q));
+  document.getElementById('checkinList').innerHTML = checkinRowsHTML(list);
 }
 function toggleCheckedIn(id, val){ const e=state.entriesList.find(x=>x.id===id); if(e){ e.checkedIn=val; persist(); render(); } }
 function checkInAll(){ state.entriesList.forEach(e=>{ if(!e.withdrawn) e.checkedIn=true; }); persist(); render(); }
@@ -959,7 +977,7 @@ function competitionDurationSummaryHTML(t){
   return '<div class="recommend">'+
     (line('Round robin:', rrMinutes, rr.phaseEndMs) || '<div>Round robin: add entries in Chart details to estimate.</div>')+
     (line(hasPlate?'Knockout (Main):':'Knockout:', ko.minutes, ko.endMs) || '<div>Knockout: not enough entries advancing yet to estimate.</div>')+
-    (hasPlate ? (line('Knockout (Plate):', plate.minutes, plate.endMs) || '<div>Knockout (Plate): not enough entries advancing yet to estimate.</div>') : '')+
+    (hasPlate ? (line('Knockout (Plate pool):', plate.minutes, plate.endMs) || '<div>Knockout (Plate pool): not enough entries advancing yet to estimate.</div>') : '')+
   '</div>';
 }
 function nearestBracket(entries){
@@ -2618,7 +2636,7 @@ function stage1(){
     '<h2>Create your event</h2><p class="intro">For singles or team events. No login or internet connection required.</p>'+
     '<div class="field"><label>Setup mode</label><div class="options">'+
       '<div class="choice'+(!e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(false)"><strong>Basic</strong><small>Just the essentials — format, groups, scores</small></div>'+
-      '<div class="choice'+(e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(true)"><strong>Advanced</strong><small>Scheduling, knockout leg progression, Plate bracket, custom team lineups, and more</small></div>'+
+      '<div class="choice'+(e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(true)"><strong>Advanced</strong><small>Scheduling, knockout leg progression, Plate pool, custom team lineups, and more</small></div>'+
     '</div></div>'+
     '<div class="field"><label>Tournament name</label><input id="f_tname" type="text" value="'+escapeHtml(e.tournamentName)+'" placeholder="e.g. KLDA State League 2026"></div>'+
     '<div class="field"><label>Event name</label><input id="f_ename" type="text" value="'+escapeHtml(e.eventName)+'" placeholder="e.g. Open Singles"></div>'+
@@ -2690,7 +2708,7 @@ function toggleStage5RRCharts(tid){
   render();
 }
 /* RR->KO's Manage tournament page stacks the round robin charts, the main
-   knockout bracket and (if enabled) the Plate bracket vertically on one
+   knockout bracket and (if enabled) the Plate pool vertically on one
    long page — this sticky mini-nav jumps between those sections instead
    of scrolling past finished charts. Only shown once there's an RR
    section to jump from. */
@@ -2699,7 +2717,7 @@ function stage5JumpNavHTML(){
   if(!state.groups.some(g=>g.confirmed)) return '';
   const links = ['<a onclick="jumpToStage5Section(\'stage5-rr-section\')">Round robin</a>'];
   links.push('<a onclick="jumpToStage5Section(\'stage5-ko-main\')">'+(state.knockout?'Knockout — Main':'Generate knockout')+'</a>');
-  if(state.format.losersPool && state.knockoutLosers) links.push('<a onclick="jumpToStage5Section(\'stage5-ko-plate\')">Knockout — Plate</a>');
+  if(state.format.losersPool && state.knockoutLosers) links.push('<a onclick="jumpToStage5Section(\'stage5-ko-plate\')">Knockout — Plate pool</a>');
   return '<div class="stage5-jumpnav"><span>Jump to</span>'+links.join('')+'</div>';
 }
 function jumpToStage5Section(id){
@@ -2774,7 +2792,7 @@ function stage2(){
           '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a Plate pool knockout bracket for entries that don\'t advance</label></div>'+
           '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate entries per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate pool is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+(f.plateQualifiersPerGroup||'')+'"></div>'+
           '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group entries across the bracket where the numbers allow it. Leave Plate entries blank to send everyone who doesn\'t advance to the main bracket into the Plate pool (today\'s default); set a number to cap the Plate pool too, e.g. top 2 → winner bracket, next 2 → Plate pool, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'+
-          knockoutLegsFieldsHTML('plate', f.knockoutLegs.plate, 'Plate bracket: also increase legs by stage (independent of the winner bracket above)')+
+          knockoutLegsFieldsHTML('plate', f.knockoutLegs.plate, 'Plate pool: also increase legs by stage (independent of the winner bracket above)')+
         '</div>'
         : '')+
       teamSectionHTML;
@@ -2827,7 +2845,7 @@ function stage2(){
     (advanced ? tieBreakEditor() : '');
   return '<div class="card" style="max-width:1000px">'+
     '<h2>Competition format</h2><p class="intro">Choose the format, timing, branding and rules.</p>'+
-    (!advanced ? '<div class="recommend">Using <b>Basic</b> setup. <span style="text-decoration:underline;cursor:pointer" onclick="setAdvancedMode(true)">Switch to Advanced</span> for a live on-schedule indicator, knockout leg progression, the Plate bracket, custom team rubber lineups, and more.</div>' : '')+
+    (!advanced ? '<div class="recommend">Using <b>Basic</b> setup. <span style="text-decoration:underline;cursor:pointer" onclick="setAdvancedMode(true)">Switch to Advanced</span> for a live on-schedule indicator, knockout leg progression, the Plate pool, custom team rubber lineups, and more.</div>' : '')+
     collapsibleSectionHTML('format', 'Format', '', formatSectionHTML)+
     collapsibleSectionHTML('scheduling', 'Scheduling',
       '<div class="form-section-sub">Board count is used for group-to-board assignment for Round Robin, and to predict the schedule.'+(advanced?' Level of play, start time and breaks are optional and power a live on-schedule indicator in Manage Tournament — never printed.':'')+'</div>',
@@ -3408,7 +3426,7 @@ function entriesPanel(){
           g.entryIds.length+' / '+state.format.maxPerGroup+' entries · <span class="confirm-flag '+(g.confirmed?'yes':'no')+'">'+(g.confirmed?'Confirmed':'Not confirmed')+'</span> · <span class="confirm-flag '+(g.gameStarted?'yes':'no')+'">'+(g.gameStarted?'Game started':'Not started')+'</span>'+
         '</span></div>'+
         '<div class="group-block-controls" style="grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:-2px 0 8px;padding-bottom:8px;border-bottom:1px solid var(--line)">'+
-          '<span style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)">Board(s) '+ boardToggleHTML(g) +'</span>'+
+          '<span style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)">Board(s) '+ boardToggleHTML(g) +' <span style="opacity:.75">(tick more than one to split this group\'s matches across them)</span></span>'+
         '</div>'+
         groupBoardSplitHTML(g)+
         '<div class="group-entries-col">'+
@@ -3695,7 +3713,7 @@ function groupBoardMatchCounts(g){
 function groupBoardSplitHTML(g){
   if(g.boards.length<2) return '';
   const counts = groupBoardMatchCounts(g);
-  return '<div class="hint" style="margin:4px 0 0">'+g.boards.map(b=>'Board '+b+': '+counts[b]+' match'+(counts[b]===1?'':'es')).join(' · ')+'</div>';
+  return '<div class="hint" style="grid-column:1/-1;margin:4px 0 0">'+g.boards.map(b=>'Board '+b+': '+counts[b]+' match'+(counts[b]===1?'':'es')).join(' · ')+'</div>';
 }
 function toggleGameStarted(id){
   const g=state.groups.find(x=>x.id===id);
@@ -4095,9 +4113,9 @@ function formatDescriptionLines(t){
     if(f.losersPool){
       const p = f.knockoutLegs.plate;
       if(p.variable){
-        lines.push('Plate bracket legs increase by round: early rounds best of '+p.early+', quarterfinal best of '+p.quarterfinal+', semifinal best of '+p.semifinal+', final best of '+p.final+'.');
+        lines.push('Plate pool legs increase by round: early rounds best of '+p.early+', quarterfinal best of '+p.quarterfinal+', semifinal best of '+p.semifinal+', final best of '+p.final+'.');
       } else {
-        lines.push('Plate bracket matches are best of '+(p.flatLegs!=null?p.flatLegs:bestOf)+' legs.');
+        lines.push('Plate pool matches are best of '+(p.flatLegs!=null?p.flatLegs:bestOf)+' legs.');
       }
     }
   }
@@ -4363,7 +4381,7 @@ function stage5KnockoutSection(){
   if(!t.knockout){
     const confirmedGroups = t.groups.filter(g=>g.confirmed);
     const incompleteGroups = confirmedGroups.filter(g=>!groupIsComplete(g));
-    const plateNote = t.format.losersPool ? (t.format.plateQualifiersPerGroup ? ', next '+t.format.plateQualifiersPerGroup+' per group to the Plate, anyone below that eliminated' : ', everyone else to the Plate') : '';
+    const plateNote = t.format.losersPool ? (t.format.plateQualifiersPerGroup ? ', next '+t.format.plateQualifiersPerGroup+' per group to the Plate pool, anyone below that eliminated' : ', everyone else to the Plate pool') : '';
     html += '<p class="intro">Generates the knockout bracket from each group\'s current standings ('+t.format.qualifiersPerGroup+' entr'+(t.format.qualifiersPerGroup==1?'y':'ies')+' per group, '+(t.format.advanceMode==='seeded'?'seeded by group position':'random draw')+plateNote+').</p>'+
       (!confirmedGroups.length || incompleteGroups.length ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Round robin still in progress</b>'+(incompleteGroups.length ? 'Group'+(incompleteGroups.length===1?'':'s')+' '+incompleteGroups.map(g=>g.label).join(', ')+' still '+(incompleteGroups.length===1?'has':'have')+' unscored matches. ' : '')+'Generating now uses whatever standings exist so far — usually best to wait until every group\'s games are finished.</div>' : '')+
       '<div class="buttonrow"><button class="btn primary" onclick="confirmGenerateKnockoutFromRR()">Generate knockout bracket</button></div>';
@@ -4373,7 +4391,7 @@ function stage5KnockoutSection(){
     const split = splitExclusiveBoards(totalBoards, t.knockout.size, t.knockoutLosers ? t.knockoutLosers.size : 0);
     html += '<p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
       '<div class="buttonrow" style="margin-bottom:10px"><button class="btn ghost" onclick="regenerateKnockoutFromRR()">Regenerate from current standings</button></div>'+
-      (t.knockoutLosers ? '<div class="hint" style="margin:-4px 0 10px">Main and Plate run on their own exclusive boards — '+split.main+' for Main, '+split.plate+' for Plate.</div>' : '')+
+      (t.knockoutLosers ? '<div class="hint" style="margin:-4px 0 10px">Main and Plate pool run on their own exclusive boards — '+split.main+' for Main, '+split.plate+' for Plate pool.</div>' : '')+
       knockoutScheduleSummaryHTML(t, t.knockout, 'knockout', startOffset, split.main)+
       '<div class="mko-artboard-scroll">'+mirroredChartHTML(t.knockout, t, {interactive:true, bracketKey:'knockout'})+'</div>';
   }
@@ -4382,7 +4400,7 @@ function stage5KnockoutSection(){
     const startOffset = knockoutStartOffset(t, computeRoundRobinSchedule(t));
     const totalBoards = Math.max(1, parseInt(t.eventCreation.boards)||1);
     const split = splitExclusiveBoards(totalBoards, t.knockout ? t.knockout.size : 0, t.knockoutLosers.size);
-    html += '<div class="card" id="stage5-ko-plate"><h3 style="margin:0 0 10px">Losers\' pool (Plate)</h3>'+
+    html += '<div class="card" id="stage5-ko-plate"><h3 style="margin:0 0 10px">Plate pool</h3>'+
       knockoutScheduleSummaryHTML(t, t.knockoutLosers, 'knockoutLosers', startOffset, split.plate)+
       '<div class="mko-artboard-scroll">'+mirroredChartHTML(t.knockoutLosers, t, {interactive:true, bracketKey:'knockoutLosers'})+'</div></div>';
   }
@@ -4684,7 +4702,7 @@ function stage7(){
       '<button class="btn secondary" onclick="goStage(6)">Back to standings</button>'+
       '<button class="btn '+(confirmed.length?'primary':'secondary')+'" '+(confirmed.length?'':'disabled')+' onclick="doFinalPrint()">Print final chart — Save high-res A4 PDF</button>'+
     '</div>'+
-    (state.format.formatType==='rrknockout' && state.knockout ? '<div class="hint">The knockout bracket (and losers\' pool, if enabled) prints as extra pages after the group charts.</div>' : '')+
+    (state.format.formatType==='rrknockout' && state.knockout ? '<div class="hint">The knockout bracket (and Plate pool, if enabled) prints as extra pages after the group charts.</div>' : '')+
   '</div>';
 }
 function stage7Knockout(){
