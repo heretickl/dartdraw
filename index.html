@@ -58,6 +58,11 @@ button{font-family:inherit}
 .form-section-toggle{font-size:24px;line-height:1;color:var(--navy);font-weight:800;flex-shrink:0;transition:transform .15s;transform:rotate(180deg)}
 .form-section-toggle.collapsed{transform:rotate(0deg)}
 .form-section-body{margin-top:14px}
+.stage5-jumpnav{position:sticky;top:0;z-index:5;display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:22px;box-shadow:0 4px 15px #26394a12;max-width:820px}
+.stage5-jumpnav span{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-right:4px}
+.stage5-jumpnav a{font-size:12px;font-weight:700;color:var(--navy);text-decoration:none;padding:6px 11px;border-radius:8px;background:#f3f5f7;cursor:pointer}
+.stage5-jumpnav a:hover{background:#e7ecf1}
+.stage5-jumpnav a.disabled{color:var(--muted);cursor:default;background:transparent}
 .field{margin:0 0 13px}
 .field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
 .hint{font-size:11px;color:var(--muted);margin-top:4px}
@@ -210,10 +215,8 @@ body.mko-popout #stageArea{height:100vh;display:flex;flex-direction:column}
 .mko-popout-sponsors{max-width:none;margin-left:auto}
 .mko-popout-title{font-size:16px;font-weight:800;margin:0}
 .mko-popout-sub{font-size:12px;color:var(--muted);margin:2px 0 0}
-.mko-popout-tabs{display:flex;gap:6px;margin-left:auto}
-.mko-popout-tabs button{padding:6px 12px;font-size:12px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer}
-.mko-popout-tabs button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .mko-popout-fit{position:relative;flex:1 1 auto;overflow:hidden}
+.mko-popout-scroll{flex:1 1 auto;overflow:auto;padding:20px}
 .mko-popout-empty{padding:40px;color:var(--muted);font-size:14px}
 .bracket-side{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 9px;border-top:1px solid var(--line)}
 .bracket-side:first-child{border-top:none}
@@ -374,6 +377,7 @@ function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9)+Da
 let state = null;
 let currentStage = 1;
 let popoutMode = false;
+let popoutSection = 'knockout';
 
 function blankTournament(){
   return {
@@ -2238,16 +2242,28 @@ function goStage(n){
    each independently fetches/saves like any other tab of this app —
    so this is really just "open this tournament, straight to Manage
    Tournament, without disturbing this window's own place in the app". */
-function openInNewWindow(){
+/* section: 'rr' | 'knockout' | 'knockoutLosers' — which part of the
+   tournament that new window is dedicated to managing. Each opens as its
+   own independent window (not a tab within one), so round robin, the
+   winners bracket and the Plate pool can each be run from a different
+   screen at the same time. */
+function openInNewWindow(section){
   if(!state || !state.id){
     openModal({title:'Save first', body:'Save this tournament (Event Creation → Save) before opening it in a new window.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
     return;
   }
-  const url = location.origin + location.pathname + '?t=' + encodeURIComponent(state.id) + '&stage=5&popout=1';
+  const url = location.origin + location.pathname + '?t=' + encodeURIComponent(state.id) + '&stage=5&popout=1&section=' + section;
   window.open(url, '_blank');
 }
 function openInNewWindowButtonHTML(){
-  return '<button class="btn ghost" style="flex-shrink:0" onclick="openInNewWindow()">Open in new window ↗</button>';
+  if(state.format.formatType==='rrknockout'){
+    const btns = ['<button class="btn ghost" style="flex-shrink:0" onclick="openInNewWindow(\'rr\')">Round robin ↗</button>',
+      '<button class="btn ghost" style="flex-shrink:0" onclick="openInNewWindow(\'knockout\')">Winners bracket ↗</button>'];
+    if(state.format.losersPool && state.knockoutLosers) btns.push('<button class="btn ghost" style="flex-shrink:0" onclick="openInNewWindow(\'knockoutLosers\')">Plate pool ↗</button>');
+    return '<span style="display:flex;gap:8px;flex-wrap:wrap">'+btns.join('')+'</span>';
+  }
+  const section = state.format.formatType==='knockout' ? 'knockout' : 'rr';
+  return '<button class="btn ghost" style="flex-shrink:0" onclick="openInNewWindow(\''+section+'\')">Open in new window ↗</button>';
 }
 function newTournament(){
   state = blankTournament();
@@ -2510,9 +2526,10 @@ function render(){
 }
 
 /* ---------- Popout Manage Tournament window (see openInNewWindow()) ----------
-   Strips the sidebar/nav chrome entirely and shows just the bracket,
-   scaled with fitPopoutChart() to fill whatever space the window gives it. */
-let popoutBracketKey = 'knockout';
+   Strips the sidebar/nav chrome entirely. Each window is dedicated to one
+   section — round robin, the winners bracket, or the Plate pool — per the
+   ?section= it was opened with, so all three can be run concurrently from
+   separate windows/screens instead of switching tabs inside one. */
 function renderPopoutManage(){
   document.body.classList.add('mko-popout');
   const area = document.getElementById('stageArea');
@@ -2520,18 +2537,14 @@ function renderPopoutManage(){
     area.innerHTML = '<div class="mko-popout-empty">No tournament open.</div>';
     return;
   }
-  const bracket = popoutBracketKey==='knockoutLosers' ? state.knockoutLosers : state.knockout;
+  if(popoutSection==='rr'){ renderPopoutRR(area); return; }
+  const bracket = popoutSection==='knockoutLosers' ? state.knockoutLosers : state.knockout;
   if(!bracket){
     area.innerHTML = '<div class="mko-popout-empty">No bracket yet — generate one in Confirm &amp; Print Bracket, then reopen this window.</div>';
     return;
   }
   const champ = bracketChampion(bracket);
   const status = champ ? 'Champion: '+escapeHtml(bracketEntryName(state,champ)||'') : 'In progress';
-  const tabs = state.knockoutLosers ?
-    '<div class="mko-popout-tabs">'+
-      '<button class="'+(popoutBracketKey==='knockout'?'active':'')+'" onclick="setPopoutBracket(\'knockout\')">Main bracket</button>'+
-      '<button class="'+(popoutBracketKey==='knockoutLosers'?'active':'')+'" onclick="setPopoutBracket(\'knockoutLosers\')">Plate pool</button>'+
-    '</div>' : '';
   const sponsorLogos = state.format.sponsors.length ?
     '<div class="sponsors mko-popout-sponsors">'+state.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '';
   area.innerHTML =
@@ -2540,13 +2553,49 @@ function renderPopoutManage(){
       '<div><div class="mko-popout-title">'+escapeHtml(state.eventCreation.tournamentName)+'</div>'+
       '<div class="mko-popout-sub">'+escapeHtml(state.eventCreation.eventName)+' · '+escapeHtml(bracket.label||'Bracket')+' · '+status+'</div></div>'+
       sponsorLogos+
-      tabs+
       '<button class="btn ghost" onclick="window.print()">Print</button>'+
     '</div>'+
-    '<div class="mko-popout-fit" id="popoutFit">'+mirroredChartHTML(bracket, state, {interactive:true, bracketKey:popoutBracketKey})+'</div>';
+    '<div class="mko-popout-fit" id="popoutFit">'+mirroredChartHTML(bracket, state, {interactive:true, bracketKey:popoutSection})+'</div>';
   requestAnimationFrame(fitPopoutChart);
 }
-function setPopoutBracket(key){ popoutBracketKey = key; render(); }
+/* Round robin's popout: potentially several full-size charts, so it scrolls
+   (like Manage Tournament) rather than the single-bracket fit-to-window
+   treatment fitPopoutChart() does for the knockout sections. */
+function renderPopoutRR(area){
+  const confirmed = state.groups.filter(g=>g.confirmed);
+  if(!confirmed.length){
+    area.innerHTML = '<div class="mko-popout-empty">No confirmed charts yet — confirm at least one group in Confirm &amp; Print Bracket, then reopen this window.</div>';
+    return;
+  }
+  const rrSchedule = computeRoundRobinSchedule(state);
+  const sponsorLogos = state.format.sponsors.length ?
+    '<div class="sponsors mko-popout-sponsors">'+state.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+s.src+'"></div>').join('')+'</div>' : '';
+  area.innerHTML =
+    '<div class="mko-popout-header">'+
+      (state.format.logo ? mainLogoBoxHTML() : '')+
+      '<div><div class="mko-popout-title">'+escapeHtml(state.eventCreation.tournamentName)+'</div>'+
+      '<div class="mko-popout-sub">'+escapeHtml(state.eventCreation.eventName)+' · Round robin · '+confirmed.length+' chart'+(confirmed.length===1?'':'s')+'</div></div>'+
+      sponsorLogos+
+      '<button class="btn ghost" onclick="window.print()">Print</button>'+
+    '</div>'+
+    '<div class="mko-popout-scroll">'+
+      confirmed.map(g=>{
+        const sched = rrSchedule.schedule[g.id];
+        const statusLabel = sched ? scheduleStatusLabel(sched.startMs, sched.endMs) : '';
+        return '<div class="manage-chart-card">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">'+
+            '<strong>Group '+g.label+' · '+groupBoardLabel(g)+'</strong>'+
+            '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+              (statusLabel?'<span class="save-status" style="margin:0;color:var(--muted)">'+statusLabel+'</span>':'')+
+              '<span class="confirm-flag '+(g.gameStarted?'yes':'no')+'">'+(g.gameStarted?'Game started':'Not started')+'</span>'+
+            '</span>'+
+          '</div>'+
+          '<div class="manage-chart-wrap"><div class="manage-chart-inner" id="manageChart_'+g.id+'" style="width:1000px">'+ chartSheetHTML(g, false) +'</div></div>'+
+        '</div>';
+      }).join('')+
+    '</div>';
+  requestAnimationFrame(scaleManageCharts);
+}
 function fitPopoutChart(){
   const wrap = document.getElementById('popoutFit');
   const art = wrap && wrap.querySelector('.mko-artboard');
@@ -2643,6 +2692,39 @@ let formSectionCollapsed = {};
 function toggleFormSection(key){
   formSectionCollapsed[key] = !formSectionCollapsed[key];
   render();
+}
+/* Same "view preference, not data" reasoning, keyed by tournament id: once
+   a knockout bracket exists the round robin charts default to collapsed
+   in Manage Tournament (see stage5()), but a click overrides that default
+   until the next reload. */
+let stage5RRChartsCollapsed = {};
+function toggleStage5RRCharts(tid){
+  const current = stage5RRChartsCollapsed[tid];
+  stage5RRChartsCollapsed[tid] = current===undefined ? false : !current;
+  render();
+}
+/* RR->KO's Manage tournament page stacks the round robin charts, the main
+   knockout bracket and (if enabled) the Plate bracket vertically on one
+   long page — this sticky mini-nav jumps between those sections instead
+   of scrolling past finished charts. Only shown once there's an RR
+   section to jump from. */
+function stage5JumpNavHTML(){
+  if(state.format.formatType!=='rrknockout') return '';
+  if(!state.groups.some(g=>g.confirmed)) return '';
+  const links = ['<a onclick="jumpToStage5Section(\'stage5-rr-section\')">Round robin</a>'];
+  links.push('<a onclick="jumpToStage5Section(\'stage5-ko-main\')">'+(state.knockout?'Knockout — Main':'Generate knockout')+'</a>');
+  if(state.format.losersPool && state.knockoutLosers) links.push('<a onclick="jumpToStage5Section(\'stage5-ko-plate\')">Knockout — Plate</a>');
+  return '<div class="stage5-jumpnav"><span>Jump to</span>'+links.join('')+'</div>';
+}
+function jumpToStage5Section(id){
+  if(id==='stage5-rr-section' && stage5RRChartsCollapsed[state.id]!==false && state.knockout){
+    stage5RRChartsCollapsed[state.id] = false;
+    render();
+  }
+  requestAnimationFrame(()=>{
+    const el = document.getElementById(id);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  });
 }
 function collapsibleSectionHTML(key, title, subHTML, bodyHTML){
   const collapsed = !!formSectionCollapsed[key];
@@ -4291,7 +4373,7 @@ function regenerateKnockoutBracket(){
 /* ---------- Round robin -> Knockout: generating the bracket from group standings ---------- */
 function stage5KnockoutSection(){
   const t = state;
-  let html = '<div class="card"><h2>Knockout stage</h2>';
+  let html = '<div class="card" id="stage5-ko-main"><h2>Knockout stage</h2>';
   if(!t.knockout){
     const confirmedGroups = t.groups.filter(g=>g.confirmed);
     const incompleteGroups = confirmedGroups.filter(g=>!groupIsComplete(g));
@@ -4314,7 +4396,7 @@ function stage5KnockoutSection(){
     const startOffset = knockoutStartOffset(t, computeRoundRobinSchedule(t));
     const totalBoards = Math.max(1, parseInt(t.eventCreation.boards)||1);
     const split = splitExclusiveBoards(totalBoards, t.knockout ? t.knockout.size : 0, t.knockoutLosers.size);
-    html += '<div class="card"><h3 style="margin:0 0 10px">Losers\' pool (Plate)</h3>'+
+    html += '<div class="card" id="stage5-ko-plate"><h3 style="margin:0 0 10px">Losers\' pool (Plate)</h3>'+
       knockoutScheduleSummaryHTML(t, t.knockoutLosers, 'knockoutLosers', startOffset, split.plate)+
       '<div class="mko-artboard-scroll">'+mirroredChartHTML(t.knockoutLosers, t, {interactive:true, bracketKey:'knockoutLosers'})+'</div></div>';
   }
@@ -4466,10 +4548,12 @@ function stage5(){
       '<button class="btn '+(confirmed.length && startedCount<confirmed.length?'primary':'secondary')+'" '+(confirmed.length?'':'disabled')+' onclick="startAllGames()">Start all games</button>'+
     '</div>'+
   '</div>';
+  html += stage5JumpNavHTML();
+  html += '<div id="stage5-rr-section">';
   if(!confirmed.length){
     html += '<div class="card"><p class="intro" style="margin:0">Confirm at least one group chart in Confirm & Print Bracket before you can manage scores here.</p></div>';
   } else {
-    html += confirmed.map(g=>{
+    const rrChartsHTML = confirmed.map(g=>{
       const sched = rrSchedule.schedule[g.id];
       const statusLabel = sched ? scheduleStatusLabel(sched.startMs, sched.endMs) : '';
       return '<div class="manage-chart-card">'+
@@ -4486,7 +4570,29 @@ function stage5(){
         '<div class="manage-chart-wrap"><div class="manage-chart-inner" id="manageChart_'+g.id+'" style="width:1000px">'+ chartSheetHTML(g, false) +'</div></div>'+
       '</div>';
     }).join('');
+    /* Once the knockout bracket is generated, the round robin charts are
+       done being actively worked on — collapse them by default so the
+       page opens on the knockout bracket below, not a long scroll of
+       finished RR charts. Still just a click away, and the organiser's
+       own toggle (via toggleStage5RRCharts) overrides the auto-default
+       until the next reload — same "view preference, not data" pattern
+       as collapsibleSectionHTML. */
+    if(state.format.formatType==='rrknockout' && state.knockout){
+      const explicit = stage5RRChartsCollapsed[state.id];
+      const collapsed = explicit===undefined ? true : explicit;
+      html += '<div class="card">'+
+        '<div class="form-section-header" onclick="toggleStage5RRCharts(\''+state.id+'\')">'+
+          '<div class="form-section-title">Round robin charts ('+confirmed.length+')</div>'+
+          '<span class="form-section-toggle'+(collapsed?' collapsed':'')+'">▾</span>'+
+        '</div>'+
+        (collapsed ? '<p class="intro" style="margin:8px 0 0">Knockout bracket generated from these standings — click to review or adjust a score.</p>' : '')+
+      '</div>'+
+      (collapsed ? '' : rrChartsHTML);
+    } else {
+      html += rrChartsHTML;
+    }
   }
+  html += '</div>';
   if(state.format.formatType==='rrknockout') html += stage5KnockoutSection();
   html += incidentLogCardHTML();
   return html;
@@ -4809,6 +4915,7 @@ window.onload = async function(){
   const params = new URLSearchParams(location.search);
   const wantId = params.get('t');
   popoutMode = params.get('popout')==='1';
+  popoutSection = params.get('section') || 'knockout';
   if(wantId && tournamentsCache[wantId]){
     await openTournament(wantId);
     const wantStage = parseInt(params.get('stage'));
