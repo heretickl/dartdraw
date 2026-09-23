@@ -179,7 +179,7 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .sponsor img{width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;display:block}
 .print-controls{margin-top:4px;display:flex;justify-content:flex-end;gap:8px;max-width:1000px}
 .pill{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;background:#e5eefc;color:#1956ad;margin-left:8px}
-.modal-backdrop{position:fixed;inset:0;background:#0e1e3499;display:none;align-items:center;justify-content:center;z-index:50}
+.modal-backdrop{position:fixed;inset:0;background:#0e1e3499;display:none;align-items:center;justify-content:center;z-index:50;padding:20px;box-sizing:border-box}
 .modal-backdrop.show{display:flex}
 .preview-modal-backdrop{position:fixed;inset:0;background:#0e1e3499;display:none;align-items:center;justify-content:center;z-index:45;padding:20px;box-sizing:border-box}
 .preview-modal-backdrop.show{display:flex}
@@ -226,7 +226,7 @@ body.mko-popout #stageArea{height:100vh;display:flex;flex-direction:column}
 .bracket-bye-tag{font-size:9px;color:var(--muted);text-align:center;padding:2px 0;border-top:1px solid var(--line)}
 .bracket-wo-action{font-size:9px;color:var(--blue);text-align:center;padding:3px 0;cursor:pointer;text-decoration:underline}
 .wo-tag{font-size:9px;font-weight:800;color:var(--muted);vertical-align:middle}
-.modal{background:#fff;border-radius:14px;padding:24px;max-width:420px;width:92%;box-shadow:0 20px 50px #0003}
+.modal{background:#fff;border-radius:14px;padding:24px;max-width:420px;width:92%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 50px #0003;box-sizing:border-box}
 .modal.wide{max-width:480px}
 .picker-list{max-height:340px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin:-4px 0 4px}
 .picker-group-hdr{background:#f2f5f8;color:#526171;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:7px 12px}
