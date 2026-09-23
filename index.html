@@ -2469,7 +2469,7 @@ function renderSavedList(){
   if(state){
     wsCard.style.display='block';
     document.getElementById('cwName').textContent = state.eventCreation.tournamentName || 'Untitled tournament';
-    document.getElementById('cwSub').textContent = (state.eventCreation.competitionUnit||'') + ' · ' + ({knockout:'Knockout', rrknockout:'Round Robin → Knockout'}[state.format.formatType]||'Round Robin');
+    document.getElementById('cwSub').textContent = (state.eventCreation.competitionUnit||'') + ' · ' + ({knockout:'Knockout', rrknockout:'Round Robin → Knockout'}[state.format.formatType]||'Round Robin') + (state.eventCreation.advancedMode ? ' · Advanced' : '');
   } else { wsCard.style.display='none'; }
   ['navstep1','navstep2','navstep3','navstep4','navstep5','navstep6','navstep7'].forEach((id,i)=>{
     const el = document.getElementById(id);
@@ -2628,31 +2628,14 @@ function stage1(){
     '</div>'+
     '<div class="grid2">'+
       '<div class="field"><label>Tournament date</label><input id="f_date" type="date" value="'+escapeHtml(e.date)+'"></div>'+
-      '<div class="field"><label id="f_entries_label">Number of entries</label><input id="f_entries" type="number" min="2" value="'+e.entries+'" oninput="updateStage1Preview()"></div>'+
+      '<div class="field"><label id="f_entries_label">Number of entries</label><input id="f_entries" type="number" min="2" value="'+e.entries+'"></div>'+
     '</div>'+
-    '<div class="recommend" id="stage1Preview">'+stage1PreviewHTML(e.entries, e.boards)+'</div>'+
     '<div class="hint">Number of boards is set in Scheduling (Format &amp; branding, next step).</div>'+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="newTournament()">Discard / New tournament</button>'+
       '<button class="btn primary" onclick="saveStage1()">Save event creation →</button>'+
     '</div>'+
   '</div>';
-}
-/* Purely informational — reuses recommendGroups() unchanged (boards don't
-   change the grouping algorithm, only how many groups can run at once). */
-function stage1PreviewHTML(entries, boards){
-  entries = Math.max(2, parseInt(entries)||2);
-  boards = Math.max(1, parseInt(boards)||1);
-  const rec = recommendGroups(entries);
-  const groupsLabel = rec.bigCount ? '('+rec.smallCount+' of '+rec.smallSize+' entries, '+rec.bigCount+' of '+rec.size+' entries)' : '('+rec.size+' entries each)';
-  const totalMatches = rec.smallCount*matchesPerGroup(rec.smallSize) + rec.bigCount*matchesPerGroup(rec.size);
-  const running = Math.min(boards, rec.groups);
-  const waves = Math.ceil(rec.groups/boards);
-  return '<b>If you choose round robin:</b> ≈'+rec.groups+' group'+(rec.groups===1?'':'s')+' '+groupsLabel+' — '+totalMatches+' matches total. With '+boards+' board'+(boards===1?'':'s')+' available, '+running+' group'+(running===1?'':'s')+' can run at once'+(waves>1?' ('+waves+' groups back-to-back per board)':'')+'. The exact split is chosen in Format &amp; Branding.';
-}
-function updateStage1Preview(){
-  const entries = document.getElementById('f_entries').value;
-  document.getElementById('stage1Preview').innerHTML = stage1PreviewHTML(entries, state.eventCreation.boards);
 }
 function saveStage1(){
   const e = state.eventCreation;
@@ -2683,12 +2666,15 @@ function eventSummaryCard(){
 
 /* ---------- Collapsible form sections (Format & Branding) ----------
    Purely a view preference, not tournament data — deliberately NOT
-   persisted (no `state`/localStorage write), so it just resets to
-   everything expanded next time the tournament is opened rather than
-   leaking into saved data or needing its own migration. Expanded by
-   default: collapsing only ever happens on the organiser's own click,
-   so nothing is hidden the first time this page is seen. */
-let formSectionCollapsed = {};
+   persisted (no `state`/localStorage write), so it just resets to this
+   same default next time the tournament is opened rather than leaking
+   into saved data or needing its own migration. Format/Branding/Rules
+   start collapsed so the page opens as a short list of section headers
+   instead of one long scroll — a click expands whichever one you need.
+   Scheduling is left out of this seed (stays expanded by default) since
+   its "expanded" content is already just a compact one-line summary —
+   collapsing it would hide even that without saving any real space. */
+let formSectionCollapsed = { format:true, branding:true, rules:true };
 function toggleFormSection(key){
   formSectionCollapsed[key] = !formSectionCollapsed[key];
   render();
