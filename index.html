@@ -2102,6 +2102,32 @@ function buildGroups(t){
   applyAutoNames(t);
   reconcileConfirmations(t);
 }
+/* Re-deals every active entry into a fresh random group. Unassigns
+   everyone first, then reorders entriesList (active entries shuffled,
+   withdrawn ones kept out of the way at the end) and re-runs buildGroups —
+   which already knows how to seat a batch of newly-unassigned entries
+   (respecting orgSplit if that's also on), auto-renames any auto-named
+   entries to match their new Group/position, and auto-un-confirms any
+   group whose membership changed (reconcileConfirmations), so nothing
+   extra needs to happen here for those. */
+function shuffleGroups(){
+  const t = state;
+  const active = shuffleArray(t.entriesList.filter(e=>!e.withdrawn));
+  const withdrawn = t.entriesList.filter(e=>e.withdrawn);
+  t.entriesList = active.concat(withdrawn);
+  t.groups.forEach(g=> g.entryIds = []);
+  buildGroups(t);
+  persist();
+  render();
+}
+function confirmShuffleGroups(){
+  openModal({
+    title:'Shuffle groups?',
+    body:'Randomly re-deals every entry into a new group'+(state.format.orgSplit?' (still avoiding same-organisation clashes where possible)':'')+'. This discards any manual swaps you\'ve made, and un-confirms any chart whose entries change.',
+    confirmLabel:'Shuffle', confirmClass:'danger',
+    onConfirm: shuffleGroups
+  });
+}
 /* Best-effort cleanup pass: fixes same-org clashes that already exist inside a
    group (e.g. because the organiser typed in organisation names AFTER groups
    were first built, so the org-aware placement in buildGroups above never
@@ -3417,9 +3443,29 @@ function shuffleSeedOrder(){
   persist(); render();
 }
 let bulkSelected = new Set();
+/* View preference only (like formSectionCollapsed etc.) — not persisted,
+   not tournament data. 'grouped' is the existing per-group card layout;
+   'list' is a flat, searchable, all-entries-at-once view for reviewing
+   or editing the whole roster at a glance, especially useful once there
+   are more groups than comfortably fit on screen at once. */
+let stage3ViewMode = 'grouped';
+function setStage3ViewMode(mode){ stage3ViewMode = mode; render(); }
 function entriesPanel(){
+  const viewToggle = '<div class="buttonrow" style="margin:0 0 14px">'+
+      '<button class="btn ghost" onclick="confirmShuffleGroups()">Shuffle groups</button>'+
+      '<span class="hint" style="margin:0">Randomly re-deals who\'s in which group'+(state.format.orgSplit?' (avoiding same-organisation clashes where possible — see Format &amp; branding)':'')+'.</span>'+
+    '</div>'+
+    '<div class="board-toggle" style="margin-bottom:14px">'+
+      '<button type="button" class="'+(stage3ViewMode==='grouped'?'active':'')+'" onclick="setStage3ViewMode(\'grouped\')">Grouped view</button>'+
+      '<button type="button" class="'+(stage3ViewMode==='list'?'active':'')+'" onclick="setStage3ViewMode(\'list\')">Flat list</button>'+
+    '</div>';
   return '<div class="entries-panel"><h2>Draw & groups</h2><p class="intro">Edit entry names, withdraw, or swap entries between groups/positions, and set each group\'s board(s). Groups sharing a board queue one after another; tick more than one board for a group to split its matches across them instead. Confirming charts and printing the bracket happens in the next step.</p>'+
-    state.groups.map(g=>{
+    viewToggle+
+    (stage3ViewMode==='list' ? flatEntriesListHTML() : groupedEntriesHTML())+
+  '</div>';
+}
+function groupedEntriesHTML(){
+  return state.groups.map(g=>{
       return '<div class="group-block"><div class="group-block-head">'+
         '<strong>Group '+g.label+'</strong>'+
         '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
@@ -3441,8 +3487,45 @@ function entriesPanel(){
         '</div>'+
         livePreviewBlock(g)+
       '</div>';
-    }).join('')+
-  '</div>';
+    }).join('');
+}
+/* Flat, searchable, all-entries-at-once alternative to the grouped cards
+   above — same underlying editing actions (rename/org via entryFieldsHTML,
+   swap, withdraw), just laid out as one continuous list with each row's
+   current group shown as a badge, for scanning/editing a large roster
+   without the per-group live-preview thumbnails taking up space. */
+function flatEntriesListHTML(){
+  return '<div class="field" style="margin-bottom:10px"><input type="text" id="flatEntriesSearch" autocomplete="off" placeholder="Search name or organisation…" oninput="filterFlatEntriesList()"></div>'+
+    '<div id="flatEntriesList">'+ flatEntriesRowsHTML(flatEntriesData()) +'</div>';
+}
+function flatEntriesData(){
+  const rows = [];
+  state.groups.forEach(g=>{
+    g.entryIds.forEach(eid=>{
+      const ent = state.entriesList.find(e=>e.id===eid);
+      if(ent) rows.push({ent, group:g});
+    });
+  });
+  return rows;
+}
+function flatEntriesRowsHTML(rows){
+  if(!rows.length) return '<div class="hint" style="padding:7px 4px">No matching name or organisation.</div>';
+  return rows.map(({ent,group})=>
+    '<div class="entry-row">'+
+      '<span class="confirm-flag yes" style="flex-shrink:0;min-width:64px;text-align:center">Group '+group.label+'</span>'+
+      entryFieldsHTML(ent)+
+      '<button class="btn ghost" style="padding:6px 9px;font-size:10px" onclick="openSwapPicker(\''+ent.id+'\')">Swap with…</button>'+
+      '<button class="btn danger" style="padding:6px 9px;font-size:10px" onclick="withdrawEntry(\''+ent.id+'\')">Withdraw</button>'+
+    '</div>'
+  ).join('');
+}
+/* Live-filters in place (only #flatEntriesList's innerHTML), same reasoning
+   as filterCheckinList — a full render() would rebuild the search input
+   blank and drop focus/cursor position on every keystroke. */
+function filterFlatEntriesList(){
+  const q = (document.getElementById('flatEntriesSearch').value||'').trim().toLowerCase();
+  const rows = flatEntriesData().filter(({ent})=> !q || ent.name.toLowerCase().includes(q) || (ent.org||'').toLowerCase().includes(q));
+  document.getElementById('flatEntriesList').innerHTML = flatEntriesRowsHTML(rows);
 }
 function livePreviewBlock(g){
   const w = 1000, h = Math.round(w/1.414), targetW = 300, scale = targetW/w;
@@ -4673,7 +4756,7 @@ function stage6Knockout(){
 function stage6KnockoutSection(){
   const t = state;
   let html = '';
-  if(t.knockout) html += knockoutPlacementsCard(t.knockout, 'Knockout stage — main bracket');
+  if(t.knockout) html += knockoutPlacementsCard(t.knockout, 'Main bracket');
   if(t.knockoutLosers) html += knockoutPlacementsCard(t.knockoutLosers, "Plate pool");
   return html;
 }
