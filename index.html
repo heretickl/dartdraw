@@ -3573,6 +3573,45 @@ function matchBoardFor(g, matchIndex){
   const posInRound = matchIndex % perRound;
   return g.boards[posInRound % g.boards.length];
 }
+/* Suggests a marker (chalker) for every match — drawn from the group's
+   other entries, never the two actually playing. On a single board that's
+   the whole rule, since matches queue one at a time and everyone else is
+   genuinely free; on a multi-board group, also excludes whoever's playing
+   (or already marking) another match in the SAME round, since those run
+   concurrently and can't share a person. Whoever's marked the fewest
+   times so far wins ties, so duty rotates fairly across the group over
+   the course of the schedule. Purely derived from entryIds/boards/scores
+   structure — nothing persisted, recomputed the same way every render,
+   same pattern as matchBoardFor. Returns null for a match where nobody
+   is eligible (only possible with exactly 2 entries in the group). */
+function assignMarkers(g){
+  const matches = groupMatches(g);
+  const n = g.entryIds.length;
+  const result = new Array(matches.length).fill(null);
+  if(n<3) return result;
+  const perRound = matchesPerRoundFor(g);
+  const multiBoard = g.boards.length>1;
+  const markCount = {}; g.entryIds.forEach(id=>{ markCount[id]=0; });
+  for(let start=0; start<matches.length; start+=perRound){
+    const end = Math.min(start+perRound, matches.length);
+    const roundBusy = new Set();
+    if(multiBoard){
+      for(let j=start;j<end;j++){ roundBusy.add(matches[j][0]); roundBusy.add(matches[j][1]); }
+    }
+    for(let i=start;i<end;i++){
+      const m = matches[i];
+      const busy = multiBoard ? roundBusy : new Set(m);
+      const eligible = g.entryIds.filter(id=> !busy.has(id));
+      if(!eligible.length) continue;
+      eligible.sort((a,b)=> (markCount[a]-markCount[b]) || (g.entryIds.indexOf(a)-g.entryIds.indexOf(b)));
+      const chosen = eligible[0];
+      result[i] = chosen;
+      markCount[chosen]++;
+      if(multiBoard) roundBusy.add(chosen);
+    }
+  }
+  return result;
+}
 /* Compact "Board 1: 5 matches · Board 3: 5 matches" breakdown, shown only
    once a group actually spans more than one board — a single-board group
    already says as much via groupBoardLabel(). */
@@ -3672,7 +3711,17 @@ function groupMatches(g){
   const n = real.length;
   if(n<2) return [];
   const hasBye = n%2===1;
-  let circle = hasBye ? real.concat([null]) : real.slice();
+  /* Seeded so the very first pair the rotation produces (circle[0] vs
+     circle[last]) is always position 1 vs position 2 — best practice is
+     the opening match is always 1v2, not whoever the raw rotation
+     happens to start with. Entry 2 (and, for odd groups, the phantom bye
+     seat) is moved to the far end of the initial circle to make that so;
+     everyone else keeps their relative order. The rotate-and-pair
+     process afterwards is unchanged, so the no-repeat/no-back-to-back
+     guarantees still hold — this only changes where the circle starts,
+     not how it turns. */
+  const withoutSecond = real.slice(2);
+  let circle = hasBye ? [real[0], null].concat(withoutSecond, [real[1]]) : [real[0]].concat(withoutSecond, [real[1]]);
   const size = circle.length, half = size/2, rounds = size-1;
   const matches = [];
   for(let r=0;r<rounds;r++){
@@ -3888,11 +3937,14 @@ function chartSheetHTML(g, forPrint){
   });
   const hasOverrides = groupHasPositionOverrides(g);
   const matches = groupMatches(g);
+  const markers = assignMarkers(g);
   const schedule = matches.map((m,i)=>{
     const a = t.entriesList.find(x=>x.id===m[0]), b = t.entriesList.find(x=>x.id===m[1]);
     const ai = entries.findIndex(x=>x.id===m[0])+1, bi = entries.findIndex(x=>x.id===m[1])+1;
     const boardNote = g.boards.length>1 ? ' (Bd '+matchBoardFor(g,i)+')' : '';
-    return '<div class="match"><strong>Match '+(i+1)+'</strong>'+boardNote+' · '+ai+' v '+bi+'</div>';
+    const markerIdx = markers[i] ? entries.findIndex(x=>x.id===markers[i])+1 : null;
+    const markerNote = markerIdx ? ' · Marker: '+markerIdx : '';
+    return '<div class="match"><strong>Match '+(i+1)+'</strong>'+boardNote+' · '+ai+' v '+bi+markerNote+'</div>';
   }).join('');
   const scheduleCols = Math.min(6, matches.length)||1;
   return '<div class="print-sheet">'+
