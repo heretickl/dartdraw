@@ -2122,9 +2122,9 @@ function shuffleGroups(){
 }
 function confirmShuffleGroups(){
   openModal({
-    title:'Shuffle groups?',
+    title:'Random draw?',
     body:'Randomly re-deals every entry into a new group'+(state.format.orgSplit?' (still avoiding same-organisation clashes where possible)':'')+'. This discards any manual swaps you\'ve made, and un-confirms any chart whose entries change.',
-    confirmLabel:'Shuffle', confirmClass:'danger',
+    confirmLabel:'Draw', confirmClass:'danger',
     onConfirm: shuffleGroups
   });
 }
@@ -3444,20 +3444,33 @@ function shuffleSeedOrder(){
 }
 let bulkSelected = new Set();
 /* View preference only (like formSectionCollapsed etc.) — not persisted,
-   not tournament data. 'grouped' is the existing per-group card layout;
-   'list' is a flat, searchable, all-entries-at-once view for reviewing
-   or editing the whole roster at a glance, especially useful once there
-   are more groups than comfortably fit on screen at once. */
-let stage3ViewMode = 'grouped';
+   not tournament data. 'list' is a flat, searchable, all-entries-at-once
+   view for reviewing or editing the whole roster at a glance — the
+   default, since it's the more capable view; 'grouped' is the original
+   per-group card layout with the live preview thumbnails, kept as a
+   secondary option. */
+let stage3ViewMode = 'list';
 function setStage3ViewMode(mode){ stage3ViewMode = mode; render(); }
+/* Toggling this immediately re-runs buildGroups so it takes effect right
+   away — turning it on fixes any existing same-organisation clashes
+   (via resolveOrgClashes inside buildGroups), turning it off just stops
+   enforcing it going forward. Same state.format.orgSplit field Format &
+   Branding's own toggle reads/writes, so the two stay in sync. */
+function setStage3OrgSplit(v){
+  state.format.orgSplit = v;
+  buildGroups(state);
+  persist();
+  render();
+}
 function entriesPanel(){
-  const viewToggle = '<div class="buttonrow" style="margin:0 0 14px">'+
-      '<button class="btn ghost" onclick="confirmShuffleGroups()">Shuffle groups</button>'+
-      '<span class="hint" style="margin:0">Randomly re-deals who\'s in which group'+(state.format.orgSplit?' (avoiding same-organisation clashes where possible — see Format &amp; branding)':'')+'.</span>'+
+  const viewToggle = '<div class="buttonrow" style="margin:0 0 10px;align-items:center">'+
+      '<button class="btn ghost" onclick="confirmShuffleGroups()">Random draw</button>'+
+      '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" style="width:auto;height:auto" '+(state.format.orgSplit?'checked':'')+' onchange="setStage3OrgSplit(this.checked)"> Avoid same-organisation clashes</label>'+
     '</div>'+
+    '<div class="hint" style="margin:0 0 14px">Random draw re-deals who\'s in which group'+(state.format.orgSplit?', avoiding same-organisation clashes where possible':'')+'.</div>'+
     '<div class="board-toggle" style="margin-bottom:14px">'+
-      '<button type="button" class="'+(stage3ViewMode==='grouped'?'active':'')+'" onclick="setStage3ViewMode(\'grouped\')">Grouped view</button>'+
       '<button type="button" class="'+(stage3ViewMode==='list'?'active':'')+'" onclick="setStage3ViewMode(\'list\')">Flat list</button>'+
+      '<button type="button" class="'+(stage3ViewMode==='grouped'?'active':'')+'" onclick="setStage3ViewMode(\'grouped\')">Grouped view</button>'+
     '</div>';
   return '<div class="entries-panel"><h2>Draw & groups</h2><p class="intro">Edit entry names, withdraw, or swap entries between groups/positions, and set each group\'s board(s). Groups sharing a board queue one after another; tick more than one board for a group to split its matches across them instead. Confirming charts and printing the bracket happens in the next step.</p>'+
     viewToggle+
