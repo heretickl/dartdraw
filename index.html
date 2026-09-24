@@ -2069,17 +2069,37 @@ function buildGroups(t){
   const assigned = new Set();
   newGroups.forEach(g=>{ g.entryIds = g.entryIds.filter(id=> activeEntries.some(e=>e.id===id)); g.entryIds.forEach(id=>assigned.add(id)); });
   const unassigned = activeEntries.filter(e=>!assigned.has(e.id));
+  /* A group's lineup locks the moment its games start — buildGroups will
+     never place a new/unassigned entry into one, even if it has room
+     (groups don't always split evenly, so an already-started group can
+     easily sit under maxPer while others are full). This only governs
+     this automatic placement; manual "Swap with…" between two already-
+     seated entries is a separate code path and stays unrestricted. If
+     every existing group has already started, an extra one is created
+     purely to hold the overflow rather than force it into a live group. */
+  function openGroupPool(){
+    let open = newGroups.filter(g=>!g.gameStarted);
+    if(!open.length){
+      const label = letters[newGroups.length]||('G'+(newGroups.length+1));
+      const g = { id: uid('g'), label, boards: [(newGroups.length%numBoards)+1], startedAt:null, entryIds:[], confirmed:false, gameStarted:false, scores:{}, positionOverrides:{} };
+      newGroups.push(g);
+      open = [g];
+    }
+    return open;
+  }
   if(t.format.orgSplit){
-    /* Org-aware distribution: place each unassigned entry into the group with
-       the fewest current entries that does NOT already contain another entry
-       from the same (non-blank) organisation, when such a group exists. If
-       every group with space already has that org, fall back to the
-       least-populated group anyway — never refuse to seat an entry. */
+    /* Org-aware distribution: place each unassigned entry into the open
+       (not-started) group with the fewest current entries that does NOT
+       already contain another entry from the same (non-blank)
+       organisation, when such a group exists. If every open group with
+       space already has that org, fall back to the least-populated open
+       group anyway — never refuse to seat an entry. */
     const orgOf = id => { const e = t.entriesList.find(x=>x.id===id); return e && e.org ? e.org.trim().toLowerCase() : ''; };
     unassigned.forEach(e=>{
       const org = e.org ? e.org.trim().toLowerCase() : '';
-      const withSpace = newGroups.filter(g=> g.entryIds.length < maxPer);
-      const pool = withSpace.length ? withSpace : newGroups;
+      const open = openGroupPool();
+      const withSpace = open.filter(g=> g.entryIds.length < maxPer);
+      const pool = withSpace.length ? withSpace : open;
       let candidates = pool;
       if(org){
         const orgFree = pool.filter(g=> !g.entryIds.some(id=> orgOf(id)===org));
@@ -2089,11 +2109,10 @@ function buildGroups(t){
       candidates[0].entryIds.push(e.id);
     });
   } else {
-    let gi=0;
     unassigned.forEach(e=>{
-      while(newGroups[gi % newGroups.length].entryIds.length >= maxPer) gi++;
-      newGroups[gi % newGroups.length].entryIds.push(e.id);
-      gi++;
+      const withSpace = openGroupPool().filter(g=> g.entryIds.length < maxPer);
+      const pool = (withSpace.length ? withSpace : openGroupPool()).slice().sort((a,b)=> a.entryIds.length - b.entryIds.length);
+      pool[0].entryIds.push(e.id);
     });
   }
   if(t.format.orgSplit) resolveOrgClashes(newGroups, t);
@@ -2121,6 +2140,11 @@ function shuffleGroups(){
   render();
 }
 function confirmShuffleGroups(){
+  /* The very first draw has nothing to lose — no existing arrangement to
+     discard, nothing to un-confirm — so it runs immediately with no
+     confirmation. Only a re-draw (groups already exist) is destructive
+     enough to warn about. */
+  if(!state.groups.length){ shuffleGroups(); return; }
   openModal({
     title:'Random draw?',
     body:'Randomly re-deals every entry into a new group'+(state.format.orgSplit?' (still avoiding same-organisation clashes where possible)':'')+'. This discards any manual swaps you\'ve made, and un-confirms any chart whose entries change.',
@@ -2137,22 +2161,29 @@ function confirmShuffleGroups(){
    while orgSplit is on, so it stays self-correcting as org fields change.
    Never fails to terminate (bounded iteration count) and never leaves an
    entry unplaced — worst case, a clash that has no safe swap anywhere is
-   simply left in place, same trade-off as the knockout round-1 heuristic. */
+   simply left in place, same trade-off as the knockout round-1 heuristic.
+   Only ever swaps between groups that haven't started — same "lineup
+   locks once games start" rule buildGroups' own placement follows above,
+   since this swap mechanism could otherwise reshuffle a live group's
+   entries just as easily as a raw addition could. A clash sitting inside
+   an already-started group is therefore left as-is; it can only be fixed
+   with a manual swap now. */
 function resolveOrgClashes(groups, t){
   const orgOf = id=>{ const e=t.entriesList.find(x=>x.id===id); return e&&e.org? e.org.trim().toLowerCase():''; };
+  const openGroups = groups.filter(g=>!g.gameStarted);
   let iterations=0;
   while(iterations<200){
     iterations++;
     let didSwap = false;
     outer:
-    for(const g of groups){
+    for(const g of openGroups){
       const seen = new Set();
       for(const id of g.entryIds){
         const org = orgOf(id);
         if(!org){ continue; }
         if(!seen.has(org)){ seen.add(org); continue; }
         // id is a same-org duplicate within g — look for a safe swap partner elsewhere
-        for(const g2 of groups){
+        for(const g2 of openGroups){
           if(g2===g) continue;
           for(const otherId of g2.entryIds){
             const otherOrg = orgOf(otherId);
@@ -3277,11 +3308,23 @@ function setSponsorShape(i, shape){ state.format.sponsors[i].shape = shape; pers
 function saveStage2(){
   const f = state.format;
   const advanced = !!state.eventCreation.advancedMode;
-  f.bestOfLegs = Math.max(1, parseInt(document.getElementById('f_bestof').value)||5);
-  if(f.formatType!=='knockout') f.maxPerGroup = parseInt(document.getElementById('f_maxgroup').value)||4;
+  // Every read below is guarded with if(el) — Format, Branding & Print and
+  // Rules are collapsible sections (collapsed by default), so their fields
+  // simply don't exist in the DOM at all while collapsed. Reading .value
+  // unguarded would throw on the first save if the organiser never opened
+  // a given section, silently aborting before persist()/render() ran (the
+  // whole page would then look like "Save" does nothing).
+  const bestOfEl = document.getElementById('f_bestof');
+  if(bestOfEl) f.bestOfLegs = Math.max(1, parseInt(bestOfEl.value)||5);
+  if(f.formatType!=='knockout'){
+    const maxGroupEl = document.getElementById('f_maxgroup');
+    if(maxGroupEl) f.maxPerGroup = parseInt(maxGroupEl.value)||4;
+  }
   if(f.formatType==='rrknockout'){
-    f.qualifiersPerGroup = Math.max(1, parseInt(document.getElementById('f_qualifiers').value)||2);
-    f.advanceMode = document.getElementById('f_advancemode').value;
+    const qualifiersEl = document.getElementById('f_qualifiers');
+    if(qualifiersEl) f.qualifiersPerGroup = Math.max(1, parseInt(qualifiersEl.value)||2);
+    const advanceModeEl = document.getElementById('f_advancemode');
+    if(advanceModeEl) f.advanceMode = advanceModeEl.value;
     // Plate fields only exist in the DOM in Advanced mode — leave losersPool/
     // plateQualifiersPerGroup untouched otherwise (Basic-mode default is off).
     const loserspoolEl = document.getElementById('f_loserspool');
@@ -3301,7 +3344,8 @@ function saveStage2(){
   if(orgSplitEl) f.orgSplit = orgSplitEl.checked;
   const footerEl = document.getElementById('f_footer');
   if(footerEl) f.footerText = footerEl.value;
-  f.rulesNotes = document.getElementById('f_rulesnotes').value;
+  const rulesNotesEl = document.getElementById('f_rulesnotes');
+  if(rulesNotesEl) f.rulesNotes = rulesNotesEl.value;
   // Board count, level of play, anticipated start time and breaks are all
   // edited exclusively via the Scheduling modal (saveSchedulingModal) now.
   const readKnockoutLegs = (key)=>{
@@ -3320,7 +3364,12 @@ function saveStage2(){
   if(advanced && f.formatType==='rrknockout') readKnockoutLegs('plate');
   f.saved = true;
   ensureEntries(state); // resync roster length if teamSize changed
-  if(f.formatType==='roundrobin' || f.formatType==='rrknockout'){ buildGroups(state); }
+  /* Groups don't exist until the organiser explicitly runs Random draw on
+     Stage 3 (see confirmShuffleGroups/shuffleGroups) — entries sit
+     ungrouped in the flat list until then. Once a draw has happened,
+     format edits here (max per group, org-split, etc.) keep reconciling
+     it automatically, same as before. */
+  if((f.formatType==='roundrobin' || f.formatType==='rrknockout') && state.groups.length){ buildGroups(state); }
   persist();
   currentStage = 3;
   render();
@@ -3341,7 +3390,10 @@ function stage3(){
   if(state.format.formatType==='knockout'){
     return competitionDurationSummaryHTML(state) + stage3Knockout();
   }
-  buildGroups(state);
+  /* Only reconciles an already-drawn arrangement (entries changed,
+     withdrawals, etc.) — never performs the first draw itself. Entries
+     stay ungrouped until the organiser explicitly clicks Random draw. */
+  if(state.groups.length) buildGroups(state);
   return competitionDurationSummaryHTML(state) + entriesPanel() + printControls();
 }
 /* Pure knockout only — which of the (already fully-ordered) seed list
@@ -3458,23 +3510,28 @@ function setStage3ViewMode(mode){ stage3ViewMode = mode; render(); }
    Branding's own toggle reads/writes, so the two stay in sync. */
 function setStage3OrgSplit(v){
   state.format.orgSplit = v;
-  buildGroups(state);
+  if(state.groups.length) buildGroups(state); // only reconciles if a draw has already happened
   persist();
   render();
 }
 function entriesPanel(){
+  const drawn = !!state.groups.length;
+  const drawBtnClass = drawn ? 'btn ghost' : 'btn primary';
+  const drawHint = drawn
+    ? 'Random draw re-deals who\'s in which group'+(state.format.orgSplit?', avoiding same-organisation clashes where possible':'')+'.'
+    : 'Entries aren\'t assigned to a group yet — click Random draw to deal them in'+(state.format.orgSplit?', avoiding same-organisation clashes where possible':'')+'.';
   const viewToggle = '<div class="buttonrow" style="margin:0 0 10px;align-items:center">'+
-      '<button class="btn ghost" onclick="confirmShuffleGroups()">Random draw</button>'+
+      '<button class="'+drawBtnClass+'" onclick="confirmShuffleGroups()">Random draw</button>'+
       '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" style="width:auto;height:auto" '+(state.format.orgSplit?'checked':'')+' onchange="setStage3OrgSplit(this.checked)"> Avoid same-organisation clashes</label>'+
     '</div>'+
-    '<div class="hint" style="margin:0 0 14px">Random draw re-deals who\'s in which group'+(state.format.orgSplit?', avoiding same-organisation clashes where possible':'')+'.</div>'+
-    '<div class="board-toggle" style="margin-bottom:14px">'+
+    '<div class="hint" style="margin:0 0 14px">'+drawHint+'</div>'+
+    (drawn ? '<div class="board-toggle" style="margin-bottom:14px">'+
       '<button type="button" class="'+(stage3ViewMode==='list'?'active':'')+'" onclick="setStage3ViewMode(\'list\')">Flat list</button>'+
       '<button type="button" class="'+(stage3ViewMode==='grouped'?'active':'')+'" onclick="setStage3ViewMode(\'grouped\')">Grouped view</button>'+
-    '</div>';
+    '</div>' : '');
   return '<div class="entries-panel"><h2>Draw & groups</h2><p class="intro">Edit entry names, withdraw, or swap entries between groups/positions, and set each group\'s board(s). Groups sharing a board queue one after another; tick more than one board for a group to split its matches across them instead. Confirming charts and printing the bracket happens in the next step.</p>'+
     viewToggle+
-    (stage3ViewMode==='list' ? flatEntriesListHTML() : groupedEntriesHTML())+
+    (drawn && stage3ViewMode==='grouped' ? groupedEntriesHTML() : flatEntriesListHTML())+
   '</div>';
 }
 function groupedEntriesHTML(){
@@ -3511,7 +3568,12 @@ function flatEntriesListHTML(){
   return '<div class="field" style="margin-bottom:10px"><input type="text" id="flatEntriesSearch" autocomplete="off" placeholder="Search name or organisation…" oninput="filterFlatEntriesList()"></div>'+
     '<div id="flatEntriesList">'+ flatEntriesRowsHTML(flatEntriesData()) +'</div>';
 }
+/* Before the first Random draw, state.groups is empty — rows come
+   straight from entriesList instead, with no group to show yet. */
 function flatEntriesData(){
+  if(!state.groups.length){
+    return state.entriesList.filter(e=>!e.withdrawn).map(ent=>({ent, group:null}));
+  }
   const rows = [];
   state.groups.forEach(g=>{
     g.entryIds.forEach(eid=>{
@@ -3525,9 +3587,9 @@ function flatEntriesRowsHTML(rows){
   if(!rows.length) return '<div class="hint" style="padding:7px 4px">No matching name or organisation.</div>';
   return rows.map(({ent,group})=>
     '<div class="entry-row">'+
-      '<span class="confirm-flag yes" style="flex-shrink:0;min-width:64px;text-align:center">Group '+group.label+'</span>'+
+      (group ? '<span class="confirm-flag yes" style="flex-shrink:0;min-width:64px;text-align:center">Group '+group.label+'</span>' : '<span class="confirm-flag no" style="flex-shrink:0;min-width:64px;text-align:center">Not drawn</span>')+
       entryFieldsHTML(ent)+
-      '<button class="btn ghost" style="padding:6px 9px;font-size:10px" onclick="openSwapPicker(\''+ent.id+'\')">Swap with…</button>'+
+      (group ? '<button class="btn ghost" style="padding:6px 9px;font-size:10px" onclick="openSwapPicker(\''+ent.id+'\')">Swap with…</button>' : '')+
       '<button class="btn danger" style="padding:6px 9px;font-size:10px" onclick="withdrawEntry(\''+ent.id+'\')">Withdraw</button>'+
     '</div>'
   ).join('');
@@ -3613,10 +3675,24 @@ function renameEntry(id, val){
   const ent = state.entriesList.find(e=>e.id===id);
   if(ent && val.trim()){ ent.name = val.trim(); ent.autoName = false; persist(); render(); }
 }
+/* Before the first draw, an entry isn't in any group yet — no "fill the
+   slot with a replacement" concept applies, so this is just a plain
+   remove-from-the-roster action, unlike withdrawEntry below. */
+function withdrawEntryPreDraw(entryId){
+  const ent = state.entriesList.find(e=>e.id===entryId);
+  if(!ent) return;
+  openModal({
+    title:'Withdraw '+escapeHtml(ent.name)+'?',
+    body:'Removes them from the entry list before groups are drawn.',
+    confirmLabel:'Withdraw', confirmClass:'danger',
+    onConfirm:()=>{ ent.withdrawn = true; persist(); render(); }
+  });
+}
 function withdrawEntry(entryId){
   const ent = state.entriesList.find(e=>e.id===entryId);
   const g = state.groups.find(gr=> gr.entryIds.includes(entryId));
-  if(!ent || !g) return;
+  if(!ent) return;
+  if(!g){ withdrawEntryPreDraw(entryId); return; }
   openModal({
     title:'Withdraw '+escapeHtml(ent.name)+'?',
     bodyHTML: '<p>Removes them from Group '+g.label+'. Either name a replacement to fill the slot, or leave it as a bye.</p>'+
