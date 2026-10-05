@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live results</title>
+<link rel="stylesheet" href="/render.css">
+<style>
+:root{--navy:#10233e;--blue:#1f6feb;--gold:#d9ad45;--paper:#ffffff;--ink:#142133;--muted:#6f7c8b;--line:#dbe2ea;--bg:#edf2f6;--green:#1d8a4a;--red:#c0392b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Segoe UI",system-ui,Arial,sans-serif;font-size:14px;line-height:1.45}
+header{background:var(--navy);color:#fff;padding:20px 16px 16px}
+.wrap{max-width:1100px;margin:0 auto}
+header .over{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#9fb3c8}
+header h1{margin:4px 0 2px;font-size:22px;line-height:1.2}
+header .sub{font-size:13px;color:#c9d6e3}
+.status{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:#c9d6e3;flex-wrap:wrap}
+.dot{width:8px;height:8px;border-radius:50%;background:#3ddc84}
+.dot.stale{background:#e0a030}
+.pill{background:#ffffff1f;border-radius:99px;padding:2px 10px}
+nav{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;gap:6px;padding:8px 16px;overflow-x:auto}
+nav a{flex:0 0 auto;padding:6px 14px;border-radius:99px;font-size:13px;font-weight:600;color:var(--ink);text-decoration:none;background:var(--bg)}
+nav a:active,nav a:hover{background:#dbe7f7}
+main{padding:16px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 4px 15px #26394a0b}
+.card h2{margin:0 0 10px;font-size:16px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.card h2 .sub{font-size:12px;font-weight:400;color:var(--muted)}
+.card h3{margin:16px 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.empty{color:var(--muted);padding:6px 0}
+.champ{background:#eaf7ee;border:1px solid #bfe6cc;color:#175c33;border-radius:10px;padding:10px 14px;margin-bottom:12px}
+.champ b{font-size:15px}
+.grid{border-collapse:collapse;font-size:12px;min-width:100%}
+.grid th,.grid td{border:1px solid var(--line);padding:6px 8px;text-align:center;white-space:nowrap}
+.grid th{background:#f4f7fa;color:var(--muted);font-weight:600}
+.grid td.name{text-align:left;font-weight:600}
+.grid td.diag{background:#eef1f4}
+.grid td.win{background:#eaf7ee;color:#175c33;font-weight:700}
+.grid td.loss{background:#fdecea;color:#a8332a}
+.grid td.draw{font-weight:700}
+.tools{display:flex;justify-content:flex-end;margin-bottom:6px}
+.tools button{font:inherit;font-size:12px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer}
+footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 16px 32px}
+.msg{max-width:520px;margin:64px auto;text-align:center;padding:0 16px}
+.msg h1{font-size:20px;margin:0 0 8px}
+@media (min-width:700px){header{padding:28px 16px 20px}header h1{font-size:28px}.card{padding:20px}}
+</style>
+</head>
+<body>
+<header id="head" hidden>
+  <div class="wrap">
+    <div class="over" id="hOver"></div>
+    <h1 id="hTitle"></h1>
+    <div class="sub" id="hSub"></div>
+    <div class="status"><span class="dot" id="dot"></span><span id="hStatus"></span><span class="pill" id="hProgress" hidden></span></div>
+  </div>
+</header>
+<nav id="nav" hidden><div class="wrap" id="navLinks"></div></nav>
+<main><div class="wrap" id="app"><div class="msg"><p class="empty">Loading results…</p></div></div></main>
+<footer>Results update automatically · Powered by DartDraw</footer>
+
+<script src="/render.js"></script>
+<script>
+/* Read-only results viewer. Fetches the sanitized public copy of one
+   tournament and draws it with the same standings / bracket code the
+   organiser app uses (render.js). Nothing here can change a tournament. */
+let state = null;
+var POLL_MS = 20000;
+var lastUpdatedAt = null, lastOkAt = 0, fitBracket = {};
+
+function slugFromUrl(){
+  var q = new URLSearchParams(location.search).get('s');
+  if(q) return q;
+  var parts = location.pathname.split('/').filter(Boolean);
+  return parts[parts.length-1] === 'live.html' ? '' : (parts[parts.length-1] || '');
+}
+var SLUG = slugFromUrl();
+
+function el(id){ return document.getElementById(id); }
+function clockLabel(ms){ return new Date(ms).toLocaleTimeString([], {hour:'numeric', minute:'2-digit', second:'2-digit'}); }
+
+function boardLabel(g){
+  var b = (g.boards||[]).filter(function(x){ return x!=null; });
+  return b.length ? (b.length>1 ? 'Boards ' : 'Board ') + b.join(', ') : '';
+}
+function entryName(id){
+  var e = state.entriesList.find(function(x){ return x.id===id; });
+  return e ? e.name : '—';
+}
+
+/* Compact results grid: row entry's legs first, same orientation rule the organiser chart uses. */
+function resultsGridHTML(g){
+  var ids = g.entryIds.filter(function(id){ return state.entriesList.some(function(e){ return e.id===id; }); });
+  var head = '<tr><th></th>' + ids.map(function(_,i){ return '<th>'+(i+1)+'</th>'; }).join('') + '</tr>';
+  var rows = ids.map(function(rowId, ri){
+    var cells = ids.map(function(colId, ci){
+      if(rowId===colId) return '<td class="diag"></td>';
+      var sc = getScore(g, rowId, colId);
+      if(!sc || sc.legs1===undefined || sc.legs1==='' || sc.legs2===undefined || sc.legs2==='') return '<td>·</td>';
+      var first = rowId < colId;
+      var my = parseInt(first ? sc.legs1 : sc.legs2), opp = parseInt(first ? sc.legs2 : sc.legs1);
+      if(isNaN(my) || isNaN(opp)) return '<td>·</td>';
+      var cls = my>opp ? 'win' : my<opp ? 'loss' : 'draw';
+      return '<td class="'+cls+'">'+my+'–'+opp+(sc.wo?' <small>WO</small>':'')+'</td>';
+    }).join('');
+    return '<tr><td class="name">'+(ri+1)+'. '+escapeHtml(entryName(rowId))+'</td>'+cells+'</tr>';
+  }).join('');
+  return '<div class="scroll"><table class="grid"><thead>'+head+'</thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+function groupCardHTML(g){
+  var started = g.gameStarted;
+  var body;
+  if(!started){
+    body = '<p class="empty">This group hasn\'t started yet.</p>';
+  } else {
+    var st = computeStandings(g);
+    body = '<div class="scroll">'+standingsTableHTML(g, st)+'</div>'+tieNotesHTML(g, st, {public:true})+
+      '<h3>Results</h3>'+resultsGridHTML(g);
+  }
+  return '<section class="card" id="group-'+escapeHtml(g.label)+'"><h2>Group '+escapeHtml(g.label)+(boardLabel(g)?'<span class="sub">'+escapeHtml(boardLabel(g))+'</span>':'')+'</h2>'+body+'</section>';
+}
+
+function bracketCardHTML(bracket, key, title){
+  var champ = bracketIsComplete(bracket) ? bracketChampion(bracket) : null;
+  var runner = champ ? bracketRunnerUp(bracket) : null;
+  return '<section class="card" id="'+key+'"><h2>'+escapeHtml(title)+'</h2>'+
+    (champ ? '<div class="champ"><b>Winner: '+escapeHtml(entryName(champ))+'</b>'+(runner?'<div>Runner-up: '+escapeHtml(entryName(runner))+'</div>':'')+'</div>' : '')+
+    '<div class="tools"><button type="button" data-fit="'+key+'">'+(fitBracket[key]?'Full size':'Fit to screen')+'</button></div>'+
+    '<div class="scroll" data-bracket="'+key+'">'+mirroredChartHTML(bracket, state, {interactive:false})+'</div></section>';
+}
+
+/* Scale a bracket down to the screen width when "Fit to screen" is on. */
+function applyBracketFit(){
+  document.querySelectorAll('[data-bracket]').forEach(function(box){
+    var art = box.querySelector('.mko-artboard');
+    if(!art) return;
+    var key = box.getAttribute('data-bracket');
+    art.style.transformOrigin = 'top left';
+    if(fitBracket[key]){
+      var w = art.offsetWidth, scale = Math.min(1, box.clientWidth / w);
+      art.style.transform = 'scale('+scale+')';
+      box.style.height = Math.round(art.offsetHeight*scale)+'px';
+      box.style.overflowX = 'hidden';
+    } else { art.style.transform = ''; box.style.height = ''; box.style.overflowX = ''; }
+  });
+}
+
+function progressText(){
+  var groups = state.groups || [];
+  if(groups.length && state.format.formatType!=='knockout'){
+    var done = groups.filter(function(g){ return g.gameStarted && groupIsComplete(g); }).length;
+    return done+' of '+groups.length+' groups finished';
+  }
+  return '';
+}
+
+function render(){
+  var ec = state.eventCreation || {};
+  document.title = (ec.eventName || ec.tournamentName || 'Live results') + ' · Live results';
+  el('hOver').textContent = ec.tournamentName || '';
+  el('hTitle').textContent = ec.eventName || ec.tournamentName || 'Results';
+  el('hSub').textContent = [ec.eventType, ec.competitionUnit, ec.date].filter(Boolean).join(' · ');
+  var prog = progressText();
+  el('hProgress').hidden = !prog; el('hProgress').textContent = prog;
+  el('head').hidden = false;
+
+  // keep each bracket's horizontal scroll across refreshes
+  var scrolls = {};
+  document.querySelectorAll('[data-bracket]').forEach(function(b){ scrolls[b.getAttribute('data-bracket')] = b.scrollLeft; });
+
+  var sections = [], links = [];
+  var type = state.format.formatType;
+  if(type!=='knockout' && (state.groups||[]).length){
+    links.push(['Groups','#groups']);
+    sections.push('<div id="groups">'+state.groups.map(groupCardHTML).join('')+'</div>');
+  }
+  if(state.knockout){
+    links.push([type==='rrknockout' ? 'Main bracket' : 'Bracket', '#ko']);
+    sections.push(bracketCardHTML(state.knockout, 'ko', type==='rrknockout' ? 'Main bracket' : 'Bracket'));
+  }
+  if(state.knockoutLosers){
+    links.push(['Plate pool','#kol']);
+    sections.push(bracketCardHTML(state.knockoutLosers, 'kol', 'Plate pool'));
+  }
+  if(!sections.length){
+    sections.push('<div class="card"><p class="empty">The draw hasn\'t been made yet. Check back soon.</p></div>');
+  }
+  el('app').innerHTML = sections.join('');
+  el('navLinks').innerHTML = links.map(function(l){ return '<a href="'+l[1]+'">'+l[0]+'</a>'; }).join('');
+  el('nav').hidden = links.length < 2;
+  applyBracketFit();
+  document.querySelectorAll('[data-bracket]').forEach(function(b){ var k=b.getAttribute('data-bracket'); if(scrolls[k]) b.scrollLeft = scrolls[k]; });
+}
+
+document.addEventListener('click', function(e){
+  var btn = e.target.closest && e.target.closest('[data-fit]');
+  if(!btn) return;
+  var k = btn.getAttribute('data-fit'); fitBracket[k] = !fitBracket[k];
+  render();
+});
+window.addEventListener('resize', applyBracketFit);
+
+function showMessage(title, text){
+  el('head').hidden = true; el('nav').hidden = true;
+  el('app').innerHTML = '<div class="msg"><h1>'+title+'</h1><p class="empty">'+text+'</p></div>';
+}
+function setStatus(){
+  var stale = lastOkAt && (Date.now() - lastOkAt) > POLL_MS*3;
+  el('dot').className = 'dot' + (stale ? ' stale' : '');
+  el('hStatus').textContent = stale ? 'Connection lost — retrying' : 'Live · updated ' + (lastOkAt ? clockLabel(lastOkAt) : '');
+}
+
+async function load(){
+  if(!SLUG){ showMessage('No results link', 'Open the link the organiser shared with you.'); return false; }
+  try{
+    var res = await fetch('/api/public/'+encodeURIComponent(SLUG), {cache:'no-store'});
+    if(res.status===404){
+      // Keep polling: the organiser may republish, and the page should come back on its own.
+      state = null; lastUpdatedAt = null;
+      showMessage('Results not available', 'This link isn\'t valid, or the organiser has taken the results offline.');
+      return true;
+    }
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var body = await res.json();
+    lastOkAt = Date.now();
+    if(body.updatedAt !== lastUpdatedAt || !state){
+      lastUpdatedAt = body.updatedAt;
+      state = body.view;
+      if(!state.tieBreakOrder) state.tieBreakOrder = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
+      state.entriesList = state.entriesList || []; state.groups = state.groups || []; state.format = state.format || {};
+      render();
+    }
+    setStatus();
+    return true;
+  }catch(e){
+    if(!state) showMessage('Couldn\'t load results', 'Check your connection — this page will keep trying.');
+    setStatus();
+    return true;
+  }
+}
+
+var timer = null;
+async function tick(){
+  var keepGoing = await load();
+  if(keepGoing) timer = setTimeout(tick, POLL_MS);
+}
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden && SLUG){ clearTimeout(timer); tick(); }
+});
+tick();
+</script>
+</body>
+</html>

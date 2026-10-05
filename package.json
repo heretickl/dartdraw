@@ -3,6 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "description": "DartDraw tournament chart manager",
+  "scripts": {
+    "sync-viewer": "node scripts/sync-viewer.js",
+    "check-viewer": "node scripts/sync-viewer.js --check"
+  },
   "engines": {
     "node": ">=20"
   },

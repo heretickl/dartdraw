@@ -1,0 +1,15 @@
+/* Shared styles for the standings table and tie-break notes — linked by both
+   index.html and live.html (colours come from each page's own :root variables). */
+.std-table{width:100%;border-collapse:collapse;font-size:13px}
+.std-table th{padding:0 6px 7px;text-align:center;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.std-table th.l,.std-table td.l{text-align:left}
+.std-table td{padding:7px 6px;border-top:1px solid var(--line);text-align:center;font-variant-numeric:tabular-nums}
+.std-table td.pos{font-weight:700;text-align:left}
+.std-table td.pts{font-weight:700}
+.std-table td.dim{color:var(--muted)}
+.std-table td.neg{color:var(--red)}
+.tb-badge{display:inline-block;white-space:nowrap;min-width:30px;padding:2px 6px;border-radius:99px;background:#e5eefc;color:#1956ad;font-size:10px;font-weight:700;cursor:help}
+.tb-badge.level{background:#fdecea;color:#c0392b}
+.tie-notes{margin-top:10px;font-size:11px;line-height:1.5;color:var(--muted)}
+.tie-notes div{margin-top:3px}
+.tie-notes .warn{color:#c0392b;font-weight:600}

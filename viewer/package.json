@@ -1,0 +1,12 @@
+{
+  "name": "dartdraw-viewer",
+  "private": true,
+  "version": "1.0.0",
+  "description": "DartDraw public results viewer (read-only)",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  }
+}
