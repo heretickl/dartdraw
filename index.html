@@ -4100,6 +4100,7 @@ function openNoShowPicker(groupId){
 }
 function computeStandings(g){
   const table = {};
+  const results = []; // every scored match as {a,b,la,lb}, for the tie-break mini-tables
   g.entryIds.forEach(id=> table[id] = {id, pts:0, played:0, legsFor:0, legsAgainst:0, wins:0, losses:0, draws:0, h2h:{}} );
   groupMatches(g).forEach(([a,b])=>{
     const key = scoreKey(a,b);
@@ -4111,6 +4112,7 @@ function computeStandings(g){
     if(legsA===undefined || legsB===undefined || legsA===''||legsB==='') return;
     const la=parseInt(legsA), lb=parseInt(legsB);
     if(isNaN(la)||isNaN(lb)) return;
+    results.push({a, b, la, lb});
     table[a].played++; table[b].played++;
     table[a].legsFor+=la; table[a].legsAgainst+=lb;
     table[b].legsFor+=lb; table[b].legsAgainst+=la;
@@ -4118,37 +4120,97 @@ function computeStandings(g){
     else if(lb>la){ table[b].pts+=2; table[b].wins++; table[a].losses++; table[b].h2h[a]='W'; table[a].h2h[b]='L'; }
     else { table[a].pts+=1; table[b].pts+=1; table[a].draws++; table[b].draws++; table[a].h2h[b]='D'; table[b].h2h[a]='D'; }
   });
-  const arr = Object.values(table);
   const order = (state && state.tieBreakOrder) || ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
-  arr.sort((x,y)=>{
-    if(y.pts!==x.pts) return y.pts-x.pts;
-    for(const rule of order){
-      const c = compareByRule(rule, x, y);
-      if(c!==0) return c;
+  /* Ranking: points first, then ties on points are resolved per cluster.
+     - Two level: the usual rules in order (head-to-head, then overall leg
+       difference, then overall legs won).
+     - Three or more level: a mini-table built only from the matches the
+       tied players played against each other, ranked by the same rules
+       (head-to-head = mini points, leg difference and legs won within the
+       mini-table). If a rule splits only some of them, the players still
+       level go through the rules again using only their own matches. A
+       cluster no rule can split stays level (ranked by list order, flagged
+       for the organiser). Pairwise comparison can't be used for 3+: results
+       can go in a circle (A beat B, B beat C, C beat A). */
+  const miniStats = ids=>{
+    const ms = {};
+    ids.forEach(id=> ms[id] = {mp:0, mpts:0, lf:0, la:0, w:0});
+    results.forEach(r=>{
+      if(!ms[r.a] || !ms[r.b]) return;
+      ms[r.a].mp++; ms[r.b].mp++;
+      ms[r.a].lf+=r.la; ms[r.a].la+=r.lb; ms[r.b].lf+=r.lb; ms[r.b].la+=r.la;
+      if(r.la>r.lb){ ms[r.a].mpts+=2; ms[r.a].w++; } else if(r.lb>r.la){ ms[r.b].mpts+=2; ms[r.b].w++; } else { ms[r.a].mpts++; ms[r.b].mpts++; }
+    });
+    ids.forEach(id=> ms[id].ld = ms[id].lf - ms[id].la);
+    return ms;
+  };
+  // Returns {ids: final order, splits:[{hi,lo,rule,size,hiMini,loMini}]} — one split per adjacent pair.
+  const resolveCluster = ids=>{
+    if(ids.length===1) return {ids:ids.slice(), splits:[]};
+    if(ids.length===2){
+      const x = table[ids[0]], y = table[ids[1]];
+      for(const rule of order){
+        const c = compareByRule(rule, x, y);
+        if(c!==0){
+          const [hi, lo] = c<0 ? [x,y] : [y,x];
+          return {ids:[hi.id, lo.id], splits:[{hi:hi.id, lo:lo.id, rule, size:2}]};
+        }
+      }
+      return {ids:ids.slice(), splits:[{hi:ids[0], lo:ids[1], rule:null, size:2}]};
     }
-    return 0;
-  });
-  arr.forEach((r,i)=> r.autoPosition = i+1);
-  /* Record how each tie on points was settled, from the automatic order
-     only (before any manual overrides). Each adjacent pair level on points
-     becomes a tieNote: the first tie-break rule that separates them, or
-     rule:null if every rule leaves them level. Rows get tieRule so the
-     table can badge them — taken from the pair with the row above when it
-     has one, otherwise the pair with the row below. */
-  const tieNotes = [];
-  arr.forEach(r=>{ r.tieRule = null; });
-  for(let i=1;i<arr.length;i++){
-    const hi = arr[i-1], lo = arr[i];
-    if(hi.pts!==lo.pts) continue;
-    let used = null;
+    const ms = miniStats(ids);
+    const keyFor = {'Head-to-head result': id=>ms[id].mpts, 'Leg difference': id=>ms[id].ld, 'Legs won': id=>ms[id].lf};
     for(const rule of order){
-      if(compareByRule(rule, hi, lo)!==0){ used = rule; break; }
+      const key = keyFor[rule];
+      if(!key) continue; // e.g. organiser decision — nothing automatic
+      if(new Set(ids.map(key)).size===1) continue;
+      const sorted = ids.slice().sort((p,q)=> key(q)-key(p)); // stable: ties keep list order
+      const groups = [];
+      sorted.forEach(id=>{ const last = groups[groups.length-1]; if(last && key(last[0])===key(id)) last.push(id); else groups.push([id]); });
+      const parts = groups.map(resolveCluster);
+      const out = {ids:[], splits:[]};
+      parts.forEach((p,i)=>{
+        if(i>0){
+          const hi = out.ids[out.ids.length-1], lo = p.ids[0];
+          out.splits.push({hi, lo, rule, size:ids.length, hiMini:ms[hi], loMini:ms[lo]});
+        }
+        out.ids = out.ids.concat(p.ids);
+        out.splits = out.splits.concat(p.splits);
+      });
+      return out;
     }
-    tieNotes.push({hi:hi.id, lo:lo.id, pts:hi.pts, rule:used});
-    lo.tieRule = used || 'LEVEL';
-    if(hi.tieRule===null) hi.tieRule = used || 'LEVEL';
+    const splits = [];
+    for(let i=1;i<ids.length;i++) splits.push({hi:ids[i-1], lo:ids[i], rule:null, size:ids.length});
+    return {ids:ids.slice(), splits};
+  };
+  const byPts = Object.values(table).sort((x,y)=> y.pts-x.pts); // stable: list order within equal points
+  const arr = [];
+  const tieNotes = [], tieClusters = [];
+  for(let s=0;s<byPts.length;){
+    let e = s; while(e<byPts.length && byPts[e].pts===byPts[s].pts) e++;
+    const ids = byPts.slice(s,e).map(r=>r.id);
+    if(ids.length===1){ arr.push(table[ids[0]]); }
+    else {
+      const res = resolveCluster(ids);
+      res.ids.forEach(id=> arr.push(table[id]));
+      res.splits.forEach(sp=> tieNotes.push(Object.assign({pts:byPts[s].pts}, sp)));
+      if(ids.length>=3) tieClusters.push({ids:res.ids, pts:byPts[s].pts, mini:miniStats(ids)});
+    }
+    s = e;
   }
+  arr.forEach((r,i)=> r.autoPosition = i+1);
+  /* Rows get tieRule/tieSize so the table can badge them — taken from the
+     split with the row above when it has one, otherwise the split with the
+     row below. tieNotes are from the automatic order only (before manual
+     overrides); rule:null means every rule leaves that pair level. */
+  arr.forEach(r=>{ r.tieRule = null; r.tieSize = 0; });
+  tieNotes.forEach(n=>{
+    const hi = table[n.hi], lo = table[n.lo], label = n.rule || 'LEVEL';
+    lo.tieRule = label; lo.tieSize = n.size;
+    if(hi.tieRule===null){ hi.tieRule = label; hi.tieSize = n.size; }
+  });
   arr.tieNotes = tieNotes;
+  arr.tieClusters = tieClusters;
   const overrides = g.positionOverrides || {};
   arr.forEach(r=>{
     const ov = overrides[r.id];
@@ -4171,7 +4233,7 @@ function standingsTableHTML(g, standings){
     const diff = st.legsFor - st.legsAgainst;
     let tb = '';
     if(st.tieRule==='LEVEL') tb = '<span class="tb-badge level" title="Level on points after every tie-break rule">?</span>';
-    else if(st.tieRule) tb = '<span class="tb-badge" title="Separated from the entry beside it on points by: '+escapeHtml(st.tieRule)+'">'+(TIE_RULE_SHORT[st.tieRule]||escapeHtml(st.tieRule))+'</span>';
+    else if(st.tieRule) tb = '<span class="tb-badge" title="Separated from the entry beside it on points by: '+escapeHtml(st.tieRule)+(st.tieSize>2?' (mini-table of the '+st.tieSize+' tied entries)':'')+'">'+(st.tieSize>2?st.tieSize+'-way ':'')+(TIE_RULE_SHORT[st.tieRule]||escapeHtml(st.tieRule))+'</span>';
     return '<tr>'+
       '<td class="pos">'+st.position+(st.manualOverride?'*':'')+'</td>'+
       '<td class="l">'+escapeHtml(ent?ent.name:'—')+'</td>'+
@@ -4203,7 +4265,7 @@ function tieNotesHTML(g, standings){
   let levelRun = null; // consecutive still-level entries, reported as one line
   const flushLevel = ()=>{
     if(!levelRun) return;
-    lines.push('<div class="warn">'+levelRun.ids.map(nm).join(', ').replace(/, ([^,]*)$/, ' and $1')+' are still level on '+levelRun.pts+' pts after every tie-break rule — needs an organiser decision or a playoff (use Adjust positions).</div>');
+    lines.push('<div class="warn">'+levelRun.ids.map(nm).join(', ').replace(/, ([^,]*)$/, ' and $1')+' are still level on '+levelRun.pts+' pts after every tie-break rule'+' — needs an organiser decision or a playoff (use Adjust positions).</div>');
     levelRun = null;
   };
   notes.forEach(n=>{
@@ -4211,26 +4273,41 @@ function tieNotesHTML(g, standings){
     // Positions involving a manual override are explained by the asterisk note instead.
     if(hi.manualOverride || lo.manualOverride) return;
     if(!n.rule && complete){
-      if(levelRun && levelRun.ids[levelRun.ids.length-1]===n.hi) levelRun.ids.push(n.lo);
+      if(levelRun && levelRun.ids[levelRun.ids.length-1]===n.hi){ levelRun.ids.push(n.lo); }
       else { flushLevel(); levelRun = {ids:[n.hi, n.lo], pts:n.pts}; }
       return;
     }
     flushLevel();
+    // 3+ tied: the figures compared come from the mini-table (matches between the tied entries only).
+    const mini = n.hiMini && n.loMini;
+    const among = mini ? ' among the tied entries' : '';
     if(n.rule==='Head-to-head result'){
-      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by head-to-head (won their match).</div>');
+      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by head-to-head'+(mini ? among+' (mini-table points '+n.hiMini.mpts+' vs '+n.loMini.mpts+')' : ' (won their match)')+'.</div>');
     } else if(n.rule==='Leg difference'){
-      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by leg difference ('+fmtLegDiff(hi.legsFor-hi.legsAgainst)+' vs '+fmtLegDiff(lo.legsFor-lo.legsAgainst)+').</div>');
+      const a = mini ? n.hiMini.ld : hi.legsFor-hi.legsAgainst, b = mini ? n.loMini.ld : lo.legsFor-lo.legsAgainst;
+      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by leg difference'+among+' ('+fmtLegDiff(a)+' vs '+fmtLegDiff(b)+').</div>');
     } else if(n.rule==='Legs won'){
-      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by legs won ('+hi.legsFor+' vs '+lo.legsFor+').</div>');
+      const a = mini ? n.hiMini.lf : hi.legsFor, b = mini ? n.loMini.lf : lo.legsFor;
+      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by legs won'+among+' ('+a+' vs '+b+').</div>');
     } else if(n.rule){
       lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by '+escapeHtml(n.rule)+'.</div>');
     }
   });
   flushLevel();
   if(groupHasPositionOverrides(g)) lines.push('<div><b>*</b> Position set manually by the organiser.</div>');
-  if(!lines.length) return '';
+  // Mini-tables behind any 3+ way tie, so the organiser can see exactly what was compared.
+  const minis = (standings.tieClusters||[]).filter(c=> !c.ids.some(id=> byId[id].manualOverride)).map(c=>{
+    const names = c.ids.map(id=>{ const e = t.entriesList.find(x=>x.id===id); return '<b>'+escapeHtml(e?e.name:'—')+'</b>'; });
+    const rows = c.ids.map(id=>{
+      const m = c.mini[id];
+      return '<tr><td class="l">'+nm(id)+'</td><td class="dim">'+m.mp+'</td><td>'+m.w+'</td><td>'+m.mpts+'</td><td>'+m.lf+'–'+m.la+'</td><td class="'+(m.ld<0?'neg':'')+'">'+fmtLegDiff(m.ld)+'</td></tr>';
+    }).join('');
+    return '<div style="margin-top:10px"><div>Mini-table: '+names.join(', ').replace(/, ([^,]*)$/, ' and $1')+' — level on '+c.pts+' pts, only the matches between them count.</div>'+
+      '<table class="std-table" style="margin-top:4px;font-size:12px"><thead><tr><th class="l">Entry</th><th title="Matches played between these entries">MP</th><th title="Matches won">MW</th><th title="Points from these matches">Pts</th><th title="Legs won–lost in these matches">Legs</th><th>+/-</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }).join('');
+  if(!lines.length && !minis) return '';
   const hdr = complete ? '' : '<div>Provisional — ties may change as the remaining matches are played.</div>';
-  return '<div class="tie-notes">'+(notes.length&&!complete?hdr:'')+lines.join('')+'</div>';
+  return '<div class="tie-notes">'+(notes.length&&!complete?hdr:'')+lines.join('')+minis+'</div>';
 }
 function manageStandingsHTML(g){
   if(!g.gameStarted) return '';
