@@ -4774,6 +4774,62 @@ function generateKnockoutFromRR(){
   if(!t.rrFinishedAt) t.rrFinishedAt = Date.now();
   persist(); render();
 }
+/* Unresolved ties that straddle a qualifying cut-off. A tie that every
+   tie-break rule leaves level (see computeStandings' tieNotes) is ranked
+   by group list order, so it only matters when the cut-off — after
+   qualifiersPerGroup places, and after the Plate band when one is capped —
+   falls inside it: someone advances over a player they were level with.
+   Only finished groups are checked (a tie mid-group can still change), and
+   a run where the organiser has already set a position manually counts as
+   handled. */
+function cutoffTieIssues(t){
+  const q = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
+  const cuts = [{after:q, label:'advancing to the main bracket'}];
+  if(t.format.losersPool){
+    const ps = parseInt(t.format.plateQualifiersPerGroup);
+    if(!isNaN(ps) && ps>=1) cuts.push({after:q+ps, label:'making the Plate pool'});
+  }
+  const issues = [];
+  t.groups.filter(g=>g.confirmed && g.gameStarted && groupIsComplete(g)).forEach(g=>{
+    const standings = computeStandings(g);
+    const byId = {}; standings.forEach(s=> byId[s.id]=s);
+    const runs = [];
+    (standings.tieNotes||[]).forEach(n=>{
+      if(n.rule) return;
+      const last = runs[runs.length-1];
+      if(last && last.ids[last.ids.length-1]===n.hi) last.ids.push(n.lo);
+      else runs.push({ids:[n.hi, n.lo], pts:n.pts});
+    });
+    runs.forEach(run=>{
+      if(run.ids.some(id=> byId[id].manualOverride)) return;
+      const first = Math.min(...run.ids.map(id=> byId[id].autoPosition));
+      const lastPos = Math.max(...run.ids.map(id=> byId[id].autoPosition));
+      const hit = cuts.filter(c=> first<=c.after && c.after<lastPos);
+      if(hit.length) issues.push({group:g, ids:run.ids, pts:run.pts, first, last:lastPos, cuts:hit});
+    });
+  });
+  return issues;
+}
+/* Runs the tie check, then generates. An unresolved tie at a cut-off blocks
+   generation outright (unlike the unfinished-round-robin gate there's no
+   "generate anyway"): the organiser must set the positions first. */
+function generateKnockoutFromRRChecked(){
+  const t = state;
+  const issues = cutoffTieIssues(t);
+  if(!issues.length){ generateKnockoutFromRR(); return; }
+  const list = issues.map(i=>{
+    const names = i.ids.map(id=>{ const e = t.entriesList.find(x=>x.id===id); return '<b>'+escapeHtml(e?e.name:'—')+'</b>'; });
+    const who = names.length>2 ? names.slice(0,-1).join(', ')+' and '+names[names.length-1] : names.join(' and ');
+    return '<li style="margin-bottom:8px">Group '+i.group.label+': '+who+' are level on '+i.pts+' pts for places '+i.first+'–'+i.last+' and no tie-break rule separates them. The cut-off for '+i.cuts.map(c=>c.label).join(' and ')+' falls inside that tie, so who gets through can\'t be decided automatically.</li>';
+  }).join('');
+  openModal({
+    title:'Resolve ties before continuing',
+    bodyHTML:'<ul style="margin:0 0 10px;padding-left:18px;font-size:13px;line-height:1.5">'+list+'</ul>'+
+      '<p style="font-size:12px;color:var(--muted)">The knockout can\'t be generated until these are resolved. Settle them (a playoff or organiser decision), then use <b>Adjust positions…</b> on the group in Manage Tournament to set the order and generate again.</p>',
+    confirmLabel:'OK', confirmClass:'primary',
+    onConfirm: ()=>{}
+  });
+}
 /* The gate: if any confirmed group still has unscored matches, require an
    explicit "generate anyway" confirmation instead of proceeding straight
    to generateKnockoutFromRR. */
@@ -4782,13 +4838,15 @@ function confirmGenerateKnockoutFromRR(){
   const incompleteGroups = t.groups.filter(g=>g.confirmed && !groupIsComplete(g));
   if(incompleteGroups.length){
     const names = incompleteGroups.map(g=>g.label).join(', ');
-    openModal({title:'Round robin isn\'t finished', body:'Group'+(incompleteGroups.length===1?'':'s')+' '+names+' still '+(incompleteGroups.length===1?'has':'have')+' unscored matches. Generating now will use whatever standings exist for '+(incompleteGroups.length===1?'it':'them')+' so far. Continue anyway?', confirmLabel:'Generate anyway', confirmClass:'danger', onConfirm: generateKnockoutFromRR});
+    // Deferred: openModal closes the modal after onConfirm returns, which
+    // would immediately close a second modal opened from inside it.
+    openModal({title:'Round robin isn\'t finished', body:'Group'+(incompleteGroups.length===1?'':'s')+' '+names+' still '+(incompleteGroups.length===1?'has':'have')+' unscored matches. Generating now will use whatever standings exist for '+(incompleteGroups.length===1?'it':'them')+' so far. Continue anyway?', confirmLabel:'Generate anyway', confirmClass:'danger', onConfirm: ()=> setTimeout(generateKnockoutFromRRChecked, 0)});
   } else {
-    generateKnockoutFromRR();
+    generateKnockoutFromRRChecked();
   }
 }
 function regenerateKnockoutFromRR(){
-  const doIt = ()=> generateKnockoutFromRR();
+  const doIt = ()=> setTimeout(generateKnockoutFromRRChecked, 0);
   if(bracketHasScores(state.knockout) || (state.knockoutLosers && bracketHasScores(state.knockoutLosers))){
     openModal({title:'Regenerate bracket?', body:'This discards all knockout results entered so far and rebuilds from current group standings.', confirmLabel:'Regenerate', confirmClass:'danger', onConfirm:doIt});
   } else { doIt(); }
