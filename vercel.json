@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/viewer/:path*", "destination": "/__not_found" }
+  ]
+}
