@@ -1919,7 +1919,23 @@ function persist(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(flushSave, 500);
 }
+/* Saves run one at a time. Each PUT sends the updated_at returned by the
+   previous one, so a second save started while the first is still in flight
+   would carry a stale stamp and be rejected with 409 (and the change would
+   stay only in this tab). If one is in flight, remember to save again after it
+   returns, with the fresh stamp. */
+let saveInFlight = false, savePendingId = null;
 async function flushSave(){
+  if(!state) return;
+  if(saveInFlight){ savePendingId = state.id; return; }
+  saveInFlight = true;
+  try{ await flushSaveOnce(); }
+  finally{
+    saveInFlight = false;
+    if(savePendingId){ const wantId = savePendingId; savePendingId = null; if(state && state.id===wantId) flushSave(); }
+  }
+}
+async function flushSaveOnce(){
   if(!state) return;
   const id = state.id;
   const payload = state;
