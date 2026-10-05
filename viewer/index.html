@@ -44,6 +44,38 @@ main{padding:16px}
 footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 16px 32px}
 .msg{max-width:520px;margin:64px auto;text-align:center;padding:0 16px}
 .msg h1{font-size:20px;margin:0 0 8px}
+nav a.on{background:var(--navy);color:#fff}
+.finder{padding:12px 16px 0}
+.finder input{width:100%;font:inherit;font-size:15px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink)}
+.fres{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-height:44px;margin-top:6px;padding:8px 14px;font:inherit;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);cursor:pointer}
+.fres .sub,.fnone,.note{font-size:12px;color:var(--muted)}
+.fnone{padding:8px 4px}
+.tap{cursor:pointer}
+.tap:hover{text-decoration:underline}
+tr.is-me td.l,tr.is-me td.name{background:#dbe7fb;font-weight:700}
+tr.is-fol td.l::before,tr.is-fol td.name::before{content:"\2605\00a0";color:var(--gold)}
+.pcard h2{font-size:20px;margin-bottom:2px}
+.you{font-size:11px;font-weight:700;background:var(--blue);color:#fff;border-radius:99px;padding:2px 9px}
+.psub{color:var(--muted);font-size:13px}
+.pstatus{margin:12px 0;padding:10px 12px;border-radius:10px;background:#eef4fd;border:1px solid #cfe0f8;font-size:14px}
+.pbtns{display:flex;gap:8px;flex-wrap:wrap}
+.pb{font:inherit;font-size:14px;min-height:44px;padding:8px 16px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);cursor:pointer}
+.pb.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.back{display:inline-block;margin-bottom:8px;font-size:13px;color:var(--blue);text-decoration:none}
+.mini{border-collapse:collapse;width:100%;font-size:13px}
+.mini td,.mini th{padding:9px 6px;border-top:1px solid var(--line);text-align:center}
+.mini th{border-top:none;color:var(--muted);font-size:11px;font-weight:600}
+.mini td.n,.mini th.n{text-align:left}
+.mini td.q{border-left:3px solid var(--green)}
+.mini tr.is-me td{background:#dbe7fb;font-weight:700}
+.mrow{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.mrow:first-of-type{border-top:none}
+.res.w{color:var(--green);font-weight:700}.res.l{color:var(--red)}.res.t{color:var(--muted)}
+.fcard{display:flex;align-items:stretch;gap:8px;margin-bottom:10px}
+.fcard .fmain{flex:1;min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer}
+.fcard .fmain b{font-size:16px}
+.fcard .fst{font-size:13px;margin-top:4px}
+.fcard .unf{flex:0 0 48px;border:1px solid var(--line);border-radius:14px;background:var(--paper);color:var(--gold);font-size:20px;cursor:pointer}
 @media (min-width:700px){header{padding:28px 16px 20px}header h1{font-size:28px}.card{padding:20px}}
 </style>
 </head>
@@ -57,6 +89,10 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 16px 32px
   </div>
 </header>
 <nav id="nav" hidden><div class="wrap" id="navLinks"></div></nav>
+<div class="wrap finder" id="finderWrap" hidden>
+  <input id="finder" type="search" placeholder="Find a player" aria-label="Find a player" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <div id="finderResults"></div>
+</div>
 <main><div class="wrap" id="app"><div class="msg"><p class="empty">Loading results…</p></div></div></main>
 <footer>Results update automatically · Powered by DartDraw</footer>
 
@@ -89,6 +125,241 @@ function entryName(id){
   return e ? e.name : '—';
 }
 
+/* ---------- Me and Following ----------
+   Kept on this device only (localStorage, per tournament link): nothing is sent
+   anywhere and there's no account. "Me" is one player; "Following" is any number. */
+var STORE_KEY = 'dartdraw.viewer.' + SLUG;
+var prefs = loadPrefs();
+function loadPrefs(){
+  try{
+    var p = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {};
+    return { me: typeof p.me==='string' ? p.me : null,
+             follow: Array.isArray(p.follow) ? p.follow.filter(function(x){ return typeof x==='string'; }) : [] };
+  }catch(e){ return { me:null, follow:[] }; }
+}
+function savePrefs(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(prefs)); }catch(e){} }
+function entryObj(id){ return (state && state.entriesList.find(function(e){ return e.id===id; })) || null; }
+function myId(){ return prefs.me && entryObj(prefs.me) ? prefs.me : null; }
+function followIds(){ return prefs.follow.filter(function(id){ return id!==prefs.me && entryObj(id); }); }
+function isFollowing(id){ return followIds().indexOf(id) !== -1; }
+function setMe(id){ prefs.me = id; prefs.follow = prefs.follow.filter(function(x){ return x!==id; }); savePrefs(); }
+function clearMe(){ prefs.me = null; savePrefs(); }
+function toggleFollow(id){
+  if(id===prefs.me) return;
+  var i = prefs.follow.indexOf(id);
+  if(i===-1) prefs.follow.push(id); else prefs.follow.splice(i,1);
+  savePrefs();
+}
+
+/* ---------- What a player has played / still has to play ---------- */
+function ordinal(n){ var s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function scoreEntered(sc){
+  return !!sc && sc.legs1!==undefined && sc.legs1!=='' && sc.legs2!==undefined && sc.legs2!=='' &&
+    !isNaN(parseInt(sc.legs1)) && !isNaN(parseInt(sc.legs2));
+}
+function groupOf(id){ return (state.groups||[]).find(function(g){ return g.entryIds.indexOf(id)!==-1; }) || null; }
+function positionIn(g, id){
+  if(!g.gameStarted) return null;
+  var r = computeStandings(g).find(function(s){ return s.id===id; });
+  return r ? r.position : null;
+}
+function groupRows(id){
+  var g = groupOf(id);
+  if(!g) return null;
+  var rows = [];
+  g.entryIds.forEach(function(o){
+    if(o===id || !entryObj(o)) return;
+    var sc = getScore(g, id, o), first = id < o;
+    if(scoreEntered(sc)){
+      rows.push({opp:o, played:true, my:parseInt(first ? sc.legs1 : sc.legs2), op:parseInt(first ? sc.legs2 : sc.legs1), wo:!!sc.wo});
+    } else rows.push({opp:o, played:false});
+  });
+  return {g:g, rows:rows};
+}
+function koLines(id){
+  var out = [], multi = state.format.formatType==='rrknockout';
+  [[state.knockout, multi ? 'Main bracket' : 'Bracket'], [state.knockoutLosers, 'Plate pool']].forEach(function(pair){
+    var b = pair[0];
+    if(!b || !b.rounds) return;
+    b.rounds.forEach(function(round, ri){
+      round.forEach(function(m, mi){
+        if(m.aEntryId===id || m.bEntryId===id) out.push({b:b, title:pair[1], ri:ri, mi:mi, m:m, round:koRoundName(b, ri), tag:koMatchTag(b, state, ri, mi)});
+      });
+    });
+  });
+  return out;
+}
+function koOpponent(l, id){ return l.m.aEntryId===id ? l.m.bEntryId : l.m.aEntryId; }
+function koResultText(l, id){
+  var m = l.m, mine = m.aEntryId===id, my = mine ? m.aLegs : m.bLegs, op = mine ? m.bLegs : m.aLegs;
+  if(m.bye) return 'Bye';
+  if(!m.winnerId) return koOpponent(l, id) ? 'To play' : 'Waiting';
+  return (m.winnerId===id ? 'Won ' : 'Lost ') + (my!=null && op!=null ? my+'–'+op : '') + (m.wo ? ' (WO)' : '');
+}
+
+/* One line saying where a player is right now. */
+function statusLine(id){
+  var e = entryObj(id);
+  if(!e) return '';
+  if(e.withdrawn) return 'Withdrawn';
+  var ko = koLines(id);
+  if(ko.length){
+    var l = ko[ko.length-1], m = l.m, opp = koOpponent(l, id), inFinal = l.ri===l.b.rounds.length-1;
+    if(m.winnerId){
+      if(m.winnerId===id) return inFinal ? 'Winner of the '+l.title : (m.bye ? 'Bye in the '+l.round : 'Won the '+l.round)+' · waiting for the next round';
+      return 'Out in the '+l.round+' · lost to '+entryName(opp);
+    }
+    return 'Next: '+l.round+' ('+l.tag+')'+(opp ? ' vs '+entryName(opp) : ' · opponent not decided yet');
+  }
+  var gr = groupRows(id);
+  if(!gr) return '';
+  var g = gr.g, lab = 'Group '+g.label;
+  if(!g.gameStarted) return lab+' · not started yet';
+  var todo = gr.rows.filter(function(r){ return !r.played; });
+  if(todo.length){
+    var names = todo.slice(0,3).map(function(r){ return entryName(r.opp); }).join(', ');
+    return lab+': to play '+names+(todo.length>3 ? ' and '+(todo.length-3)+' more' : '')+(boardLabel(g) ? ' · '+boardLabel(g) : '');
+  }
+  var pos = positionIn(g, id), done = groupIsComplete(g);
+  var s = lab+': all matches played'+(pos ? (done ? ' · '+ordinal(pos)+' place' : ' · currently '+ordinal(pos)) : '');
+  if(done && state.knockout) s += ' · not in the knockout';
+  return s;
+}
+
+/* ---------- Player page, Me tab, Following tab ---------- */
+function miniGroupHTML(g, id){
+  if(!g.gameStarted){
+    return '<p class="empty">In this group: '+g.entryIds.map(function(x){ return escapeHtml(entryName(x)); }).join(', ')+'.</p>';
+  }
+  var st = computeStandings(g), q = state.format.formatType==='rrknockout' ? (state.format.qualifiersPerGroup||0) : 0;
+  var rows = st.map(function(r){
+    return '<tr'+(r.id===id ? ' class="is-me"' : '')+'><td'+(q && r.position<=q ? ' class="q"' : '')+'>'+r.position+'</td>'+
+      '<td class="n tap" data-eid="'+escapeHtml(r.id)+'">'+escapeHtml(entryName(r.id))+'</td><td>'+r.played+'</td><td>'+fmtLegDiff(r.legsFor-r.legsAgainst)+'</td><td><b>'+r.pts+'</b></td></tr>';
+  }).join('');
+  return '<table class="mini"><thead><tr><th>#</th><th class="n">Entry</th><th>MP</th><th>+/-</th><th>Pts</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    (q ? '<p class="note" style="margin:8px 0 0">Green bar: places that go through to the knockout.</p>' : '');
+}
+function matchesHTML(id){
+  var rows = [], gr = groupRows(id);
+  if(gr && gr.g.gameStarted){
+    gr.rows.forEach(function(r){
+      var cls = !r.played ? 't' : r.my>r.op ? 'w' : r.my<r.op ? 'l' : 't';
+      var txt = !r.played ? 'To play' : (r.my>r.op ? 'Won ' : r.my<r.op ? 'Lost ' : 'Drew ')+r.my+'–'+r.op+(r.wo ? ' (WO)' : '');
+      rows.push('<div class="mrow"><span class="tap" data-eid="'+escapeHtml(r.opp)+'">vs '+escapeHtml(entryName(r.opp))+'</span><span class="res '+cls+'">'+txt+'</span></div>');
+    });
+  }
+  koLines(id).forEach(function(l){
+    var opp = koOpponent(l, id), txt = koResultText(l, id), cls = /^Won/.test(txt) ? 'w' : /^Lost/.test(txt) ? 'l' : 't';
+    rows.push('<div class="mrow"><span>'+escapeHtml(l.round)+' <span class="note">'+l.tag+'</span>'+
+      (opp ? ' · <span class="tap" data-eid="'+escapeHtml(opp)+'">vs '+escapeHtml(entryName(opp))+'</span>' : '')+'</span><span class="res '+cls+'">'+txt+'</span></div>');
+  });
+  return rows.length ? rows.join('') : '<p class="empty">No matches yet.</p>';
+}
+function playerPageHTML(id, opts){
+  var e = entryObj(id);
+  if(!e) return '<section class="card"><p class="empty">We can\'t find that player. They may have been taken out of the draw.</p></section>';
+  var g = groupOf(id), me = myId()===id, fol = isFollowing(id);
+  var sub = [e.org, g ? 'Group '+g.label : '', g ? boardLabel(g) : ''].filter(Boolean).join(' · ');
+  var safe = escapeHtml(id);
+  var html = '<section class="card pcard">'+
+    ((opts && opts.back) ? '<a class="back" href="#" data-act="back">← Back</a><br>' : '')+
+    '<h2>'+escapeHtml(e.name)+(me ? ' <span class="you">You</span>' : '')+'</h2>'+
+    (sub ? '<div class="psub">'+escapeHtml(sub)+'</div>' : '')+
+    '<div class="pstatus">'+escapeHtml(statusLine(id))+'</div>'+
+    '<div class="pbtns">'+
+      (me ? '<button type="button" class="pb on" data-act="notme">✓ This is me</button>'
+          : '<button type="button" class="pb" data-act="me" data-id="'+safe+'">This is me</button>'+
+            '<button type="button" class="pb'+(fol ? ' on' : '')+'" data-act="follow" data-id="'+safe+'">'+(fol ? '★ Following' : '☆ Follow')+'</button>')+
+    '</div>'+
+    '<p class="note" style="margin:8px 0 0">Saved on this device only.</p></section>';
+  if(g) html += '<section class="card"><h2>Group '+escapeHtml(g.label)+'</h2>'+miniGroupHTML(g, id)+'</section>';
+  html += '<section class="card"><h2>Matches</h2>'+matchesHTML(id)+'</section>';
+  return html;
+}
+function meHTML(){
+  var id = myId();
+  if(!id) return '<section class="card"><h2>Are you playing?</h2><p class="empty">Search for your name above and tap <b>This is me</b>. Your group standing and next match will be here each time you open this page on this device.</p></section>';
+  return playerPageHTML(id, {});
+}
+function followingHTML(){
+  var ids = followIds();
+  if(!ids.length) return '<section class="card"><h2>Following</h2><p class="empty">Follow players to keep them all in one place. Search for a name above, or tap any name in a table, then tap <b>Follow</b>.</p><p class="note">Saved on this device only.</p></section>';
+  return ids.map(function(id){
+    var g = groupOf(id), pos = g ? positionIn(g, id) : null;
+    var sub = [(entryObj(id)||{}).org, g ? 'Group '+g.label+(pos ? ' · '+ordinal(pos) : '') : ''].filter(Boolean).join(' · ');
+    return '<div class="fcard"><div class="fmain" data-eid="'+escapeHtml(id)+'"><b>'+escapeHtml(entryName(id))+'</b>'+
+      (sub ? '<div class="psub">'+escapeHtml(sub)+'</div>' : '')+'<div class="fst">'+escapeHtml(statusLine(id))+'</div></div>'+
+      '<button type="button" class="unf" data-act="follow" data-id="'+escapeHtml(id)+'" aria-label="Stop following '+escapeHtml(entryName(id))+'">★</button></div>';
+  }).join('');
+}
+
+/* ---------- Tabs and routing (the address after # picks the screen) ---------- */
+function availableTabs(){
+  var t = [], hasGroups = state.format.formatType!=='knockout' && (state.groups||[]).length, hasKo = !!(state.knockout || state.knockoutLosers);
+  if(!hasGroups && !hasKo) return t;
+  if(state.entriesList.length){ t.push('me'); t.push('following'); }
+  if(hasGroups) t.push('groups');
+  if(hasKo) t.push('bracket');
+  return t;
+}
+function defaultTab(tabs){
+  if(myId() && tabs.indexOf('me')!==-1) return 'me';
+  if(followIds().length) return 'following';
+  return tabs.indexOf('groups')!==-1 ? 'groups' : tabs.indexOf('bracket')!==-1 ? 'bracket' : tabs[0];
+}
+function currentRoute(tabs){
+  var h = (location.hash||'').replace(/^#\/?/, ''), m = /^p\/(.+)$/.exec(h);
+  if(m){ var pid; try{ pid = decodeURIComponent(m[1]); }catch(e){ pid = m[1]; } return {name:'p', id:pid}; }
+  return {name: tabs.indexOf(h)!==-1 ? h : defaultTab(tabs)};
+}
+var TAB_LABEL = {me:'Me', following:'Following', groups:'Groups', bracket:'Bracket'};
+
+/* Make names in tables and brackets tappable, and mark Me / Following. */
+function markEntry(row, cell, id){
+  cell.setAttribute('data-eid', id); cell.classList.add('tap');
+  if(row){ row.classList.remove('is-me', 'is-fol'); if(id===myId()) row.classList.add('is-me'); else if(isFollowing(id)) row.classList.add('is-fol'); }
+}
+function decorate(){
+  document.querySelectorAll('[data-gid]').forEach(function(card){
+    var g = (state.groups||[]).find(function(x){ return x.id===card.getAttribute('data-gid'); });
+    if(!g || !g.gameStarted) return;
+    var st = computeStandings(g);
+    card.querySelectorAll('.std-table tbody tr').forEach(function(tr, i){ var c = tr.querySelector('td.l'); if(c && st[i]) markEntry(tr, c, st[i].id); });
+    var ids = g.entryIds.filter(function(id){ return entryObj(id); });
+    card.querySelectorAll('.grid tbody tr').forEach(function(tr, i){ var c = tr.querySelector('td.name'); if(c && ids[i]) markEntry(tr, c, ids[i]); });
+  });
+  document.querySelectorAll('[data-bracket]').forEach(function(box){
+    var b = box.getAttribute('data-bracket')==='kol' ? state.knockoutLosers : state.knockout;
+    if(!b || !b.rounds) return;
+    var byName = {}, dup = {};
+    b.rounds.forEach(function(round){ round.forEach(function(m){ [m.aEntryId, m.bEntryId].forEach(function(id){
+      if(!id || !entryObj(id)) return;
+      var n = entryObj(id).name;
+      if(byName[n] && byName[n]!==id) dup[n] = true; else byName[n] = id;
+    }); }); });
+    box.querySelectorAll('span').forEach(function(sp){
+      if(sp.children.length) return;
+      var n = sp.textContent, id = byName[n];
+      if(!id || dup[n]) return;
+      markEntry(null, sp, id);
+      var boxEl = sp.parentElement;
+      if(id===myId()) boxEl.style.outline = '2px solid #1f6feb';
+      else if(isFollowing(id)) boxEl.style.outline = '2px solid #d9ad45';
+    });
+  });
+}
+
+/* The finder sits outside #app so typing isn't interrupted by the 20s refresh. */
+function showFinderResults(){
+  var box = el('finderResults'), q = el('finder').value.trim().toLowerCase();
+  if(!q || !state){ box.innerHTML = ''; return; }
+  var hits = state.entriesList.filter(function(e){ return (e.name||'').toLowerCase().indexOf(q)!==-1 || (e.org||'').toLowerCase().indexOf(q)!==-1; }).slice(0, 8);
+  box.innerHTML = hits.length ? hits.map(function(e){
+    var g = groupOf(e.id), sub = [e.org, g ? 'Group '+g.label : ''].filter(Boolean).join(' · ');
+    return '<button type="button" class="fres" data-eid="'+escapeHtml(e.id)+'"><span>'+escapeHtml(e.name)+(myId()===e.id ? ' <span class="you">You</span>' : isFollowing(e.id) ? ' ★' : '')+'</span><span class="sub">'+escapeHtml(sub)+'</span></button>';
+  }).join('') : '<div class="fnone">No player with that name.</div>';
+}
+
 /* Compact results grid: row entry's legs first, same orientation rule the organiser chart uses. */
 function resultsGridHTML(g){
   var ids = g.entryIds.filter(function(id){ return state.entriesList.some(function(e){ return e.id===id; }); });
@@ -119,7 +390,7 @@ function groupCardHTML(g){
     body = '<div class="scroll">'+standingsTableHTML(g, st)+'</div>'+tieNotesHTML(g, st, {public:true})+
       '<h3>Results</h3>'+resultsGridHTML(g);
   }
-  return '<section class="card" id="group-'+escapeHtml(g.label)+'"><h2>Group '+escapeHtml(g.label)+(boardLabel(g)?'<span class="sub">'+escapeHtml(boardLabel(g))+'</span>':'')+'</h2>'+body+'</section>';
+  return '<section class="card" id="group-'+escapeHtml(g.label)+'" data-gid="'+escapeHtml(g.id)+'"><h2>Group '+escapeHtml(g.label)+(boardLabel(g)?'<span class="sub">'+escapeHtml(boardLabel(g))+'</span>':'')+'</h2>'+body+'</section>';
 }
 
 function bracketCardHTML(bracket, key, title){
@@ -170,40 +441,68 @@ function render(){
   var scrolls = {};
   document.querySelectorAll('[data-bracket]').forEach(function(b){ scrolls[b.getAttribute('data-bracket')] = b.scrollLeft; });
 
-  var sections = [], links = [];
   var type = state.format.formatType;
-  if(type!=='knockout' && (state.groups||[]).length){
-    links.push(['Groups','#groups']);
-    sections.push('<div id="groups">'+state.groups.map(groupCardHTML).join('')+'</div>');
+  var tabs = availableTabs();
+  if(!tabs.length){
+    el('app').innerHTML = '<div class="card"><p class="empty">The draw hasn\'t been made yet. Check back soon.</p></div>';
+    el('nav').hidden = true; el('finderWrap').hidden = true;
+    return;
   }
-  if(state.knockout){
-    links.push([type==='rrknockout' ? 'Main bracket' : 'Bracket', '#ko']);
-    sections.push(bracketCardHTML(state.knockout, 'ko', type==='rrknockout' ? 'Main bracket' : 'Bracket'));
+  var r = currentRoute(tabs), body = '';
+  if(r.name==='me') body = meHTML();
+  else if(r.name==='following') body = followingHTML();
+  else if(r.name==='p') body = playerPageHTML(r.id, {back:true});
+  else if(r.name==='groups') body = state.groups.map(groupCardHTML).join('');
+  else if(r.name==='bracket'){
+    if(state.knockout) body += bracketCardHTML(state.knockout, 'ko', type==='rrknockout' ? 'Main bracket' : 'Bracket');
+    if(state.knockoutLosers) body += bracketCardHTML(state.knockoutLosers, 'kol', 'Plate pool');
   }
-  if(state.knockoutLosers){
-    links.push(['Plate pool','#kol']);
-    sections.push(bracketCardHTML(state.knockoutLosers, 'kol', 'Plate pool'));
-  }
-  if(!sections.length){
-    sections.push('<div class="card"><p class="empty">The draw hasn\'t been made yet. Check back soon.</p></div>');
-  }
-  el('app').innerHTML = sections.join('');
-  el('navLinks').innerHTML = links.map(function(l){ return '<a href="'+l[1]+'">'+l[0]+'</a>'; }).join('');
-  el('nav').hidden = links.length < 2;
+  el('app').innerHTML = body;
+  var activeTab = r.name==='p' ? (r.id===myId() ? 'me' : '') : r.name;
+  el('navLinks').innerHTML = tabs.map(function(t){
+    var n = t==='following' ? followIds().length : 0;
+    return '<a href="#/'+t+'"'+(t===activeTab ? ' class="on" aria-current="page"' : '')+'>'+TAB_LABEL[t]+(n ? ' ('+n+')' : '')+'</a>';
+  }).join('');
+  el('nav').hidden = false;
+  el('finderWrap').hidden = !state.entriesList.length;
+  showFinderResults();
+  decorate();
   applyBracketFit();
   document.querySelectorAll('[data-bracket]').forEach(function(b){ var k=b.getAttribute('data-bracket'); if(scrolls[k]) b.scrollLeft = scrolls[k]; });
 }
 
+function goToPlayer(id){
+  el('finder').value = ''; el('finderResults').innerHTML = '';
+  location.hash = '#/p/' + encodeURIComponent(id);
+}
 document.addEventListener('click', function(e){
-  var btn = e.target.closest && e.target.closest('[data-fit]');
-  if(!btn) return;
-  var k = btn.getAttribute('data-fit'); fitBracket[k] = !fitBracket[k];
-  render();
+  var t = e.target;
+  if(!t || !t.closest || !state) return;
+  var fit = t.closest('[data-fit]');
+  if(fit){ var k = fit.getAttribute('data-fit'); fitBracket[k] = !fitBracket[k]; render(); return; }
+  var act = t.closest('[data-act]');
+  if(act){
+    e.preventDefault();
+    var a = act.getAttribute('data-act'), id = act.getAttribute('data-id');
+    if(a==='back'){ if(history.length>1) history.back(); else location.hash = '#/'; return; }
+    if(a==='me') setMe(id); else if(a==='notme') clearMe(); else if(a==='follow') toggleFollow(id);
+    render();
+    return;
+  }
+  var go = t.closest('[data-eid]');
+  if(go) goToPlayer(go.getAttribute('data-eid'));
+});
+window.addEventListener('hashchange', function(){ if(state){ render(); window.scrollTo(0, 0); } });
+el('finder').addEventListener('input', showFinderResults);
+el('finder').addEventListener('keydown', function(e){
+  if(e.key!=='Enter') return;
+  var first = el('finderResults').querySelector('[data-eid]');
+  if(first) goToPlayer(first.getAttribute('data-eid'));
 });
 window.addEventListener('resize', applyBracketFit);
 
 function showMessage(title, text){
-  el('head').hidden = true; el('nav').hidden = true;
+  el('head').hidden = true; el('nav').hidden = true; el('finderWrap').hidden = true;
   el('app').innerHTML = '<div class="msg"><h1>'+title+'</h1><p class="empty">'+text+'</p></div>';
 }
 function setStatus(){
