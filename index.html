@@ -2341,6 +2341,7 @@ function goStage(n){
   if(n>1 && !state.eventCreation.saved){ return; }
   if(n>2 && !state.format.saved){ return; }
   if(n>3 && !state.entriesList.length){ return; }
+  if(n>=6 && blockForUnresolvedTies()) return;
   currentStage = n;
   render();
 }
@@ -4859,14 +4860,8 @@ function generateKnockoutFromRR(){
    Only finished groups are checked (a tie mid-group can still change), and
    a run where the organiser has already set a position manually counts as
    handled. */
-function cutoffTieIssues(t){
-  const q = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
-  const cuts = [{after:q, label:'advancing to the main bracket'}];
-  if(t.format.losersPool){
-    const ps = parseInt(t.format.plateQualifiersPerGroup);
-    if(!isNaN(ps) && ps>=1) cuts.push({after:q+ps, label:'making the Plate pool'});
-  }
-  const issues = [];
+function unresolvedTieRuns(t){
+  const runsOut = [];
   t.groups.filter(g=>g.confirmed && g.gameStarted && groupIsComplete(g)).forEach(g=>{
     const standings = computeStandings(g);
     const byId = {}; standings.forEach(s=> byId[s.id]=s);
@@ -4880,12 +4875,48 @@ function cutoffTieIssues(t){
     runs.forEach(run=>{
       if(run.ids.some(id=> byId[id].manualOverride)) return;
       const first = Math.min(...run.ids.map(id=> byId[id].autoPosition));
-      const lastPos = Math.max(...run.ids.map(id=> byId[id].autoPosition));
-      const hit = cuts.filter(c=> first<=c.after && c.after<lastPos);
-      if(hit.length) issues.push({group:g, ids:run.ids, pts:run.pts, first, last:lastPos, cuts:hit});
+      const last = Math.max(...run.ids.map(id=> byId[id].autoPosition));
+      runsOut.push({group:g, ids:run.ids, pts:run.pts, first, last});
     });
   });
+  return runsOut;
+}
+function cutoffTieIssues(t){
+  const q = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
+  const cuts = [{after:q, label:'advancing to the main bracket'}];
+  if(t.format.losersPool){
+    const ps = parseInt(t.format.plateQualifiersPerGroup);
+    if(!isNaN(ps) && ps>=1) cuts.push({after:q+ps, label:'making the Plate pool'});
+  }
+  const issues = [];
+  unresolvedTieRuns(t).forEach(run=>{
+    const hit = cuts.filter(c=> run.first<=c.after && c.after<run.last);
+    if(hit.length) issues.push(Object.assign({cuts:hit}, run));
+  });
   return issues;
+}
+/* Finalize standings and Print both need every group's order settled, not
+   just ties at a qualifying cut-off. Returns true (after showing why) if
+   anything is still level; the organiser's way out is Adjust positions. */
+function blockForUnresolvedTies(){
+  const t = state;
+  if(!t || t.format.formatType==='knockout') return false;
+  const runs = unresolvedTieRuns(t);
+  if(!runs.length) return false;
+  const list = runs.map(i=>{
+    const names = i.ids.map(id=>{ const e = t.entriesList.find(x=>x.id===id); return '<b>'+escapeHtml(e?e.name:'—')+'</b>'; });
+    const who = names.length>2 ? names.slice(0,-1).join(', ')+' and '+names[names.length-1] : names.join(' and ');
+    return '<li style="margin-bottom:8px">Group '+i.group.label+': '+who+' are level on '+i.pts+' pts for places '+i.first+'–'+i.last+' and no tie-break rule separates them.</li>';
+  }).join('');
+  const away = currentStage!==5;
+  openModal({
+    title:'Resolve ties before continuing',
+    bodyHTML:'<ul style="margin:0 0 10px;padding-left:18px;font-size:13px;line-height:1.5">'+list+'</ul>'+
+      '<p style="font-size:12px;color:var(--muted)">Finalize standings and Print stay locked until every tie is resolved. Settle them (a playoff or organiser decision), then use <b>Adjust positions…</b> on the group in Manage Tournament to set the order.</p>',
+    confirmLabel: away ? 'Go to Manage Tournament' : 'OK', confirmClass:'primary',
+    onConfirm: ()=>{ if(away){ currentStage = 5; render(); } }
+  });
+  return true;
 }
 /* Runs the tie check, then generates. An unresolved tie at a cut-off blocks
    generation outright (unlike the unfinished-round-robin gate there's no
@@ -5304,6 +5335,7 @@ function teamHandoutSheetHTML(e){
   '</div>';
 }
 function doFinalPrint(){
+  if(blockForUnresolvedTies()) return;
   if(state.format.formatType==='knockout'){
     if(!state.knockout){ openModal({title:'No bracket yet', body:'Generate the bracket first.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
     runPrintPack([]);
