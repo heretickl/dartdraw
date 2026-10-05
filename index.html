@@ -161,6 +161,19 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .score-cell.loss{background:#fdf1f0}
 .standing{font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;font-size:15px}
 .standing.with-legs{flex-direction:column;gap:1px;line-height:1.1}
+.std-table{width:100%;border-collapse:collapse;font-size:13px}
+.std-table th{padding:0 6px 7px;text-align:center;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.std-table th.l,.std-table td.l{text-align:left}
+.std-table td{padding:7px 6px;border-top:1px solid var(--line);text-align:center;font-variant-numeric:tabular-nums}
+.std-table td.pos{font-weight:700;text-align:left}
+.std-table td.pts{font-weight:700}
+.std-table td.dim{color:var(--muted)}
+.std-table td.neg{color:var(--red)}
+.tb-badge{display:inline-block;min-width:30px;padding:2px 6px;border-radius:99px;background:#e5eefc;color:#1956ad;font-size:10px;font-weight:700;cursor:help}
+.tb-badge.level{background:#fdecea;color:#c0392b}
+.tie-notes{margin-top:10px;font-size:11px;line-height:1.5;color:var(--muted)}
+.tie-notes div{margin-top:3px}
+.tie-notes .warn{color:#c0392b;font-weight:600}
 .legs-sub{font-size:12px;font-weight:700}
 .legs-won{color:var(--ink)}
 .legs-lost{color:var(--red)}
@@ -1426,7 +1439,8 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
   const clampAttr = 'min="0" max="'+majority+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.min(Math.max(parseInt(this.value)||0,0),'+majority+')"';
   openModal({
     title: aName+' v '+bName,
-    bodyHTML: '<div class="grid2"><div class="field"><label>'+escapeHtml(aName)+' legs</label><input id="scA" type="number" '+clampAttr+' value="'+(m.aLegs!=null?m.aLegs:0)+'"></div>'+
+    bodyHTML: '<p style="margin:-4px 0 10px;font-size:11px;color:var(--muted)">Match '+koMatchTag(bracket, state, roundIdx, matchIdx)+' · '+escapeHtml(koRoundName(bracket, roundIdx))+'</p>'+
+      '<div class="grid2"><div class="field"><label>'+escapeHtml(aName)+' legs</label><input id="scA" type="number" '+clampAttr+' value="'+(m.aLegs!=null?m.aLegs:0)+'"></div>'+
       '<div class="field"><label>'+escapeHtml(bName)+' legs</label><input id="scB" type="number" '+clampAttr+' value="'+(m.bLegs!=null?m.bLegs:0)+'"></div></div>'+
       '<p style="font-size:11px;color:#8a97a5">Best of '+bestOf+' legs — a side can score at most '+majority+'. Knockout matches can\'t end in a draw.</p>',
     confirmLabel:'Save score', confirmClass:'primary',
@@ -1609,6 +1623,24 @@ function mkoSlot(m, side, t, ri, tokens){
   };
 }
 
+/* Match ID in round-slot style (round number, then position in the round —
+   "2-1" is the first match of round 2), the same way DartConnect labels
+   bracket matches. The Plate pool gets a "P" prefix so its IDs can't be
+   confused with the main bracket's when both are on screen. */
+function koMatchTag(bracket, t, ri, mi){
+  return (bracket===t.knockoutLosers ? 'P' : '') + (ri+1) + '-' + (mi+1);
+}
+/* Small pill straddling the top-left corner of a match's top box. It sits
+   outside the box (which clips its own overflow) so it can hang over the
+   border, and counter-flips on the mirrored side so the text reads
+   normally. Always lands at the visual left on both sides of the bracket. */
+function mkoTagHTML(tag, fontSize, mirrored){
+  const fs = Math.max(6, fontSize*0.6);
+  return '<span class="mko-tag" style="position:absolute;top:-'+Math.round(fs*0.6)+'px;'+(mirrored?'right':'left')+':5px;z-index:1;pointer-events:none;'+
+    'font-size:'+fs.toFixed(1)+'px;font-weight:700;line-height:1.25;color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:0 3px;'+
+    (mirrored?'transform:scaleX(-1);':'')+'">'+tag+'</span>';
+}
+
 function mkoBoxHTML(slot, boxHeight, fontSize, mirrored){
   const rowDir = mirrored ? 'row-reverse' : 'row';
   const textAlign = mirrored ? 'text-align:right;' : '';
@@ -1684,7 +1716,7 @@ function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice, interactiv
       const clickAttr = clickable ? ' class="mko-clickable" onclick="koMatchScoreModal(\''+bracketKey+'\','+ri+','+mi+')"' : '';
       const woLink = clickable ? '<div style="flex:0 0 auto;text-align:center;font-size:'+Math.max(7,fontSize*0.6).toFixed(1)+'px;color:var(--blue);text-decoration:underline;cursor:pointer;padding:1px 0 0;'+(mirror===-1?'transform:scaleX(-1);':'')+'" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>' : '';
       groupsHtml += '<div style="flex:1;display:flex;flex-direction:column;"'+clickAttr+'>'+
-        '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(aSlot, boxHeight, fontSize, mirror===-1)+'</div>'+
+        '<div style="flex:1;display:flex;align-items:center;"><div style="position:relative;width:100%;">'+mkoBoxHTML(aSlot, boxHeight, fontSize, mirror===-1)+(m.bye ? '' : mkoTagHTML(koMatchTag(bracket, t, ri, mi), fontSize, mirror===-1))+'</div></div>'+
         '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(bSlot, boxHeight, fontSize, mirror===-1)+'</div>'+
         woLink+
         '</div>';
@@ -1732,10 +1764,11 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interacti
     '<div style="position:relative;display:flex;flex-direction:column;align-items:center;">'+
     '<div style="position:absolute;left:0;right:0;bottom:calc(100% + 14px);text-align:center;font-size:22px;font-weight:800;letter-spacing:0.03em;color:var(--navy);">FINAL</div>'+
     '<div style="display:flex;align-items:center;"'+clickAttr+'>'+
-    '<div style="width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;background:'+aSlot.bg+';border:'+aSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
+    '<div style="position:relative;width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;">'+mkoTagHTML(koMatchTag(bracket, t, finalRi, 0), geom.fontSize, false)+
+    '<div style="width:100%;height:100%;background:'+aSlot.bg+';border:'+aSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
     '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+aSlot.text+'</span>'+
     (aSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
-    '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';">'+aSlot.legs+'</span></div>'+
+    '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';">'+aSlot.legs+'</span></div></div>'+
     '<div style="width:'+MKO_CONN_W+'px;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.06em;color:var(--muted);">'+(showVs ? 'VS' : '')+'</div>'+
     '<div style="width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;background:'+bSlot.bg+';border:'+bSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
     '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+bSlot.text+'</span>'+
@@ -2666,6 +2699,7 @@ function renderPopoutRR(area){
             '</span>'+
           '</div>'+
           '<div class="manage-chart-wrap"><div class="manage-chart-inner" id="manageChart_'+g.id+'" style="width:1000px">'+ chartSheetHTML(g, false) +'</div></div>'+
+          manageStandingsHTML(g)+
         '</div>';
       }).join('')+
     '</div>';
@@ -4066,7 +4100,7 @@ function openNoShowPicker(groupId){
 }
 function computeStandings(g){
   const table = {};
-  g.entryIds.forEach(id=> table[id] = {id, pts:0, played:0, legsFor:0, legsAgainst:0, wins:0, h2h:{}} );
+  g.entryIds.forEach(id=> table[id] = {id, pts:0, played:0, legsFor:0, legsAgainst:0, wins:0, losses:0, draws:0, h2h:{}} );
   groupMatches(g).forEach(([a,b])=>{
     const key = scoreKey(a,b);
     const sc = g.scores && g.scores[key];
@@ -4080,9 +4114,9 @@ function computeStandings(g){
     table[a].played++; table[b].played++;
     table[a].legsFor+=la; table[a].legsAgainst+=lb;
     table[b].legsFor+=lb; table[b].legsAgainst+=la;
-    if(la>lb){ table[a].pts+=2; table[a].wins++; table[a].h2h[b]='W'; table[b].h2h[a]='L'; }
-    else if(lb>la){ table[b].pts+=2; table[b].wins++; table[b].h2h[a]='W'; table[a].h2h[b]='L'; }
-    else { table[a].pts+=1; table[b].pts+=1; table[a].h2h[b]='D'; table[b].h2h[a]='D'; }
+    if(la>lb){ table[a].pts+=2; table[a].wins++; table[b].losses++; table[a].h2h[b]='W'; table[b].h2h[a]='L'; }
+    else if(lb>la){ table[b].pts+=2; table[b].wins++; table[a].losses++; table[b].h2h[a]='W'; table[a].h2h[b]='L'; }
+    else { table[a].pts+=1; table[b].pts+=1; table[a].draws++; table[b].draws++; table[a].h2h[b]='D'; table[b].h2h[a]='D'; }
   });
   const arr = Object.values(table);
   const order = (state && state.tieBreakOrder) || ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
@@ -4095,6 +4129,26 @@ function computeStandings(g){
     return 0;
   });
   arr.forEach((r,i)=> r.autoPosition = i+1);
+  /* Record how each tie on points was settled, from the automatic order
+     only (before any manual overrides). Each adjacent pair level on points
+     becomes a tieNote: the first tie-break rule that separates them, or
+     rule:null if every rule leaves them level. Rows get tieRule so the
+     table can badge them — taken from the pair with the row above when it
+     has one, otherwise the pair with the row below. */
+  const tieNotes = [];
+  arr.forEach(r=>{ r.tieRule = null; });
+  for(let i=1;i<arr.length;i++){
+    const hi = arr[i-1], lo = arr[i];
+    if(hi.pts!==lo.pts) continue;
+    let used = null;
+    for(const rule of order){
+      if(compareByRule(rule, hi, lo)!==0){ used = rule; break; }
+    }
+    tieNotes.push({hi:hi.id, lo:lo.id, pts:hi.pts, rule:used});
+    lo.tieRule = used || 'LEVEL';
+    if(hi.tieRule===null) hi.tieRule = used || 'LEVEL';
+  }
+  arr.tieNotes = tieNotes;
   const overrides = g.positionOverrides || {};
   arr.forEach(r=>{
     const ov = overrides[r.id];
@@ -4103,6 +4157,86 @@ function computeStandings(g){
   });
   arr.sort((x,y)=> (x.position-y.position) || (x.autoPosition-y.autoPosition));
   return arr;
+}
+/* ---------- Standings table + tie-break explanation ---------- */
+var TIE_RULE_SHORT = {'Head-to-head result':'H2H','Leg difference':'LD','Legs won':'LW'};
+function fmtLegDiff(n){ return n>0 ? '+'+n : String(n); }
+function standingsTableHTML(g, standings){
+  standings = standings || computeStandings(g);
+  const t = state;
+  const showDraws = standings.some(s=> s.draws>0);
+  const anyTie = standings.some(s=> s.tieRule);
+  const rows = standings.map(st=>{
+    const ent = t.entriesList.find(e=>e.id===st.id);
+    const diff = st.legsFor - st.legsAgainst;
+    let tb = '';
+    if(st.tieRule==='LEVEL') tb = '<span class="tb-badge level" title="Level on points after every tie-break rule">?</span>';
+    else if(st.tieRule) tb = '<span class="tb-badge" title="Separated from the entry beside it on points by: '+escapeHtml(st.tieRule)+'">'+(TIE_RULE_SHORT[st.tieRule]||escapeHtml(st.tieRule))+'</span>';
+    return '<tr>'+
+      '<td class="pos">'+st.position+(st.manualOverride?'*':'')+'</td>'+
+      '<td class="l">'+escapeHtml(ent?ent.name:'—')+'</td>'+
+      '<td class="dim">'+st.played+'</td>'+
+      '<td>'+st.wins+'</td>'+
+      '<td class="dim">'+st.losses+'</td>'+
+      (showDraws?'<td class="dim">'+st.draws+'</td>':'')+
+      '<td>'+st.legsFor+'</td>'+
+      '<td class="'+(diff<0?'neg':'')+'">'+fmtLegDiff(diff)+'</td>'+
+      '<td class="pts">'+st.pts+'</td>'+
+      (anyTie?'<td>'+tb+'</td>':'')+
+    '</tr>';
+  }).join('');
+  return '<table class="std-table"><thead><tr>'+
+    '<th class="l">Pos.</th><th class="l">Entry</th><th title="Matches played">MP</th><th title="Matches won">MW</th><th title="Matches lost">ML</th>'+
+    (showDraws?'<th title="Matches drawn">MD</th>':'')+
+    '<th title="Legs won">LW</th><th title="Leg difference (legs won minus legs lost)">+/-</th><th title="Points">Pts</th>'+
+    (anyTie?'<th title="Tie-break that separated this entry from the one beside it">TB</th>':'')+
+  '</tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function tieNotesHTML(g, standings){
+  standings = standings || computeStandings(g);
+  const t = state;
+  const notes = standings.tieNotes || [];
+  const byId = {}; standings.forEach(s=> byId[s.id]=s);
+  const nm = id=>{ const e = t.entriesList.find(x=>x.id===id); return '<b>'+escapeHtml(e?e.name:'—')+'</b>'; };
+  const complete = groupIsComplete(g);
+  const lines = [];
+  let levelRun = null; // consecutive still-level entries, reported as one line
+  const flushLevel = ()=>{
+    if(!levelRun) return;
+    lines.push('<div class="warn">'+levelRun.ids.map(nm).join(', ').replace(/, ([^,]*)$/, ' and $1')+' are still level on '+levelRun.pts+' pts after every tie-break rule — needs an organiser decision or a playoff (use Adjust positions).</div>');
+    levelRun = null;
+  };
+  notes.forEach(n=>{
+    const hi = byId[n.hi], lo = byId[n.lo];
+    // Positions involving a manual override are explained by the asterisk note instead.
+    if(hi.manualOverride || lo.manualOverride) return;
+    if(!n.rule && complete){
+      if(levelRun && levelRun.ids[levelRun.ids.length-1]===n.hi) levelRun.ids.push(n.lo);
+      else { flushLevel(); levelRun = {ids:[n.hi, n.lo], pts:n.pts}; }
+      return;
+    }
+    flushLevel();
+    if(n.rule==='Head-to-head result'){
+      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by head-to-head (won their match).</div>');
+    } else if(n.rule==='Leg difference'){
+      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by leg difference ('+fmtLegDiff(hi.legsFor-hi.legsAgainst)+' vs '+fmtLegDiff(lo.legsFor-lo.legsAgainst)+').</div>');
+    } else if(n.rule==='Legs won'){
+      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by legs won ('+hi.legsFor+' vs '+lo.legsFor+').</div>');
+    } else if(n.rule){
+      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by '+escapeHtml(n.rule)+'.</div>');
+    }
+  });
+  flushLevel();
+  if(groupHasPositionOverrides(g)) lines.push('<div><b>*</b> Position set manually by the organiser.</div>');
+  if(!lines.length) return '';
+  const hdr = complete ? '' : '<div>Provisional — ties may change as the remaining matches are played.</div>';
+  return '<div class="tie-notes">'+(notes.length&&!complete?hdr:'')+lines.join('')+'</div>';
+}
+function manageStandingsHTML(g){
+  if(!g.gameStarted) return '';
+  const standings = computeStandings(g);
+  return '<div style="margin-top:16px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Standings</div>'+
+    standingsTableHTML(g, standings)+tieNotesHTML(g, standings)+'</div>';
 }
 function groupHasPositionOverrides(g){
   const ov = g.positionOverrides || {};
@@ -4744,6 +4878,7 @@ function stage5(){
           '</span>'+
         '</div>'+
         '<div class="manage-chart-wrap"><div class="manage-chart-inner" id="manageChart_'+g.id+'" style="width:1000px">'+ chartSheetHTML(g, false) +'</div></div>'+
+        manageStandingsHTML(g)+
       '</div>';
     }).join('');
     /* Once the knockout bracket is generated, the round robin charts are
@@ -4811,16 +4946,10 @@ function stage6(){
   }
   html += confirmed.map(g=>{
     const standings = g.gameStarted ? computeStandings(g) : [];
-    const hasOverrides = groupHasPositionOverrides(g);
-    const rows = standings.map(st=>{
-      const ent = state.entriesList.find(e=>e.id===st.id);
-      return '<tr><td style="padding:7px 6px;border-top:1px solid var(--line);font-weight:700">'+st.position+(st.manualOverride?'*':'')+'</td><td style="padding:7px 6px;border-top:1px solid var(--line)">'+escapeHtml(ent?ent.name:'—')+'</td><td style="padding:7px 6px;border-top:1px solid var(--line);font-weight:700">'+st.pts+'</td><td style="padding:7px 6px;border-top:1px solid var(--line);color:var(--muted)">'+st.played+'</td></tr>';
-    }).join('');
     return '<div class="card">'+
       '<h3 style="margin:0 0 10px;font-size:15px">Group '+g.label+' · '+groupBoardLabel(g)+'</h3>'+
       (!g.gameStarted ? '<div class="confirm-box" style="margin:0">Game hasn\'t started yet — standings will appear here once scores are entered in Manage Tournament.</div>' :
-        '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em"><th style="padding:0 6px 7px">Pos.</th><th style="padding:0 6px 7px">Entry</th><th style="padding:0 6px 7px">Pts</th><th style="padding:0 6px 7px">Played</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-        (hasOverrides?'<div style="margin-top:6px;font-size:11px;color:var(--muted)"><b>* Position set manually by organiser</b></div>':''))+
+        standingsTableHTML(g, standings)+tieNotesHTML(g, standings))+
     '</div>';
   }).join('');
   if(state.format.formatType==='rrknockout') html += stage6KnockoutSection();
