@@ -172,14 +172,14 @@ function mkoSlot(m, side, t, ri, tokens){
   const legs = m[side+'Legs'];
   const isWin = !!(m.winnerId && m.winnerId===id);
   if(!id){
-    if(m.bye) return { text:'BYE', seed:'', legs:'', fw:600, color:tokens.muted, bg:'#fff', border:'1px solid '+tokens.line, wo:false };
-    return { text:'', seed:'', legs:'', fw:400, color:tokens.ink, bg:'#fff', border:'1px solid '+tokens.line, wo:false };
+    if(m.bye) return { text:'BYE', seed:'', legs:'', fw:600, color:tokens.muted, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
+    return { text:'', seed:'', legs:'', fw:400, color:tokens.ink, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
   }
   const name = escapeHtml(bracketEntryName(t, id) || 'Unknown');
   const seed = (ri===0 && m.__seeds) ? (bracketSeedForDisplay(t, m.__seeds, m.__seedLabels, id) || '') : '';
   return {
     text: name, seed: String(seed), legs: legs!=null ? String(legs) : '',
-    fw: isWin ? 800 : 400, color: tokens.ink, bg: isWin ? tokens.winBg : '#fff',
+    fw: isWin ? 800 : 400, color: tokens.ink, bg: isWin ? tokens.winBg : (tokens.boxBg||'#fff'),
     border: '1px solid '+tokens.line,
     wo: !!(m.wo && m.winnerId && !isWin) // this side is the one who no-showed
   };
@@ -316,7 +316,7 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interacti
   if(showChampion){
     championHtml = '<div style="position:absolute;left:0;right:0;top:calc(100% + 56px);display:flex;flex-direction:column;align-items:center;">'+
       '<div style="font-size:15px;font-weight:800;letter-spacing:0.1em;color:var(--green);">CHAMPION</div>'+
-      '<div style="width:150px;height:'+finalBoxH+'px;margin-top:12px;background:#eaf7ee;border:3px solid var(--green);box-sizing:border-box;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:'+geom.fontSize+'px;font-weight:800;color:var(--ink);">'+championName+'</div>'+
+      '<div style="width:150px;height:'+finalBoxH+'px;margin-top:12px;background:var(--win-bg,#eaf7ee);border:3px solid var(--green);box-sizing:border-box;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:'+geom.fontSize+'px;font-weight:800;color:var(--ink);">'+championName+'</div>'+
       '</div>';
   }
 
@@ -325,7 +325,7 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interacti
     '<div style="flex:1;position:relative;">'+
     '<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;justify-content:center;">'+
     '<div style="position:relative;display:flex;flex-direction:column;align-items:center;">'+
-    '<div style="position:absolute;left:0;right:0;bottom:calc(100% + 14px);text-align:center;font-size:22px;font-weight:800;letter-spacing:0.03em;color:var(--navy);">FINAL</div>'+
+    '<div style="position:absolute;left:0;right:0;bottom:calc(100% + 14px);text-align:center;font-size:22px;font-weight:800;letter-spacing:0.03em;color:var(--final-ink,var(--navy));">FINAL</div>'+
     '<div style="display:flex;align-items:center;"'+clickAttr+'>'+
     '<div style="position:relative;width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;">'+mkoTagHTML(koMatchTag(bracket, t, finalRi, 0), geom.fontSize, false)+
     '<div style="width:100%;height:100%;background:'+aSlot.bg+';border:'+aSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
@@ -350,7 +350,9 @@ function mirroredChartHTML(bracket, t, opts){
   if(!sizeCheck.ok){
     return '<div class="mko-artboard mko-size-error" style="padding:20px 24px;max-width:520px;font-family:Inter,Segoe UI,Arial,sans-serif;font-size:13px;line-height:1.5;color:var(--red);background:#fdeceb;border:1px solid #f3c6c2;border-radius:8px;">'+escapeHtml(sizeCheck.message)+'</div>';
   }
-  const tokens = { line:'var(--line)', muted:'var(--muted)', ink:'var(--ink)', navy:'var(--navy)', winBg:'#eaf7ee', winLine:'var(--green)' };
+  /* A page can restyle the chart (the public viewer's dark theme) by defining
+     --box-bg, --win-bg, --final-ink and --chart-line; without them these are the original colours. */
+  const tokens = { line:'var(--chart-line,var(--line))', muted:'var(--muted)', ink:'var(--ink)', navy:'var(--final-ink,var(--navy))', winBg:'var(--win-bg,#eaf7ee)', boxBg:'var(--box-bg,#fff)', winLine:'var(--green)' };
   const showVs = opts.showVs !== false;
   const showChampion = opts.showChampion !== false;
   // interactive: used by Manage Tournament (on-screen, click-to-score) —
