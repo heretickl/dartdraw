@@ -22,7 +22,8 @@ module.exports = async (req, res) => {
     `;
     if (!rows.length) { res.status(404).json({ error: 'Not found.' }); return; }
     // Short shared cache: many spectators polling cost about one query per window.
-    res.setHeader('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=30');
+    // No stale-while-revalidate: an unpublished tournament must disappear promptly.
+    res.setHeader('Cache-Control', 'public, s-maxage=10');
     res.status(200).json({ updatedAt: rows[0].updated_at, view: toPublicView(rows[0].data) });
   } catch (e) {
     res.status(500).json({ error: 'Could not load results.' });
