@@ -4,88 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Live results</title>
+<meta name="theme-color" content="#0a1624">
+<meta name="color-scheme" content="dark light">
+<script>try{var t=localStorage.getItem('dartdraw.viewer.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/render.css">
-<style>
-:root{--navy:#10233e;--blue:#1f6feb;--gold:#d9ad45;--paper:#ffffff;--ink:#142133;--muted:#6f7c8b;--line:#dbe2ea;--bg:#edf2f6;--green:#1d8a4a;--red:#c0392b}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Segoe UI",system-ui,Arial,sans-serif;font-size:14px;line-height:1.45}
-header{background:var(--navy);color:#fff;padding:20px 16px 16px}
-.wrap{max-width:1100px;margin:0 auto}
-header .over{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#9fb3c8}
-header h1{margin:4px 0 2px;font-size:22px;line-height:1.2}
-header .sub{font-size:13px;color:#c9d6e3}
-.status{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:#c9d6e3;flex-wrap:wrap}
-.dot{width:8px;height:8px;border-radius:50%;background:#3ddc84}
-.dot.stale{background:#e0a030}
-.pill{background:#ffffff1f;border-radius:99px;padding:2px 10px}
-nav{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:1px solid var(--line)}
-nav .wrap{display:flex;gap:6px;padding:8px 16px;overflow-x:auto}
-nav a{flex:0 0 auto;padding:6px 14px;border-radius:99px;font-size:13px;font-weight:600;color:var(--ink);text-decoration:none;background:var(--bg)}
-nav a:active,nav a:hover{background:#dbe7f7}
-main{padding:16px}
-.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 4px 15px #26394a0b}
-.card h2{margin:0 0 10px;font-size:16px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.card h2 .sub{font-size:12px;font-weight:400;color:var(--muted)}
-.card h3{margin:16px 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.empty{color:var(--muted);padding:6px 0}
-.champ{background:#eaf7ee;border:1px solid #bfe6cc;color:#175c33;border-radius:10px;padding:10px 14px;margin-bottom:12px}
-.champ b{font-size:15px}
-.grid{border-collapse:collapse;font-size:12px;min-width:100%}
-.grid th,.grid td{border:1px solid var(--line);padding:6px 8px;text-align:center;white-space:nowrap}
-.grid th{background:#f4f7fa;color:var(--muted);font-weight:600}
-.grid td.name{text-align:left;font-weight:600}
-.grid td.diag{background:#eef1f4}
-.grid td.win{background:#eaf7ee;color:#175c33;font-weight:700}
-.grid td.loss{background:#fdecea;color:#a8332a}
-.grid td.draw{font-weight:700}
-.tools{display:flex;justify-content:flex-end;margin-bottom:6px}
-.tools button{font:inherit;font-size:12px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer}
-footer{text-align:center;color:var(--muted);font-size:11px;padding:8px 16px 32px}
-.msg{max-width:520px;margin:64px auto;text-align:center;padding:0 16px}
-.msg h1{font-size:20px;margin:0 0 8px}
-nav a.on{background:var(--navy);color:#fff}
-.finder{padding:12px 16px 0}
-.finder input{width:100%;font:inherit;font-size:15px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink)}
-.fres{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-height:44px;margin-top:6px;padding:8px 14px;font:inherit;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);cursor:pointer}
-.fres .sub,.fnone,.note{font-size:12px;color:var(--muted)}
-.fnone{padding:8px 4px}
-.tap{cursor:pointer}
-.tap:hover{text-decoration:underline}
-tr.is-me td.l,tr.is-me td.name{background:#dbe7fb;font-weight:700}
-tr.is-fol td.l::before,tr.is-fol td.name::before{content:"\2605\00a0";color:var(--gold)}
-.pcard h2{font-size:20px;margin-bottom:2px}
-.you{font-size:11px;font-weight:700;background:var(--blue);color:#fff;border-radius:99px;padding:2px 9px}
-.psub{color:var(--muted);font-size:13px}
-.pstatus{margin:12px 0;padding:10px 12px;border-radius:10px;background:#eef4fd;border:1px solid #cfe0f8;font-size:14px}
-.pbtns{display:flex;gap:8px;flex-wrap:wrap}
-.pb{font:inherit;font-size:14px;min-height:44px;padding:8px 16px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);cursor:pointer}
-.pb.on{background:var(--navy);border-color:var(--navy);color:#fff}
-.back{display:inline-block;margin-bottom:8px;font-size:13px;color:var(--blue);text-decoration:none}
-.mini{border-collapse:collapse;width:100%;font-size:13px}
-.mini td,.mini th{padding:9px 6px;border-top:1px solid var(--line);text-align:center}
-.mini th{border-top:none;color:var(--muted);font-size:11px;font-weight:600}
-.mini td.n,.mini th.n{text-align:left}
-.mini td.q{border-left:3px solid var(--green)}
-.mini tr.is-me td{background:#dbe7fb;font-weight:700}
-.mrow{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
-.mrow:first-of-type{border-top:none}
-.res.w{color:var(--green);font-weight:700}.res.l{color:var(--red)}.res.t{color:var(--muted)}
-.fcard{display:flex;align-items:stretch;gap:8px;margin-bottom:10px}
-.fcard .fmain{flex:1;min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer}
-.fcard .fmain b{font-size:16px}
-.fcard .fst{font-size:13px;margin-top:4px}
-.fcard .unf{flex:0 0 48px;border:1px solid var(--line);border-radius:14px;background:var(--paper);color:var(--gold);font-size:20px;cursor:pointer}
-@media (min-width:700px){header{padding:28px 16px 20px}header h1{font-size:28px}.card{padding:20px}}
-</style>
+<link rel="stylesheet" href="/theme.css">
 </head>
 <body>
 <header id="head" hidden>
   <div class="wrap">
-    <div class="over" id="hOver"></div>
+    <div class="toprow">
+      <div class="over" id="hOver"></div>
+      <div class="themesw" role="group" aria-label="Colour theme">
+        <button type="button" data-theme-set="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
+        <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+      </div>
+    </div>
     <h1 id="hTitle"></h1>
     <div class="sub" id="hSub"></div>
-    <div class="status"><span class="dot" id="dot"></span><span id="hStatus"></span><span class="pill" id="hProgress" hidden></span></div>
+    <div class="status"><span id="hStatus"></span><span class="pill" id="hProgress" hidden></span></div>
   </div>
 </header>
 <nav id="nav" hidden><div class="wrap" id="navLinks"></div></nav>
@@ -124,6 +65,20 @@ function entryName(id){
   var e = state.entriesList.find(function(x){ return x.id===id; });
   return e ? e.name : '—';
 }
+
+/* ---------- Colour theme: Auto follows the phone; Light / Dark override and are remembered ---------- */
+var THEME_KEY = 'dartdraw.viewer.theme';
+function savedTheme(){ try{ var t = localStorage.getItem(THEME_KEY); return (t==='light' || t==='dark') ? t : 'auto'; }catch(e){ return 'auto'; } }
+function applyTheme(t){
+  var root = document.documentElement;
+  if(t==='auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+  try{ if(t==='auto') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); }catch(e){}
+  document.querySelectorAll('[data-theme-set]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-theme-set')===t ? 'true' : 'false'); });
+}
+document.querySelectorAll('[data-theme-set]').forEach(function(b){
+  b.setAttribute('aria-pressed', b.getAttribute('data-theme-set')===savedTheme() ? 'true' : 'false');
+  b.addEventListener('click', function(){ applyTheme(b.getAttribute('data-theme-set')); });
+});
 
 /* ---------- Me and Following ----------
    Kept on this device only (localStorage, per tournament link): nothing is sent
@@ -255,26 +210,37 @@ function matchesHTML(id){
   });
   return rows.length ? rows.join('') : '<p class="empty">No matches yet.</p>';
 }
+/* Big-number tiles under the status line: position, points, leg difference. */
+function tilesHTML(g, id){
+  if(!g || !g.gameStarted) return '<div style="height:12px"></div>';
+  var r = computeStandings(g).find(function(s){ return s.id===id; });
+  if(!r) return '<div style="height:12px"></div>';
+  return '<div class="tiles"><div class="tile"><b>'+ordinal(r.position)+'</b><span>Position</span></div>'+
+    '<div class="tile"><b>'+r.pts+'</b><span>Points</span></div>'+
+    '<div class="tile"><b>'+fmtLegDiff(r.legsFor-r.legsAgainst)+'</b><span>Leg diff</span></div></div>';
+}
 function playerPageHTML(id, opts){
   var e = entryObj(id);
   if(!e) return '<section class="card"><p class="empty">We can\'t find that player. They may have been taken out of the draw.</p></section>';
   var g = groupOf(id), me = myId()===id, fol = isFollowing(id);
   var sub = [e.org, g ? 'Group '+g.label : '', g ? boardLabel(g) : ''].filter(Boolean).join(' · ');
   var safe = escapeHtml(id);
-  var html = '<section class="card pcard">'+
+  var html = '<section class="card pcard'+(me ? ' is-me' : '')+'">'+
     ((opts && opts.back) ? '<a class="back" href="#" data-act="back">← Back</a><br>' : '')+
     '<h2>'+escapeHtml(e.name)+(me ? ' <span class="you">You</span>' : '')+'</h2>'+
     (sub ? '<div class="psub">'+escapeHtml(sub)+'</div>' : '')+
     '<div class="pstatus">'+escapeHtml(statusLine(id))+'</div>'+
+    tilesHTML(g, id)+
     '<div class="pbtns">'+
-      (me ? '<button type="button" class="pb on" data-act="notme">✓ This is me</button>'
-          : '<button type="button" class="pb" data-act="me" data-id="'+safe+'">This is me</button>'+
-            '<button type="button" class="pb'+(fol ? ' on' : '')+'" data-act="follow" data-id="'+safe+'">'+(fol ? '★ Following' : '☆ Follow')+'</button>')+
+      (me ? '<button type="button" class="pb blue on" data-act="notme">✓ This is me</button>'
+          : '<button type="button" class="pb blue" data-act="me" data-id="'+safe+'">This is me</button>'+
+            '<button type="button" class="pb gold'+(fol ? ' on' : '')+'" data-act="follow" data-id="'+safe+'">'+(fol ? '★ Following' : '☆ Follow')+'</button>')+
     '</div>'+
     '<p class="note" style="margin:8px 0 0">Saved on this device only.</p></section>';
-  if(g) html += '<section class="card"><h2>Group '+escapeHtml(g.label)+'</h2>'+miniGroupHTML(g, id)+'</section>';
-  html += '<section class="card"><h2>Matches</h2>'+matchesHTML(id)+'</section>';
-  return html;
+  var rest = '';
+  if(g) rest += '<section class="card"><h2>Group '+escapeHtml(g.label)+'</h2>'+miniGroupHTML(g, id)+'</section>';
+  rest += '<section class="card"><h2>Matches</h2>'+matchesHTML(id)+'</section>';
+  return '<div class="pgrid"><div>'+html+'</div><div>'+rest+'</div></div>';
 }
 function meHTML(){
   var id = myId();
@@ -284,13 +250,13 @@ function meHTML(){
 function followingHTML(){
   var ids = followIds();
   if(!ids.length) return '<section class="card"><h2>Following</h2><p class="empty">Follow players to keep them all in one place. Search for a name above, or tap any name in a table, then tap <b>Follow</b>.</p><p class="note">Saved on this device only.</p></section>';
-  return ids.map(function(id){
+  return '<div class="fgrid">'+ids.map(function(id){
     var g = groupOf(id), pos = g ? positionIn(g, id) : null;
     var sub = [(entryObj(id)||{}).org, g ? 'Group '+g.label+(pos ? ' · '+ordinal(pos) : '') : ''].filter(Boolean).join(' · ');
     return '<div class="fcard"><div class="fmain" data-eid="'+escapeHtml(id)+'"><b>'+escapeHtml(entryName(id))+'</b>'+
       (sub ? '<div class="psub">'+escapeHtml(sub)+'</div>' : '')+'<div class="fst">'+escapeHtml(statusLine(id))+'</div></div>'+
       '<button type="button" class="unf" data-act="follow" data-id="'+escapeHtml(id)+'" aria-label="Stop following '+escapeHtml(entryName(id))+'">★</button></div>';
-  }).join('');
+  }).join('')+'</div>';
 }
 
 /* ---------- Tabs and routing (the address after # picks the screen) ---------- */
@@ -343,8 +309,8 @@ function decorate(){
       if(!id || dup[n]) return;
       markEntry(null, sp, id);
       var boxEl = sp.parentElement;
-      if(id===myId()) boxEl.style.outline = '2px solid #1f6feb';
-      else if(isFollowing(id)) boxEl.style.outline = '2px solid #d9ad45';
+      if(id===myId()) boxEl.style.outline = '2px solid var(--blue)';
+      else if(isFollowing(id)) boxEl.style.outline = '2px solid var(--gold)';
     });
   });
 }
@@ -432,7 +398,8 @@ function render(){
   document.title = (ec.eventName || ec.tournamentName || 'Live results') + ' · Live results';
   el('hOver').textContent = ec.tournamentName || '';
   el('hTitle').textContent = ec.eventName || ec.tournamentName || 'Results';
-  el('hSub').textContent = [ec.eventType, ec.competitionUnit, ec.date].filter(Boolean).join(' · ');
+  var legs = state.format && state.format.bestOfLegs;
+  el('hSub').textContent = [ec.eventType, ec.competitionUnit, legs ? 'Best of '+legs+' legs' : '', ec.date].filter(Boolean).join(' · ');
   var prog = progressText();
   el('hProgress').hidden = !prog; el('hProgress').textContent = prog;
   el('head').hidden = false;
@@ -507,8 +474,9 @@ function showMessage(title, text){
 }
 function setStatus(){
   var stale = lastOkAt && (Date.now() - lastOkAt) > POLL_MS*3;
-  el('dot').className = 'dot' + (stale ? ' stale' : '');
-  el('hStatus').textContent = stale ? 'Connection lost — retrying' : 'Live · updated ' + (lastOkAt ? clockLabel(lastOkAt) : '');
+  el('hStatus').innerHTML = stale
+    ? '<span class="live-pill off">Offline</span> Reconnecting…'
+    : '<span class="live-pill"><i></i>Live</span> Updated ' + (lastOkAt ? clockLabel(lastOkAt) : '');
 }
 
 async function load(){
