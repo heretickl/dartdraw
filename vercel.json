@@ -1,5 +1,5 @@
 {
-  "rewrites": [
-    { "source": "/viewer/:path*", "destination": "/__not_found" }
+  "redirects": [
+    { "source": "/viewer/:path*", "destination": "/", "permanent": false }
   ]
 }
