@@ -172,6 +172,11 @@ function mkoSlot(m, side, t, ri, tokens){
   const legs = m[side+'Legs'];
   const isWin = !!(m.winnerId && m.winnerId===id);
   if(!id){
+    const fromPod = m[side+'FromPod'];
+    if(fromPod){
+      const pod = (t.pods||[]).find(p=>p.id===fromPod);
+      return { text:'Winner of Group '+escapeHtml(pod ? pod.label : '?'), seed:'', legs:'', fw:400, color:tokens.muted, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
+    }
     if(m.bye) return { text:'BYE', seed:'', legs:'', fw:600, color:tokens.muted, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
     return { text:'', seed:'', legs:'', fw:400, color:tokens.ink, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
   }
@@ -190,6 +195,7 @@ function mkoSlot(m, side, t, ri, tokens){
    bracket matches. The Plate pool gets a "P" prefix so its IDs can't be
    confused with the main bracket's when both are on screen. */
 function koMatchTag(bracket, t, ri, mi){
+  if(bracket.podLabel) return 'G'+bracket.podLabel+'·'+(ri+1)+'-'+(mi+1);
   return (bracket===t.knockoutLosers ? 'P' : '') + (ri+1) + '-' + (mi+1);
 }
 
@@ -201,7 +207,7 @@ function mkoTagHTML(tag, fontSize, mirrored){
   const fs = Math.max(6, fontSize*0.6);
   return '<span class="mko-tag" style="position:absolute;top:-'+Math.round(fs*0.6)+'px;'+(mirrored?'right':'left')+':5px;z-index:1;pointer-events:none;'+
     'font-size:'+fs.toFixed(1)+'px;font-weight:700;line-height:1.25;color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:0 3px;'+
-    (mirrored?'transform:scaleX(-1);':'')+'">'+tag+'</span>';
+    (mirrored?'transform:scaleX(-1);':'')+'">'+escapeHtml(tag)+'</span>';
 }
 
 function mkoBoxHTML(slot, boxHeight, fontSize, mirrored){

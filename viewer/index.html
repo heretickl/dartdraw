@@ -112,6 +112,12 @@ function scoreEntered(sc){
   return !!sc && sc.legs1!==undefined && sc.legs1!=='' && sc.legs2!==undefined && sc.legs2!=='' &&
     !isNaN(parseInt(sc.legs1)) && !isNaN(parseInt(sc.legs2));
 }
+function podOf(id){ return (state.pods||[]).find(function(p){ return p.entryIds.indexOf(id)!==-1; }) || null; }
+/* Where a Group Boards player is drawn: "Group 3 · Board 3". Empty for other formats. */
+function podPlace(id, withBoard){
+  var p = podOf(id);
+  return p ? ['Group '+p.label, withBoard ? boardLabel(p) : ''].filter(Boolean).join(' · ') : '';
+}
 function groupOf(id){ return (state.groups||[]).find(function(g){ return g.entryIds.indexOf(id)!==-1; }) || null; }
 function positionIn(g, id){
   if(!g.gameStarted) return null;
@@ -132,13 +138,16 @@ function groupRows(id){
   return {g:g, rows:rows};
 }
 function koLines(id){
-  var out = [], multi = state.format.formatType==='rrknockout';
-  [[state.knockout, multi ? 'Main bracket' : 'Bracket'], [state.knockoutLosers, 'Plate pool']].forEach(function(pair){
+  var out = [], multi = state.format.formatType==='rrknockout', brackets = [];
+  (state.pods||[]).forEach(function(p){ if(p.bracket && p.entryIds.indexOf(id)!==-1) brackets.push([p.bracket, 'Group '+p.label, p]); });
+  brackets.push([state.knockout, state.format.formatType==='podknockout' ? 'Finals' : (multi ? 'Main bracket' : 'Bracket')]);
+  brackets.push([state.knockoutLosers, 'Plate pool']);
+  brackets.forEach(function(pair){
     var b = pair[0];
     if(!b || !b.rounds) return;
     b.rounds.forEach(function(round, ri){
       round.forEach(function(m, mi){
-        if(m.aEntryId===id || m.bEntryId===id) out.push({b:b, title:pair[1], ri:ri, mi:mi, m:m, round:koRoundName(b, ri), tag:koMatchTag(b, state, ri, mi)});
+        if(m.aEntryId===id || m.bEntryId===id) out.push({b:b, title:pair[1], pod:pair[2]||null, ri:ri, mi:mi, m:m, round:koRoundName(b, ri), tag:koMatchTag(b, state, ri, mi)});
       });
     });
   });
@@ -161,10 +170,14 @@ function statusLine(id){
   if(ko.length){
     var l = ko[ko.length-1], m = l.m, opp = koOpponent(l, id), inFinal = l.ri===l.b.rounds.length-1;
     if(m.winnerId){
-      if(m.winnerId===id) return inFinal ? 'Winner of the '+l.title : (m.bye ? 'Bye in the '+l.round : 'Won the '+l.round)+' · waiting for the next round';
-      return 'Out in the '+l.round+' · lost to '+entryName(opp);
+      if(m.winnerId===id){
+        if(l.b.podLabel && inFinal) return 'Won '+l.title+' · through to the Finals';
+        return inFinal ? 'Winner of the '+l.title : (m.bye ? 'Bye in the '+l.round : 'Won the '+l.round)+' · waiting for the next round';
+      }
+      return 'Out in the '+l.round+(l.b.podLabel ? ' of '+l.title : l.b.podFinals ? ' of the Finals' : '')+' · lost to '+entryName(opp);
     }
-    return 'Next: '+l.round+' ('+l.tag+')'+(opp ? ' vs '+entryName(opp) : ' · opponent not decided yet');
+    return 'Next: '+(l.b.podLabel || l.b.podFinals ? l.title+', ' : '')+l.round+' ('+l.tag+')'+(opp ? ' vs '+entryName(opp) : ' · opponent not decided yet')+
+      (l.pod && l.pod.boards && l.pod.boards.length ? ' · Board '+l.pod.boards.join(', ') : '');
   }
   var gr = groupRows(id);
   if(!gr) return '';
@@ -205,7 +218,7 @@ function matchesHTML(id){
   }
   koLines(id).forEach(function(l){
     var opp = koOpponent(l, id), txt = koResultText(l, id), cls = /^Won/.test(txt) ? 'w' : /^Lost/.test(txt) ? 'l' : 't';
-    rows.push('<div class="mrow"><span>'+escapeHtml(l.round)+' <span class="note">'+l.tag+'</span>'+
+    rows.push('<div class="mrow"><span>'+escapeHtml((state.format.formatType==='podknockout' ? l.title+' · ' : '')+l.round)+' <span class="note">'+escapeHtml(l.tag)+'</span>'+
       (opp ? ' · <span class="tap" data-eid="'+escapeHtml(opp)+'">vs '+escapeHtml(entryName(opp))+'</span>' : '')+'</span><span class="res '+cls+'">'+txt+'</span></div>');
   });
   return rows.length ? rows.join('') : '<p class="empty">No matches yet.</p>';
@@ -223,7 +236,7 @@ function playerPageHTML(id, opts){
   var e = entryObj(id);
   if(!e) return '<section class="card"><p class="empty">We can\'t find that player. They may have been taken out of the draw.</p></section>';
   var g = groupOf(id), me = myId()===id, fol = isFollowing(id);
-  var sub = [e.org, g ? 'Group '+g.label : '', g ? boardLabel(g) : ''].filter(Boolean).join(' · ');
+  var sub = [e.org, g ? 'Group '+g.label : '', g ? boardLabel(g) : '', g ? '' : podPlace(id, true)].filter(Boolean).join(' · ');
   var safe = escapeHtml(id);
   var html = '<section class="card pcard'+(me ? ' is-me' : '')+'">'+
     ((opts && opts.back) ? '<a class="back" href="#" data-act="back">← Back</a><br>' : '')+
@@ -252,7 +265,7 @@ function followingHTML(){
   if(!ids.length) return '<section class="card"><h2>Following</h2><p class="empty">Follow players to keep them all in one place. Search for a name above, or tap any name in a table, then tap <b>Follow</b>.</p><p class="note">Saved on this device only.</p></section>';
   return '<div class="fgrid">'+ids.map(function(id){
     var g = groupOf(id), pos = g ? positionIn(g, id) : null;
-    var sub = [(entryObj(id)||{}).org, g ? 'Group '+g.label+(pos ? ' · '+ordinal(pos) : '') : ''].filter(Boolean).join(' · ');
+    var sub = [(entryObj(id)||{}).org, g ? 'Group '+g.label+(pos ? ' · '+ordinal(pos) : '') : podPlace(id, true)].filter(Boolean).join(' · ');
     return '<div class="fcard"><div class="fmain" data-eid="'+escapeHtml(id)+'"><b>'+escapeHtml(entryName(id))+'</b>'+
       (sub ? '<div class="psub">'+escapeHtml(sub)+'</div>' : '')+'<div class="fst">'+escapeHtml(statusLine(id))+'</div></div>'+
       '<button type="button" class="unf" data-act="follow" data-id="'+escapeHtml(id)+'" aria-label="Stop following '+escapeHtml(entryName(id))+'">★</button></div>';
@@ -261,7 +274,7 @@ function followingHTML(){
 
 /* ---------- Tabs and routing (the address after # picks the screen) ---------- */
 function availableTabs(){
-  var t = [], hasGroups = state.format.formatType!=='knockout' && (state.groups||[]).length, hasKo = !!(state.knockout || state.knockoutLosers);
+  var t = [], hasGroups = state.format.formatType!=='knockout' && (state.groups||[]).length, hasKo = !!(state.knockout || state.knockoutLosers || (state.pods||[]).length);
   if(!hasGroups && !hasKo) return t;
   if(state.entriesList.length){ t.push('me'); t.push('following'); }
   if(hasGroups) t.push('groups');
@@ -295,7 +308,7 @@ function decorate(){
     card.querySelectorAll('.grid tbody tr').forEach(function(tr, i){ var c = tr.querySelector('td.name'); if(c && ids[i]) markEntry(tr, c, ids[i]); });
   });
   document.querySelectorAll('[data-bracket]').forEach(function(box){
-    var b = box.getAttribute('data-bracket')==='kol' ? state.knockoutLosers : state.knockout;
+    var b = bracketForKey(box.getAttribute('data-bracket'));
     if(!b || !b.rounds) return;
     var byName = {}, dup = {};
     b.rounds.forEach(function(round){ round.forEach(function(m){ [m.aEntryId, m.bEntryId].forEach(function(id){
@@ -321,7 +334,7 @@ function showFinderResults(){
   if(!q || !state){ box.innerHTML = ''; return; }
   var hits = state.entriesList.filter(function(e){ return (e.name||'').toLowerCase().indexOf(q)!==-1 || (e.org||'').toLowerCase().indexOf(q)!==-1; }).slice(0, 8);
   box.innerHTML = hits.length ? hits.map(function(e){
-    var g = groupOf(e.id), sub = [e.org, g ? 'Group '+g.label : ''].filter(Boolean).join(' · ');
+    var g = groupOf(e.id), sub = [e.org, g ? 'Group '+g.label : podPlace(e.id, false)].filter(Boolean).join(' · ');
     return '<button type="button" class="fres" data-eid="'+escapeHtml(e.id)+'"><span>'+escapeHtml(e.name)+(myId()===e.id ? ' <span class="you">You</span>' : isFollowing(e.id) ? ' ★' : '')+'</span><span class="sub">'+escapeHtml(sub)+'</span></button>';
   }).join('') : '<div class="fnone">No player with that name.</div>';
 }
@@ -359,13 +372,126 @@ function groupCardHTML(g){
   return '<section class="card" id="group-'+escapeHtml(g.label)+'" data-gid="'+escapeHtml(g.id)+'"><h2>Group '+escapeHtml(g.label)+(boardLabel(g)?'<span class="sub">'+escapeHtml(boardLabel(g))+'</span>':'')+'</h2>'+body+'</section>';
 }
 
+/* ---------- Group Boards: pick Finals, all groups, or one group ---------- */
+var podSel = 'finals';   // 'finals' | 'all' | a group id
+function podFinished(p){ return !!(p.bracket && bracketIsComplete(p.bracket)); }
+function podsPickerHTML(){
+  var pods = state.pods||[], open = pods.filter(function(p){ return !podFinished(p); }), done = pods.filter(podFinished);
+  var mine = myId() ? pods.find(function(p){ return p.entryIds.indexOf(myId())!==-1; }) : null;
+  function opt(p){ return '<option value="'+escapeHtml(p.id)+'"'+(podSel===p.id ? ' selected' : '')+'>Group '+escapeHtml(p.label)+'</option>'; }
+  return '<section class="card"><div class="podpick"><select id="podSelect" aria-label="Show">'+
+    (state.knockout ? '<option value="finals"'+(podSel==='finals' ? ' selected' : '')+'>Finals</option>' : '')+
+    '<option value="all"'+(podSel==='all' ? ' selected' : '')+'>All groups</option>'+
+    (open.length ? '<optgroup label="In progress">'+open.map(opt).join('')+'</optgroup>' : '')+
+    (done.length ? '<optgroup label="Completed">'+done.map(opt).join('')+'</optgroup>' : '')+'</select>'+
+    (mine ? '<button type="button" class="chipbtn" data-pod="'+escapeHtml(mine.id)+'">My group</button>' : '')+'</div></section>';
+}
+function podsAllHTML(){
+  var pods = state.pods||[];
+  return '<section class="card"><h2>All groups <span class="sub">'+pods.filter(podFinished).length+' of '+pods.length+' finished</span></h2><div class="podgrid">'+pods.map(function(p){
+    var w = podFinished(p) ? bracketChampion(p.bracket) : null;
+    return '<button type="button" class="podcard" data-pod="'+escapeHtml(p.id)+'"><b>Group '+escapeHtml(p.label)+'</b>'+
+      '<span class="note">'+(p.boards && p.boards.length ? 'Board '+p.boards.join(', ')+' · ' : '')+p.entryIds.length+' players</span>'+
+      '<span class="'+(w ? 'pw' : 'pp')+'">'+(w ? 'Winner: '+escapeHtml(entryName(w)) : 'In progress')+'</span></button>';
+  }).join('')+'</div></section>';
+}
+function podsBracketTabHTML(){
+  var pods = state.pods||[], sel = pods.find(function(p){ return p.id===podSel; });
+  if(podSel==='finals' && !state.knockout) podSel = 'all';
+  if(podSel!=='finals' && podSel!=='all' && !sel) podSel = state.knockout ? 'finals' : 'all';
+  var html = podsPickerHTML();
+  if(podSel==='all') html += podsAllHTML();
+  else if(podSel==='finals') html += bracketCardHTML(state.knockout, 'ko', 'Finals');
+  else html += bracketCardHTML(sel.bracket, 'pod:'+sel.id, 'Group '+sel.label+(sel.boards && sel.boards.length ? ' · Board '+sel.boards.join(', ') : ''));
+  return html;
+}
+function bracketForKey(key){
+  if(key==='kol') return state.knockoutLosers;
+  if(key==='ko') return state.knockout;
+  var m = /^pod:(.+)$/.exec(key||''), p = m ? (state.pods||[]).find(function(x){ return x.id===m[1]; }) : null;
+  return p ? p.bracket : null;
+}
+
 function bracketCardHTML(bracket, key, title){
   var champ = bracketIsComplete(bracket) ? bracketChampion(bracket) : null;
   var runner = champ ? bracketRunnerUp(bracket) : null;
   return '<section class="card" id="'+key+'"><h2>'+escapeHtml(title)+'</h2>'+
     (champ ? '<div class="champ"><b>Winner: '+escapeHtml(entryName(champ))+'</b>'+(runner?'<div>Runner-up: '+escapeHtml(entryName(runner))+'</div>':'')+'</div>' : '')+
-    '<div class="tools"><button type="button" data-fit="'+key+'">'+(fitBracket[key]?'Full size':'Fit to screen')+'</button></div>'+
-    '<div class="scroll" data-bracket="'+key+'">'+mirroredChartHTML(bracket, state, {interactive:false})+'</div></section>';
+    bracketToolsHTML(key, bracketView(bracket))+
+    (bracketView(bracket)==='rounds' ? roundsViewHTML(bracket, key)
+      : '<div class="scroll" data-bracket="'+key+'">'+mirroredChartHTML(bracket, state, {interactive:false})+'</div>')+
+    '</section>';
+}
+
+/* ---------- Bracket as rounds: one round at a time, big match cards (default on phones) ---------- */
+var BVIEW_KEY = 'dartdraw.viewer.bracketView';
+var bracketPref = loadBracketPref();   // 'rounds' | 'chart' | 'auto' (auto = rounds on phones, chart on wide screens)
+var roundSel = {};                     // bracket key -> round the viewer picked (otherwise the current round)
+function loadBracketPref(){ try{ var v = localStorage.getItem(BVIEW_KEY); return (v==='rounds' || v==='chart') ? v : 'auto'; }catch(e){ return 'auto'; } }
+function setBracketView(v){ bracketPref = v; try{ localStorage.setItem(BVIEW_KEY, v); }catch(e){} }
+function isNarrow(){ return window.matchMedia('(max-width: 699px)').matches; }
+function bracketView(b){
+  if(bracketPref!=='auto') return bracketPref;
+  return (isNarrow() || (b && b.size>=32)) ? 'rounds' : 'chart';   // a 32+ draw is unreadable as a chart, even on a laptop
+}
+
+function bracketToolsHTML(key, view){
+  var rounds = view==='rounds';
+  return '<div class="tools"><div class="vsw" role="group" aria-label="Bracket view">'+
+      '<button type="button" data-bview="rounds" aria-pressed="'+rounds+'">Rounds</button>'+
+      '<button type="button" data-bview="chart" aria-pressed="'+(!rounds)+'">Chart</button></div>'+
+    (rounds ? '' : '<button type="button" data-fit="'+key+'">'+(fitBracket[key]?'Full size':'Fit to screen')+'</button>')+'</div>';
+}
+function matchIsPending(m){ return !m.winnerId && !m.bye && (m.aEntryId || m.bEntryId); }
+function currentRoundIdx(b){
+  for(var ri=0; ri<b.rounds.length; ri++){ if(b.rounds[ri].some(matchIsPending)) return ri; }
+  return b.rounds.length-1;
+}
+function roundShortName(b, ri){
+  var n = koRoundName(b, ri);
+  return n==='Quarterfinal' ? 'Quarters' : n==='Semifinal' ? 'Semis' : n.replace('Round of ', 'R');
+}
+function rsSlotHTML(b, ri, mi, side){
+  var m = b.rounds[ri][mi], id = m[side+'EntryId'], legs = m[side+'Legs'];
+  if(!id){
+    var txt = 'To be decided', fromPod = m[side+'FromPod'];
+    if(fromPod){ var pp = (state.pods||[]).find(function(p){ return p.id===fromPod; }); txt = 'Winner of Group '+(pp ? pp.label : '?'); }
+    else if(m.bye) txt = 'Bye';
+    else if(ri>0){ var fi = 2*mi + (side==='a' ? 0 : 1); if(b.rounds[ri-1][fi]) txt = 'Winner of '+koMatchTag(b, state, ri-1, fi); }
+    return '<div class="rs ph"><span>'+escapeHtml(txt)+'</span></div>';
+  }
+  var won = !!m.winnerId && m.winnerId===id, lost = !!m.winnerId && !won;
+  var who = id===myId() ? ' is-me' : isFollowing(id) ? ' is-fol' : '';
+  var seed = ri===0 ? bracketSeedForDisplay(state, b.seeds, b.seedLabels, id) : null;
+  return '<div class="rs'+(won ? ' won' : '')+(lost ? ' lost' : '')+who+'">'+
+    (seed ? '<i class="sd">'+escapeHtml(String(seed))+'</i>' : '')+
+    '<span class="tap" data-eid="'+escapeHtml(id)+'">'+(who===' is-fol' ? '★ ' : '')+escapeHtml(entryName(id))+'</span>'+
+    (m.wo && lost ? '<small class="note">WO</small>' : '')+
+    '<b>'+(legs!=null ? legs : '')+'</b></div>';
+}
+function rsMatchHTML(b, ri, mi){
+  var m = b.rounds[ri][mi], tag = koMatchTag(b, state, ri, mi);
+  var status = m.bye ? '<span class="mt dim">Bye</span>'
+    : m.winnerId ? ''
+    : (m.aEntryId && m.bEntryId) ? '<span class="mt rdy">To play</span>'
+    : '<span class="mt dim">Waiting</span>';
+  var mine = m.aEntryId===myId() || m.bEntryId===myId();
+  var fol = !mine && (isFollowing(m.aEntryId) || isFollowing(m.bEntryId));
+  return '<div class="rm'+(mine ? ' me' : fol ? ' fol' : '')+'"><div class="rmh"><span class="mtag">'+escapeHtml(tag)+'</span>'+status+'</div>'+
+    rsSlotHTML(b, ri, mi, 'a')+rsSlotHTML(b, ri, mi, 'b')+'</div>';
+}
+function roundsViewHTML(b, key){
+  var sel = (roundSel[key]!=null && roundSel[key]<b.rounds.length) ? roundSel[key] : currentRoundIdx(b);
+  var cur = currentRoundIdx(b);
+  var seg = b.rounds.map(function(round, ri){
+    var done = !round.some(matchIsPending) && round.some(function(m){ return m.winnerId; });
+    return '<button type="button" data-round="'+key+'|'+ri+'" aria-pressed="'+(ri===sel)+'" class="'+(done ? 'done' : '')+'">'+escapeHtml(roundShortName(b, ri))+'</button>';
+  }).join('');
+  var round = b.rounds[sel], real = round.filter(function(m){ return !m.bye; });
+  var finished = real.filter(function(m){ return m.winnerId; }).length;
+  var cards = round.map(function(m, mi){ return rsMatchHTML(b, sel, mi); }).join('');
+  return '<div class="rseg" role="group" aria-label="Round">'+seg+'</div>'+
+    '<p class="note" style="margin:0 0 2px">'+escapeHtml(koRoundName(b, sel))+' · '+finished+' of '+real.length+' finished'+(sel===cur && finished<real.length ? ' · current round' : '')+'</p>'+cards;
 }
 
 /* Scale a bracket down to the screen width when "Fit to screen" is on. */
@@ -421,8 +547,11 @@ function render(){
   else if(r.name==='p') body = playerPageHTML(r.id, {back:true});
   else if(r.name==='groups') body = state.groups.map(groupCardHTML).join('');
   else if(r.name==='bracket'){
-    if(state.knockout) body += bracketCardHTML(state.knockout, 'ko', type==='rrknockout' ? 'Main bracket' : 'Bracket');
-    if(state.knockoutLosers) body += bracketCardHTML(state.knockoutLosers, 'kol', 'Plate pool');
+    if((state.pods||[]).length) body += podsBracketTabHTML();
+    else {
+      if(state.knockout) body += bracketCardHTML(state.knockout, 'ko', type==='rrknockout' ? 'Main bracket' : 'Bracket');
+      if(state.knockoutLosers) body += bracketCardHTML(state.knockoutLosers, 'kol', 'Plate pool');
+    }
   }
   el('app').innerHTML = body;
   var activeTab = r.name==='p' ? (r.id===myId() ? 'me' : '') : r.name;
@@ -445,6 +574,12 @@ function goToPlayer(id){
 document.addEventListener('click', function(e){
   var t = e.target;
   if(!t || !t.closest || !state) return;
+  var pd = t.closest('[data-pod]');
+  if(pd){ podSel = pd.getAttribute('data-pod'); render(); window.scrollTo(0, 0); return; }
+  var bv = t.closest('[data-bview]');
+  if(bv){ setBracketView(bv.getAttribute('data-bview')); render(); return; }
+  var rd = t.closest('[data-round]');
+  if(rd){ var parts = rd.getAttribute('data-round').split('|'); roundSel[parts[0]] = parseInt(parts[1], 10); render(); return; }
   var fit = t.closest('[data-fit]');
   if(fit){ var k = fit.getAttribute('data-fit'); fitBracket[k] = !fitBracket[k]; render(); return; }
   var act = t.closest('[data-act]');
@@ -460,13 +595,19 @@ document.addEventListener('click', function(e){
   if(go) goToPlayer(go.getAttribute('data-eid'));
 });
 window.addEventListener('hashchange', function(){ if(state){ render(); window.scrollTo(0, 0); } });
+document.addEventListener('change', function(e){ if(e.target && e.target.id==='podSelect'){ podSel = e.target.value; render(); } });
 el('finder').addEventListener('input', showFinderResults);
 el('finder').addEventListener('keydown', function(e){
   if(e.key!=='Enter') return;
   var first = el('finderResults').querySelector('[data-eid]');
   if(first) goToPlayer(first.getAttribute('data-eid'));
 });
-window.addEventListener('resize', applyBracketFit);
+var lastNarrow = isNarrow();
+window.addEventListener('resize', function(){
+  var n = isNarrow();
+  if(n!==lastNarrow){ lastNarrow = n; if(state && bracketPref==='auto') render(); }
+  applyBracketFit();
+});
 
 function showMessage(title, text){
   el('head').hidden = true; el('nav').hidden = true; el('finderWrap').hidden = true;

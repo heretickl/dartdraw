@@ -14,13 +14,13 @@ function pick(obj, keys) {
 }
 
 function publicMatch(m) {
-  return pick(m, ['id', 'aEntryId', 'bEntryId', 'aLegs', 'bLegs', 'winnerId', 'bye', 'wo']);
+  return pick(m, ['id', 'aEntryId', 'bEntryId', 'aLegs', 'bLegs', 'winnerId', 'bye', 'wo', 'aFromPod', 'bFromPod']);
 }
 
 function publicBracket(b) {
   if (!b || !Array.isArray(b.rounds)) return null;
   return {
-    ...pick(b, ['id', 'label', 'size', 'seeds', 'seedLabels']),
+    ...pick(b, ['id', 'label', 'size', 'seeds', 'seedLabels', 'podLabel', 'podFinals']),
     rounds: b.rounds.map((round) => round.map(publicMatch)),
   };
 }
@@ -39,16 +39,27 @@ function publicGroup(g) {
   };
 }
 
+// A Group Boards group (shown to spectators as "Group N"): who is in it, its boards, and its bracket.
+function publicPod(p) {
+  return {
+    ...pick(p, ['id', 'label', 'boards', 'entryIds', 'winnerId']),
+    bracket: publicBracket(p.bracket),
+  };
+}
+
 function toPublicView(data) {
   const d = data || {};
+  // Groups belong to the Group Boards format only; a plain bracket left over from another format is not its Finals.
+  const isGroupBoards = !!(d.format && d.format.formatType === 'podknockout');
   return {
     eventCreation: pick(d.eventCreation, ['tournamentName', 'eventName', 'eventType', 'competitionUnit', 'date']),
     format: pick(d.format, ['formatType', 'bestOfLegs', 'qualifiersPerGroup', 'plateQualifiersPerGroup',
-      'losersPool', 'advanceMode', 'knockoutLegs', 'seedingEnabled', 'numSeeds']),
+      'losersPool', 'advanceMode', 'knockoutLegs', 'seedingEnabled', 'numSeeds', 'podCount', 'podLegs']),
     tieBreakOrder: Array.isArray(d.tieBreakOrder) ? d.tieBreakOrder.slice() : undefined,
     entriesList: (d.entriesList || []).map((e) => pick(e, ['id', 'name', 'org', 'withdrawn'])),
     groups: (d.groups || []).filter((g) => g && g.confirmed).map(publicGroup),
-    knockout: publicBracket(d.knockout),
+    pods: isGroupBoards ? (d.pods || []).filter((p) => p && p.confirmed && p.bracket).map(publicPod) : [],
+    knockout: publicBracket(isGroupBoards && d.knockout && !d.knockout.podFinals ? null : d.knockout),
     knockoutLosers: publicBracket(d.knockoutLosers),
   };
 }
