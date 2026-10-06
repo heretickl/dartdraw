@@ -1,0 +1,39 @@
+{
+  "rr": {
+    "stage3": "1a1a649b9dc3",
+    "stage4": "ebc3cf52fd45",
+    "stage6": "0e1cb3ef1117",
+    "stage7": "802bd4f4679c",
+    "helper0": "23594d7eefe3",
+    "helper1": "223750d691da",
+    "helper2": "587549d945e6",
+    "helper3": "d15ed3af894d",
+    "helper4": "1441a7909c08",
+    "standings": "82053427a73c"
+  },
+  "ko": {
+    "stage3": "b8f9712a26fb",
+    "stage4": "14ce1ff8aa45",
+    "stage6": "3044a2a72685",
+    "stage7": "78a08802fa7c",
+    "helper0": "c1898af4acfa",
+    "helper1": "80a3d3fd3ebf",
+    "helper2": "d002d9af206b",
+    "helper3": "47d1258b4887",
+    "helper4": "1441a7909c08",
+    "chart": "1bf2e362e0b0",
+    "sheet": "4c663ebe4705"
+  },
+  "rrko": {
+    "stage3": "a99c8fafe2ac",
+    "stage4": "840c3ed04948",
+    "stage6": "0e1cb3ef1117",
+    "stage7": "802bd4f4679c",
+    "helper0": "db34ccf4cdff",
+    "helper1": "b1e53756a550",
+    "helper2": "587549d945e6",
+    "helper3": "207eee676060",
+    "helper4": "1441a7909c08",
+    "standings": "82053427a73c"
+  }
+}

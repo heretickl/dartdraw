@@ -5,7 +5,8 @@
   "description": "DartDraw tournament chart manager",
   "scripts": {
     "sync-viewer": "node scripts/sync-viewer.js",
-    "check-viewer": "node scripts/sync-viewer.js --check"
+    "check-viewer": "node scripts/sync-viewer.js --check",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"

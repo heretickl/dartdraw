@@ -353,6 +353,8 @@ body.mko-popout #stageArea{height:100vh;display:flex;flex-direction:column}
 <div id="printSheets"></div>
 
 <script src="render.js"></script>
+<script src="pods.js"></script>
+<script src="pods-ui.js"></script>
 <script>
 /* ---------- Storage (server-backed via /api/tournaments) ---------- */
 let currentOrganizer = null;
@@ -407,6 +409,9 @@ function blankTournament(){
       teamSize:4, teamMatchFormat:'foursome', mixedRubbers: defaultRubbers(4),
       /* Applies to any unit: avoid grouping/seeding entries from the same org together */
       orgSplit:false,
+      /* Group Boards (formatType:'podknockout'): how many small knockout groups, and their best-of
+         (null = same as bestOfLegs). The Finals uses bestOfLegs / knockoutLegs.main like any knockout. */
+      podCount:8, podLegs:null,
       /* Free-text walkover / conduct / other rules, printed on the auto-generated rules & format sheet */
       rulesNotes:'',
       /* Scheduling: used only for the live "on schedule / behind schedule" indicator in
@@ -430,6 +435,8 @@ function blankTournament(){
     },
     entriesList: [],
     groups: [],
+    /* Group Boards: the small knockout groups (see pods.js). Round-robin groups stay in `groups`. */
+    pods: [],
     knockout: null,
     /* Stamped once, the first time generateKnockoutFromRR() runs, so a round-robin->knockout
        tournament's knockout schedule anchors off when round robin *actually* finished rather
@@ -661,6 +668,7 @@ function koStageKey(totalRounds, idx){
    unchanged); the Plate has no such pre-existing field, so it falls back to
    its own flatLegs (defaulting to bestOfLegs the first time it's touched). */
 function legsForKnockoutRound(t, bracketKey, totalRounds, idx){
+  if(podByKey(t, bracketKey)) return parseInt(t.format.podLegs)||parseInt(t.format.bestOfLegs)||5;
   const isPlate = bracketKey==='knockoutLosers';
   const cfg = (t.format.knockoutLegs||{})[isPlate?'plate':'main'];
   const flatFallback = isPlate ? ((cfg&&cfg.flatLegs!=null)?cfg.flatLegs:t.format.bestOfLegs) : t.format.bestOfLegs;
@@ -752,7 +760,9 @@ function estimateTotalMinutes(t){
     return benchmark*maxGroupsPerBoard;
   }
   let minutes;
-  if(t.format.formatType==='knockout'){
+  if(t.format.formatType==='podknockout'){
+    minutes = podsEstimateMinutes(t, boards) || 0;
+  } else if(t.format.formatType==='knockout'){
     minutes = simulateKnockoutMinutes(t, n, 'knockout', boards) + (breaks.knockout&&breaks.knockout.enabled ? parseInt(breaks.knockout.minutes)||0 : 0);
   } else if(t.format.formatType==='rrknockout'){
     const rec = recommendGroups(n);
@@ -935,6 +945,12 @@ function competitionDurationSummaryHTML(t){
     let mins = simulateKnockoutMinutes(t, entryCount, bracketKey, boardsForThis);
     if(brk && brk.enabled) mins += parseInt(brk.minutes)||0;
     return { minutes: mins, endMs: startMs!=null ? startMs+mins*60000 : null };
+  }
+
+  if(formatType==='podknockout'){
+    const podMinutes = podsEstimateMinutes(t, boards);
+    const podStartMs = anticipatedStartEpoch(tt);
+    return '<div class="recommend">'+(line('Estimated duration:', podMinutes, podStartMs!=null && podMinutes!=null ? podStartMs+podMinutes*60000 : null) || '<div>Choose a valid number of groups to estimate duration.</div>')+'</div>';
   }
 
   if(formatType==='knockout'){
@@ -1374,7 +1390,7 @@ function bracketColumnsHTML(bracket, t, opts){
   '</div>';
 }
 function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
-  const bracket = state[bracketKey];
+  const bracket = bracketByKey(state, bracketKey);
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m.aEntryId || !m.bEntryId || m.bye) return;
   const aName = bracketEntryName(state, m.aEntryId), bName = bracketEntryName(state, m.bEntryId);
@@ -1383,7 +1399,7 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
   const clampAttr = 'min="0" max="'+majority+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.min(Math.max(parseInt(this.value)||0,0),'+majority+')"';
   openModal({
     title: aName+' v '+bName,
-    bodyHTML: '<p style="margin:-4px 0 10px;font-size:11px;color:var(--muted)">Match '+koMatchTag(bracket, state, roundIdx, matchIdx)+' · '+escapeHtml(koRoundName(bracket, roundIdx))+'</p>'+
+    bodyHTML: '<p style="margin:-4px 0 10px;font-size:11px;color:var(--muted)">Match '+escapeHtml(koMatchTag(bracket, state, roundIdx, matchIdx))+' · '+escapeHtml(koRoundName(bracket, roundIdx))+'</p>'+
       '<div class="grid2"><div class="field"><label>'+escapeHtml(aName)+' legs</label><input id="scA" type="number" '+clampAttr+' value="'+(m.aLegs!=null?m.aLegs:0)+'"></div>'+
       '<div class="field"><label>'+escapeHtml(bName)+' legs</label><input id="scB" type="number" '+clampAttr+' value="'+(m.bLegs!=null?m.bLegs:0)+'"></div></div>'+
       '<p style="font-size:11px;color:#8a97a5">Best of '+bestOf+' legs — a side can score at most '+majority+'. Knockout matches can\'t end in a draw.</p>',
@@ -1395,8 +1411,12 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
       const winnerIsA = la>lb, winnerLegs = Math.max(la,lb), loserLegs = Math.min(la,lb);
       if(winnerLegs===loserLegs) return { error:'This is a knockout match — it can\'t end in a draw. One side must win.' };
       if(winnerLegs!==majority || loserLegs>=majority) return { error:'Not a valid finished result for best of '+bestOf+' legs — the winner must have exactly '+majority+' legs, and the loser fewer.' };
-      m.aLegs = la; m.bLegs = lb; m.winnerId = winnerIsA ? m.aEntryId : m.bEntryId; m.wo = false;
-      propagateByes(bracket.rounds);
+      const apply = ()=>{ m.aLegs = la; m.bLegs = lb; m.winnerId = winnerIsA ? m.aEntryId : m.bEntryId; m.wo = false; };
+      const podHit = podByKey(state, bracketKey);
+      if(podHit){
+        const res = podsApplyResult(state, podHit, apply);
+        if(!res.ok) return { error: res.message };
+      } else { apply(); propagateByes(bracket.rounds); }
       persist(); render();
     }
   });
@@ -1408,24 +1428,25 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
    "WO" rather than "BYE" so it's clear a match was actually forfeited.
    Re-entering a real score afterwards (koMatchScoreModal) clears the tag. */
 function markKnockoutNoShow(bracketKey, roundIdx, matchIdx, side){
-  const bracket = state[bracketKey];
+  const bracket = bracketByKey(state, bracketKey);
   if(!bracket) return;
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m || !m.aEntryId || !m.bEntryId || m.winnerId || m.bye) return;
   const majority = Math.floor(legsForKnockoutRound(state, bracketKey, bracket.rounds.length, roundIdx)/2)+1;
   const loserId = side==='a' ? m.aEntryId : m.bEntryId;
   const winnerId = side==='a' ? m.bEntryId : m.aEntryId;
-  m.aLegs = side==='a' ? 0 : majority;
-  m.bLegs = side==='a' ? majority : 0;
-  m.winnerId = winnerId;
-  m.wo = true;
+  const apply = ()=>{ m.aLegs = side==='a' ? 0 : majority; m.bLegs = side==='a' ? majority : 0; m.winnerId = winnerId; m.wo = true; };
+  const podHit = podByKey(state, bracketKey);
+  if(podHit){
+    const res = podsApplyResult(state, podHit, apply);
+    if(!res.ok){ openModal({title:'Can\'t change this result', body: res.message, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
+  } else { apply(); propagateByes(bracket.rounds); }
   const ent = state.entriesList.find(e=>e.id===loserId);
   if(ent) ent.noShow = true;
-  propagateByes(bracket.rounds);
   persist(); render();
 }
 function openKoNoShowPicker(bracketKey, roundIdx, matchIdx){
-  const bracket = state[bracketKey];
+  const bracket = bracketByKey(state, bracketKey);
   if(!bracket) return;
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m || !m.aEntryId || !m.bEntryId || m.winnerId) return;
@@ -1598,15 +1619,17 @@ function koPaperSizeSelectHTML(){
 }
 function setKoPaperSize(v){ state.printSettings.koPaperSize = v; persist(); render(); }
 
-function knockoutBracketSheetHTML(bracket){
+function knockoutBracketSheetHTML(bracket, opts){
   const t = state;
   const bracketKey = bracket===t.knockoutLosers ? 'knockoutLosers' : 'knockout';
   const legsCfg = (t.format.knockoutLegs||{})[bracketKey==='knockoutLosers'?'plate':'main'];
-  const variableLegs = legsCfg && legsCfg.variable;
-  const legsSub = variableLegs ? '' : ' · Best of '+t.format.bestOfLegs+' Legs';
+  const isPodSheet = !!(opts && opts.podLegs);
+  const variableLegs = !isPodSheet && legsCfg && legsCfg.variable;
+  const sheetBestOf = isPodSheet ? (parseInt(t.format.podLegs)||parseInt(t.format.bestOfLegs)||5) : t.format.bestOfLegs;
+  const legsSub = variableLegs ? '' : ' · Best of '+sheetBestOf+' Legs';
   const legsFooter = variableLegs
     ? 'Legs per match increase by knockout stage — see each round\'s heading above.'
-    : 'Best of '+t.format.bestOfLegs+' legs per match — no draws, the winner needs '+(Math.floor((parseInt(t.format.bestOfLegs)||5)/2)+1)+' legs.';
+    : 'Best of '+sheetBestOf+' legs per match — no draws, the winner needs '+(Math.floor((parseInt(sheetBestOf)||5)/2)+1)+' legs.';
   const paperKey = t.printSettings.koPaperSize || 'A4';
   const tokens = { line:'var(--line)', muted:'var(--muted)', ink:'var(--ink)', navy:'var(--navy)', winBg:'#eaf7ee', winLine:'var(--green)' };
 
@@ -1614,7 +1637,7 @@ function knockoutBracketSheetHTML(bracket){
     return '<div class="print-sheet mko-print-sheet mko-paper-'+paperKey+'">'+
       '<div class="sheet-top">'+ mainLogoBoxHTML()+
         '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
-        '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Knockout Stage'+legsSub+(totalSheets>1?' · '+escapeHtml(sheetLabel):'')+'</div></div>'+
+        '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · '+(opts && opts.stage ? escapeHtml(opts.stage) : 'Knockout Stage')+legsSub+(totalSheets>1?' · '+escapeHtml(sheetLabel):'')+'</div></div>'+
         '<div class="group-label"><strong>'+escapeHtml((bracket.label||'BRACKET').toUpperCase())+'</strong><span>'+bracket.size+'-entry bracket'+(totalSheets>1?' · Sheet '+sheetIndex+' of '+totalSheets:'')+'</span></div>'+
       '</div>'+
       '<div class="mko-sheet-body" style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:12px;overflow:hidden;">'+innerHTML+'</div>'+
@@ -1990,6 +2013,7 @@ function computeStageFor(t){
   return !t.eventCreation.saved ? 1
     : !t.format.saved ? 2
     : !t.entriesList.length ? 3
+    : t.format.formatType==='podknockout' ? (podsFinals(t) ? 5 : (t.pods && t.pods.length ? 4 : 3))
     : t.format.formatType==='knockout' ? (t.knockout ? 5 : 4)
     : !t.groups.every(g=>g.confirmed) ? 4
     : 5;
@@ -2078,6 +2102,9 @@ async function openTournament(id){
     if(state.format.numSeeds===undefined) state.format.numSeeds = 8;
     if(state.format.rulesNotes===undefined) state.format.rulesNotes = '';
     if(state.incidents===undefined) state.incidents = [];
+    if(state.pods===undefined) state.pods = [];
+    if(state.format.podCount===undefined) state.format.podCount = 8;
+    if(state.format.podLegs===undefined) state.format.podLegs = null;
     if(state.format.plateQualifiersPerGroup===undefined) state.format.plateQualifiersPerGroup = null;
     if(state.format.qualifiersPerGroup===undefined){
       state.format.qualifiersPerGroup = 2; state.format.advanceMode = 'seeded'; state.format.losersPool = false;
@@ -2238,7 +2265,7 @@ function renderSavedList(){
   if(state){
     wsCard.style.display='block';
     document.getElementById('cwName').textContent = state.eventCreation.tournamentName || 'Untitled tournament';
-    document.getElementById('cwSub').textContent = (state.eventCreation.competitionUnit||'') + ' · ' + ({knockout:'Knockout', rrknockout:'Round Robin → Knockout'}[state.format.formatType]||'Round Robin') + (state.eventCreation.advancedMode ? ' · Advanced' : '');
+    document.getElementById('cwSub').textContent = (state.eventCreation.competitionUnit||'') + ' · ' + ({knockout:'Knockout', rrknockout:'Round Robin → Knockout', podknockout:'Group Boards'}[state.format.formatType]||'Round Robin') + (state.eventCreation.advancedMode ? ' · Advanced' : '');
   } else { wsCard.style.display='none'; }
   ['navstep1','navstep2','navstep3','navstep4','navstep5','navstep6','navstep7'].forEach((id,i)=>{
     const el = document.getElementById(id);
@@ -2506,6 +2533,7 @@ function stage2(){
       '<div class="choice'+(f.formatType==='roundrobin'?' selected':'')+'" onclick="setFormatType(\'roundrobin\')"><strong>Round robin</strong><small>Play within assigned groups</small></div>'+
       '<div class="choice'+(f.formatType==='knockout'?' selected':'')+'" onclick="setFormatType(\'knockout\')"><strong>Knockout</strong><small>Direct elimination bracket</small></div>'+
       '<div class="choice'+(f.formatType==='rrknockout'?' selected':'')+'" onclick="setFormatType(\'rrknockout\')"><strong>Round robin → Knockout</strong><small>Group stage, then top finishers go to a bracket</small></div>'+
+      '<div class="choice'+(f.formatType==='podknockout'?' selected':'')+'" onclick="setFormatType(\'podknockout\')"><strong>Group Boards</strong><small>Small knockout groups on their own boards, winners go to a Finals bracket</small></div>'+
     '</div></div>';
   const bestOfLegsFieldHTML =
     '<div class="field"><label>Best of legs (odd numbers preferred)</label><input id="f_bestof" type="number" min="1" step="2" value="'+f.bestOfLegs+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>';
@@ -2518,7 +2546,9 @@ function stage2(){
     (advanced && unit==='Teams' && f.teamMatchFormat==='mixed' ? rubberEditor() : '')
   ) : '';
   let formatSectionHTML;
-  if(f.formatType==='rrknockout'){
+  if(f.formatType==='podknockout'){
+    formatSectionHTML = formatPickerHTML + podsFormatFieldsHTML() + teamSectionHTML;
+  } else if(f.formatType==='rrknockout'){
     /* Round robin, knockout and Plate pool options are visually segregated
        into their own labelled sub-sections here (rather than one long mixed
        list) since this format has all three at once — pure Round robin or
@@ -2749,6 +2779,9 @@ function schedulingContextHTML(){
   if(f.formatType==='knockout'){
     const bracket = nearestBracket(n);
     parts.splice(1, 0, '<b>'+bracket.size+'</b>-entry bracket ('+bracket.byes+' bye'+(bracket.byes===1?'':'s')+')');
+  } else if(f.formatType==='podknockout'){
+    const pc = parseInt(f.podCount)||0;
+    parts.splice(1, 0, '<b>'+pc+'</b> groups, then a <b>'+nearestBracket(Math.max(pc,2)).size+'</b>-slot Finals');
   } else {
     const maxPer = Math.max(2, parseInt(f.maxPerGroup)||4);
     const groups = Math.max(1, Math.ceil(n/maxPer));
@@ -3030,6 +3063,7 @@ function saveStage2(){
       f.plateQualifiersPerGroup = (isNaN(plateVal) || plateVal<1) ? null : plateVal;
     }
   }
+  if(f.formatType==='podknockout') podsReadFormat(f);
   if(isTeamUnit(state) && state.eventCreation.competitionUnit==='Teams'){
     const sizeEl = document.getElementById('f_teamsize');
     if(sizeEl) f.teamSize = Math.max(2, parseInt(sizeEl.value)||4);
@@ -3055,7 +3089,13 @@ function saveStage2(){
       if(el) cfg.flatLegs = Math.max(1, parseInt(el.value)||5);
     }
   };
-  if(advanced && (f.formatType==='knockout' || f.formatType==='rrknockout')) readKnockoutLegs('main');
+  if(advanced && (f.formatType==='knockout' || f.formatType==='rrknockout' || f.formatType==='podknockout')) readKnockoutLegs('main');
+  if(f.formatType==='podknockout' && !podsValidate(state).ok){
+    persist();
+    openModal({title:'Check the number of groups', body:podsValidate(state).message, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
+    render();
+    return;
+  }
   if(advanced && f.formatType==='rrknockout') readKnockoutLegs('plate');
   f.saved = true;
   ensureEntries(state); // resync roster length if teamSize changed
@@ -3072,9 +3112,11 @@ function saveStage2(){
 function formatSummaryCard(){
   const f = state.format;
   return '<div class="summary-card"><div class="summary-grid">'+
-    '<div><label>Format</label><strong>'+({knockout:'Knockout', rrknockout:'Round Robin → Knockout'}[f.formatType]||'Round Robin')+'</strong></div>'+
+    '<div><label>Format</label><strong>'+({knockout:'Knockout', rrknockout:'Round Robin → Knockout', podknockout:'Group Boards'}[f.formatType]||'Round Robin')+'</strong></div>'+
     '<div><label>Best of</label><strong>'+(f.knockoutLegs.main.variable?'Varies by stage':f.bestOfLegs+' legs')+'</strong></div>'+
-    '<div><label>Max/group</label><strong>'+(f.formatType!=='knockout'?f.maxPerGroup:'—')+'</strong></div>'+
+    (f.formatType==='podknockout'
+      ? '<div><label>Groups</label><strong>'+f.podCount+'</strong></div>'
+      : '<div><label>Max/group</label><strong>'+(f.formatType!=='knockout'?f.maxPerGroup:'—')+'</strong></div>')+
     '<div><label>Logo</label><strong>'+(f.logo?'Uploaded':'None')+'</strong></div>'+
     '<div><label>Sponsors</label><strong>'+f.sponsors.length+'</strong></div>'+
     '</div><button class="btn ghost" onclick="goStage(2)">Edit</button></div>';
@@ -3082,6 +3124,7 @@ function formatSummaryCard(){
 
 /* ---------- Stage 3: Chart Details ---------- */
 function stage3(){
+  if(state.format.formatType==='podknockout') return competitionDurationSummaryHTML(state) + podsStage3();
   if(state.format.formatType==='knockout'){
     return competitionDurationSummaryHTML(state) + stage3Knockout();
   }
@@ -3114,7 +3157,7 @@ function setKnockoutOrgSplit(v){ state.format.orgSplit = v; persist(); render();
    organiser explicitly opts in and sets an order). Both toggles are live
    (persist immediately) matching this stage's existing pattern, not
    Format & Branding's batch-save-on-Continue pattern. */
-function stage3Knockout(){
+function stage3Knockout(opts){
   ensureSeedOrder(state);
   const t = state;
   const order = t.seedOrder;
@@ -3146,10 +3189,10 @@ function stage3Knockout(){
       }).join('')
       : '<div class="hint">No seeding — entries will be randomly drawn into the bracket each time it\'s generated.</div>');
 
-  return '<div class="entries-panel"><h2>Participants &amp; Seeding</h2><p class="intro">Edit entry details, then optionally seed the bracket. Generating the bracket happens in the next step.</p>'+
+  return '<div class="entries-panel"><h2>Participants &amp; Seeding</h2><p class="intro">Edit entry details, then optionally seed the bracket. '+(opts && opts.intro ? opts.intro : 'Generating the bracket happens in the next step.')+'</p>'+
     '<div class="form-section" style="margin-top:0;padding-top:0;border-top:none"><div class="form-section-title">Participants</div>'+participantsHTML+'</div>'+
     '<div class="form-section"><div class="form-section-title">Seeding</div>'+seedingHTML+'</div>'+
-  '</div>'+printControls();
+  '</div>'+(opts && opts.noControls ? '' : printControls());
 }
 /* Shared entry-editing fields (name, optional org, optional team roster) used
    by both the round-robin entries panel and the knockout seeding list. */
@@ -3858,6 +3901,10 @@ function formatDescriptionLines(t){
     } else {
       lines.push('Each match is best of '+bestOf+' legs (first to '+majority+'). Knockout matches cannot end in a draw.');
     }
+  } else if(f.formatType==='podknockout'){
+    const podBestOf = parseInt(f.podLegs)||bestOf;
+    lines.push('Format: Group Boards — players are drawn into '+f.podCount+' groups. Each group is a small knockout on its own board, and every group winner goes through to a Finals bracket.');
+    lines.push('Group matches are best of '+podBestOf+' legs (first to '+(Math.floor(podBestOf/2)+1)+'). Finals matches are best of '+bestOf+' legs (first to '+majority+') unless legs increase by stage. Knockout matches cannot end in a draw.');
   } else if(f.formatType==='rrknockout'){
     lines.push('Format: Round robin group stage, followed by a knockout bracket.');
     lines.push('Group stage scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of '+bestOf+' legs (first to '+majority+').');
@@ -4033,6 +4080,7 @@ function setRubberScore(g,a,b,winnersForAB){
 
 /* ---------- Stage 4: Confirm & Print Bracket ---------- */
 function stage4(){
+  if(state.format.formatType==='podknockout') return podsStage4();
   if(state.format.formatType==='knockout') return stage4Knockout();
   const confirmed = state.groups.filter(g=>g.confirmed);
   const allConfirmed = state.groups.length && state.groups.every(g=>g.confirmed);
@@ -4275,7 +4323,7 @@ function cutoffTieIssues(t){
    anything is still level; the organiser's way out is Adjust positions. */
 function blockForUnresolvedTies(){
   const t = state;
-  if(!t || t.format.formatType==='knockout') return false;
+  if(!t || t.format.formatType==='knockout' || t.format.formatType==='podknockout') return false;
   const runs = unresolvedTieRuns(t);
   if(!runs.length) return false;
   const list = runs.map(i=>{
@@ -4428,6 +4476,7 @@ function deleteIncident(id){
   persist(); render();
 }
 function stage5(){
+  if(state.format.formatType==='podknockout') return podsStage5();
   if(state.format.formatType==='knockout') return stage5Knockout();
   const confirmed = state.groups.filter(g=>g.confirmed);
   const startedCount = confirmed.filter(g=>g.gameStarted).length;
@@ -4522,6 +4571,7 @@ function scaleManageCharts(){
 }
 /* ---------- Stage 6: Finalize Standings (review only) ---------- */
 function stage6(){
+  if(state.format.formatType==='podknockout') return podsStage6();
   if(state.format.formatType==='knockout') return stage6Knockout();
   const confirmed = state.groups.filter(g=>g.confirmed);
   let html = '<div class="card">'+
@@ -4567,6 +4617,7 @@ function stage6KnockoutSection(){
 }
 /* ---------- Stage 7: Print Final Chart ---------- */
 function stage7(){
+  if(state.format.formatType==='podknockout') return podsStage7();
   if(state.format.formatType==='knockout') return stage7Knockout();
   const confirmed = state.groups.filter(g=>g.confirmed);
   const startedCount = confirmed.filter(g=>g.gameStarted).length;
@@ -4757,6 +4808,7 @@ function teamHandoutSheetHTML(e){
 }
 function doFinalPrint(){
   if(blockForUnresolvedTies()) return;
+  if(state.format.formatType==='podknockout'){ podsPrintClick(); return; }
   if(state.format.formatType==='knockout'){
     if(!state.knockout){ openModal({title:'No bracket yet', body:'Generate the bracket first.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
     runPrintPack([]);

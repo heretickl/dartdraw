@@ -83,6 +83,28 @@ brackets. Notes, the incident log, rosters, check-in details, logos and
 sponsors are never included. To share more, add the field in
 `viewer/api/_lib/publicView.js`. An unpublished or unknown code returns 404.
 
+## Group Boards format
+
+For big fields, choose **Group Boards** at Format & branding. Players are dealt into a chosen number of
+**groups** (for example 64 groups for 540 players). Each group is a small knockout on its own board, and every
+group winner goes through to a **Finals** bracket whose chart exists, with "Winner of Group N" slots, before any
+group finishes. Seeds are spread one per group, club-mates are kept apart where possible, and players can be
+moved between groups by hand until the groups are confirmed. The public results page gets a group picker (Finals,
+all groups, or one group).
+
+The logic is in `pods.js` (internally "pods", so it never clashes with the round-robin `state.groups`) and the
+screens in `pods-ui.js`. Spec: `docs/superpowers/specs/2026-10-06-group-boards-design.md`.
+
+### Tests and local servers
+
+- `npm test` runs every test (Node's built-in runner, no dependencies). `tests/golden/existing-formats.json`
+  snapshots how the three older formats render; if you change them on purpose, regenerate it with
+  `UPDATE_GOLDEN=1 npm test`.
+- `node tests/dev/mock-organiser.js` serves the organiser at http://localhost:5393 with in-memory storage and no
+  login, for trying the screens in a browser.
+- `node tests/dev/make-sample-view.js 40 8 3` then `node tests/dev/mock-viewer.js` serves the public page for a
+  sample Group Boards event at http://localhost:5392/live/testslug12.
+
 ## Features
 
 - Round robin, knockout, and round robin → knockout tournament formats
