@@ -218,7 +218,8 @@ function matchesHTML(id){
   }
   koLines(id).forEach(function(l){
     var opp = koOpponent(l, id), txt = koResultText(l, id), cls = /^Won/.test(txt) ? 'w' : /^Lost/.test(txt) ? 'l' : 't';
-    rows.push('<div class="mrow"><span>'+escapeHtml((state.format.formatType==='podknockout' ? l.title+' · ' : '')+l.round)+' <span class="note">'+escapeHtml(l.tag)+'</span>'+
+    var info = bpMatchInfo(bpKeyOf(l.b), l.ri, l.mi);
+    rows.push('<div class="mrow"><span>'+escapeHtml((state.format.formatType==='podknockout' ? l.title+' · ' : '')+l.round)+' <span class="note">'+escapeHtml(l.tag)+'</span>'+(info ? ' · Board '+escapeHtml(info.board) : '')+
       (opp ? ' · <span class="tap" data-eid="'+escapeHtml(opp)+'">vs '+escapeHtml(entryName(opp))+'</span>' : '')+'</span><span class="res '+cls+'">'+txt+'</span></div>');
   });
   return rows.length ? rows.join('') : '<p class="empty">No matches yet.</p>';
@@ -243,6 +244,7 @@ function playerPageHTML(id, opts){
     '<h2>'+escapeHtml(e.name)+(me ? ' <span class="you">You</span>' : '')+'</h2>'+
     (sub ? '<div class="psub">'+escapeHtml(sub)+'</div>' : '')+
     '<div class="pstatus">'+escapeHtml(statusLine(id))+'</div>'+
+    boardLineHTML(id)+
     tilesHTML(g, id)+
     '<div class="pbtns">'+
       (me ? '<button type="button" class="pb blue on" data-act="notme">✓ This is me</button>'
@@ -278,6 +280,7 @@ function availableTabs(){
   if(!hasGroups && !hasKo) return t;
   if(state.entriesList.length){ t.push('me'); t.push('following'); }
   if(hasGroups) t.push('groups');
+  if(state.format.formatType==='podknockout' && state.boardPlan && Object.keys(state.boardPlan.boards||{}).length) t.push('boards');
   if(hasKo) t.push('bracket');
   return t;
 }
@@ -287,11 +290,12 @@ function defaultTab(tabs){
   return tabs.indexOf('groups')!==-1 ? 'groups' : tabs.indexOf('bracket')!==-1 ? 'bracket' : tabs[0];
 }
 function currentRoute(tabs){
-  var h = (location.hash||'').replace(/^#\/?/, ''), m = /^p\/(.+)$/.exec(h);
+  var raw = (location.hash||'').replace(/^#\/?/, ''), tv = /[?&]tv=1(&|$)/.test(raw), h = raw.split('?')[0], m = /^p\/(.+)$/.exec(h);
   if(m){ var pid; try{ pid = decodeURIComponent(m[1]); }catch(e){ pid = m[1]; } return {name:'p', id:pid}; }
-  return {name: tabs.indexOf(h)!==-1 ? h : defaultTab(tabs)};
+  var name = tabs.indexOf(h)!==-1 ? h : defaultTab(tabs);
+  return {name:name, tv:(tv && name==='boards')};
 }
-var TAB_LABEL = {me:'Me', following:'Following', groups:'Groups', bracket:'Bracket'};
+var TAB_LABEL = {me:'Me', following:'Following', groups:'Groups', boards:'Boards', bracket:'Bracket'};
 
 /* Make names in tables and brackets tappable, and mark Me / Following. */
 function markEntry(row, cell, id){
@@ -391,7 +395,7 @@ function podsAllHTML(){
   return '<section class="card"><h2>All groups <span class="sub">'+pods.filter(podFinished).length+' of '+pods.length+' finished</span></h2><div class="podgrid">'+pods.map(function(p){
     var w = podFinished(p) ? bracketChampion(p.bracket) : null;
     return '<button type="button" class="podcard" data-pod="'+escapeHtml(p.id)+'"><b>Group '+escapeHtml(p.label)+'</b>'+
-      '<span class="note">'+(p.boards && p.boards.length ? 'Board '+p.boards.join(', ')+' · ' : '')+p.entryIds.length+' players</span>'+
+      '<span class="note">'+(p.boards && p.boards.length ? 'Board '+p.boards.join(', ')+' · ' : '')+p.entryIds.length+' players'+(podStartLine(p) ? ' · '+escapeHtml(podStartLine(p)) : '')+'</span>'+
       '<span class="'+(w ? 'pw' : 'pp')+'">'+(w ? 'Winner: '+escapeHtml(entryName(w)) : 'In progress')+'</span></button>';
   }).join('')+'</div></section>';
 }
@@ -402,7 +406,7 @@ function podsBracketTabHTML(){
   var html = podsPickerHTML();
   if(podSel==='all') html += podsAllHTML();
   else if(podSel==='finals') html += bracketCardHTML(state.knockout, 'ko', 'Finals');
-  else html += bracketCardHTML(sel.bracket, 'pod:'+sel.id, 'Group '+sel.label+(sel.boards && sel.boards.length ? ' · Board '+sel.boards.join(', ') : ''));
+  else html += bracketCardHTML(sel.bracket, 'pod:'+sel.id, 'Group '+sel.label+(sel.boards && sel.boards.length ? ' · Board '+sel.boards.join(', ') : '')+(podStartLine(sel) ? ' · '+podStartLine(sel) : ''));
   return html;
 }
 function bracketForKey(key){
@@ -410,6 +414,113 @@ function bracketForKey(key){
   if(key==='ko') return state.knockout;
   var m = /^pod:(.+)$/.exec(key||''), p = m ? (state.pods||[]).find(function(x){ return x.id===m[1]; }) : null;
   return p ? p.bracket : null;
+}
+
+/* ---------- Board schedule (Group Boards): the plan comes ready-made from the organiser in state.boardPlan ---------- */
+var _bpIdxFor = null, _bpIdx = null;
+/* "key|round|match" -> { board, e (the plan entry), ahead (not-done entries before it on its board) } */
+function bpIndex(){
+  var bp = state.boardPlan;
+  if(!bp || !bp.boards) return {};
+  if(_bpIdxFor === bp) return _bpIdx;
+  var idx = {};
+  Object.keys(bp.boards).forEach(function(b){
+    var ahead = 0;
+    bp.boards[b].forEach(function(e){
+      idx[e.key+'|'+e.ri+'|'+e.mi] = { board:b, e:e, ahead:(e.status === 'done' ? 0 : ahead) };
+      if(e.status !== 'done') ahead++;
+    });
+  });
+  _bpIdxFor = bp; _bpIdx = idx;
+  return idx;
+}
+function bpMatchInfo(key, ri, mi){ return bpIndex()[key+'|'+ri+'|'+mi] || null; }
+/* The plan key of a bracket object: 'ko' for the Finals, 'pod:<id>' for a group. */
+function bpKeyOf(b){
+  if(!b) return null;
+  if(b === state.knockout) return 'ko';
+  var p = (state.pods||[]).find(function(x){ return x.bracket === b; });
+  return p ? 'pod:'+p.id : null;
+}
+function estLabel(ms){ return '~'+new Date(ms).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }
+function bpMatchOfEntry(e){ var b = bracketForKey(e.key); return b && b.rounds[e.ri] ? b.rounds[e.ri][e.mi] : null; }
+function bpSideText(m, side){
+  var id = m[side+'EntryId'], from = m[side+'FromPod'];
+  if(id) return entryName(id);
+  if(from){ var p = (state.pods||[]).find(function(x){ return x.id===from; }); return 'Winner of Group '+(p ? p.label : '?'); }
+  return 'To be decided';
+}
+function bpMatchText(e){ var m = bpMatchOfEntry(e); return m ? bpSideText(m, 'a')+' v '+bpSideText(m, 'b') : ''; }
+function bpWhereText(e){
+  var b = bracketForKey(e.key), round = b ? koRoundName(b, e.ri) : '';
+  if(e.key==='ko') return 'Finals · '+round;
+  var p = (state.pods||[]).find(function(x){ return 'pod:'+x.id===e.key; });
+  return 'Group '+(p ? p.label : '?')+' · '+round;
+}
+function boardCardHTML(b, entries){
+  var pending = entries.filter(function(e){ return e.status !== 'done'; });
+  var up = pending[0], more = pending.slice(1, 3), rest = pending.length - 1 - more.length;
+  var html = '<section class="card bcard"><h2>Board '+escapeHtml(b)+' <span class="sub">'+(pending.length ? pending.length+' to play' : 'Finished')+'</span></h2>';
+  if(!up) return html+'<p class="empty">All matches on this board are finished.</p></section>';
+  var head = up.called ? 'Called — go to Board '+b : (up.ready ? 'Up now' : 'Waiting for an earlier match');
+  html += '<div class="bup'+(up.called ? ' called' : '')+'"><b>'+escapeHtml(head)+'</b>'+
+    '<div class="bm">'+escapeHtml(bpMatchText(up))+'</div><div class="note">'+escapeHtml(bpWhereText(up))+'</div></div>';
+  more.forEach(function(e){
+    html += '<div class="bnext"><span>'+(e.called ? '<b class="calledtag">Called — go to Board '+escapeHtml(b)+'</b>' : '<b>Next</b>')+' '+escapeHtml(bpMatchText(e))+'<span class="note"> · '+escapeHtml(bpWhereText(e))+'</span></span>'+
+      '<span class="bt">'+(e.estMs != null ? escapeHtml(estLabel(e.estMs)) : '')+'</span></div>';
+  });
+  if(rest > 0) html += '<p class="note" style="margin:8px 0 0">'+rest+' more after these</p>';
+  return html+'</section>';
+}
+var TV_PER_PAGE = 6, tvPage = 0, tvTimer = null;
+function boardsTabHTML(tv){
+  var bp = state.boardPlan;
+  var nums = Object.keys((bp && bp.boards) || {}).sort(function(a, b){ return a - b; });
+  if(!nums.length) return '<section class="card"><p class="empty">The board schedule isn\'t available yet.</p></section>';
+  var pages = 1, list = nums;
+  if(tv){
+    pages = Math.max(1, Math.ceil(nums.length / TV_PER_PAGE));
+    var page = tvPage % pages;
+    list = nums.slice(page * TV_PER_PAGE, (page + 1) * TV_PER_PAGE);
+  }
+  var head = tv && pages > 1 ? '<p class="note tvpage">Page '+((tvPage % pages) + 1)+' of '+pages+'</p>' : '';
+  return head+'<div class="bgrid">'+list.map(function(b){ return boardCardHTML(b, bp.boards[b]); }).join('')+'</div>';
+}
+/* The player's next not-done match on any board: { board, ahead, e }, or null. */
+function bpPlayerNext(id){
+  var bp = state.boardPlan, best = null;
+  if(!bp || !bp.boards) return null;
+  Object.keys(bp.boards).forEach(function(b){
+    var ahead = 0;
+    bp.boards[b].forEach(function(e){
+      if(e.status === 'done') return;
+      var m = bpMatchOfEntry(e);
+      if(m && (m.aEntryId === id || m.bEntryId === id) && (!best || ahead < best.ahead)) best = { board:b, ahead:ahead, e:e };
+      ahead++;
+    });
+  });
+  return best;
+}
+function boardLineHTML(id){
+  var n = bpPlayerNext(id);
+  if(!n) return '';
+  var text;
+  if(n.e.called) text = 'Called — go to Board '+n.board;
+  else if(n.e.status === 'up') text = n.e.ready ? 'Up now on Board '+n.board : 'Board '+n.board+' · waiting for an earlier match';
+  else text = 'Board '+n.board+' · '+n.ahead+(n.ahead === 1 ? ' match' : ' matches')+' ahead'+(n.e.estMs != null ? ' · '+estLabel(n.e.estMs) : '');
+  return '<div class="pboard'+(n.e.called ? ' called' : '')+'">'+escapeHtml(text)+'</div>';
+}
+/* "starts ~7:10 pm" for a group that has not begun and has an estimate; empty otherwise. */
+function podStartLine(p){
+  var bp = state.boardPlan;
+  if(!bp || !bp.boards) return '';
+  var key = 'pod:'+p.id, est = null, started = false;
+  Object.keys(bp.boards).forEach(function(b){ bp.boards[b].forEach(function(e){
+    if(e.key !== key) return;
+    if(e.status === 'done' || e.status === 'up') started = true;
+    if(e.estMs != null && (est == null || e.estMs < est)) est = e.estMs;
+  }); });
+  return (!started && est != null) ? 'starts '+estLabel(est) : '';
 }
 
 function bracketCardHTML(bracket, key, title){
@@ -477,7 +588,8 @@ function rsMatchHTML(b, ri, mi){
     : '<span class="mt dim">Waiting</span>';
   var mine = m.aEntryId===myId() || m.bEntryId===myId();
   var fol = !mine && (isFollowing(m.aEntryId) || isFollowing(m.bEntryId));
-  return '<div class="rm'+(mine ? ' me' : fol ? ' fol' : '')+'"><div class="rmh"><span class="mtag">'+escapeHtml(tag)+'</span>'+status+'</div>'+
+  var info = bpMatchInfo(bpKeyOf(b), ri, mi);
+  return '<div class="rm'+(mine ? ' me' : fol ? ' fol' : '')+'"><div class="rmh"><span class="mtag">'+escapeHtml(tag)+'</span>'+(info ? '<span class="mbd">Board '+escapeHtml(info.board)+'</span>' : '')+status+'</div>'+
     rsSlotHTML(b, ri, mi, 'a')+rsSlotHTML(b, ri, mi, 'b')+'</div>';
 }
 function roundsViewHTML(b, key){
@@ -546,6 +658,7 @@ function render(){
   else if(r.name==='following') body = followingHTML();
   else if(r.name==='p') body = playerPageHTML(r.id, {back:true});
   else if(r.name==='groups') body = state.groups.map(groupCardHTML).join('');
+  else if(r.name==='boards') body = boardsTabHTML(!!r.tv);
   else if(r.name==='bracket'){
     if((state.pods||[]).length) body += podsBracketTabHTML();
     else {
@@ -559,8 +672,12 @@ function render(){
     var n = t==='following' ? followIds().length : 0;
     return '<a href="#/'+t+'"'+(t===activeTab ? ' class="on" aria-current="page"' : '')+'>'+TAB_LABEL[t]+(n ? ' ('+n+')' : '')+'</a>';
   }).join('');
-  el('nav').hidden = false;
-  el('finderWrap').hidden = !state.entriesList.length;
+  document.body.classList.toggle('tv', !!r.tv);
+  el('nav').hidden = !!r.tv; el('finderWrap').hidden = !!r.tv || !state.entriesList.length;
+  if(typeof setInterval === 'function'){
+    if(r.tv && !tvTimer) tvTimer = setInterval(function(){ tvPage++; if(state) render(); }, 12000);
+    if(!r.tv && tvTimer){ clearInterval(tvTimer); tvTimer = null; }
+  }
   showFinderResults();
   decorate();
   applyBracketFit();

@@ -14,7 +14,11 @@ function pick(obj, keys) {
 }
 
 function publicMatch(m) {
-  return pick(m, ['id', 'aEntryId', 'bEntryId', 'aLegs', 'bLegs', 'winnerId', 'bye', 'wo', 'aFromPod', 'bFromPod']);
+  const out = pick(m, ['id', 'aEntryId', 'bEntryId', 'aLegs', 'bLegs', 'winnerId', 'bye', 'wo', 'aFromPod', 'bFromPod', 'called', 'board']);
+  if (out.called) out.called = true; else delete out.called;
+  const board = parseInt(out.board, 10);
+  if (board >= 1 && board <= 9999) out.board = board; else delete out.board;
+  return out;
 }
 
 function publicBracket(b) {
@@ -47,6 +51,26 @@ function publicPod(p) {
   };
 }
 
+// The board plan is rebuilt field by field, so only values of the expected kinds are published.
+const PLAN_STATUS = ['done', 'up', 'next', 'later'];
+function publicBoardPlan(bp) {
+  if (!bp || typeof bp !== 'object' || !bp.boards || typeof bp.boards !== 'object') return undefined;
+  const boards = {};
+  Object.keys(bp.boards).forEach((b) => {
+    if (!/^\d{1,4}$/.test(b) || !Array.isArray(bp.boards[b])) return;
+    boards[b] = bp.boards[b].filter((e) => e && typeof e === 'object').map((e) => ({
+      key: typeof e.key === 'string' && /^(ko|pod:[A-Za-z0-9_-]+)$/.test(e.key) ? e.key : '',
+      ri: parseInt(e.ri, 10) || 0,
+      mi: parseInt(e.mi, 10) || 0,
+      status: PLAN_STATUS.indexOf(e.status) !== -1 ? e.status : 'later',
+      ready: !!e.ready,
+      estMs: typeof e.estMs === 'number' && isFinite(e.estMs) ? e.estMs : null,
+      called: !!e.called,
+    }));
+  });
+  return { v: 1, hasTimes: !!bp.hasTimes, boards };
+}
+
 function toPublicView(data) {
   const d = data || {};
   // Groups belong to the Group Boards format only; a plain bracket left over from another format is not its Finals.
@@ -59,6 +83,7 @@ function toPublicView(data) {
     entriesList: (d.entriesList || []).map((e) => pick(e, ['id', 'name', 'org', 'withdrawn'])),
     groups: (d.groups || []).filter((g) => g && g.confirmed).map(publicGroup),
     pods: isGroupBoards ? (d.pods || []).filter((p) => p && p.confirmed && p.bracket).map(publicPod) : [],
+    boardPlan: isGroupBoards ? publicBoardPlan(d.boardPlan) : undefined,
     knockout: publicBracket(isGroupBoards && d.knockout && !d.knockout.podFinals ? null : d.knockout),
     knockoutLosers: publicBracket(d.knockoutLosers),
   };

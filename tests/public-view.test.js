@@ -46,3 +46,55 @@ test('a tournament with no groups publishes an empty list', () => {
   const view = toPublicView({ eventCreation: {}, format: {}, entriesList: [], groups: [] });
   assert.deepEqual(view.pods, []);
 });
+
+test('the board plan, called and board are published; doneAt and calledAt are not', () => {
+  const t = event(true);
+  t.boardPlan = JSON.parse(JSON.stringify(run(app, 'buildBoardPlan')(t)));
+  t.boardPlan.boards['1'][0].secret = 'SECRET PLAN FIELD';
+  const m = t.pods[0].bracket.rounds[0][0];
+  m.called = true; m.calledAt = 111; m.doneAt = 222; t.knockout.rounds[0][0].board = 4;
+  const view = toPublicView(JSON.parse(JSON.stringify(t)));
+  assert.equal(view.boardPlan.v, 1);
+  const first = view.boardPlan.boards['1'][0];
+  assert.deepEqual(Object.keys(first).sort(), ['called', 'estMs', 'key', 'mi', 'ready', 'ri', 'status']);
+  assert.equal(view.pods[0].bracket.rounds[0][0].called, true);
+  assert.equal(view.knockout.rounds[0][0].board, 4);
+  const text = JSON.stringify(view);
+  assert.ok(!text.includes('doneAt') && !text.includes('calledAt') && !text.includes('SECRET PLAN FIELD'));
+});
+
+test('a malformed board plan is trimmed to safe values, and other formats publish none', () => {
+  const t = event(true);
+  t.boardPlan = { v: 1, hasTimes: 'yes', boards: { '1': [{ key: '<b>x</b>', ri: '1', mi: 0, status: 'weird', ready: 1, estMs: 'soon', called: 0 }], 'x<y': [] } };
+  const view = toPublicView(JSON.parse(JSON.stringify(t)));
+  assert.deepEqual(Object.keys(view.boardPlan.boards), ['1']);
+  const e = view.boardPlan.boards['1'][0];
+  assert.equal(e.key, ''); assert.equal(e.status, 'later'); assert.equal(e.estMs, null); assert.equal(e.ready, true); assert.equal(e.called, false);
+  assert.equal(view.boardPlan.hasTimes, true);
+  const other = event(true); other.format.formatType = 'knockout'; other.boardPlan = { v: 1, hasTimes: false, boards: {} };
+  assert.equal(toPublicView(JSON.parse(JSON.stringify(other))).boardPlan, undefined);
+  assert.equal(toPublicView(JSON.parse(JSON.stringify(event(true)))).boardPlan, undefined);   // no plan stored yet
+});
+
+test('a null element in a board array does not throw, and the other entries are kept', () => {
+  const t = event(true);
+  t.boardPlan = { v: 1, hasTimes: false, boards: { '1': [null, { key: 'ko', ri: 0, mi: 1, status: 'up', ready: true, estMs: null, called: false }, 5, 'x'] } };
+  let view;
+  assert.doesNotThrow(() => { view = toPublicView(JSON.parse(JSON.stringify(t))); });
+  assert.equal(view.boardPlan.boards['1'].length, 1);
+  assert.equal(view.boardPlan.boards['1'][0].mi, 1);
+});
+
+test('a published match has called true or nothing, and board a whole number 1 to 9999 or nothing', () => {
+  const t = event(true);
+  const ms = t.pods[0].bracket.rounds[0];
+  ms[0].called = 'yes'; ms[0].board = '7';
+  ms[1].called = 0; ms[1].board = 'x';
+  const k = t.knockout.rounds[0];
+  k[0].board = 0; k[1].board = 12345;
+  const view = toPublicView(JSON.parse(JSON.stringify(t)));
+  const vm = view.pods[0].bracket.rounds[0];
+  assert.strictEqual(vm[0].called, true); assert.strictEqual(vm[0].board, 7);
+  assert.ok(!('called' in vm[1])); assert.ok(!('board' in vm[1]));
+  assert.ok(!('board' in view.knockout.rounds[0][0])); assert.ok(!('board' in view.knockout.rounds[0][1]));
+});

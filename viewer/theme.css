@@ -216,3 +216,25 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:8px 16px 32px
 .podcard b{font-family:var(--display);font-size:20px;text-transform:uppercase;letter-spacing:.04em}
 .podcard .pw{color:var(--green);font-weight:600;font-size:13px}
 .podcard .pp{color:var(--muted);font-size:13px}
+
+/* Boards tab and TV mode */
+.bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.bgrid .bcard{margin:0}
+.bcard h2 .sub{font-size:13px;font-weight:600;color:var(--muted);margin-left:6px}
+.bup{padding:12px;border-radius:12px;background:var(--paper2);border:1px solid var(--line);border-left:3px solid var(--blue)}
+.bup.called{background:var(--gold-tint);border-color:var(--gold-line);border-left-color:var(--gold)}
+.bup .bm{font-size:16px;margin-top:4px}
+.bnext{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.bnext .bt{white-space:nowrap;color:var(--muted)}
+.bnext .calledtag{display:inline-block;padding:1px 8px;border-radius:8px;background:var(--gold-tint);border:1px solid var(--gold-line);color:var(--gold-text)}
+.tvpage{text-align:right;margin:0 0 6px}
+body.tv .bgrid{grid-template-columns:repeat(3,1fr);gap:18px}
+body.tv .bcard{font-size:22px}
+body.tv .bup .bm{font-size:26px}
+body.tv .bnext{font-size:20px}
+body.tv .bcard .note,body.tv .bcard h2 .sub,body.tv .bnext .bt{font-size:18px}
+body.tv .tvpage{font-size:18px}
+@media (max-width:900px){body.tv .bgrid{grid-template-columns:repeat(2,1fr)}}
+.pboard{margin:8px 0 0;padding:10px 14px;border-radius:12px;background:var(--blue-tint);border:1px solid var(--line);font-size:15px;font-weight:600}
+.pboard.called{background:var(--gold-tint);border-color:var(--gold-line);color:var(--gold-text)}
+.mbd{font-size:12px;color:var(--muted);margin-left:8px}
