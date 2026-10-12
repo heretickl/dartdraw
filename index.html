@@ -684,12 +684,27 @@ function clockToMinutes(hhmm){
 }
 /* today's date + a 'HH:MM' time-of-day, as an epoch ms — the whole engine works
    in epoch ms so real (Date.now()) and planned times share one timeline. */
+/* The earliest moment play is known to have begun: a started round-robin group, or the first Group Boards result. */
+function earliestActivityMs(t){
+  let earliest = null;
+  const note = ms=>{ if(ms && (earliest==null || ms<earliest)) earliest = ms; };
+  (t.groups||[]).forEach(g=> note(g.startedAt));
+  const visit = b=>{ if(b && b.rounds) b.rounds.forEach(r=> r.forEach(m=>{ if(m.winnerId && !m.bye) note(m.doneAt); })); };
+  podsList(t).forEach(p=> visit(p.bracket));
+  visit(podsFinals(t));
+  return earliest;
+}
 function anticipatedStartEpoch(t){
   const mins = clockToMinutes(t.format.anticipatedStartTime);
   if(mins==null) return null;
   const d = new Date();
   d.setHours(Math.floor(mins/60), mins%60, 0, 0);
-  return d.getTime();
+  let a = d.getTime();
+  /* An event that runs past midnight: once play has begun, keep the start on the day it began (moved back whole days
+     while it is more than 12 hours after the earliest known play), or every estimate would jump to the next day. */
+  const earliest = earliestActivityMs(t);
+  if(earliest!=null) while(a > earliest + 12*3600000) a -= 24*3600000;
+  return a;
 }
 function epochClockLabel(ms){
   if(ms==null) return '';

@@ -68,9 +68,9 @@ function bpFinalsBoardsHTML(t, plan){
 function bpToggleCall(bracketKey, ri, mi){
   var b = bracketByKey(state, bracketKey), m = b && b.rounds[ri] && b.rounds[ri][mi];
   if(!m) return;
-  if(m.called){ delete m.called; delete m.calledAt; }                       // a call can always be cleared
+  if(m.called){ delete m.called; delete m.calledAt; delete m.calledPair; }  // a call can always be cleared
   else if(m.winnerId || m.bye || !m.aEntryId || !m.bEntryId) return;       // but only a playable match can be called
-  else { m.called = true; m.calledAt = Date.now(); }
+  else { m.called = true; m.calledAt = Date.now(); m.calledPair = m.aEntryId + '|' + m.bEntryId; }
   persist(); render();
 }
 function bpSetFinalsBoard(ri, mi, text){

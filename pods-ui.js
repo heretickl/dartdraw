@@ -102,6 +102,44 @@ function podsRemoveGoneClick(){
   persist(); render();
 }
 
+/* ---------- Check-in on the draw and confirm screens ----------
+   It only matters once check-in is in use (someone is ticked off): a tournament that never uses it must not be
+   warned about every player. ids limits the check to some entries (the players of the groups being confirmed). */
+function podsCheckInStatus(ids){
+  var active = state.entriesList.filter(function(e){ return !e.withdrawn; });
+  var checked = active.filter(function(e){ return e.checkedIn; }).length;
+  return { total:active.length, checked:checked, missing:checked > 0 ? notCheckedInEntries(ids) : [] };
+}
+function podsCheckInBoxHTML(){
+  var s = podsCheckInStatus();
+  if(!s.checked) return '';
+  var html = '<div class="hint" style="margin:0 0 8px">'+s.checked+' of '+s.total+' checked in.</div>';
+  if(!s.missing.length) return html;
+  return html + noShowWarningHTML(s.missing)+
+    '<div class="buttonrow" style="margin:0 0 12px"><button class="btn secondary" onclick="podsWithdrawUncheckedClick()">Withdraw the '+s.missing.length+' not checked in</button>'+
+    '<button class="btn ghost" onclick="checkInAll()">Check everyone in</button></div>';
+}
+/* Before the draw only: once players are in groups, withdraw them one at a time from their group. */
+function podsWithdrawUncheckedClick(){
+  if(podsList(state).length) return;
+  var missing = podsCheckInStatus().missing;
+  if(!missing.length) return;
+  openModal({
+    title:'Withdraw '+missing.length+' player'+(missing.length === 1 ? '' : 's')+'?',
+    bodyHTML:'<p>Removes them from the entry list before the groups are drawn:</p><p>'+missing.map(function(e){ return escapeHtml(e.name); }).join(', ')+'</p>',
+    confirmLabel:'Withdraw', confirmClass:'danger',
+    onConfirm:function(){ missing.forEach(function(e){ e.withdrawn = true; }); persist(); render(); }
+  });
+}
+/* Runs go() at once, or after the organiser agrees when someone in these groups has not checked in. */
+function podsCheckInGuard(podIds, go){
+  var ids = [];
+  podsList(state).forEach(function(p){ if(podIds.indexOf(p.id) !== -1) ids = ids.concat(p.entryIds); });
+  var missing = podsCheckInStatus(ids).missing;
+  if(!missing.length){ go(); return; }
+  openModal({ title:'Confirm without everyone?', bodyHTML:noShowWarningHTML(missing), confirmLabel:'Confirm anyway', confirmClass:'primary', onConfirm:go });
+}
+
 function podsStage3(){
   var t = state, pods = podsList(t), v = podsValidate(t), scored = podsAnyScores(t);
   var html = stage3Knockout({ noControls:true, intro:'Draw the groups below.' });   // the Participants & Seeding panel, same as the knockout format
@@ -109,7 +147,7 @@ function podsStage3(){
     (pods.length ? 'Check the draw below. Use Move… to move or swap a player before you confirm the groups.'
                  : 'Deals every player into '+(parseInt(t.format.podCount) || 0)+' groups, one board each. Seeded players are spread across the groups, one per group.')+'</p>'+
     (!v.ok ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Check the number of groups</b>'+escapeHtml(v.message)+' <span style="text-decoration:underline;cursor:pointer" onclick="goStage(2)">Change it in Format &amp; branding</span></div>' : '')+
-    (pods.length ? podsCountWarningHTML() + podsRosterWarningHTML() : '')+
+    (pods.length ? podsCountWarningHTML() + podsRosterWarningHTML() : podsCheckInBoxHTML())+
     '<div class="buttonrow"><button class="btn '+(pods.length ? 'secondary' : 'primary')+'" '+(v.ok && !scored ? '' : 'disabled ')+'onclick="podsDrawClick()">'+(pods.length ? 'Redraw groups' : 'Draw groups')+'</button>'+
       '<button class="btn secondary" onclick="goStage(2)">Make changes</button>'+
       (pods.length ? '<button class="btn primary" onclick="goStage(4)">Continue to confirm →</button>' : '')+'</div>'+
@@ -125,7 +163,14 @@ function podsDrawNow(){
 }
 function podsDrawClick(){
   if(podsAnyScores(state)) return;
-  if(!podsList(state).length){ podsDrawNow(); return; }
+  if(!podsList(state).length){
+    var missing = podsCheckInStatus().missing;
+    if(!missing.length){ podsDrawNow(); return; }
+    openModal({ title:'Draw without everyone?',
+      bodyHTML:noShowWarningHTML(missing)+'<p>They are dealt into groups like everyone else. Withdraw them first if they are not coming.</p>',
+      confirmLabel:'Draw anyway', confirmClass:'primary', onConfirm:function(){ podsDrawNow(); } });
+    return;
+  }
   openModal({ title:'Redraw groups?', body:'Everyone is dealt again from the current seed order. Moves you made by hand, and any confirmed groups, are discarded.',
     confirmLabel:'Redraw', confirmClass:'danger', onConfirm:function(){ podsDrawNow(); } });
 }
@@ -197,8 +242,11 @@ function podsStage4(){
   if(podsFinals(t)) html += '<div class="card"><h3 style="margin:0 0 10px">Finals</h3><div class="mko-artboard-scroll">'+mirroredChartHTML(podsFinals(t), t, {interactive:false})+'</div></div>';
   return html;
 }
-function podsConfirmClick(id){ podsConfirm(state, id); persist(); render(); }
-function podsConfirmAllClick(){ podsConfirmAll(state); persist(); render(); }
+function podsConfirmClick(id){ podsCheckInGuard([id], function(){ podsConfirm(state, id); persist(); render(); }); }
+function podsConfirmAllClick(){
+  var open = podsList(state).filter(function(p){ return !p.confirmed; }).map(function(p){ return p.id; });
+  podsCheckInGuard(open, function(){ podsConfirmAll(state); persist(); render(); });
+}
 function podsUnconfirmClick(id){
   var r = podsUnconfirm(state, id);
   if(!r.ok){ openModal({ title:'Can\'t unconfirm', body:r.message, confirmLabel:'OK', confirmClass:'primary', onConfirm:function(){} }); return; }

@@ -173,3 +173,39 @@ test('stampDoneTimes clears a call on a match that has lost a player', () => {
   ok.called = true; f('stampDoneTimes')(t);
   assert.equal(ok.called, true);                                      // a complete, unplayed match keeps its call
 });
+
+test('a call is cleared when a different player takes the place of the one it was made for', () => {
+  const t = ready(12, 3);
+  t.pods.forEach((g) => playOut(app, g.bracket, () => 'a')); f('syncFinalsFromPods')(t);
+  const m = t.knockout.rounds[0].find((x) => x.aEntryId && x.bEntryId);
+  m.called = true; m.calledAt = 1;
+  f('stampDoneTimes')(t);
+  assert.equal(m.called, true);                                  // same two players: the call stands
+  const other = t.entriesList.find((e) => e.id !== m.aEntryId && e.id !== m.bEntryId).id;
+  m.aEntryId = other;                                            // a correction put someone else in
+  f('stampDoneTimes')(t);
+  assert.equal(m.called, undefined); assert.equal(m.calledAt, undefined); assert.equal(m.calledPair, undefined);
+});
+
+test('a call made with the Call button remembers the pair it was made for', () => {
+  const t = ready(12, 3);
+  const m = t.pods[0].bracket.rounds[0][0];
+  f('bpToggleCall')('pod:' + t.pods[0].id, 0, 0);
+  assert.equal(m.called, true); assert.equal(m.calledPair, m.aEntryId + '|' + m.bEntryId);
+  f('bpToggleCall')('pod:' + t.pods[0].id, 0, 0);
+  assert.equal(m.calledPair, undefined);
+});
+
+test('the anticipated start stays on the event first day for any format once play has begun', () => {
+  const t = f('blankTournament')();
+  t.format.anticipatedStartTime = '10:00';
+  const A = f('anticipatedStartEpoch')(t);
+  t.groups = [{ id: 'g1', startedAt: A - 24 * 3600000 + 30 * 60000, entryIds: [] }];   // started yesterday morning
+  assert.equal(f('anticipatedStartEpoch')(t), A - 24 * 3600000);
+  t.groups = [{ id: 'g1', startedAt: A + 30 * 60000, entryIds: [] }];                  // started today: unchanged
+  assert.equal(f('anticipatedStartEpoch')(t), A);
+  t.groups = [];
+  assert.equal(f('anticipatedStartEpoch')(t), A);
+  t.format.anticipatedStartTime = '';
+  assert.equal(f('anticipatedStartEpoch')(t), null);
+});

@@ -13,6 +13,13 @@ function stampDoneTimes(t){
       else if(!m.winnerId && m.doneAt){ delete m.doneAt; }
       /* A call goes when the match can no longer be played as called: a bye, or a player has gone (a correction cleared a slot). */
       if(m.bye || (!m.winnerId && (!m.aEntryId || !m.bEntryId))){ delete m.called; delete m.calledAt; }
+      /* A call is for the two players it was made for: if a correction put someone else in, it no longer applies. */
+      if(m.called){
+        var pair = m.aEntryId + '|' + m.bEntryId;
+        if(!m.calledPair) m.calledPair = pair;
+        else if(m.calledPair !== pair){ delete m.called; delete m.calledAt; }
+      }
+      if(!m.called) delete m.calledPair;
     }); });
   }
   podsList(t).forEach(function(p){ visit(p.bracket); });
@@ -24,30 +31,12 @@ function bpRound5(ms){ return Math.round(ms / 300000) * 300000; }
 /* The bracket behind a plan entry key: 'ko' is the Finals, 'pod:<id>' is a group. */
 function bpBracket(t, key){ return key === 'ko' ? podsFinals(t) : bracketByKey(t, key); }
 
-/* The anchor for estimates: the anticipated start today, moved back whole days when the earliest result entered so far
-   is more than 12 hours before it. An event that runs past midnight would otherwise re-anchor every estimate to the next day. */
-function bpAnchor(t){
-  var a = anticipatedStartEpoch(t);
-  if(a == null) return null;
-  var earliest = null;
-  function visit(b){
-    if(!b || !b.rounds) return;
-    b.rounds.forEach(function(round){ round.forEach(function(m){
-      if(m.winnerId && !m.bye && m.doneAt && (earliest == null || m.doneAt < earliest)) earliest = m.doneAt;
-    }); });
-  }
-  podsList(t).filter(function(p){ return p.confirmed && p.bracket; }).forEach(function(p){ visit(p.bracket); });
-  visit(podsFinals(t));
-  if(earliest != null) while(a > earliest + 12 * 3600000) a -= 24 * 3600000;
-  return a;
-}
-
 /* The board plan: { v, hasTimes, boards: { "<board>": [ { key, ri, mi, status, ready, estMs, called } ] } }.
    status: done | up (first not done on its board) | next (second) | later. ready: both players are known.
    estMs: estimated start (rounded to 5 minutes), null for done and up entries or when no start time is set.
    opts.starts also adds startMs, the rounded start for every entry (used by the print sheets). */
 function buildBoardPlan(t, opts){
-  var anchor = bpAnchor(t), hasTimes = anchor != null, base = hasTimes ? anchor : 0;
+  var anchor = anticipatedStartEpoch(t), hasTimes = anchor != null, base = hasTimes ? anchor : 0;
   var queues = {}, cursor = {}, groupPhaseEnd = base, usedBoards = {};
   function cur(b){ return cursor[b] == null ? base : cursor[b]; }
   function place(key, orgKey, bracket, ri, mi, board, roundStart, ends){
