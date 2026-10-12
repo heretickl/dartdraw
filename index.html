@@ -355,6 +355,8 @@ body.mko-popout #stageArea{height:100vh;display:flex;flex-direction:column}
 <script src="render.js"></script>
 <script src="pods.js"></script>
 <script src="pods-ui.js"></script>
+<script src="boardplan.js"></script>
+<script src="boardplan-ui.js"></script>
 <script>
 /* ---------- Storage (server-backed via /api/tournaments) ---------- */
 let currentOrganizer = null;
@@ -443,7 +445,7 @@ function blankTournament(){
        than a pure estimate. */
     rrFinishedAt: null,
     activeGroupId: null,
-    printSettings: { sponsorFooterEnabled:true, teamHandoutEnabled:false, rulesSheetEnabled:true, lineupSheetEnabled:false, koPaperSize:'A4' },
+    printSettings: { sponsorFooterEnabled:true, teamHandoutEnabled:false, rulesSheetEnabled:true, lineupSheetEnabled:false, koPaperSize:'A4', playersSheetEnabled:true, boardsSheetEnabled:true },
     tieBreakOrder: ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'],
     /* Disciplinary / incident log (Day-of-the-event) — organiser-only record, not printed. */
     incidents: []
@@ -1936,6 +1938,13 @@ function setSaveStatus(status){
    write) instead of writing to localStorage synchronously. */
 function persist(){
   if(!state) return;
+  /* Group Boards: stamp result times, then keep the board plan (what the public page shows) in step with the data. */
+  if(state.format && state.format.formatType==='podknockout'){
+    stampDoneTimes(state);
+    state.boardPlan = buildBoardPlan(state);
+  } else if('boardPlan' in state){
+    delete state.boardPlan;
+  }
   state.updatedAt = Date.now();
   tournamentsCache[state.id] = state;
   renderSavedList();
@@ -2098,6 +2107,8 @@ async function openTournament(id){
     if(state.printSettings.rulesSheetEnabled===undefined) state.printSettings.rulesSheetEnabled = true;
     if(state.printSettings.lineupSheetEnabled===undefined) state.printSettings.lineupSheetEnabled = false;
     if(state.printSettings.koPaperSize===undefined) state.printSettings.koPaperSize = 'A4';
+    if(state.printSettings.playersSheetEnabled===undefined) state.printSettings.playersSheetEnabled = true;
+    if(state.printSettings.boardsSheetEnabled===undefined) state.printSettings.boardsSheetEnabled = true;
     if(state.format.seedingEnabled===undefined) state.format.seedingEnabled = false;
     if(state.format.numSeeds===undefined) state.format.numSeeds = 8;
     if(state.format.rulesNotes===undefined) state.format.rulesNotes = '';

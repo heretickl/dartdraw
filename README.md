@@ -95,6 +95,24 @@ all groups, or one group).
 The logic is in `pods.js` (internally "pods", so it never clashes with the round-robin `state.groups`) and the
 screens in `pods-ui.js`. Spec: `docs/superpowers/specs/2026-10-06-group-boards-design.md`.
 
+### Board schedule
+
+For Group Boards events the organiser keeps a board plan (`boardplan.js`): each board's
+queue of matches, groups in order and then the Finals, with who is **up now** and **next**.
+Set an **anticipated start time** in Format & branding to add estimated times; they are
+labelled "~", rounded to 5 minutes, and re-based on when results were really entered.
+
+- **Manage tournament → Boards:** per-board cards with **Call**, **Enter result** and
+  **No-show**, and a Finals boards box so the final can go on a feature board.
+- **Public results:** a **Boards** tab (and a TV view at `<viewer>/live/<code>#/boards?tv=1`
+  that pages through six boards at a time), a "Board 3 · 2 matches ahead · ~7:40 pm" line on
+  player pages, and a start time on each group.
+- **Print:** optional **Players A–Z** and **Boards** sheets for the wall (toggles in Print).
+
+The plan is rebuilt on every save and stored with the tournament; the viewer only displays it.
+Deploy the organiser first, then the viewer (each deploys from `main`). An older tournament
+gets its plan on its next save, and the viewer hides the Boards tab until then.
+
 ### Tests and local servers
 
 - `npm test` runs every test (Node's built-in runner, no dependencies). `tests/golden/existing-formats.json`

@@ -135,7 +135,7 @@ function podsDrawClick(){
 function setPodBoards(podId, text){
   var pod = podsList(state).find(function(p){ return p.id === podId; });
   if(!pod) return;
-  var nums = String(text).split(/[\s,]+/).map(function(x){ return parseInt(x); }).filter(function(n){ return n > 0; });
+  var nums = String(text).split(/[\s,]+/).map(function(x){ return parseInt(x); }).filter(function(n){ return n > 0 && n <= 9999; });
   if(!nums.length){ render(); return; }
   pod.boards = nums.filter(function(n, i){ return nums.indexOf(n) === i; }).sort(function(a, b){ return a - b; });
   persist(); render();
@@ -262,6 +262,7 @@ function podsStage5(){
       '<div class="mko-artboard-scroll">'+mirroredChartHTML(selPod.bracket, t, {interactive:selPod.confirmed, bracketKey:podBracketKey(selPod)})+'</div>';
   }
   html += '</div>';
+  html += bpPanelHTML();
   html += publicResultsCardHTML();
   html += incidentLogCardHTML();
   return html;
@@ -290,7 +291,7 @@ function podsStage7(){
     '<div class="summary-grid" style="margin-bottom:12px"><div><label>Group sheets</label><strong>'+pods.length+'</strong></div>'+
       '<div><label>Finals</label><strong>'+(built ? 'Included' : 'Not built yet')+'</strong></div></div>'+
     '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(t.printSettings.sponsorFooterEnabled ? 'checked' : '')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">Include sponsor footer on printed charts</label></div>'+
-    rulesSheetToggleHTML()+(built ? koPaperSizeSelectHTML() : '')+
+    rulesSheetToggleHTML()+playersSheetToggleHTML()+boardsSheetToggleHTML()+(built ? koPaperSizeSelectHTML() : '')+
     '<div class="buttonrow"><button class="btn secondary" onclick="goStage(6)">Back to standings</button>'+
       '<button class="btn '+(pods.length ? 'primary' : 'secondary')+'" '+(pods.length ? '' : 'disabled ')+'onclick="doFinalPrint()">Print final chart — Save high-res A4 PDF</button></div></div>';
 }
@@ -300,6 +301,8 @@ function podsPrintClick(){
   t.printedPack = true; persist();
   var html = '';
   if(t.printSettings.rulesSheetEnabled) html += rulesSheetHTML();
+  if(t.printSettings.playersSheetEnabled !== false) html += bpPlayersSheetsHTML(t);
+  if(t.printSettings.boardsSheetEnabled !== false) html += bpBoardsSheetHTML(t);
   pods.forEach(function(p){ html += knockoutBracketSheetHTML(p.bracket, { podLegs:true, stage:'Group '+p.label+' · '+podBoardLabel(p) }); });
   if(podsFinals(t)) html += knockoutBracketSheetHTML(podsFinals(t));
   document.getElementById('printSheets').innerHTML = html;

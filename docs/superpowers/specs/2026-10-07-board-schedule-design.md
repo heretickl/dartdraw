@@ -110,7 +110,7 @@ The tab refreshes with the rest of the page every 20 seconds.
 
 ### TV mode
 
-`#/boards?tv=1` shows the Boards tab with large type, no tabs or search, and pages through the boards by itself (as many cards as fit, switching every 12 seconds). It follows the light and dark theme.
+`#/boards?tv=1` shows the Boards tab with large type, no tabs or search, and pages through the boards by itself (six boards per page, switching every 12 seconds). It follows the light and dark theme.
 
 ### Player and group pages
 
@@ -123,7 +123,7 @@ The tab refreshes with the rest of the page every 20 seconds.
 
 Two new sheets in the Stage 7 print pack, each with a toggle, both on by default for Group Boards:
 
-- **Players A–Z.** Name, club, group, board and estimated first-match time (when there is one), sorted alphabetically, in two columns on A4, for sticking on the wall.
+- **Players A–Z.** Name, club, group, board and estimated first-match time (when there is one), sorted alphabetically, in two columns on A4, for sticking on the wall. The first-match time comes from `buildBoardPlan(t, { starts:true })`, which adds a `startMs` to every entry (including `up` ones, whose `estMs` is null). The plan that is stored and published is built without that option.
 - **Boards.** One row per board listing the groups on it in play order, and the Finals matches once the Finals is built.
 
 ## Backward compatibility

@@ -48,3 +48,18 @@ test('club separation at 540 players stays under a second and leaves no avoidabl
     assert.equal(pairs, 0, clubs + ' clubs: ' + pairs + ' same-club pairs left');
   });
 });
+
+test('building the board plan for 540 players in 64 groups is fast and stays small', () => {
+  const t = makeTournament(app, 540, { pods: 64, boards: 32 }); useState(app, t);
+  t.format.anticipatedStartTime = '10:00';
+  app.persist = () => {}; app.render = () => {};
+  f('generatePods')(t, seededRng(9)); f('podsConfirmAll')(t);
+  const t0 = Date.now();
+  const plan = f('buildBoardPlan')(t);
+  const took = Date.now() - t0;
+  assert.ok(took < 1000, 'took ' + took + ' ms');
+  assert.equal(Object.keys(plan.boards).length, 32);
+  const size = JSON.stringify(plan).length;
+  assert.ok(size < 400000, 'plan is ' + size + ' bytes');
+  f('stampDoneTimes')(t);                         // also fast on a big event
+});
