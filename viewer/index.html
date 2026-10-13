@@ -865,15 +865,16 @@ function eventStarted(s){
   })) return true;
   return bracketStarted(s.knockout) || bracketStarted(s.knockoutLosers) || pods.some(function(p){ return !!p && bracketStarted(p.bracket); });
 }
-function statusPillHTML(started, stale, lastOkAt){
+function statusPillHTML(started, stale, lastOkAt, finished){
   if(stale) return '<span class="live-pill off">Offline</span> Reconnecting…';
   var upd = ' Updated ' + (lastOkAt ? clockLabel(lastOkAt) : '');
+  if(finished) return '<span class="live-pill done">Final results</span>' + upd;
   return started ? '<span class="live-pill"><i></i>Live</span>' + upd : '<span class="live-pill soon">Starting soon</span>' + upd;
 }
 function setStatus(){
   var stale = lastOkAt && (Date.now() - lastOkAt) > POLL_MS*3;
   var started = state ? eventStarted(state) : false;
-  el('hStatus').innerHTML = statusPillHTML(started, stale, lastOkAt);
+  el('hStatus').innerHTML = statusPillHTML(started, stale, lastOkAt, !!(state && state.finalizedAt));   // Final results only once the organiser has finalized the event (the server sends finalizedAt only for a valid date)
 }
 
 async function load(){

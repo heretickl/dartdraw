@@ -89,9 +89,19 @@ The viewer's bare address (for example `https://dartdraw-viewer.vercel.app/`) is
 
 - **Opt-in.** An event appears only when its organiser ticks **List on the public page** on the Public results card (it is off by default, and turning Public results off turns it off too). Events that are only published keep working through their private link and are never listed. A duplicated tournament starts unlisted, and turning Public results on never brings back an old listed flag.
 - **What it shows.** Event and tournament name, date, start time, format, number of entries, a progress ring while live, and the winner once finished. Scores, other players, clubs and notes are never part of the list (`viewer/api/_lib/listView.js` is the allow-list).
-- **Rules.** Live means play has started, the event is not finished, and it was saved within 48 hours. Upcoming means not started and dated yesterday or later. Results stay for 7 days after the last save. An unstarted event with no date is upcoming while it was saved within 8 days. A round robin shows no winner line.
+- **Rules.** Live means play has started, the organiser has not finalized the event, and it was saved within 48 hours (an event with every match played stays Live until it is finalized). Upcoming means not started and dated yesterday or later. Results are events the organiser has finalized with **Accept results & finalize**, and stay for 7 days after finalizing. The event page shows **Final results** only for a finalized event. An unstarted event with no date is upcoming while it was saved within 8 days. A round robin shows no winner line.
 - **Where the limits live.** `viewer/api/_lib/listConfig.js`. They are plain constants for now; an admin setting could replace them later.
 - **How it is served.** `GET /api/events` reads the existing `public_tournaments` view through the existing read-only role (no migration, no new grant) and is cached for 30 seconds, so an unlisted or unpublished event disappears within about half a minute. The page itself is `viewer/home.js` and `viewer/home.css`, in the viewer project.
+
+### Reopening a finalized event (until the Admin panel exists)
+
+Once an organiser accepts the results, the event is closed: the organiser app refuses every save and delete for it, and the public pages show **Final results**. There is no Reopen button. Until the Admin panel is built, an Admin can reopen an event by removing the `finalized` marker in the Neon SQL Editor:
+
+```sql
+UPDATE tournaments SET data = data - 'finalized', updated_at = now() WHERE id = '<tournament id>';
+```
+
+This is the only way to reopen a finalized event for now. The organiser needs to reload the event afterwards.
 
 ## Group Boards format
 

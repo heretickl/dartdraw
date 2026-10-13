@@ -9,6 +9,8 @@ const app = loadApp(); app.persist = () => {}; app.render = () => {};
 const NOW = Date.UTC(2026, 9, 13, 12, 0, 0), HOUR = 3600000, DAY = 86400000;
 const ITEM_KEYS = ['date', 'entries', 'event', 'format', 'slug', 'stages', 'start', 'tournament', 'unit', 'updatedAt'];
 
+// Results need the organiser's finalize: a finished event is only a result once data.finalized.at is set (an hour before NOW unless told).
+const fin = (t, agoMs) => { t.finalized = { at: new Date(NOW - (agoMs === undefined ? HOUR : agoMs)).toISOString() }; return t; };
 const row = (t, ageMs, slug) => ({ slug: slug || 'abcdefgh1234', data: plain(t), updated_at: new Date(NOW - (ageMs || 0)).toISOString() });
 function decorate(t, o) {
   o = o || {};
@@ -73,6 +75,8 @@ test('every format is live once a result exists and results once it has finished
   let t = knockoutEvent(8); play(t.knockout.rounds[0][0], 'a');
   assert.equal(lv.describe(row(t), NOW).status, 'live');
   playOut(app, t.knockout, () => 'a');
+  assert.equal(lv.describe(row(t), NOW).status, 'live');   // every match played, but not finalized: still live
+  fin(t);
   const champName = (b) => t.entriesList.find((e) => e.id === b.rounds[b.rounds.length - 1][0].winnerId).name;
   let r = lv.describe(row(t), NOW);
   assert.equal(r.status, 'results'); assert.ok(champName(t.knockout)); assert.equal(r.item.winner, champName(t.knockout));
@@ -80,12 +84,12 @@ test('every format is live once a result exists and results once it has finished
   // round robin then knockout: the main bracket decides
   t = knockoutEvent(8, 'rrknockout'); play(t.knockout.rounds[0][0], 'a');
   assert.equal(lv.describe(row(t), NOW).status, 'live');
-  playOut(app, t.knockout, () => 'a');
+  playOut(app, t.knockout, () => 'a'); fin(t);
   assert.equal(lv.describe(row(t), NOW).status, 'results'); assert.equal(lv.describe(row(t), NOW).item.winner, champName(t.knockout));
   // round robin: finished when every confirmed group is complete, never a winner line
   t = rrEvent(8); run(app, 'setScore')(t.groups[0], t.groups[0].entryIds[0], t.groups[0].entryIds[1], 3, 0);
   assert.equal(lv.describe(row(t), NOW).status, 'live');
-  t.groups.forEach(playAll);
+  t.groups.forEach(playAll); fin(t);
   r = lv.describe(row(t), NOW); assert.equal(r.status, 'results'); assert.equal(r.item.winner, '');
   // Group Boards: the Finals decide
   t = podEvent(12, 3); play(t.pods[0].bracket.rounds[0][0], 'a');
@@ -101,6 +105,8 @@ test('an event with groups but no result yet is upcoming, and a round robin with
 test('a Group Boards Finals with no champion or a void final counts as finished', () => {
   const t = podEvent(12, 3);
   t.knockout.rounds[t.knockout.rounds.length - 1][0].void = true;
+  assert.equal(lv.describe(row(t), NOW).status, 'live');
+  fin(t);
   assert.equal(lv.describe(row(t), NOW).status, 'results');
   assert.equal(lv.describe(row(t), NOW).item.winner, '');
 });
@@ -110,8 +116,10 @@ test('time boundaries: live 48 hours, results 7 days, upcoming yesterday, undate
   assert.equal(lv.describe(row(live, cfg.LIVE_STALE_HOURS * HOUR), NOW).status, 'live');
   assert.equal(lv.describe(row(live, cfg.LIVE_STALE_HOURS * HOUR + 1000), NOW).status, null);
   const done = knockoutEvent(8); playOut(app, done.knockout, () => 'a');
-  assert.equal(lv.describe(row(done, cfg.RESULTS_DAYS * DAY), NOW).status, 'results');
-  assert.equal(lv.describe(row(done, cfg.RESULTS_DAYS * DAY + 1000), NOW).status, null);
+  fin(done, cfg.RESULTS_DAYS * DAY);                                                  // results are timed from finalizing, not from the last save
+  assert.equal(lv.describe(row(done), NOW).status, 'results');
+  fin(done, cfg.RESULTS_DAYS * DAY + 1000);
+  assert.equal(lv.describe(row(done), NOW).status, null);
   const soon = knockoutEvent(8);
   soon.eventCreation.date = '2026-10-12'; assert.equal(lv.describe(row(soon), NOW).status, 'upcoming');   // yesterday
   soon.eventCreation.date = '2026-10-11'; assert.equal(lv.describe(row(soon), NOW).status, null);          // the day before
@@ -216,8 +224,9 @@ test('progress: "next" appears only between stages: every group played and no kn
   assert.ok(!('next' in progressOf(rr)));                                        // bracket drawn: no longer in the gap
   play(rr.knockout.rounds[0][0], 'a');
   assert.ok(!('next' in progressOf(rr)));
-  const plainRr = rrEvent(8); plainRr.groups.forEach(playAll);                   // round robin alone is finished, not live
-  assert.equal(lv.describe(row(plainRr), NOW).status, 'results');
+  const plainRr = rrEvent(8); plainRr.groups.forEach(playAll);                   // round robin alone: all played is not a result until finalized
+  assert.equal(lv.describe(row(plainRr), NOW).status, 'live');
+  assert.equal(lv.describe(row(fin(plainRr)), NOW).status, 'results');
   const t = podEvent(12, 3);
   play(t.pods[0].bracket.rounds[0][0], 'a');
   assert.ok(!('next' in progressOf(t)));
@@ -291,7 +300,7 @@ test('stages: the item key allow-list now includes stages, for all three statuse
   assert.deepEqual(Object.keys(up.item).sort(), ITEM_KEYS.slice().sort());
   const live = knockoutEvent(8); play(live.knockout.rounds[0][0], 'a');
   assert.deepEqual(Object.keys(lv.describe(row(live), NOW).item).sort(), ITEM_KEYS.concat('progress').sort());
-  const done = knockoutEvent(8); playOut(app, done.knockout, () => 'a');
+  const done = knockoutEvent(8); playOut(app, done.knockout, () => 'a'); fin(done);
   assert.deepEqual(Object.keys(lv.describe(row(done), NOW).item).sort(), ITEM_KEYS.concat('winner').sort());
   assert.equal(lv.describe(row(live), NOW).item.progress.stage, 'Quarterfinals');   // progress is untouched
 });
@@ -421,8 +430,9 @@ test('stages: the overall status is decided as before for a round robin then kno
   const t = rrk(8); assert.equal(lv.describe(row(t), NOW).status, 'upcoming');
   t.groups.forEach(playAll); assert.equal(lv.describe(row(t), NOW).status, 'live');       // groups played, knockout not drawn
   t.knockout = bracketOf(t, 4); playOut(app, t.knockout, () => 'a');
-  assert.equal(lv.describe(row(t), NOW).status, 'results');
-  assert.equal(lv.describe(row(t, 8 * DAY), NOW).status, null);                              // too old: not listed at all
+  assert.equal(lv.describe(row(t), NOW).status, 'live');                                     // all played, not finalized
+  fin(t); assert.equal(lv.describe(row(t), NOW).status, 'results');
+  assert.equal(lv.describe(row(fin(t, 8 * DAY)), NOW).status, null);                         // finalized too long ago: not listed at all
 });
 
 // ---- a later stage that has results means the groups stage is over, whatever the group scores say ----
@@ -437,7 +447,7 @@ test('stages: a knockout drawn early (a group result missing) forces the groups 
   play(t.knockout.rounds[0][0], 'a');
   s = stagesOf(t); checkStages(s);
   assert.deepEqual(s, [{ key: 'groups', state: 'done', done: 11, total: 12, groups: 2 }, { key: 'knockout', state: 'live', done: 1, total: 2, round: 'Semifinals' }]);
-  playOut(app, t.knockout, () => 'a');
+  playOut(app, t.knockout, () => 'a'); fin(t);
   assert.equal(lv.describe(row(t), NOW).status, 'results');
   s = stagesOf(t); checkStages(s);
   assert.deepEqual(s, [{ key: 'groups', state: 'done', done: 11, total: 12, groups: 2 }, { key: 'knockout', state: 'done', done: 3, total: 3 }]);
@@ -474,7 +484,7 @@ test('stages: Group Boards with the Finals skeleton present and the pods unfinis
 
 test('stages: a void final is done, with no winner and done equal to total', () => {
   const t = knockoutEvent(8); play(t.knockout.rounds[0][0], 'a');
-  t.knockout.rounds[t.knockout.rounds.length - 1][0].void = true;
+  t.knockout.rounds[t.knockout.rounds.length - 1][0].void = true; fin(t);
   const r = lv.describe(row(t), NOW);
   assert.equal(r.status, 'results'); assert.equal(r.item.winner, '');
   const s = plain(r.item.stages); checkStages(s);

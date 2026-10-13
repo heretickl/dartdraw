@@ -72,8 +72,18 @@ function publicBoardPlan(bp) {
   return { v: 1, hasTimes: !!bp.hasTimes, boards };
 }
 
+// When the organiser finalized the event (data.finalized.at). Only a string of a sane length that parses to a real
+// date counts; anything else (true, {}, a number, junk text) is "not finalized" and never shows Final results.
+// Returns the string itself, or null. Nothing else from `finalized` is ever read.
+function validFinalizedAt(data) {
+  const f = data && typeof data === 'object' ? data.finalized : null;
+  const at = f && typeof f === 'object' ? f.at : null;
+  return typeof at === 'string' && at.length > 0 && at.length <= 40 && isFinite(Date.parse(at)) ? at : null;
+}
+
 function toPublicView(data) {
   const d = data || {};
+  const finalizedAt = validFinalizedAt(d);
   // Groups belong to the Group Boards format only; a plain bracket left over from another format is not its Finals.
   const isGroupBoards = !!(d.format && d.format.formatType === 'podknockout');
   return {
@@ -87,7 +97,8 @@ function toPublicView(data) {
     boardPlan: isGroupBoards ? publicBoardPlan(d.boardPlan) : undefined,
     knockout: publicBracket(isGroupBoards && d.knockout && !d.knockout.podFinals ? null : d.knockout),
     knockoutLosers: publicBracket(d.knockoutLosers),
+    ...(finalizedAt ? { finalizedAt } : {}),
   };
 }
 
-module.exports = { toPublicView, SLUG_RE };
+module.exports = { toPublicView, validFinalizedAt, SLUG_RE };

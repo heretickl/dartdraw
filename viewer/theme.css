@@ -76,6 +76,7 @@ header .sub{font-family:var(--display);font-weight:500;font-size:15px;letter-spa
 .live-pill i{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.6s ease-in-out infinite}
 .live-pill.off{background:#4a3a14;color:#f4b43a}
 .live-pill.soon{background:var(--blue-tint);color:var(--on-blue)}
+.live-pill.done{background:var(--green-tint);color:var(--green)}
 @keyframes pulse{50%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){.live-pill i{animation:none}}
 .pill{border:1px solid rgba(255,255,255,.18);border-radius:99px;padding:2px 12px;font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:#f3f7fb}

@@ -3,7 +3,7 @@
 // Only the fields copied in describe() ever leave this file; anything added to a tournament later stays private.
 
 const cfg = require('./listConfig');
-const { SLUG_RE } = require('./publicView');
+const { SLUG_RE, validFinalizedAt } = require('./publicView');
 
 const DAY = 86400000, HOUR = 3600000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/, TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -81,6 +81,12 @@ function analyse(d) {
   else if (type === 'rrknockout') { out.started = groupsStarted || started(main); out.finished = finished(main); out.winnerId = champion(main); }
   else if (type === 'podknockout') { out.started = pods.some((p) => started(p.bracket)) || started(fin); out.finished = finished(fin); out.winnerId = champion(fin); }
   return out;
+}
+
+// When the organiser finalized the event, as epoch ms; null when not finalized (or `finalized` is junk).
+function finalizedAt(d) {
+  const at = validFinalizedAt(d);
+  return at === null ? null : Date.parse(at);
 }
 
 // The matches of the stage the event is in, so the ring never drops because a later stage is generated.
@@ -174,8 +180,11 @@ function describe(row, now) {
   const ec = d.eventCreation || {}, fmt = d.format || {};
   const date = typeof ec.date === 'string' && DATE_RE.test(ec.date) ? ec.date : '';
   const age = now - updated;
+  const fin = finalizedAt(d);
   let status = null;
-  if (a.finished) { if (age <= cfg.RESULTS_DAYS * DAY) status = 'results'; }
+  // Results only once the organiser has finalized the event, and for RESULTS_DAYS after that. A finished-looking
+  // event that was never finalized is just a started one: live while it is being saved, else not listed.
+  if (fin !== null) { if (now - fin <= cfg.RESULTS_DAYS * DAY) status = 'results'; }
   else if (a.started) { if (age <= cfg.LIVE_STALE_HOURS * HOUR) status = 'live'; }
   else if (date) { if (date >= isoDay(now - cfg.UPCOMING_GRACE_DAYS * DAY)) status = 'upcoming'; }
   else if (age <= cfg.QUERY_DAYS * DAY) status = 'upcoming';
@@ -222,4 +231,4 @@ function buildList(rows, now) {
   };
 }
 
-module.exports = { analyse, progressOf, stagesOf, describe, buildList, roundsOf, counts, currentRound, finished, started };
+module.exports = { analyse, finalizedAt, progressOf, stagesOf, describe, buildList, roundsOf, counts, currentRound, finished, started };

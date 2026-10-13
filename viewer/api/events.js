@@ -23,7 +23,8 @@ module.exports = async (req, res) => {
           'listed', data->'listed',
           'eventCreation', data->'eventCreation',
           'format', jsonb_build_object('formatType', data->'format'->'formatType', 'anticipatedStartTime', data->'format'->'anticipatedStartTime'),
-          'entriesList', data->'entriesList', 'groups', data->'groups', 'pods', data->'pods', 'knockout', data->'knockout'
+          'entriesList', data->'entriesList', 'groups', data->'groups', 'pods', data->'pods', 'knockout', data->'knockout',
+          'finalized', jsonb_build_object('at', data->'finalized'->'at')
         ) AS data
       FROM public_tournaments
       WHERE data->>'listed' = 'true'

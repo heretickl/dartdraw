@@ -69,3 +69,18 @@ test('phone-width standings: long names may break, and a narrow-screen block tig
 test('the Starting soon pill has a blue style', () => {
   assert.match(THEME, /\.live-pill\.soon\s*\{[^}]*background:\s*var\(--blue-tint\)[^}]*color:\s*var\(--on-blue\)/);
 });
+
+test('statusPillHTML: a finalized event says Final results, in green, instead of the red Live pill', () => {
+  const at = Date.UTC(2026, 9, 13, 12, 0, 0);
+  const done = pill(true, false, at, true);
+  assert.match(done, /^<span class="live-pill done">Final results<\/span> Updated \S/);
+  assert.ok(!done.includes('<i>')); assert.ok(!done.includes('>Live<'));
+  assert.equal(pill(true, true, at, true), '<span class="live-pill off">Offline</span> Reconnecting…');   // stale still wins
+  assert.match(pill(true, false, at, false), /<i><\/i>Live</);
+  assert.match(THEME, /\.live-pill\.done\{background:var\(--green-tint\);color:var\(--green\)\}/);
+});
+
+test('eventFinished is gone: Final results is driven by state.finalizedAt (see finalized-public.test.js), not by stage cards', () => {
+  assert.equal(rv(viewer, 'typeof eventFinished'), 'undefined');
+  assert.ok(fs.readFileSync(path.join(__dirname, '..', 'viewer', 'index.html'), 'utf8').includes('statusPillHTML(started, stale, lastOkAt, !!(state && state.finalizedAt))'));
+});

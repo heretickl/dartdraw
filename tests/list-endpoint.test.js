@@ -83,7 +83,7 @@ test('the query selects only a small built object, never the whole data column o
   assert.match(q, /SELECT slug, updated_at, jsonb_build_object/);
   ['logo', 'sponsors', 'incidents', 'boardPlan'].forEach((k) => assert.ok(!q.toLowerCase().includes(k.toLowerCase()), k));
   // and every key the list logic reads is in the object
-  ['listed', 'eventCreation', 'format', 'formatType', 'anticipatedStartTime', 'entriesList', 'groups', 'pods', 'knockout'].forEach((k) => assert.ok(q.includes("'" + k + "'"), k));
+  ['listed', 'eventCreation', 'format', 'formatType', 'anticipatedStartTime', 'entriesList', 'groups', 'pods', 'knockout', 'finalized'].forEach((k) => assert.ok(q.includes("'" + k + "'"), k));
 });
 
 test('rows shaped like the narrowed SELECT (only those keys) are classified correctly', async () => {
@@ -98,7 +98,7 @@ test('rows shaped like the narrowed SELECT (only those keys) are classified corr
   rows = [
     narrow('upcoming11111', {}),
     narrow('liveevent1111', { knockout: semi('a', null) }),
-    narrow('doneevent1111', { knockout: { rounds: [[{ aEntryId: 'a', bEntryId: 'b', winnerId: 'a' }, { aEntryId: 'c', bEntryId: 'd', winnerId: 'c' }], [{ aEntryId: 'a', bEntryId: 'c', winnerId: 'a' }]] } }),
+    narrow('doneevent1111', { finalized: { at: new Date(now - 3600000).toISOString() }, knockout: { rounds: [[{ aEntryId: 'a', bEntryId: 'b', winnerId: 'a' }, { aEntryId: 'c', bEntryId: 'd', winnerId: 'c' }], [{ aEntryId: 'a', bEntryId: 'c', winnerId: 'a' }]] } }),
   ];
   const res = await call('GET');
   assert.equal(res.statusCode, 200);
