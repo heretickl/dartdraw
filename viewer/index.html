@@ -49,6 +49,7 @@
 let state = null;
 var POLL_MS = 20000;
 var lastUpdatedAt = null, lastOkAt = 0, fitBracket = {};
+var evStages = [];   // per-stage status from the server (api/public), for the stage cards
 
 function slugFromUrl(){
   var q = new URLSearchParams(location.search).get('s');
@@ -716,6 +717,28 @@ function legsLine(s){
   return legsParts(s).map(function(p){ return p.label ? p.label + ': ' + p.text : p.text; }).join(' · ');
 }
 
+/* Stage cards for events with two stages (round robin + knockout, or Group Boards + Finals): each card is a link to that
+   stage's tab and shows its status. Built from the server's `stages`; an older server (or none) just shows no cards. */
+function stageStripHTML(r, tabs){
+  if(r.tv || (r.name!=='groups' && r.name!=='boards' && r.name!=='bracket')) return '';
+  var type = state.format.formatType;
+  if(type!=='rrknockout' && type!=='podknockout') return '';
+  var stages = hmKnownStages({stages:evStages});
+  if(stages.length!==2 || stages[0].key!=='groups' || stages[1].key!==(type==='podknockout' ? 'finals' : 'knockout')) return '';
+  var done = state.knockout && bracketIsComplete(state.knockout) ? bracketChampion(state.knockout) : null;
+  var it = {format:type, unit:(state.eventCreation||{}).competitionUnit, winner:done ? bracketEntryName(state, done) : ''};
+  var first = type==='podknockout' ? (tabs.indexOf('boards')!==-1 ? '#/boards' : (state.pods||[]).length ? '#/bracket/group-'+encodeURIComponent(state.pods[0].label) : '#/bracket') : '#/groups';
+  var second = type==='podknockout' ? '#/bracket/finals' : '#/bracket';
+  var onSecond = r.name==='bracket' && (type==='rrknockout' || podSel==='finals');
+  var kind = it.winner ? 'results' : 'live';
+  return '<div class="evstages" role="group" aria-label="Event stages">'+stages.map(function(s, i){
+    var on = i===1 ? onSecond : !onSecond;
+    var href = i===1 ? second : first, tab = href.split('/')[1], card = hmStageHTML(kind, it, s, i, 2);
+    if(tabs.indexOf(tab)===-1) return '<div class="evstage">'+card+'</div>';   // that stage has nothing to show yet (no knockout drawn)
+    return '<a class="evstage'+(on ? ' on' : '')+'" href="'+href+'"'+(on ? ' aria-current="page"' : '')+'>'+card+'</a>';
+  }).join('')+'</div>';
+}
+
 function render(){
   var ec = state.eventCreation || {};
   document.title = (ec.eventName || ec.tournamentName || 'Live results') + ' · Live results';
@@ -753,7 +776,7 @@ function render(){
       if(state.knockoutLosers) body += bracketCardHTML(state.knockoutLosers, 'kol', 'Plate pool');
     }
   }
-  el('app').innerHTML = body;
+  el('app').innerHTML = stageStripHTML(r, tabs) + body;
   var activeTab = r.name==='p' ? (r.id===myId() ? 'me' : '') : r.name;
   el('navLinks').innerHTML = tabs.map(function(t){
     var n = t==='following' ? followIds().length : 0;
@@ -864,6 +887,7 @@ async function load(){
     if(body.updatedAt !== lastUpdatedAt || !state){
       lastUpdatedAt = body.updatedAt;
       state = body.view;
+      evStages = Array.isArray(body.stages) ? body.stages : [];
       if(!state.tieBreakOrder) state.tieBreakOrder = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
       state.entriesList = state.entriesList || []; state.groups = state.groups || []; state.format = state.format || {};
       render();

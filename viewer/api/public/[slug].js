@@ -1,7 +1,9 @@
 const { sql } = require('../_lib/db');
 const { toPublicView, SLUG_RE } = require('../_lib/publicView');
+const listView = require('../_lib/listView');
 
-// GET /api/public/:slug -> { updatedAt, view }
+// GET /api/public/:slug -> { updatedAt, view, stages }
+// `stages` is the same small per-stage status the home page cards use (see stagesOf); the event page draws its stage cards from it.
 // Read-only: it answers GET and nothing else, and queries the
 // public_tournaments view (see sql/readonly.sql), which only contains
 // tournaments the organiser has switched "Publish results" on for. What it
@@ -24,7 +26,9 @@ module.exports = async (req, res) => {
     // Short shared cache: many spectators polling cost about one query per window.
     // No stale-while-revalidate: an unpublished tournament must disappear promptly.
     res.setHeader('Cache-Control', 'public, s-maxage=10');
-    res.status(200).json({ updatedAt: rows[0].updated_at, view: toPublicView(rows[0].data) });
+    let stages = [];
+    try { stages = listView.stagesOf(rows[0].data, listView.analyse(rows[0].data)); } catch (e) { stages = []; }   // the page works without them
+    res.status(200).json({ updatedAt: rows[0].updated_at, view: toPublicView(rows[0].data), stages });
   } catch (e) {
     res.status(500).json({ error: 'Could not load results.' });
   }
