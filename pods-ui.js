@@ -347,7 +347,7 @@ function podsStage7(){
 function podsPrintClick(){
   var t = state, pods = podsList(t);
   if(!pods.length){ openModal({ title:'No groups yet', body:'Draw the groups first.', confirmLabel:'OK', confirmClass:'primary', onConfirm:function(){} }); return; }
-  t.printedPack = true; persist();
+  if(!(typeof isLocked === 'function' && isLocked(t))){ t.printedPack = true; persist(); }   // printing a finalized event changes nothing
   var html = '';
   if(t.printSettings.rulesSheetEnabled) html += rulesSheetHTML();
   if(t.printSettings.playersSheetEnabled !== false) html += bpPlayersSheetsHTML(t);

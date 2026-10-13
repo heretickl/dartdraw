@@ -81,6 +81,11 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .recommend b{color:#1f5baa}
 .confirm-box{background:#fff8e5;border:1px solid #e8c86e;border-radius:8px;padding:11px;font-size:11px;line-height:1.45;color:#65501d;margin-bottom:12px}
 .confirm-box b{display:block;color:#34290e;margin-bottom:3px}
+/* Finalized (closed) events: see applyFinalizedLock(). Anything that would edit is dimmed and inert. */
+.fin-locked{pointer-events:none;opacity:.55}
+.fin-toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9999;background:#fff8e5;border:1px solid #e8c86e;color:#65501d;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;box-shadow:0 4px 18px rgba(0,0,0,.2)}
+.confirm-box.finalized-note{background:#eaf7ee;border-color:#bfe6cc;color:#175c33}
+.confirm-box.finalized-note b{color:#175c33}
 .buttonrow{display:flex;gap:9px;margin-top:18px;flex-wrap:wrap}
 .btn{border:0;border-radius:8px;padding:11px 14px;font-weight:750;font-size:12px;cursor:pointer}
 .secondary{background:#edf1f5;color:#2b4057}
@@ -363,6 +368,10 @@ body.mko-popout #stageArea{height:100vh;display:flex;flex-direction:column}
 let currentOrganizer = null;
 let tournamentsCache = {}; // id -> tournament JSON (same shape `state` has)
 let dbUpdatedAtCache = {}; // id -> last known Postgres updated_at, for optimistic-concurrency saves
+/* Ids of tournaments known to be finalized on the server (closed: only an Admin can change them).
+   Filled when the saved list loads, in openTournament(), and after a successful finalize. While an id is
+   in here this tab never sends a PUT for it (see persist(), flushSaveOnce(), flushSaveNow()). */
+const lockedIds = new Set();
 async function apiFetch(url, opts){
   opts = opts||{};
   const headers = Object.assign({}, opts.headers);
@@ -376,7 +385,8 @@ async function fetchTournamentList(){
   if(!res.ok) return;
   const rows = await res.json();
   tournamentsCache = {}; dbUpdatedAtCache = {};
-  rows.forEach(r=>{ tournamentsCache[r.id]=r.data; dbUpdatedAtCache[r.id]=r.updated_at; });
+  lockedIds.clear();
+  rows.forEach(r=>{ tournamentsCache[r.id]=r.data; dbUpdatedAtCache[r.id]=r.updated_at; if(isLocked(r.data)) lockedIds.add(r.id); });
 }
 function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4); }
 
@@ -2013,19 +2023,36 @@ function reconcileConfirmations(t){
 
 /* ---------- Persistence helpers ---------- */
 let saveTimer = null;
+let lastSaveStatus = '';          // what the save status last said ('saving' | 'error' | 'ok' | 'locked' | 'finalizing' | ''), so finalizeResults can refuse after a failed/conflicted save
+let finalizing = false;           // true from "Accept & finalize" until the server has answered; edits are not saved meanwhile
+let droppedWhileFinalizing = false;
 function setSaveStatus(status){
+  lastSaveStatus = status;
   const el = document.getElementById('saveStatus');
   if(!el) return;
-  el.textContent = status==='saving' ? 'Saving…' : status==='error' ? 'Updated elsewhere — click to reload' : status==='ok' ? 'Saved' : '';
+  el.textContent = status==='saving' ? 'Saving…' : status==='error' ? 'Updated elsewhere — click to reload' : status==='ok' ? 'Saved' : status==='locked' ? 'This event is finalized — only an Admin can change it' : status==='finalizing' ? 'Finalizing…' : '';
   el.classList.toggle('error', status==='error');
   el.onclick = status==='error' ? ()=>{ if(state) openTournament(state.id); } : null;
 }
 /* External behaviour is unchanged: every call site still just does
    `persist(); render();` after mutating `state`. Internally this now debounces
    a PUT to the server (so rapid clicks/typing coalesce into one network
-   write) instead of writing to localStorage synchronously. */
+   write) instead of writing to localStorage synchronously.
+   A finalized event is closed: if this tab knows the open tournament is finalized,
+   nothing is saved; the saved copy is reloaded instead, discarding the edit. */
 function persist(){
   if(!state) return;
+  if(lockedIds.has(state.id)){ reloadLockedTournament(); return; }
+  /* While "Accept & finalize" is waiting for the server nothing else may be saved (the finalize PUT carries the data
+     that was checked). A dropped edit is sorted out when finalizing ends (see runFinalize). */
+  if(finalizing){ droppedWhileFinalizing = true; setSaveStatus('finalizing'); return; }
+  normalizeForSave();
+  tournamentsCache[state.id] = state;
+  renderSavedList();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 500);
+}
+function normalizeForSave(){
   /* Group Boards: stamp result times, then keep the board plan (what the public page shows) in step with the data. */
   if(state.format && state.format.formatType==='podknockout'){
     stampDoneTimes(state);
@@ -2034,30 +2061,35 @@ function persist(){
     delete state.boardPlan;
   }
   state.updatedAt = Date.now();
-  tournamentsCache[state.id] = state;
-  renderSavedList();
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(flushSave, 500);
 }
 /* Saves run one at a time. Each PUT sends the updated_at returned by the
    previous one, so a second save started while the first is still in flight
    would carry a stale stamp and be rejected with 409 (and the change would
    stay only in this tab). If one is in flight, remember to save again after it
-   returns, with the fresh stamp. */
-let saveInFlight = false, savePendingId = null;
+   returns, with the fresh stamp. The returned promise resolves true once the
+   save that carries the latest change has succeeded (false if it failed or was
+   refused), so a caller that must know the change reached the server can wait. */
+let saveInFlight = false, savePendingId = null, saveWaiters = [];
 async function flushSave(){
-  if(!state) return;
-  if(saveInFlight){ savePendingId = state.id; return; }
+  if(!state) return false;
+  if(saveInFlight){ savePendingId = state.id; return new Promise(resolve=>{ saveWaiters.push(resolve); }); }
   saveInFlight = true;
-  try{ await flushSaveOnce(); }
+  let ok = false;
+  try{ ok = await flushSaveOnce(); }
   finally{
     saveInFlight = false;
-    if(savePendingId){ const wantId = savePendingId; savePendingId = null; if(state && state.id===wantId) flushSave(); }
+    const waiters = saveWaiters; saveWaiters = [];
+    let followUp = null;
+    if(savePendingId){ const wantId = savePendingId; savePendingId = null; if(state && state.id===wantId) followUp = flushSave(); }
+    if(followUp) followUp.then(r=>waiters.forEach(w=>w(r)));
+    else waiters.forEach(w=>w(ok));
   }
+  return ok;
 }
 async function flushSaveOnce(){
-  if(!state) return;
+  if(!state) return false;
   const id = state.id;
+  if(lockedIds.has(id)) return false;
   const payload = state;
   const expected = dbUpdatedAtCache[id] || null;
   setSaveStatus('saving');
@@ -2066,24 +2098,39 @@ async function flushSaveOnce(){
       method:'PUT',
       body: JSON.stringify({ data: payload, expectedUpdatedAt: expected })
     });
+    if(res.status===403){
+      /* The server refuses to change a finalized event. This tab was out of date (or another tab/device
+         finalized it): remember that, drop the edit and show the finalized copy. Never show "Saved". */
+      let body = null;
+      try{ body = await res.json(); }catch(e){}
+      if(body && body.finalized){
+        lockedIds.add(id);
+        setSaveStatus('locked');
+        if(state && state.id===id) reloadLockedTournament(); else refreshCachedTournament(id);
+        return false;
+      }
+      throw new Error('save failed');
+    }
     if(res.status===409){
       const body = await res.json();
       dbUpdatedAtCache[id] = body.current.updated_at;
       if(state && state.id===id) tournamentsCache[id] = body.current.data;
       setSaveStatus('error');
-      return;
+      return false;
     }
     if(!res.ok) throw new Error('save failed');
     const saved = await res.json();
     dbUpdatedAtCache[id] = saved.updated_at;
     setSaveStatus('ok');
+    return true;
   }catch(e){
     setSaveStatus('error');
+    return false;
   }
 }
-/* Best-effort synchronous flush so a debounced save isn't lost on tab close. */
+/* Best-effort synchronous flush so a debounced save isn't lost on tab close. A finalized event is never sent. */
 function flushSaveNow(){
-  if(!state) return;
+  if(!state || lockedIds.has(state.id)) return;
   clearTimeout(saveTimer);
   fetch('/api/tournaments/'+state.id, {
     method:'PUT', headers:{'Content-Type':'application/json'},
@@ -2093,6 +2140,245 @@ function flushSaveNow(){
 }
 window.addEventListener('beforeunload', flushSaveNow);
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushSaveNow(); });
+/* ---------- Finalized (closed) events ----------
+   An organiser can "Accept results & finalize" a completed event. That sets
+   state.finalized = { at: <ISO date-time> }. A finalized event is closed: the
+   server refuses to change or delete it (only an Admin can, via the database
+   for now) and this UI locks itself in three layers: (1) persist()/flushSave*
+   never send a PUT for a locked id, (2) a 403 {finalized:true} from the server
+   locks the tab and reloads the saved copy, (3) applyFinalizedLock() disables
+   every control that would edit. Any truthy `finalized` counts as locked. */
+function isLocked(t){ return !!(t && t.finalized); }
+/* The ONLY things that stay usable on a finalized event: navigating, printing/exporting, copying/opening
+   the public link, opening other windows/tournaments and starting a new one, and view-only preferences
+   (collapsing sections, choosing which group to look at). Everything else is disabled or made inert.
+   Every function named here must not change the tournament, or must skip persist() when locked
+   (see runPrintPack, podsPrintClick, openExpandedPreview, setActiveGroup). */
+const FINALIZED_ALLOWED_ACTIONS = [
+  'goStage', 'doFinalPrint', 'window.print', 'copyPublicLink', 'this.select',
+  'openInNewWindow', 'openExpandedPreview', 'closeExpandedPreview', 'setActiveGroup', 'closeModal',
+  'jumpToStage5Section', 'toggleFormSection', 'toggleStage5RRCharts', 'setStage3ViewMode', 'podsSelect', 'podsSetFilter',
+  'newTournament', 'scrollToLibrary'
+];
+/* True when an onclick attribute only calls allow-listed functions (quoted text is ignored; assignments are refused). */
+function finalizedActionAllowed(code){
+  if(typeof code!=='string' || !code.trim()) return false;
+  const bare = code.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, "''");
+  if(bare.indexOf('=')>=0) return false;
+  const calls = bare.match(/[A-Za-z_$][\w$.]*\s*\(/g);
+  if(!calls) return false;
+  return calls.every(c=> FINALIZED_ALLOWED_ACTIONS.indexOf(c.replace(/\s*\($/, ''))>=0);
+}
+/* Disables every control inside `area` except view-only ones, and strips the click handler from anything else clickable. */
+function applyFinalizedLock(area){
+  if(!area || !area.querySelectorAll) return;
+  area.querySelectorAll('input, select, textarea, button, [onclick]').forEach(el=>{
+    const tag = String(el.tagName||'').toUpperCase();
+    const code = el.getAttribute('onclick');
+    const allowed = code!=null && finalizedActionAllowed(code);
+    if(tag==='BUTTON'){ if(!allowed) el.disabled = true; }
+    else if(tag==='INPUT' || tag==='SELECT' || tag==='TEXTAREA'){
+      if(tag==='INPUT' && el.hasAttribute('readonly')) { /* a read-only box (the public link) can still be selected */ }
+      else if(tag==='SELECT' && finalizedActionAllowed(el.getAttribute('onchange'))) { /* the "which group am I looking at" picker is view-only */ }
+      else el.disabled = true;
+    }
+    if(code!=null && !allowed){ el.classList.add('fin-locked'); el.removeAttribute('onclick'); }
+  });
+}
+function finalizedWhenText(t){
+  const at = t && t.finalized && t.finalized.at;
+  if(typeof at!=='string') return '';
+  const d = new Date(at);
+  return isNaN(d) ? '' : d.toLocaleString();
+}
+function finalizedBannerHTML(){
+  if(!isLocked(state)) return '';
+  const when = finalizedWhenText(state);
+  return '<div class="card"><div class="confirm-box finalized-note" style="margin:0"><b>Results finalized'+(when?' on '+escapeHtml(when):'')+'</b>Only an Admin can change or reopen this event. You can still look through every step, print, and copy the public link.</div></div>';
+}
+function isFinalizedId(id){ return lockedIds.has(id) || isLocked(tournamentsCache[id]); }
+function finalizedBlockModal(verb){
+  openModal({title:'Event is finalized', body:'Finalized events can only be '+verb+' by an Admin.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
+}
+/* Re-reads a tournament this tab only knows from the list (not the open one) after the server said it is finalized. */
+async function refreshCachedTournament(id){
+  try{
+    const res = await apiFetch('/api/tournaments/'+id);
+    if(!res.ok) return;
+    const row = await res.json();
+    tournamentsCache[id] = row.data; dbUpdatedAtCache[id] = row.updated_at;
+    if(isLocked(row.data)) lockedIds.add(id); else lockedIds.delete(id);
+    renderSavedList();
+  }catch(e){}
+}
+/* This tab tried to change a finalized event (stale tab, or another device finalized it). Show the notice and swap in
+   the saved copy, discarding the edit. Reads only (the same GET openTournament uses); never PUTs. Not re-entrant. */
+let lockedReloading = false;
+async function reloadLockedTournament(){
+  if(lockedReloading || !state) return;
+  lockedReloading = true;
+  const id = state.id, stage = currentStage;
+  if(popoutMode) showLockedToast();   // a pop-out window has no save status or sidebar, so say it on the page itself
+  try{
+    setSaveStatus('locked');
+    await openTournament(id);
+    if(state && state.id===id){
+      currentStage = stage;
+      render();
+      setSaveStatus(isLocked(state) ? 'locked' : '');
+    }
+  }catch(e){}
+  finally{ lockedReloading = false; }
+}
+function showLockedToast(){
+  const d = document.createElement('div');
+  d.className = 'fin-toast';
+  d.textContent = 'This event is finalized. Your change was not saved; only an Admin can change it.';
+  document.body.appendChild(d);
+  const tm = setTimeout(()=>{ if(d.parentNode) d.parentNode.removeChild(d); }, 8000);
+  if(tm && tm.unref) tm.unref();
+}
+/* Complete = nothing left to play. A voided final ("neither showed") counts as played. Never throws on partial data. */
+function eventComplete(t){
+  try{
+    if(!t || !t.format) return false;
+    const done = b=> !!(b && b.rounds && b.rounds.length && (bracketIsComplete(b) || bracketIsVoidFinal(b)));
+    /* Every group that has players must be confirmed and played out, and no tie may be left that blocks Finalize
+       Standings / Print Final Chart (blockForUnresolvedTies), or the event would be closed in a state nobody can finish. */
+    const allGroups = (t.groups||[]).filter(g=> g && (g.entryIds||[]).length>0);
+    const groups = allGroups.filter(g=> g.confirmed);
+    const groupsDone = ()=> groups.length>0 && groups.length===allGroups.length && groups.every(g=> groupIsComplete(g)) && unresolvedTieRuns(t).length===0;
+    switch(t.format.formatType){
+      case 'roundrobin': return groupsDone();
+      case 'knockout': return done(t.knockout);
+      case 'rrknockout': return groupsDone() && done(t.knockout) && (!t.knockoutLosers || done(t.knockoutLosers));
+      case 'podknockout': {
+        const allPods = (t.pods||[]).filter(p=> p && (p.entryIds||[]).length>0);
+        const pods = allPods.filter(p=> p.confirmed);
+        return pods.length>0 && pods.length===allPods.length && pods.every(p=> podIsFinished(p)) && !!(t.knockout && t.knockout.podFinals) && done(t.knockout);
+      }
+      default: return false;
+    }
+  }catch(e){ return false; }
+}
+function finalizeCardHTML(){
+  if(!state) return '';
+  const head = '<div class="card"><h2>Accept results &amp; finalize</h2>';
+  if(isLocked(state)){
+    const when = finalizedWhenText(state);
+    return head+'<div class="confirm-box finalized-note" style="margin:0"><b>Results finalized</b>'+(when?escapeHtml(when)+'. ':'')+'Only an Admin can reopen or edit this event.</div></div>';
+  }
+  const intro = '<p class="intro">When every match has been played, accept the results to close the event. The public page then shows Final results and the event moves to Results. After that only an Admin can change or reopen it.</p>';
+  if(!eventComplete(state)) return head+intro+'<p class="intro" style="margin:0"><b>Available once every match is played.</b></p></div>';
+  return head+intro+'<div class="buttonrow" style="margin-top:0"><button class="btn primary" onclick="finalizeResults()">Accept &amp; finalize</button></div></div>';
+}
+function finalizeNotice(title, body){
+  openModal({title, body, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
+}
+const FINALIZE_STALE_MSG = 'This event was changed elsewhere. It has been reloaded; check it and try again.';
+const FINALIZE_FAILED_MSG = 'Could not finalize: try again.';
+function sameStamp(a, b){
+  if(a===b) return true;
+  const x = new Date(a).getTime(), y = new Date(b).getTime();
+  return !isNaN(x) && x===y;
+}
+/* Swaps in the server's copy of the open tournament (keeping the current step) - used when finalizing is refused. */
+async function reloadServerCopy(id){
+  const stage = currentStage;
+  try{ await openTournament(id); }catch(e){}
+  if(state && state.id===id){ currentStage = stage; render(); }
+}
+function finalizeResults(){
+  if(!state || isLocked(state) || finalizing || !eventComplete(state)) return;
+  const t = state;
+  openModal({
+    title:'Accept results as final?',
+    body:'The public page will show Final results and the event moves to Results. After this only an Admin can change or reopen it. Publishing and listing settings can\'t be changed afterwards, so set them first.',
+    confirmLabel:'Accept & finalize', confirmClass:'primary',
+    onConfirm: ()=> runFinalize(t)
+  });
+}
+/* Finalizing is "check, then close": (1) make sure the server has our latest save and that it is still the copy we are
+   looking at, still complete and not already finalized; (2) only then PUT finalized with the stamp we checked. Any doubt
+   reloads the server copy and finalizes nothing. While this runs, persist() drops edits (see `finalizing`). */
+async function runFinalize(t){
+  if(state!==t || isLocked(t) || finalizing || !eventComplete(t)) return;
+  if(lastSaveStatus==='error'){
+    finalizeNotice('Not finalized', 'The last save did not go through, so this copy may be out of date. Click the status message at the top to reload, check the event, then try again.');
+    return;
+  }
+  const id = t.id;
+  finalizing = true; droppedWhileFinalizing = false;
+  const finish = ()=>{ finalizing = false; const dropped = droppedWhileFinalizing; droppedWhileFinalizing = false; return dropped; };
+  /* Gives up without finalizing. An edit that was dropped meanwhile is saved normally now. */
+  const giveUp = (title, body)=>{
+    const dropped = finish();
+    if(state===t){ delete t.finalized; render(); }
+    setSaveStatus('');
+    if(dropped && state===t && !lockedIds.has(id)) persist();
+    finalizeNotice(title, body);
+  };
+  /* The server copy is not what this tab was looking at: show it instead. */
+  const reloadAndExplain = async (body)=>{
+    finish();
+    delete t.finalized;
+    await reloadServerCopy(id);
+    setSaveStatus(lockedIds.has(id) ? 'locked' : '');
+    finalizeNotice('Not finalized', body);
+  };
+  try{
+    clearTimeout(saveTimer); saveTimer = null;
+    setSaveStatus('finalizing');
+    /* 1. Our latest edits must be on the server (this also waits for a save already in flight). */
+    const saved = await flushSave();
+    if(!saved){
+      if(lockedIds.has(id)){ finish(); return; }                 // the server says it is finalized: the reload that follows shows it
+      giveUp('Not finalized', FINALIZE_FAILED_MSG); return;
+    }
+    /* 2. The server copy must be the one we saved: same stamp, not finalized, still complete. */
+    let row = null;
+    try{ const res = await apiFetch('/api/tournaments/'+id); if(res.ok) row = await res.json(); }catch(e){}
+    if(!row || !row.data){ giveUp('Not finalized', FINALIZE_FAILED_MSG); return; }
+    if(isLocked(row.data)){
+      lockedIds.add(id);
+      await reloadAndExplain('This event was already finalized elsewhere. It has been reloaded.');
+      return;
+    }
+    if(!sameStamp(row.updated_at, dbUpdatedAtCache[id]) || !eventComplete(row.data)){
+      await reloadAndExplain(FINALIZE_STALE_MSG);
+      return;
+    }
+    /* 3. Close it. */
+    t.finalized = { at: new Date().toISOString() };
+    normalizeForSave();
+    tournamentsCache[id] = t;
+    render();                                                   // the screen locks now; an edit that slips in would be dropped anyway
+    let res = null;
+    try{ res = await apiFetch('/api/tournaments/'+id, { method:'PUT', body: JSON.stringify({ data: t, expectedUpdatedAt: dbUpdatedAtCache[id]||null }) }); }catch(e){}
+    if(res && res.ok){
+      const savedRow = await res.json();
+      dbUpdatedAtCache[id] = savedRow.updated_at;
+      lockedIds.add(id);                                        // locked only once the server has accepted it
+      const dropped = finish();
+      setSaveStatus('ok');
+      if(dropped) reloadLockedTournament();                     // an edit was dropped meanwhile: show the saved copy
+      else if(state===t) render();
+      renderSavedList();
+      return;
+    }
+    let body = null;
+    if(res){ try{ body = await res.json(); }catch(e){} }
+    if(res && res.status===403 && body && body.finalized){      // finalized elsewhere a moment ago
+      finish(); lockedIds.add(id);
+      reloadLockedTournament();
+      return;
+    }
+    if(res && res.status===409){ await reloadAndExplain(FINALIZE_STALE_MSG); return; }
+    giveUp('Not finalized', FINALIZE_FAILED_MSG);
+  }catch(e){
+    giveUp('Not finalized', FINALIZE_FAILED_MSG);
+  }
+}
 function renderOrganizerBar(){
   const el = document.getElementById('organizerBar');
   if(!el || !currentOrganizer) return;
@@ -2170,6 +2456,7 @@ async function openTournament(id){
     state.id = id;
     dbUpdatedAtCache[id] = row.updated_at;
     tournamentsCache[id] = state;
+    if(isLocked(state)) lockedIds.add(id); else lockedIds.delete(id);
     if(!state.tieBreakOrder) state.tieBreakOrder = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
     if(!state.printSettings) state.printSettings = {sponsorFooterEnabled:true};
     if(state.format.sponsors && state.format.sponsors.length){
@@ -2249,7 +2536,7 @@ async function openTournament(id){
    older saved tournaments get the same correctly-fitted logo without the
    organiser having to re-upload it. */
 function migrateLogoIfNeeded(t){
-  if(!t.format.logo || t.format.logoAspect) return;
+  if(!t.format.logo || t.format.logoAspect || isLocked(t)) return;   // a finalized event is never rewritten
   const img = new Image();
   img.onload = ()=>{
     const box = detectContentBox(img);
@@ -2260,30 +2547,47 @@ function migrateLogoIfNeeded(t){
     canvas.getContext('2d').drawImage(img, box.x, box.y, box.w, box.h, 0, 0, w, h);
     t.format.logo = canvas.toDataURL('image/png');
     t.format.logoAspect = w/h;
-    if(state===t){ persist(); render(); }
+    if(state===t){ if(!isLocked(t) && !lockedIds.has(t.id)) persist(); render(); }
   };
   img.src = t.format.logo;
 }
 function deleteTournament(id, ev){
   ev.stopPropagation();
+  if(isFinalizedId(id)){ finalizedBlockModal('deleted'); return; }
   openModal({
     title:'Delete tournament?',
     body:'This removes it permanently from your account. This cannot be undone.',
     confirmLabel:'Delete', confirmClass:'danger',
-    onConfirm:()=>{
-      apiFetch('/api/tournaments/'+id, {method:'DELETE'}).catch(()=>{});
-      delete tournamentsCache[id];
-      delete dbUpdatedAtCache[id];
-      if(state && state.id===id){ state=null; currentStage=1; }
-      if(!state){ const remaining = Object.values(tournamentsCache); if(remaining.length){ openTournament(remaining[0].id); } else { newTournament(); } }
-      render();
-    }
+    onConfirm:()=> performDelete(id)
   });
+}
+async function performDelete(id){
+  let res = null;
+  try{ res = await apiFetch('/api/tournaments/'+id, {method:'DELETE'}); }catch(e){}
+  if(res && res.status===403){
+    /* The server refuses to delete a finalized event (this tab did not know it was finalized): keep it, show why. */
+    let body = null;
+    try{ body = await res.json(); }catch(e){}
+    if(body && body.finalized){
+      lockedIds.add(id);
+      if(state && state.id===id) reloadLockedTournament(); else await refreshCachedTournament(id);
+      renderSavedList();
+      finalizedBlockModal('deleted');
+      return;
+    }
+  }
+  delete tournamentsCache[id];
+  delete dbUpdatedAtCache[id];
+  lockedIds.delete(id);
+  if(state && state.id===id){ state=null; currentStage=1; }
+  if(!state){ const remaining = Object.values(tournamentsCache); if(remaining.length){ openTournament(remaining[0].id); } else { newTournament(); } }
+  render();
 }
 function renameTournament(id, ev){
   ev.stopPropagation();
   const t = tournamentsCache[id];
   if(!t) return;
+  if(isFinalizedId(id)){ finalizedBlockModal('renamed'); return; }
   openModal({
     title:'Rename tournament',
     bodyHTML:'<div class="field"><label>Tournament name</label><input id="renameInput" type="text" value="'+escapeHtml(t.eventCreation.tournamentName)+'"></div>',
@@ -2297,6 +2601,17 @@ function renameTournament(id, ev){
       render();
       apiFetch('/api/tournaments/'+id, { method:'PUT', body: JSON.stringify({ data:t, expectedUpdatedAt: dbUpdatedAtCache[id]||null }) })
         .then(async res=>{
+          if(res.status===403){
+            let body = null;
+            try{ body = await res.json(); }catch(e){}
+            if(body && body.finalized){
+              lockedIds.add(id);
+              if(state && state.id===id) reloadLockedTournament(); else await refreshCachedTournament(id);
+              renderSavedList();
+              finalizedBlockModal('renamed');
+              return;
+            }
+          }
           if(res.status===409){ const body=await res.json(); dbUpdatedAtCache[id]=body.current.updated_at; tournamentsCache[id]=body.current.data; renderSavedList(); return; }
           if(res.ok){ const saved=await res.json(); dbUpdatedAtCache[id]=saved.updated_at; }
         }).catch(()=>{});
@@ -2311,6 +2626,7 @@ async function duplicateTournament(id, ev){
   copy.id = uid('t');
   copy.published = false; delete copy.publicSlug; // a copy must never share the original's public link
   copy.listed = false; // ...nor inherit the original's place on the public list
+  delete copy.finalized; // ...and a copy of a closed event starts open: editable, not finalized
   copy.eventCreation.tournamentName = src.eventCreation.tournamentName + ' (copy)';
   copy.createdAt = Date.now(); copy.updatedAt = Date.now();
   const res = await apiFetch('/api/tournaments/'+copy.id, { method:'PUT', body: JSON.stringify({ data: copy, expectedUpdatedAt: null }) });
@@ -2353,7 +2669,7 @@ function renderSavedList(){
       const dateStr = t.eventCreation.date || '—';
       return '<div class="saved'+active+'" onclick="openTournament(\''+t.id+'\')">'+
         '<strong>'+escapeHtml(t.eventCreation.tournamentName||'Untitled tournament')+'</strong>'+
-        '<span>'+escapeHtml(dateStr)+' · '+escapeHtml(t.eventCreation.competitionUnit||'')+' · '+chartCount(t)+' group chart'+(chartCount(t)===1?'':'s')+'</span>'+
+        '<span>'+escapeHtml(dateStr)+' · '+escapeHtml(t.eventCreation.competitionUnit||'')+' · '+chartCount(t)+' group chart'+(chartCount(t)===1?'':'s')+(isLocked(t)?' · Finalized':'')+'</span>'+
         '<div class="saved-actions">'+
           '<button onclick="renameTournament(\''+t.id+'\',event)">Rename</button>'+
           '<button onclick="duplicateTournament(\''+t.id+'\',event)">Duplicate</button>'+
@@ -2384,6 +2700,7 @@ function renderSavedList(){
 
 /* ---------- Main render dispatcher ---------- */
 function render(){
+  document.body.classList.toggle('finalized', isLocked(state));
   if(popoutMode){ renderPopoutManage(); return; }
   if(!state){
     document.getElementById('pageTitle').textContent = 'Welcome to DartDraw';
@@ -2415,7 +2732,10 @@ function render(){
   else if(currentStage===5) html += stage5();
   else if(currentStage===6) html += stage6();
   else if(currentStage===7) html += stage7();
+  const locked = isLocked(state);
+  if(locked) html = finalizedBannerHTML() + html;
   area.innerHTML = html;
+  if(locked) applyFinalizedLock(area);
   renderExpandedPreview();
   if(currentStage===5) requestAnimationFrame(scaleManageCharts);
   renderSavedList();
@@ -2427,6 +2747,10 @@ function render(){
    ?section= it was opened with, so all three can be run concurrently from
    separate windows/screens instead of switching tabs inside one. */
 function renderPopoutManage(){
+  renderPopoutManageBody();
+  if(isLocked(state)) applyFinalizedLock(document.getElementById('stageArea'));   // no banner here: the chart fills the window
+}
+function renderPopoutManageBody(){
   document.body.classList.add('mko-popout');
   const area = document.getElementById('stageArea');
   if(!state){
@@ -3449,7 +3773,7 @@ function livePreviewBlock(g){
 /* ---------- Expanded per-group print preview (modal) ---------- */
 function openExpandedPreview(groupId){
   state.activeGroupId = groupId;
-  persist();
+  if(!isLocked(state)) persist();   // just looking: a finalized event is not saved
   document.getElementById('previewModalBackdrop').classList.add('show');
   renderExpandedPreview();
 }
@@ -3476,6 +3800,7 @@ function renderExpandedPreview(){
     '</div>'+
     '<div class="print-controls" style="margin-top:14px"><button class="btn secondary" onclick="closeExpandedPreview()">Close</button><button class="btn primary" onclick="closeExpandedPreview();goStage(4)">Review print pack →</button></div>'+
   '</div>';
+  if(isLocked(state)) applyFinalizedLock(backdrop);   // this modal lives outside the stage area; its chart cells would otherwise still open score entry
   requestAnimationFrame(scaleExpandedPreview);
 }
 function scaleExpandedPreview(){
@@ -3618,7 +3943,7 @@ function performSwap(entryId, targetGroupId, slotIndex){
     }
   }
 }
-function setActiveGroup(id){ state.activeGroupId = id; persist(); render(); }
+function setActiveGroup(id){ state.activeGroupId = id; if(!isLocked(state)) persist(); render(); }
 /* A group normally runs on one board, but can span several — its own
    matches are then auto-split round-robin by match index across whichever
    boards are ticked (matchBoardFor below), so they can be worked in
@@ -4629,7 +4954,9 @@ function deleteIncident(id){
   state.incidents = (state.incidents||[]).filter(i=>i.id!==id);
   persist(); render();
 }
-function stage5(){
+/* Every format's Manage Tournament page ends with the finalize card. */
+function stage5(){ return stage5Body() + finalizeCardHTML(); }
+function stage5Body(){
   if(state.format.formatType==='podknockout') return podsStage5();
   if(state.format.formatType==='knockout') return stage5Knockout();
   const confirmed = state.groups.filter(g=>g.confirmed);
@@ -4978,8 +5305,7 @@ function doFinalPrint(){
   runPrintPack(confirmed);
 }
 function runPrintPack(confirmed){
-  state.printedPack = true;
-  persist();
+  if(!isLocked(state)){ state.printedPack = true; persist(); }   // printing a finalized event changes nothing
   const mount = document.getElementById('printSheets');
   let html = '';
   if(state.printSettings.rulesSheetEnabled) html += rulesSheetHTML();

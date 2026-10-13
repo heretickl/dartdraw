@@ -7,7 +7,22 @@ const { requireAuth } = require('../_lib/auth');
 //   insert). If it exists, expectedUpdatedAt must match the stored
 //   updated_at or the write is rejected with 409 + the current row, so a
 //   stale client never silently clobbers a newer save.
+//   A finalized event (stored data.finalized is truthy) is closed: PUT is
+//   refused with 403 { error, finalized: true }, whatever the incoming data
+//   says. The PUT that first sets `finalized` is on a row that does not have
+//   it yet, so it is saved normally. The UPDATE itself is conditional on the
+//   stamp that was checked, so a save/finalize landing in between is answered
+//   with 409 (or 403 if the row became finalized) instead of being overwritten.
 // DELETE /api/tournaments/:id
+//   Also refused with 403 { error, finalized: true } for a finalized event.
+//   Only an Admin (via the database for now) can change or remove one. The
+//   DELETE statement itself skips finalized rows, so it cannot race a finalize.
+const FINALIZED_BODY = { error: 'This event is finalized. Only an Admin can change it.', finalized: true };
+
+function isFinalized(data) {
+  return !!(data && typeof data === 'object' && data.finalized);
+}
+
 module.exports = async (req, res) => {
   const organizer = await requireAuth(req, res);
   if (!organizer) return;
@@ -26,7 +41,26 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'DELETE') {
-    await sql`DELETE FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
+    const found = await sql`SELECT data FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
+    if (found.length && isFinalized(found[0].data)) {
+      res.status(403).json(FINALIZED_BODY);
+      return;
+    }
+    // The SQL refuses finalized rows itself, so a finalize landing between the SELECT above and this DELETE still wins.
+    // (data->>'finalized' is NULL when absent or JSON null; 'false', '0' and '' are the falsy stored values.)
+    const deleted = await sql`
+      DELETE FROM tournaments
+      WHERE id = ${id} AND created_by = ${organizer.id}
+        AND (data->>'finalized' IS NULL OR data->>'finalized' IN ('false', '0', ''))
+      RETURNING id
+    `;
+    if (!deleted.length) {
+      const again = await sql`SELECT data FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
+      if (again.length && isFinalized(again[0].data)) {
+        res.status(403).json(FINALIZED_BODY);
+        return;
+      }
+    }
     res.status(204).end();
     return;
   }
@@ -44,6 +78,11 @@ module.exports = async (req, res) => {
       if (existing && existing.created_by !== organizer.id) {
         // Belongs to someone else - treat like it doesn't exist.
         res.status(404).json({ error: 'Not found.' });
+        return;
+      }
+
+      if (existing && isFinalized(existing.data)) {
+        res.status(403).json(FINALIZED_BODY);
         return;
       }
 
@@ -67,11 +106,25 @@ module.exports = async (req, res) => {
         return;
       }
 
+      // Conditional on the stamp we just checked (to the millisecond, the precision of the JS value), so a save or a
+      // finalize that lands between the SELECT above and this write is not overwritten.
       const updated = await sql`
         UPDATE tournaments SET data = ${JSON.stringify(data)}::jsonb, updated_at = now()
         WHERE id = ${id} AND created_by = ${organizer.id}
+          AND abs(extract(epoch FROM updated_at) - extract(epoch FROM ${existingIso}::timestamptz)) < 0.001
         RETURNING id, updated_at
       `;
+      if (!updated.length) {
+        const nowRows = await sql`SELECT id, data, updated_at, created_by FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
+        const current = nowRows[0];
+        if (!current) { res.status(404).json({ error: 'Not found.' }); return; }
+        if (isFinalized(current.data)) { res.status(403).json(FINALIZED_BODY); return; }
+        res.status(409).json({
+          error: 'Tournament changed elsewhere.',
+          current: { id: current.id, data: current.data, updated_at: current.updated_at }
+        });
+        return;
+      }
       res.status(200).json(updated[0]);
     } catch (e) {
       res.status(500).json({ error: 'Could not save tournament.' });
