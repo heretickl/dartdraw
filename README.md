@@ -110,6 +110,10 @@ labelled "~", rounded to 5 minutes, and re-based on when results were really ent
 - **Print:** optional **Players A–Z** and **Boards** sheets for the wall (toggles in Print).
   While **Public results** is on (and the viewer address is set), both sheets carry a QR code and the
   link to the live results page in their header, so players can scan it and follow their own board.
+  Every sheet in the pack and every group and knockout chart sheet carries one, and each code opens that sheet's own
+  screen: a round-robin group sheet opens that group, a Group Boards group sheet opens that group's bracket, the Finals
+  sheet opens the Finals, the Boards sheet opens the Boards tab, and the Players sheet opens the event. The address
+  printed beside the code is always the short event link.
   The code is made by `qr.js`, a small built-in generator, so printing needs no internet connection.
 
 The plan is rebuilt on every save and stored with the tournament; the viewer only displays it.

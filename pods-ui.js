@@ -352,8 +352,8 @@ function podsPrintClick(){
   if(t.printSettings.rulesSheetEnabled) html += rulesSheetHTML();
   if(t.printSettings.playersSheetEnabled !== false) html += bpPlayersSheetsHTML(t);
   if(t.printSettings.boardsSheetEnabled !== false) html += bpBoardsSheetHTML(t);
-  pods.forEach(function(p){ html += knockoutBracketSheetHTML(p.bracket, { podLegs:true, stage:'Group '+p.label+' · '+podBoardLabel(p) }); });
-  if(podsFinals(t)) html += knockoutBracketSheetHTML(podsFinals(t));
+  pods.forEach(function(p){ html += knockoutBracketSheetHTML(p.bracket, { podLegs:true, stage:'Group '+p.label+' · '+podBoardLabel(p), qrPath:'bracket/group-'+encodeURIComponent(p.label) }); });
+  if(podsFinals(t)) html += knockoutBracketSheetHTML(podsFinals(t), { qrPath:'bracket/finals' });
   document.getElementById('printSheets').innerHTML = html;
   setTimeout(function(){ window.print(); }, 60);
 }

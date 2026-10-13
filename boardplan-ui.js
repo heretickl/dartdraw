@@ -106,8 +106,8 @@ function bpPlayerRows(t){
   return rows;
 }
 /* The header and footer every sheet in the pack shares (same pattern as the rules sheet). */
-function bpSheetShell(t, title, subtitle, inner){
-  var qr = printQrBlockHTML(t);
+function bpSheetShell(t, title, subtitle, inner, qrPath){
+  var qr = printQrBlockHTML(t, qrPath);
   return '<div class="print-sheet ro-sheet">'+
     '<div class="sheet-top"'+printQrHeaderAttr(qr)+'>'+mainLogoBoxHTML()+
       '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
@@ -152,7 +152,7 @@ function bpBoardsSheetHTML(t){
   var sheets = Math.ceil(rows.length / BP_BOARDS_PER_SHEET), html = '';
   for(var s = 0; s < sheets; s++){
     html += bpSheetShell(t, 'BOARDS', 'Groups in the order they play'+(sheets > 1 ? ' · Sheet '+(s + 1)+' of '+sheets : ''),
-      '<div style="margin-top:10px">'+rows.slice(s * BP_BOARDS_PER_SHEET, (s + 1) * BP_BOARDS_PER_SHEET).join('')+'</div>');
+      '<div style="margin-top:10px">'+rows.slice(s * BP_BOARDS_PER_SHEET, (s + 1) * BP_BOARDS_PER_SHEET).join('')+'</div>', 'boards');
   }
   return html;
 }
