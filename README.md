@@ -108,6 +108,9 @@ labelled "~", rounded to 5 minutes, and re-based on when results were really ent
   that pages through six boards at a time), a "Board 3 · 2 matches ahead · ~7:40 pm" line on
   player pages, and a start time on each group.
 - **Print:** optional **Players A–Z** and **Boards** sheets for the wall (toggles in Print).
+  While **Public results** is on (and the viewer address is set), both sheets carry a QR code and the
+  link to the live results page in their header, so players can scan it and follow their own board.
+  The code is made by `qr.js`, a small built-in generator, so printing needs no internet connection.
 
 The plan is rebuilt on every save and stored with the tournament; the viewer only displays it.
 Deploy the organiser first, then the viewer (each deploys from `main`). An older tournament

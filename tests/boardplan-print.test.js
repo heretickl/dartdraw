@@ -83,3 +83,72 @@ test('Stage 7 shows the two toggles and they save', () => {
   f('togglePlayersSheet')(false); f('toggleBoardsSheet')(false);
   assert.equal(t.printSettings.playersSheetEnabled, false); assert.equal(t.printSettings.boardsSheetEnabled, false);
 });
+
+// ---- the live-results QR code on the wall sheets ----
+function publish(t, viewerUrl) {
+  t.published = true; t.publicSlug = 'mx24oh2j14ei';
+  app.__org = viewerUrl ? { viewerUrl } : null;
+  run(app, 'currentOrganizer = __org');
+}
+test('the Players A–Z and Boards sheets carry a QR code and the link while public results are on', () => {
+  const t = ready(12, 3);
+  publish(t, 'https://dartdraw-viewer.vercel.app');
+  [f('bpPlayersSheetsHTML')(t), f('bpBoardsSheetHTML')(t)].forEach((html) => {
+    assert.match(html, /<svg [^>]*viewBox=/);
+    assert.match(html, /Live results/);
+    assert.ok(html.includes('dartdraw-viewer.vercel.app/live/mx24oh2j14ei'));
+  });
+});
+
+test('no QR code is printed when public results are off, the slug is missing, or the viewer address is not set', () => {
+  const t = ready(12, 3);
+  publish(t, 'https://dartdraw-viewer.vercel.app');
+  t.published = false;
+  assert.doesNotMatch(f('bpPlayersSheetsHTML')(t), /<svg /);
+  t.published = true; t.publicSlug = null;
+  assert.doesNotMatch(f('bpBoardsSheetHTML')(t), /<svg /);
+  publish(t, null);
+  assert.doesNotMatch(f('bpPlayersSheetsHTML')(t), /<svg /);
+  assert.doesNotMatch(f('bpPlayersSheetsHTML')(t), /Live results/);
+});
+
+test('every sheet in the printed pack carries the QR code except the rules sheet, and the wall sheets still list every player', () => {
+  const t = ready(12, 3);
+  publish(t, 'https://dartdraw-viewer.vercel.app');
+  const html = printed();
+  const sheets = html.split('<div class="print-sheet').slice(1);
+  assert.ok(sheets.length >= 6);                                    // rules, players, boards, 3 groups, Finals
+  sheets.forEach((sheet) => {
+    const isRules = sheet.includes('RULES &amp; FORMAT');
+    assert.equal(sheet.includes('aria-label="QR code for the live results link"'), !isRules, isRules ? 'rules sheet' : sheet.slice(0, 120));
+  });
+  t.entriesList.forEach((e) => assert.ok(html.includes(e.name + '<'), e.name));
+  t.published = false;
+  assert.doesNotMatch(printed(), /QR code for the live results link/);
+});
+
+test('a round-robin group sheet and a knockout chart sheet carry the QR code in the header, and none without a link', () => {
+  const rr = f('blankTournament')(); useState(app, rr);
+  rr.format.formatType = 'roundrobin';
+  rr.entriesList = Array.from({ length: 4 }, (_, i) => ({ id: 'r' + i, name: 'RR Player ' + (i + 1), org: '', players: [], withdrawn: false }));
+  const g = { id: 'g1', label: 'A', boards: [1], startedAt: null, entryIds: rr.entriesList.map((e) => e.id), confirmed: true, gameStarted: false, scores: {}, positionOverrides: {} };
+  rr.groups = [g];
+  publish(rr, 'https://dartdraw-viewer.vercel.app');
+  const sheet = f('chartSheetHTML')(g, true);
+  assert.match(sheet, /<div class="sheet-top" style="grid-template-columns:[^"]*auto auto">/);
+  assert.match(sheet, /aria-label="QR code for the live results link"/);
+  assert.ok(sheet.includes('dartdraw-viewer.vercel.app/live/mx24oh2j14ei'));
+  rr.published = false;
+  assert.doesNotMatch(f('chartSheetHTML')(g, true), /QR code/);
+
+  const ko = f('blankTournament')(); useState(app, ko);
+  ko.format.formatType = 'knockout';
+  ko.entriesList = Array.from({ length: 8 }, (_, i) => ({ id: 'k' + i, name: 'KO Player ' + (i + 1), org: '', players: [], withdrawn: false }));
+  ko.knockout = f('generateBracket')(ko.entriesList.map((e) => ({ entryId: e.id, org: '' })), 'Bracket');
+  publish(ko, 'https://dartdraw-viewer.vercel.app');
+  const kHtml = f('knockoutBracketSheetHTML')(ko.knockout);
+  assert.match(kHtml, /<div class="sheet-top" style="grid-template-columns:[^"]*auto auto">/);
+  assert.match(kHtml, /aria-label="QR code for the live results link"/);
+  ko.published = false;
+  assert.doesNotMatch(f('knockoutBracketSheetHTML')(ko.knockout), /QR code/);
+});

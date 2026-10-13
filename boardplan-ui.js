@@ -107,11 +107,12 @@ function bpPlayerRows(t){
 }
 /* The header and footer every sheet in the pack shares (same pattern as the rules sheet). */
 function bpSheetShell(t, title, subtitle, inner){
+  var qr = printQrBlockHTML(t);
   return '<div class="print-sheet ro-sheet">'+
-    '<div class="sheet-top">'+mainLogoBoxHTML()+
+    '<div class="sheet-top"'+printQrHeaderAttr(qr)+'>'+mainLogoBoxHTML()+
       '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
       '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · '+escapeHtml(t.eventCreation.date||'')+'</div></div>'+
-      '<div class="group-label"><strong>'+escapeHtml(title)+'</strong><span>'+escapeHtml(subtitle)+'</span></div>'+
+      '<div class="group-label"><strong>'+escapeHtml(title)+'</strong><span>'+escapeHtml(subtitle)+'</span></div>'+qr+
     '</div>'+inner+
     '<div class="footer" style="margin-top:14px"><small>'+(t.format.footerText ? escapeHtml(t.format.footerText) : '')+'</small><div class="footer-right">'+DD_CREDIT_HTML+'</div></div>'+
   '</div>';
