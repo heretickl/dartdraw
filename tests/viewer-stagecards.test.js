@@ -68,3 +68,21 @@ test('the cards are styled and sit in the page script', () => {
   assert.match(css, /\.evstage\.on \.hm-stage\{box-shadow/);
   assert.match(css, /body\.tv \.evstages\{display:none\}/);
 });
+
+test('Group Boards: the Finals card is not a link until the Finals exist, and a link carries the view it picks', () => {
+  const pods = [{ id: 'p1', label: '1', confirmed: true, entryIds: ['e1', 'e2'], bracket: ko([[m('e1', 'e2', null, null)]]) }];
+  const base = { format: { formatType: 'podknockout' }, groups: [], pods, boardPlan: { boards: { 1: [] } } };
+  const tabs = ['me', 'following', 'boards', 'bracket'];
+  assert.deepEqual(links(strip(view(base), { name: 'boards' }, tabs)), ['#/boards']);
+  const withFinals = view(Object.assign({}, base, { knockout: Object.assign(ko([[m('e1', null, null, null)]]), { podFinals: true }) }));
+  const h = strip(withFinals, { name: 'boards' }, tabs);
+  assert.match(h, /href="#\/bracket\/finals" data-stagesel="finals"/);
+  const noBoards = strip(withFinals, { name: 'bracket' }, ['me', 'following', 'bracket']);
+  assert.match(noBoards, /href="#\/bracket\/group-1" data-stagesel="group-1"/);
+});
+
+test('the stages are refreshed on every successful poll, not only when the data changes', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'viewer', 'index.html'), 'utf8');
+  const poll = html.slice(html.indexOf('var body = await res.json()'), html.indexOf('if(body.updatedAt !== lastUpdatedAt'));
+  assert.match(poll, /evStages = Array\.isArray\(body\.stages\)/);
+});

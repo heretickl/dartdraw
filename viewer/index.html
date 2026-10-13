@@ -734,8 +734,9 @@ function stageStripHTML(r, tabs){
   return '<div class="evstages" role="group" aria-label="Event stages">'+stages.map(function(s, i){
     var on = i===1 ? onSecond : !onSecond;
     var href = i===1 ? second : first, tab = href.split('/')[1], card = hmStageHTML(kind, it, s, i, 2);
-    if(tabs.indexOf(tab)===-1) return '<div class="evstage">'+card+'</div>';   // that stage has nothing to show yet (no knockout drawn)
-    return '<a class="evstage'+(on ? ' on' : '')+'" href="'+href+'"'+(on ? ' aria-current="page"' : '')+'>'+card+'</a>';
+    if(tabs.indexOf(tab)===-1 || (i===1 && !state.knockout)) return '<div class="evstage">'+card+'</div>';   // that stage has nothing to show yet (no knockout drawn)
+    var sel = type==='podknockout' && href.indexOf('#/bracket/')===0 ? decodeURIComponent(href.slice(10)) : '';   // Group Boards: the bracket view this address picks
+    return '<a class="evstage'+(on ? ' on' : '')+'" href="'+href+'"'+(sel ? ' data-stagesel="'+escapeHtml(sel)+'"' : '')+(on ? ' aria-current="page"' : '')+'>'+card+'</a>';
   }).join('')+'</div>';
 }
 
@@ -801,6 +802,13 @@ function goToPlayer(id){
 document.addEventListener('click', function(e){
   var t = e.target;
   if(!t || !t.closest || !state) return;
+  var ss = t.closest('[data-stagesel]');   // a Group Boards stage card: pick that view even when the address does not change
+  if(ss){
+    var sv = ss.getAttribute('data-stagesel'), gm = /^group-(.+)$/.exec(sv), gp = gm ? (state.pods||[]).find(function(x){ return x.label===gm[1]; }) : null;
+    if(gp) podSel = gp.id; else if(sv==='finals') podSel = 'finals';
+    appliedSel = sv;
+    if(location.hash === ss.getAttribute('href')){ e.preventDefault(); render(); return; }
+  }
   var pd = t.closest('[data-pod]');
   if(pd){ podSel = pd.getAttribute('data-pod'); render(); window.scrollTo(0, 0); return; }
   var bv = t.closest('[data-bview]');
@@ -884,10 +892,10 @@ async function load(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     var body = await res.json();
     lastOkAt = Date.now();
+    evStages = Array.isArray(body.stages) ? body.stages : [];   // every poll, so a one-off empty answer does not hide the cards for good (shown on the next render)
     if(body.updatedAt !== lastUpdatedAt || !state){
       lastUpdatedAt = body.updatedAt;
       state = body.view;
-      evStages = Array.isArray(body.stages) ? body.stages : [];
       if(!state.tieBreakOrder) state.tieBreakOrder = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
       state.entriesList = state.entriesList || []; state.groups = state.groups || []; state.format = state.format || {};
       render();

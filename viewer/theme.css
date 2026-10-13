@@ -261,7 +261,7 @@ body.tv .tvpage{font-size:18px}
 .evstage .hm-stage .hm-lead{width:36px}
 .evstage .hm-stage .hm-ring,.evstage .hm-stage .hm-pip{width:34px;height:34px}
 .evstage .hm-stage .hm-ring span{width:26px;height:26px;font-size:11px}
-.evstage:hover .hm-stage{background:rgba(127,127,127,.13)}
+@media (hover:hover){.evstage:hover .hm-stage{background:rgba(127,127,127,.13)}}
 .evstage.on .hm-stage{box-shadow:0 0 0 2px var(--blue)}
-.evstage:focus-visible{outline:2px solid #8fc2ff;outline-offset:2px}
+.evstage:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 body.tv .evstages{display:none}
