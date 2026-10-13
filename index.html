@@ -2310,6 +2310,7 @@ async function duplicateTournament(id, ev){
   const copy = JSON.parse(JSON.stringify(src));
   copy.id = uid('t');
   copy.published = false; delete copy.publicSlug; // a copy must never share the original's public link
+  copy.listed = false; // ...nor inherit the original's place on the public list
   copy.eventCreation.tournamentName = src.eventCreation.tournamentName + ' (copy)';
   copy.createdAt = Date.now(); copy.updatedAt = Date.now();
   const res = await apiFetch('/api/tournaments/'+copy.id, { method:'PUT', body: JSON.stringify({ data: copy, expectedUpdatedAt: null }) });
@@ -4514,8 +4515,15 @@ function printQrBlockHTML(t, path){
 }
 function printQrHeaderAttr(qr){ return qr ? ' style="grid-template-columns:minmax(58px,auto) 1fr auto auto"' : ''; }
 function setPublished(on){
+  const was = !!state.published;
   state.published = !!on;
   if(on && !state.publicSlug) state.publicSlug = newPublicSlug();
+  if(!on || !was) state.listed = false;      // taking results offline (or switching them on from off) never leaves a listing behind, so turning them on never lists an event by surprise
+  persist(); render();
+}
+/* "List on the public page": opt-in, only while results are published. The viewer's home page lists events with listed:true. */
+function setListed(on){
+  state.listed = !!on && !!state.published;
   persist(); render();
 }
 function copyPublicLink(btn){
@@ -4524,16 +4532,27 @@ function copyPublicLink(btn){
   if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(done, ()=>{ window.prompt('Copy this link:', url); }); }
   else { window.prompt('Copy this link:', url); }
 }
+function listToggleHTML(){
+  const base = currentOrganizer && currentOrganizer.viewerUrl;
+  const can = !!(state.published && base);
+  const note = !state.published ? 'Turn on Public results first.'
+    : !base ? 'The address of the public site isn\'t set up yet.'
+    : 'Shows this event on the DartDraw Live home page: its name, date, format, number of entries and, once finished, the winner. Your private link keeps working either way.';
+  return '<div class="toggle-row"'+(can?'':' style="opacity:.55"')+'><input type="checkbox" id="listToggle" '+(state.listed && state.published?'checked ':'')+(can?'':'disabled ')+'onchange="setListed(this.checked)"> <label for="listToggle">List on the public page</label></div>'+
+    '<p class="intro" style="margin:4px 0 0;font-size:11px">'+note+'</p>';
+}
 function publicResultsCardHTML(){
   const url = publicResultsUrl();
   return '<div class="card"><h2>Public results</h2>'+
     '<p class="intro">Share a read-only page that shows live standings and the bracket. Anyone with the link can see entry names, scores and standings. Notes, the incident log, rosters and check-in details are never shared.</p>'+
     '<div class="toggle-row"><input type="checkbox" id="publishToggle" '+(state.published?'checked':'')+' onchange="setPublished(this.checked)"> <label for="publishToggle">Publish results</label></div>'+
+    listToggleHTML()+
     (state.published && url ?
       '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">'+
         '<input type="text" readonly value="'+escapeHtml(url)+'" onclick="this.select()" style="flex:1;min-width:240px">'+
         '<button class="btn secondary" onclick="copyPublicLink(this)">Copy link</button>'+
         '<a class="btn ghost" href="'+escapeHtml(url)+'" target="_blank" rel="noopener">Open ↗</a>'+
+        '<a class="btn ghost" href="'+escapeHtml(currentOrganizer.viewerUrl)+'" target="_blank" rel="noopener">All events ↗</a>'+
       '</div>'+
       '<p class="intro" style="margin:8px 0 0;font-size:11px">The page refreshes itself every 20 seconds, and picks up scores shortly after they\'re saved. Untick to take it offline.</p>'
     : '')+
