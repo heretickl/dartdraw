@@ -15,7 +15,7 @@
   --nav:rgba(7,12,19,.94);--scroll:#2a3a4d;
   --glow-blue:0 0 0 1px rgba(43,140,255,.6),0 0 22px rgba(43,140,255,.28);
   --glow-gold:0 0 0 1px rgba(244,180,58,.55),0 0 18px rgba(244,180,58,.2);
-  --box-bg:#0b131c;--win-bg:#0e2a1e;--final-ink:#f3f7fb;
+  --box-bg:#0b131c;--win-bg:#133d32;--final-ink:#f3f7fb;
   --tb-bg:rgba(43,140,255,.18);--tb-fg:#8cc2ff;--tb-level-bg:rgba(255,45,58,.18);--tb-level-fg:#ff8088;
 
   --live:#e0222f;
@@ -56,10 +56,17 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font
 .wrap{max-width:1100px;margin:0 auto}
 
 header{padding:16px 16px 16px;background:linear-gradient(180deg,#10233e 0%,#0a1624 100%);border-bottom:1px solid var(--line);color:#f3f7fb}
+.allevents{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:4px 0;margin-bottom:2px;font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:#8fa1b6;text-decoration:none}
+.allevents:hover,.allevents:focus-visible{color:#f3f7fb}
+.allevents:focus-visible{outline:2px solid #8fc2ff;outline-offset:2px;border-radius:4px}
+.allevents .am{width:18px;height:18px;box-sizing:border-box;border:2px solid #d9ad45;border-radius:50%;display:grid;place-items:center;font:800 10px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;letter-spacing:0;color:#d9ad45;flex:0 0 auto}
+body.tv .allevents{display:none}
 .toprow{display:flex;align-items:center;justify-content:space-between;gap:12px}
 header .over{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:#8fa1b6}
 header h1{margin:6px 0 4px;font-family:var(--display);font-weight:700;font-size:34px;line-height:1.05;letter-spacing:.02em;text-transform:uppercase;color:#f3f7fb}
 header .sub{font-family:var(--display);font-weight:500;font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:#8fa1b6}
+#hLegs{margin-top:2px}
+#hLegs:empty{display:none}
 .themesw{display:flex;flex:0 0 auto;border:1px solid rgba(255,255,255,.18);border-radius:99px;padding:2px}
 .themesw button{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;border:0;background:transparent;color:#8fa1b6;padding:4px 10px;border-radius:99px;cursor:pointer;min-height:28px}
 .themesw button[aria-pressed="true"]{background:rgba(255,255,255,.18);color:#fff}

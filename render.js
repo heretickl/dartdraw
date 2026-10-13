@@ -219,14 +219,36 @@ function mkoTagHTML(tag, fontSize, mirrored){
     (mirrored?'transform:scaleX(-1);':'')+'">'+escapeHtml(tag)+'</span>';
 }
 
-function mkoBoxHTML(slot, boxHeight, fontSize, mirrored){
+/* Readable mode (opts.readable, the public viewer only): instead of shrinking
+   every name until the longest fits one line, names may wrap onto two lines
+   when the box is tall enough, breaking after a "/" in a pair name. `text` is
+   already HTML-escaped; the zero-width space is added after that, so nothing
+   from the data can become markup. */
+/* Line box tall enough that descenders (g, j, y) are not clipped by the span's own overflow:hidden / line clamp. */
+const MKO_NAME_LINE_H = 1.2, MKO_NAME_PAD_B = 1;
+function mkoTwoLines(boxHeight, fontSize){ return boxHeight >= 2*fontSize*MKO_NAME_LINE_H + MKO_NAME_PAD_B + 6; }
+function mkoBreakAtSlash(escaped){ return escaped.replace(/\//g, '/&#8203;'); }
+function mkoReadableNameSpan(slot, boxHeight, fontSize, extraStyle){
+  const two = mkoTwoLines(boxHeight, fontSize);
+  const title = slot.text ? ' title="'+slot.text+'"' : '';
+  const wrap = two
+    ? 'white-space:normal;line-height:'+MKO_NAME_LINE_H+';padding-bottom:'+MKO_NAME_PAD_B+'px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;'
+    : 'white-space:nowrap;line-height:'+MKO_NAME_LINE_H+';padding-bottom:'+MKO_NAME_PAD_B+'px;overflow:hidden;text-overflow:ellipsis;';
+  return '<span'+title+' style="flex:1;min-width:0;'+extraStyle+'font-size:'+fontSize+'px;color:'+slot.color+';'+wrap+'font-weight:'+slot.fw+';">'+
+    (two ? mkoBreakAtSlash(slot.text) : slot.text)+'</span>';
+}
+
+function mkoBoxHTML(slot, boxHeight, fontSize, mirrored, readable){
   const rowDir = mirrored ? 'row-reverse' : 'row';
   const textAlign = mirrored ? 'text-align:right;' : '';
   const flip = mirrored ? 'transform:scaleX(-1);' : '';
+  const nameSpan = readable
+    ? mkoReadableNameSpan(slot, boxHeight, fontSize, textAlign)
+    : '<span style="flex:1;min-width:0;'+textAlign+'font-size:'+fontSize+'px;color:'+slot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:'+slot.fw+';">'+slot.text+'</span>';
   return '<div style="width:100%;height:'+boxHeight+'px;background:'+slot.bg+';border:'+slot.border+';border-radius:6px;'+
     'display:flex;flex-direction:'+rowDir+';align-items:center;gap:5px;padding:0 6px;box-sizing:border-box;overflow:hidden;'+flip+'">'+
     '<span style="flex:0 0 auto;font-size:'+(fontSize*0.78).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+slot.seed+'</span>'+
-    '<span style="flex:1;min-width:0;'+textAlign+'font-size:'+fontSize+'px;color:'+slot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:'+slot.fw+';">'+slot.text+'</span>'+
+    nameSpan+
     (slot.wo ? '<span style="flex:0 0 auto;font-size:'+(fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
     (slot.ns ? '<span style="flex:0 0 auto;font-size:'+(fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">NO-SHOW</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+fontSize+'px;color:'+slot.color+';font-weight:'+slot.fw+';">'+slot.legs+'</span>'+
@@ -295,8 +317,8 @@ function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice, interactiv
       const clickAttr = clickable ? ' class="mko-clickable" onclick="koMatchScoreModal(\''+bracketKey+'\','+ri+','+mi+')"' : '';
       const woLink = clickable && !m.void ? '<div style="flex:0 0 auto;text-align:center;font-size:'+Math.max(7,fontSize*0.6).toFixed(1)+'px;color:var(--blue);text-decoration:underline;cursor:pointer;padding:1px 0 0;'+(mirror===-1?'transform:scaleX(-1);':'')+'" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>' : '';
       groupsHtml += '<div style="flex:1;display:flex;flex-direction:column;"'+clickAttr+'>'+
-        '<div style="flex:1;display:flex;align-items:center;"><div style="position:relative;width:100%;">'+mkoBoxHTML(aSlot, boxHeight, fontSize, mirror===-1)+(m.bye ? '' : mkoTagHTML(koMatchTag(bracket, t, ri, mi), fontSize, mirror===-1))+'</div></div>'+
-        '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(bSlot, boxHeight, fontSize, mirror===-1)+'</div>'+
+        '<div style="flex:1;display:flex;align-items:center;"><div style="position:relative;width:100%;">'+mkoBoxHTML(aSlot, boxHeight, fontSize, mirror===-1, geom.readable)+(m.bye ? '' : mkoTagHTML(koMatchTag(bracket, t, ri, mi), fontSize, mirror===-1))+'</div></div>'+
+        '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(bSlot, boxHeight, fontSize, mirror===-1, geom.readable)+'</div>'+
         woLink+
         '</div>';
       const winSide = m.winnerId ? (m.winnerId===m.aEntryId ? 'a' : 'b') : null;
@@ -332,7 +354,8 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interacti
   if(showChampion){
     championHtml = '<div style="position:absolute;left:0;right:0;top:calc(100% + 56px);display:flex;flex-direction:column;align-items:center;">'+
       '<div style="font-size:15px;font-weight:800;letter-spacing:0.1em;color:var(--green);">CHAMPION</div>'+
-      '<div style="width:150px;height:'+finalBoxH+'px;margin-top:12px;background:var(--win-bg,#eaf7ee);border:3px solid var(--green);box-sizing:border-box;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:'+geom.fontSize+'px;font-weight:800;color:var(--ink);">'+championName+'</div>'+
+      '<div style="width:150px;height:'+finalBoxH+'px;margin-top:12px;background:var(--win-bg,#eaf7ee);border:3px solid var(--green);box-sizing:border-box;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:'+geom.fontSize+'px;font-weight:800;color:var(--ink);'+(geom.readable ? 'overflow:hidden;min-width:0;padding:0 6px;' : '')+'">'+
+      (geom.readable ? mkoReadableNameSpan({ text:championName, color:'var(--ink)', fw:800 }, finalBoxH, geom.fontSize, 'text-align:center;') : championName)+'</div>'+
       '</div>';
   }
 
@@ -345,13 +368,13 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interacti
     '<div style="display:flex;align-items:center;"'+clickAttr+'>'+
     '<div style="position:relative;width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;">'+mkoTagHTML(koMatchTag(bracket, t, finalRi, 0), geom.fontSize, false)+
     '<div style="width:100%;height:100%;background:'+aSlot.bg+';border:'+aSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
-    '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+aSlot.text+'</span>'+
+    (geom.readable ? mkoReadableNameSpan(aSlot, finalBoxH, geom.fontSize, '') : '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+aSlot.text+'</span>')+
     (aSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
     (aSlot.ns ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">NO-SHOW</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';">'+aSlot.legs+'</span></div></div>'+
     '<div style="width:'+MKO_CONN_W+'px;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.06em;color:var(--muted);">'+(showVs ? 'VS' : '')+'</div>'+
     '<div style="width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;background:'+bSlot.bg+';border:'+bSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
-    '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+bSlot.text+'</span>'+
+    (geom.readable ? mkoReadableNameSpan(bSlot, finalBoxH, geom.fontSize, '') : '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+bSlot.text+'</span>')+
     (bSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
     (bSlot.ns ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">NO-SHOW</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';">'+bSlot.legs+'</span></div>'+
@@ -381,6 +404,11 @@ function mirroredChartHTML(bracket, t, opts){
   const bracketKey = opts.bracketKey || (bracket===t.knockoutLosers ? 'knockoutLosers' : 'knockout');
   const geom = mkoGeom(n, showChampion);
   geom.fontSize = mkoFitFontSize(bracket, t, geom.fontSize, MKO_BOX_W);
+  // opts.readable (public viewer): keep names legible rather than shrinking them to fit one line.
+  if(opts.readable){
+    geom.readable = true;
+    geom.fontSize = Math.max(geom.fontSize, Math.min(12, geom.boxHeight - 8));
+  }
 
   bracket.rounds[0].forEach(function(m){ m.__seeds = bracket.seeds; m.__seedLabels = bracket.seedLabels; });
 

@@ -17,6 +17,7 @@
 <body>
 <header id="head" hidden>
   <div class="wrap">
+    <a class="allevents" href="/"><span class="am" aria-hidden="true">D</span>&lsaquo; All events</a>
     <div class="toprow">
       <div class="over" id="hOver"></div>
       <div class="themesw" role="group" aria-label="Colour theme">
@@ -27,6 +28,7 @@
     </div>
     <h1 id="hTitle"></h1>
     <div class="sub" id="hSub"></div>
+    <div class="sub" id="hLegs"></div>
     <div class="status"><span id="hStatus"></span><span class="pill" id="hProgress" hidden></span></div>
   </div>
 </header>
@@ -552,7 +554,7 @@ function bracketCardHTML(bracket, key, title){
     (champ ? '<div class="champ"><b>Winner: '+escapeHtml(entryName(champ))+'</b>'+(runner?'<div>Runner-up: '+escapeHtml(entryName(runner))+'</div>':'')+'</div>' : '')+
     bracketToolsHTML(key, bracketView(bracket))+
     (bracketView(bracket)==='rounds' ? roundsViewHTML(bracket, key)
-      : '<div class="scroll" data-bracket="'+key+'">'+mirroredChartHTML(bracket, state, {interactive:false})+'</div>')+
+      : '<div class="scroll" data-bracket="'+key+'">'+mirroredChartHTML(bracket, state, {interactive:false, readable:true})+'</div>')+
     '</section>';
 }
 
@@ -654,13 +656,73 @@ function progressText(){
   return '';
 }
 
+/* Best-of-legs summary for the header. Mirrors the organiser's legsForKnockoutRound / koStageKey rules. */
+var LEG_STAGES = ['early','quarterfinal','semifinal','final'];
+var LEG_STAGE_NAMES = { early:'early rounds', quarterfinal:'quarterfinals', semifinal:'semifinals', final:'final' };
+function legInt(v){ var n = parseInt(v, 10); return n > 0 ? n : 0; }
+function legStagesFor(bracket){
+  var n = bracket && bracket.rounds && bracket.rounds.length;
+  if(!(n > 0)) return LEG_STAGES.slice();
+  var out = [];
+  for(var i = 0; i < n; i++){
+    var fromEnd = n - i;
+    out.push(fromEnd === 1 ? 'final' : fromEnd === 2 ? 'semifinal' : fromEnd === 3 ? 'quarterfinal' : 'early');
+  }
+  return out.filter(function(st, i){ return out.indexOf(st) === i; });
+}
+// Legs for one stage of the main bracket ('main') or the Plate pool ('plate').
+function legsForStage(f, which, stage){
+  var flat = legInt(f.bestOfLegs) || 5;
+  var cfg = f.knockoutLegs && typeof f.knockoutLegs === 'object' ? f.knockoutLegs[which] : null;
+  if(which === 'plate') flat = (cfg && cfg.flatLegs != null ? legInt(cfg.flatLegs) : legInt(f.bestOfLegs)) || 5;
+  if(cfg && cfg.variable) return legInt(cfg[stage]) || flat;
+  return flat;
+}
+function koLegsText(f, which, bracket){
+  var stages = legStagesFor(bracket);
+  var vals = stages.map(function(st){ return legsForStage(f, which, st); });
+  var last = vals.length - 1;
+  var allSame = vals.every(function(v){ return v === vals[0]; });
+  if(allSame) return 'best of ' + vals[0] + ' legs';
+  var restSame = vals.slice(0, last).every(function(v){ return v === vals[0]; });
+  if(restSame) return 'best of ' + vals[0] + ' legs, final best of ' + vals[last];
+  var groups = [];
+  stages.forEach(function(st, i){
+    var g = groups[groups.length - 1];
+    if(g && g.v === vals[i]) g.names.push(LEG_STAGE_NAMES[st]);
+    else groups.push({ v: vals[i], names: [LEG_STAGE_NAMES[st]] });
+  });
+  return groups.map(function(g){ return g.names.join(' & ') + ' best of ' + g.v; }).join(', ');
+}
+function legsParts(s){
+  var f = s && s.format;
+  if(!f || typeof f !== 'object') return [];
+  var rr = 'best of ' + (legInt(f.bestOfLegs) || 5) + ' legs';
+  var cap = function(t){ return t.charAt(0).toUpperCase() + t.slice(1); };
+  var parts;
+  if(f.formatType === 'roundrobin') parts = [{ label:'', text:rr }];
+  else if(f.formatType === 'knockout') parts = [{ label:'', text:koLegsText(f, 'main', s.knockout) }];
+  else if(f.formatType === 'rrknockout') parts = [{ label:'Round robin', text:rr }, { label:'Knockout', text:koLegsText(f, 'main', s.knockout) }];
+  else if(f.formatType === 'podknockout'){
+    var pod = legInt(f.podLegs) || legInt(f.bestOfLegs) || 5;
+    var finals = s.knockout && s.knockout.podFinals ? s.knockout : null;
+    parts = [{ label:'Groups', text:'best of ' + pod + ' legs' }, { label:'Finals', text:koLegsText(f, 'main', finals) }];
+  } else return [];
+  if(s.knockoutLosers && f.formatType === 'rrknockout') parts.push({ label:'Plate pool', text:koLegsText(f, 'plate', s.knockoutLosers) });
+  parts.forEach(function(p){ if(!p.label) p.text = cap(p.text); });
+  return parts;
+}
+function legsLine(s){
+  return legsParts(s).map(function(p){ return p.label ? p.label + ': ' + p.text : p.text; }).join(' · ');
+}
+
 function render(){
   var ec = state.eventCreation || {};
   document.title = (ec.eventName || ec.tournamentName || 'Live results') + ' · Live results';
   el('hOver').textContent = ec.tournamentName || '';
   el('hTitle').textContent = ec.eventName || ec.tournamentName || 'Results';
-  var legs = state.format && state.format.bestOfLegs;
-  el('hSub').textContent = [ec.eventType, ec.competitionUnit, legs ? 'Best of '+legs+' legs' : '', ec.date].filter(Boolean).join(' · ');
+  el('hSub').textContent = [ec.eventType, ec.competitionUnit, ec.date].filter(Boolean).join(' · ');
+  el('hLegs').textContent = legsLine(state);
   var prog = progressText();
   el('hProgress').hidden = !prog; el('hProgress').textContent = prog;
   el('head').hidden = false;
