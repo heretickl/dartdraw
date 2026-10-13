@@ -263,6 +263,7 @@ function podStatusText(p){
   if(!p.confirmed) return { text:'Not confirmed', color:'#c0392b' };
   var c = podMatchCounts(p), w = podChampion(p);
   if(w) return { text:'Winner: '+((state.entriesList.find(function(e){ return e.id === w; }) || {}).name || ''), color:'#1d8a4a' };
+  if(podNoWinner(p)) return { text:'No winner', color:'#b7791f' };
   if(!c.done) return { text:'Not started', color:'var(--muted)' };
   return { text:'In progress · '+c.done+' of '+c.total+' matches', color:'#b7791f' };
 }
@@ -323,7 +324,7 @@ function podsStage6(){
   function name(id){ return id ? ((t.entriesList.find(function(e){ return e.id === id; }) || {}).name || '—') : '—'; }
   var rows = pods.map(function(p){
     var w = podChampion(p), r = w ? bracketRunnerUp(p.bracket) : null;
-    return '<tr><td class="l">'+escapeHtml(p.label)+'</td><td class="l">'+escapeHtml(name(w))+'</td><td class="l">'+escapeHtml(name(r))+'</td><td class="dim">'+podBoardLabel(p)+'</td></tr>';
+    return '<tr><td class="l">'+escapeHtml(p.label)+'</td><td class="l">'+escapeHtml(w ? name(w) : (podNoWinner(p) ? 'No winner' : '—'))+'</td><td class="l">'+escapeHtml(name(r))+'</td><td class="dim">'+podBoardLabel(p)+'</td></tr>';
   }).join('');
   var html = '<div class="card"><h2>Finalize standings</h2><p class="intro">Group winners and Finals placings. Read-only: fix a result in Manage Tournament if needed.</p></div>'+
     '<div class="card"><h3 style="margin:0 0 10px;font-size:15px">Group winners</h3><div style="overflow-x:auto"><table class="std-table"><thead><tr><th class="l">Group</th><th class="l">Winner</th><th class="l">Runner-up</th><th>Board</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';

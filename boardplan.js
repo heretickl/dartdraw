@@ -12,7 +12,7 @@ function stampDoneTimes(t){
       if(m.winnerId && !m.bye){ if(!m.doneAt) m.doneAt = Date.now(); delete m.called; delete m.calledAt; }
       else if(!m.winnerId && m.doneAt){ delete m.doneAt; }
       /* A call goes when the match can no longer be played as called: a bye, or a player has gone (a correction cleared a slot). */
-      if(m.bye || (!m.winnerId && (!m.aEntryId || !m.bEntryId))){ delete m.called; delete m.calledAt; }
+      if(m.bye || m.void || (!m.winnerId && (!m.aEntryId || !m.bEntryId))){ delete m.called; delete m.calledAt; }
       /* A call is for the two players it was made for: if a correction put someone else in, it no longer applies. */
       if(m.called){
         var pair = m.aEntryId + '|' + m.bEntryId;
@@ -54,7 +54,11 @@ function buildBoardPlan(t, opts){
     bracket.rounds.forEach(function(round, ri){
       var ends = [], k = 0;
       round.forEach(function(m, mi){
-        if(m.bye) return;
+        if(m.bye || m.void) return;
+        if(ri > 0){   // a void feeder means this match will never be played (it becomes a bye or void)
+          var fa = bracket.rounds[ri-1][2*mi], fb = bracket.rounds[ri-1][2*mi+1];
+          if((fa && fa.void) || (fb && fb.void)) return;
+        }
         place(key, orgKey, bracket, ri, mi, boardFor(m, k), prevEnd, ends);
         k++;
       });

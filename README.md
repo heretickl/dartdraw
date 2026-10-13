@@ -113,6 +113,16 @@ The plan is rebuilt on every save and stored with the tournament; the viewer onl
 Deploy the organiser first, then the viewer (each deploys from `main`). An older tournament
 gets its plan on its next save, and the viewer hides the Boards tab until then.
 
+### Neither showed
+
+If both players in a match fail to turn up, open the no-show picker on that match (or its
+score dialog) and choose **Neither showed**. Nobody advances; the next opponent gets a bye. A
+group whose final is void finishes with no winner, and its Finals slot reads "Group N: no
+winner" and becomes a bye for the opponent. It works in every bracket (plain knockout, the
+Plate, group brackets and the Finals) and can be reversed from the match's score dialog. Both
+players are flagged as no-shows; reversing leaves those flags, as a corrected single no-show
+does. The public results page shows "Neither attended" for such a match.
+
 ### Tests and local servers
 
 - `npm test` runs every test (Node's built-in runner, no dependencies). `tests/golden/existing-formats.json`

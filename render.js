@@ -26,6 +26,13 @@ function bracketRunnerUp(bracket){
   return m.winnerId===m.aEntryId ? m.bEntryId : m.aEntryId;
 }
 
+/* True when the last match of the last round was marked "neither showed": the bracket has no champion. */
+function bracketIsVoidFinal(bracket){
+  if(!bracket || !bracket.rounds || !bracket.rounds.length) return false;
+  const last = bracket.rounds[bracket.rounds.length-1][0];
+  return !!(last && last.void);
+}
+
 function koRoundName(bracket, idx){
   const total = bracket.rounds.length;
   const fromEnd = total-idx;
@@ -175,7 +182,8 @@ function mkoSlot(m, side, t, ri, tokens){
     const fromPod = m[side+'FromPod'];
     if(fromPod){
       const pod = (t.pods||[]).find(p=>p.id===fromPod);
-      return { text:'Winner of Group '+escapeHtml(pod ? pod.label : '?'), seed:'', legs:'', fw:400, color:tokens.muted, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
+      const noWinner = !!(pod && bracketIsVoidFinal(pod.bracket));
+      return { text:(noWinner ? 'Group '+escapeHtml(pod.label)+': no winner' : 'Winner of Group '+escapeHtml(pod ? pod.label : '?')), seed:'', legs:'', fw:400, color:tokens.muted, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
     }
     if(m.bye) return { text:'BYE', seed:'', legs:'', fw:600, color:tokens.muted, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
     return { text:'', seed:'', legs:'', fw:400, color:tokens.ink, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
@@ -184,9 +192,10 @@ function mkoSlot(m, side, t, ri, tokens){
   const seed = (ri===0 && m.__seeds) ? (bracketSeedForDisplay(t, m.__seeds, m.__seedLabels, id) || '') : '';
   return {
     text: name, seed: String(seed), legs: legs!=null ? String(legs) : '',
-    fw: isWin ? 800 : 400, color: tokens.ink, bg: isWin ? tokens.winBg : (tokens.boxBg||'#fff'),
+    fw: isWin ? 800 : 400, color: m.void ? tokens.muted : tokens.ink, bg: isWin ? tokens.winBg : (tokens.boxBg||'#fff'),
     border: '1px solid '+tokens.line,
-    wo: !!(m.wo && m.winnerId && !isWin) // this side is the one who no-showed
+    wo: !!(m.wo && m.winnerId && !isWin), // this side is the one who no-showed
+    ns: !!m.void                          // neither player attended this match
   };
 }
 
@@ -219,6 +228,7 @@ function mkoBoxHTML(slot, boxHeight, fontSize, mirrored){
     '<span style="flex:0 0 auto;font-size:'+(fontSize*0.78).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+slot.seed+'</span>'+
     '<span style="flex:1;min-width:0;'+textAlign+'font-size:'+fontSize+'px;color:'+slot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:'+slot.fw+';">'+slot.text+'</span>'+
     (slot.wo ? '<span style="flex:0 0 auto;font-size:'+(fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
+    (slot.ns ? '<span style="flex:0 0 auto;font-size:'+(fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">NO-SHOW</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+fontSize+'px;color:'+slot.color+';font-weight:'+slot.fw+';">'+slot.legs+'</span>'+
     '</div>';
 }
@@ -283,7 +293,7 @@ function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice, interactiv
       const bSlot = mkoSlot(m, 'b', t, ri, tokens);
       const clickable = interactive && m.aEntryId && m.bEntryId && !m.bye;
       const clickAttr = clickable ? ' class="mko-clickable" onclick="koMatchScoreModal(\''+bracketKey+'\','+ri+','+mi+')"' : '';
-      const woLink = clickable ? '<div style="flex:0 0 auto;text-align:center;font-size:'+Math.max(7,fontSize*0.6).toFixed(1)+'px;color:var(--blue);text-decoration:underline;cursor:pointer;padding:1px 0 0;'+(mirror===-1?'transform:scaleX(-1);':'')+'" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>' : '';
+      const woLink = clickable && !m.void ? '<div style="flex:0 0 auto;text-align:center;font-size:'+Math.max(7,fontSize*0.6).toFixed(1)+'px;color:var(--blue);text-decoration:underline;cursor:pointer;padding:1px 0 0;'+(mirror===-1?'transform:scaleX(-1);':'')+'" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>' : '';
       groupsHtml += '<div style="flex:1;display:flex;flex-direction:column;"'+clickAttr+'>'+
         '<div style="flex:1;display:flex;align-items:center;"><div style="position:relative;width:100%;">'+mkoBoxHTML(aSlot, boxHeight, fontSize, mirror===-1)+(m.bye ? '' : mkoTagHTML(koMatchTag(bracket, t, ri, mi), fontSize, mirror===-1))+'</div></div>'+
         '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(bSlot, boxHeight, fontSize, mirror===-1)+'</div>'+
@@ -337,14 +347,16 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interacti
     '<div style="width:100%;height:100%;background:'+aSlot.bg+';border:'+aSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
     '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+aSlot.text+'</span>'+
     (aSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
+    (aSlot.ns ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">NO-SHOW</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';">'+aSlot.legs+'</span></div></div>'+
     '<div style="width:'+MKO_CONN_W+'px;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.06em;color:var(--muted);">'+(showVs ? 'VS' : '')+'</div>'+
     '<div style="width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;background:'+bSlot.bg+';border:'+bSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
     '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+bSlot.text+'</span>'+
     (bSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
+    (bSlot.ns ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">NO-SHOW</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';">'+bSlot.legs+'</span></div>'+
     '</div>'+
-    (clickable ? '<div style="font-size:11px;color:var(--blue);text-decoration:underline;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+finalRi+',0)">Mark no-show…</div>' : '')+
+    (clickable && !finalMatch.void ? '<div style="font-size:11px;color:var(--blue);text-decoration:underline;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+finalRi+',0)">Mark no-show…</div>' : '')+
     championHtml+
     '</div></div></div></div>';
 }

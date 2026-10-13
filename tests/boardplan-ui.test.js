@@ -101,3 +101,31 @@ test('setPodBoards ignores board numbers above 9999', () => {
   f('setPodBoards')(t.pods[0].id, '12345');
   assert.deepEqual(plain(t.pods[0].boards), [7]);
 });
+
+function voidGroup(t, pod) {
+  [0, 1].forEach((i) => { const m = pod.bracket.rounds[0][i]; f('podsApplyResult')(t, pod, () => { m.void = true; m.aLegs = null; m.bLegs = null; m.winnerId = null; m.wo = false; }); });
+}
+const finalsMatchOf = (t, p) => t.knockout.rounds[0].findIndex((m) => m.aFromPod === p.id || m.bFromPod === p.id);
+
+test('the Finals boards editor does not list a void Finals match', () => {
+  const t = ready(16, 4);
+  const p = t.pods[0], mi = finalsMatchOf(t, p), km = t.knockout.rounds[0][mi];
+  const q = t.pods.find((x) => x.id === (km.aFromPod === p.id ? km.bFromPod : km.aFromPod));
+  const other = t.knockout.rounds[0].findIndex((m, i) => i !== mi);
+  assert.ok(f('bpFinalsBoardsHTML')(t, f('buildBoardPlan')(t)).includes('bpSetFinalsBoard(0,' + mi + ','));
+  voidGroup(t, p); voidGroup(t, q);
+  assert.equal(km.void, true);
+  const html = f('bpFinalsBoardsHTML')(t, f('buildBoardPlan')(t));
+  assert.ok(!html.includes('bpSetFinalsBoard(0,' + mi + ','));
+  assert.ok(html.includes('bpSetFinalsBoard(0,' + other + ','));
+});
+
+test('a Finals slot fed by a group with no winner reads "Group N: no winner" in the panel', () => {
+  const t = ready(16, 4);
+  const p = t.pods[0], km = t.knockout.rounds[0][finalsMatchOf(t, p)];
+  assert.equal(f('bpSlotName')(t, km, km.aFromPod === p.id ? 'a' : 'b'), 'Winner of Group ' + p.label);
+  voidGroup(t, p);
+  const side = km.aFromPod === p.id ? 'a' : 'b', otherSide = side === 'a' ? 'b' : 'a';
+  assert.equal(f('bpSlotName')(t, km, side), 'Group ' + p.label + ': no winner');
+  assert.match(f('bpSlotName')(t, km, otherSide), /^Winner of Group /);
+});

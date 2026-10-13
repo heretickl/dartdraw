@@ -1272,6 +1272,10 @@ function generateBracket(orderedEntries, label){
 /* Pushes any already-known winners (from round-1 byes) forward into the next
    round's slots — called after generation and after every score is saved. */
 function propagateByes(rounds){
+  propagateByesCore(rounds);
+  settleVoids(rounds);
+}
+function propagateByesCore(rounds){
   for(let r=0; r<rounds.length-1; r++){
     rounds[r].forEach((m, i)=>{
       if(!m.winnerId) return;
@@ -1280,12 +1284,44 @@ function propagateByes(rounds){
       const slot = i%2===0 ? 'aEntryId' : 'bEntryId';
       if(nextMatch[slot] !== m.winnerId){
         nextMatch[slot] = m.winnerId;
-        nextMatch.winnerId = null; nextMatch.aLegs=null; nextMatch.bLegs=null; nextMatch.bye=false;
+        nextMatch.winnerId = null; nextMatch.aLegs=null; nextMatch.bLegs=null; nextMatch.bye=false; delete nextMatch.void;
       }
       // Auto-advance a next-round match if it now has exactly one real side (opponent eliminated with no other source, rare but possible when a whole side of the bracket is byes)
     });
   }
   // Second pass: any match with one populated side and the other side impossible to fill (both its own feeder matches are byes into a dead slot) is rare with power-of-2 brackets, so no extra handling needed.
+}
+/* "Neither showed": a void match has no winner and nobody advances from it. The next-round match is resolved from its
+   two feeders — both void: void too; one void and the other won: a bye for that winner; one void and the other still
+   open: it waits. Runs on its own only when the bracket already holds a void or a bye made by one (so ordinary
+   brackets are untouched); `force` runs it regardless (group brackets, the Finals, and the void handlers).
+   It also pushes winners forward and clears a slot whose feeder no longer has that winner, round by round. */
+function settleVoids(rounds, force){
+  const hasVoidState = rounds.some((round, r)=> round.some(m=> m.void || (r>0 && m.bye)));
+  if(!force && !hasVoidState) return;
+  for(let r=0; r<rounds.length-1; r++){
+    const nextRound = rounds[r+1];
+    rounds[r].forEach((m, i)=>{
+      const next = nextRound[Math.floor(i/2)], slot = i%2===0 ? 'aEntryId' : 'bEntryId', want = m.winnerId || null;
+      if(next[slot] === want) return;
+      next[slot] = want;
+      next.winnerId = null; next.aLegs = null; next.bLegs = null; next.wo = false; next.bye = false; delete next.void;
+    });
+    nextRound.forEach((n, i)=>{
+      const f0 = rounds[r][2*i], f1 = rounds[r][2*i+1];
+      if(f0.void && f1.void){
+        n.void = true; n.aEntryId = null; n.bEntryId = null; n.winnerId = null; n.aLegs = null; n.bLegs = null; n.wo = false; n.bye = false;
+      } else if(f0.void || f1.void){
+        const other = f0.void ? f1 : f0;
+        delete n.void;
+        if(other.winnerId){ n.bye = true; n.winnerId = other.winnerId; n.aLegs = null; n.bLegs = null; n.wo = false; }
+        else { n.bye = false; n.winnerId = null; }
+      } else {
+        if(n.void && !n.aEntryId && !n.bEntryId) delete n.void;      // a void made by feeders that are no longer void
+        if(n.bye){ n.bye = false; n.winnerId = null; n.aLegs = null; n.bLegs = null; }   // a bye made by a void feeder (rounds after the first only)
+      }
+    });
+  }
 }
 /* Ranked list of qualifiers (or non-qualifiers, for the losers' pool) taken
    from each round robin group's current standings, interleaved by rank so
@@ -1396,8 +1432,9 @@ function bracketColumnsHTML(bracket, t, opts){
               '<div class="bracket-side'+(aWin?' win':'')+'"><span>'+(aSeed?'<span class="bracket-seed">'+aSeed+'</span>':'')+escapeHtml(aName)+'</span>'+(m.aLegs!=null?'<span class="bracket-score">'+m.aLegs+'</span>':'')+'</div>'+
               '<div class="bracket-side'+(bWin?' win':'')+'"><span>'+(bSeed?'<span class="bracket-seed">'+bSeed+'</span>':'')+escapeHtml(bName)+'</span>'+(m.bLegs!=null?'<span class="bracket-score">'+m.bLegs+'</span>':'')+'</div>'+
               (m.bye?'<div class="bracket-bye-tag">BYE</div>':'')+
+              (m.void && (m.aEntryId || m.bEntryId)?'<div class="bracket-bye-tag">NO-SHOW</div>':'')+
               (m.wo && !m.bye?'<div class="bracket-bye-tag">WO</div>':'')+
-              (clickable?'<div class="bracket-wo-action" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>':'')+
+              (clickable && !m.void?'<div class="bracket-wo-action" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>':'')+
             '</div>'+
             bracketConnectMidHTML(mi,hasNext)+
           '</div>';
@@ -1416,7 +1453,8 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
   const clampAttr = 'min="0" max="'+majority+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.min(Math.max(parseInt(this.value)||0,0),'+majority+')"';
   openModal({
     title: aName+' v '+bName,
-    bodyHTML: '<p style="margin:-4px 0 10px;font-size:11px;color:var(--muted)">Match '+escapeHtml(koMatchTag(bracket, state, roundIdx, matchIdx))+' · '+escapeHtml(koRoundName(bracket, roundIdx))+'</p>'+
+    bodyHTML: (m.void ? '<div class="confirm-box" style="margin:0 0 10px"><b>Neither player attended</b>This match was marked as not played. Enter a score to play it instead, or <button type="button" class="btn secondary" style="padding:3px 9px;font-size:11px" onclick="closeModal();reverseKnockoutVoid(\''+bracketKey+'\','+roundIdx+','+matchIdx+');">Reverse it</button></div>' : '')+
+      '<p style="margin:-4px 0 10px;font-size:11px;color:var(--muted)">Match '+escapeHtml(koMatchTag(bracket, state, roundIdx, matchIdx))+' · '+escapeHtml(koRoundName(bracket, roundIdx))+'</p>'+
       '<div class="grid2"><div class="field"><label>'+escapeHtml(aName)+' legs</label><input id="scA" type="number" '+clampAttr+' value="'+(m.aLegs!=null?m.aLegs:0)+'"></div>'+
       '<div class="field"><label>'+escapeHtml(bName)+' legs</label><input id="scB" type="number" '+clampAttr+' value="'+(m.bLegs!=null?m.bLegs:0)+'"></div></div>'+
       '<p style="font-size:11px;color:#8a97a5">Best of '+bestOf+' legs — a side can score at most '+majority+'. Knockout matches can\'t end in a draw.</p>',
@@ -1428,12 +1466,13 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
       const winnerIsA = la>lb, winnerLegs = Math.max(la,lb), loserLegs = Math.min(la,lb);
       if(winnerLegs===loserLegs) return { error:'This is a knockout match — it can\'t end in a draw. One side must win.' };
       if(winnerLegs!==majority || loserLegs>=majority) return { error:'Not a valid finished result for best of '+bestOf+' legs — the winner must have exactly '+majority+' legs, and the loser fewer.' };
-      const apply = ()=>{ m.aLegs = la; m.bLegs = lb; m.winnerId = winnerIsA ? m.aEntryId : m.bEntryId; m.wo = false; };
+      const wasVoid = !!m.void;
+      const apply = ()=>{ m.aLegs = la; m.bLegs = lb; m.winnerId = winnerIsA ? m.aEntryId : m.bEntryId; m.wo = false; delete m.void; };
       const podHit = podByKey(state, bracketKey);
       if(podHit){
         const res = podsApplyResult(state, podHit, apply);
         if(!res.ok) return { error: res.message };
-      } else { apply(); propagateByes(bracket.rounds); }
+      } else { apply(); propagateByes(bracket.rounds); if(wasVoid) settleVoids(bracket.rounds, true); }
       persist(); render();
     }
   });
@@ -1448,7 +1487,7 @@ function markKnockoutNoShow(bracketKey, roundIdx, matchIdx, side){
   const bracket = bracketByKey(state, bracketKey);
   if(!bracket) return;
   const m = bracket.rounds[roundIdx][matchIdx];
-  if(!m || !m.aEntryId || !m.bEntryId || m.winnerId || m.bye) return;
+  if(!m || !m.aEntryId || !m.bEntryId || m.winnerId || m.bye || m.void) return;
   const majority = Math.floor(legsForKnockoutRound(state, bracketKey, bracket.rounds.length, roundIdx)/2)+1;
   const loserId = side==='a' ? m.aEntryId : m.bEntryId;
   const winnerId = side==='a' ? m.bEntryId : m.aEntryId;
@@ -1462,19 +1501,51 @@ function markKnockoutNoShow(bracketKey, roundIdx, matchIdx, side){
   if(ent) ent.noShow = true;
   persist(); render();
 }
+/* "Neither showed": nobody advances. The next opponent gets a bye (see settleVoids); a group whose final is void has
+   no winner and leaves a dead Finals slot. Both players are flagged no-show, as a single no-show flags one. */
+function markKnockoutVoid(bracketKey, roundIdx, matchIdx){
+  const bracket = bracketByKey(state, bracketKey);
+  if(!bracket) return;
+  const m = bracket.rounds[roundIdx][matchIdx];
+  if(!m || !m.aEntryId || !m.bEntryId || m.winnerId || m.bye || m.void) return;
+  const ids = [m.aEntryId, m.bEntryId];
+  const apply = ()=>{ m.void = true; m.aLegs = null; m.bLegs = null; m.winnerId = null; m.wo = false; delete m.called; delete m.calledAt; delete m.calledPair; };
+  const podHit = podByKey(state, bracketKey);
+  if(podHit){
+    const res = podsApplyResult(state, podHit, apply);
+    if(!res.ok){ openModal({title:'Can\'t change this result', body: res.message, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
+  } else { apply(); propagateByes(bracket.rounds); settleVoids(bracket.rounds, true); }
+  ids.forEach(id=>{ const ent = state.entriesList.find(e=>e.id===id); if(ent) ent.noShow = true; });
+  persist(); render();
+}
+/* Undoes "neither showed": the match goes back to being played. The no-show flags stay, as they do after any no-show correction. */
+function reverseKnockoutVoid(bracketKey, roundIdx, matchIdx){
+  const bracket = bracketByKey(state, bracketKey);
+  if(!bracket) return;
+  const m = bracket.rounds[roundIdx][matchIdx];
+  if(!m || !m.void || !m.aEntryId || !m.bEntryId) return;
+  const apply = ()=>{ delete m.void; };
+  const podHit = podByKey(state, bracketKey);
+  if(podHit){
+    const res = podsApplyResult(state, podHit, apply);
+    if(!res.ok){ openModal({title:'Can\'t change this result', body: res.message, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
+  } else { apply(); propagateByes(bracket.rounds); settleVoids(bracket.rounds, true); }
+  persist(); render();
+}
 function openKoNoShowPicker(bracketKey, roundIdx, matchIdx){
   const bracket = bracketByKey(state, bracketKey);
   if(!bracket) return;
   const m = bracket.rounds[roundIdx][matchIdx];
-  if(!m || !m.aEntryId || !m.bEntryId || m.winnerId) return;
+  if(!m || !m.aEntryId || !m.bEntryId || m.winnerId || m.void) return;
   const aName = bracketEntryName(state, m.aEntryId), bName = bracketEntryName(state, m.bEntryId);
   const majority = Math.floor(legsForKnockoutRound(state, bracketKey, bracket.rounds.length, roundIdx)/2)+1;
   const rows =
     '<div class="picker-row" onclick="markKnockoutNoShow(\''+bracketKey+'\','+roundIdx+','+matchIdx+',\'a\');closeModal();">'+escapeHtml(aName)+'</div>'+
-    '<div class="picker-row" onclick="markKnockoutNoShow(\''+bracketKey+'\','+roundIdx+','+matchIdx+',\'b\');closeModal();">'+escapeHtml(bName)+'</div>';
+    '<div class="picker-row" onclick="markKnockoutNoShow(\''+bracketKey+'\','+roundIdx+','+matchIdx+',\'b\');closeModal();">'+escapeHtml(bName)+'</div>'+
+    '<div class="picker-row" onclick="closeModal();markKnockoutVoid(\''+bracketKey+'\','+roundIdx+','+matchIdx+');">Neither showed</div>';
   openModal({
     title:'Mark a no-show',
-    bodyHTML: '<p style="margin-top:-4px">Choose who didn\'t show up. The other side is advanced as a '+majority+'–0 walkover win, tagged WO.</p><div class="picker-list">'+rows+'</div>',
+    bodyHTML: '<p style="margin-top:-4px">Choose who didn\'t show up. The other side is advanced as a '+majority+'–0 walkover win, tagged WO. If neither showed, nobody advances and the next opponent gets a bye.</p><div class="picker-list">'+rows+'</div>',
     confirmLabel:'Close', confirmClass:'secondary',
     onConfirm:()=>{}
   });
@@ -4623,7 +4694,9 @@ function knockoutPlacementsCard(bracket, title){
   const champ = bracketChampion(bracket);
   const runnerUp = bracketRunnerUp(bracket);
   return '<div class="card"><h3 style="margin:0 0 10px;font-size:15px">'+escapeHtml(title)+'</h3>'+
-    (champ ? '<div class="confirm-box" style="margin:0 0 14px;background:#eaf7ee;border-color:#bfe6cc;color:#175c33"><b>🏆 Winner: '+escapeHtml(bracketEntryName(state,champ))+'</b>Runner-up: '+escapeHtml(bracketEntryName(state,runnerUp)||'—')+'</div>' : '<div class="confirm-box" style="margin:0 0 14px">Not complete yet.</div>')+
+    (champ ? '<div class="confirm-box" style="margin:0 0 14px;background:#eaf7ee;border-color:#bfe6cc;color:#175c33"><b>🏆 Winner: '+escapeHtml(bracketEntryName(state,champ))+'</b>Runner-up: '+escapeHtml(bracketEntryName(state,runnerUp)||'—')+'</div>' : (bracketIsVoidFinal(bracket)
+      ? '<div class="confirm-box" style="margin:0 0 14px"><b>No champion</b>The final was marked "neither showed".</div>'
+      : '<div class="confirm-box" style="margin:0 0 14px">Not complete yet.</div>'))+
     '<div class="mko-artboard-scroll">'+mirroredChartHTML(bracket, state, {interactive:false})+'</div>'+
   '</div>';
 }

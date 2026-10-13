@@ -209,3 +209,37 @@ test('the anticipated start stays on the event first day for any format once pla
   t.format.anticipatedStartTime = '';
   assert.equal(f('anticipatedStartEpoch')(t), null);
 });
+
+test('a void match never appears in the board plan, and the match behind it moves up', () => {
+  const t = ready(12, 3);
+  const key = 'pod:' + t.pods[0].id, board = String(t.pods[0].boards[0]);
+  const before = plan(t).boards[board].filter((e) => e.key === key).length;
+  const m = t.pods[0].bracket.rounds[0][0];
+  f('podsApplyResult')(t, t.pods[0], () => { m.void = true; m.aLegs = null; m.bLegs = null; m.winnerId = null; });
+  const after = plan(t).boards[board].filter((e) => e.key === key);
+  assert.equal(after.length, before - 2);                              // the void match and the group final behind it (which will never be played)
+  assert.ok(!after.some((e) => e.ri === 0 && e.mi === 0));
+  assert.equal(plan(t).boards[board][0].status, 'up');
+});
+
+test('stampDoneTimes clears a call on a void match, and a void match cannot be called', () => {
+  const t = ready(12, 3);
+  const m = t.pods[0].bracket.rounds[0][0];
+  m.called = true; m.calledAt = 1; m.calledPair = m.aEntryId + '|' + m.bEntryId;
+  m.void = true; m.winnerId = null;
+  f('stampDoneTimes')(t);
+  assert.equal(m.called, undefined); assert.equal(m.calledAt, undefined); assert.equal(m.calledPair, undefined);
+  assert.equal(m.doneAt, undefined);
+  f('bpToggleCall')('pod:' + t.pods[0].id, 0, 0);
+  assert.equal(m.called, undefined);
+});
+
+test('a match with a void feeder is not in the board plan (it will never be played)', () => {
+  const t = ready(12, 3);
+  const p = t.pods[0], key = 'pod:' + p.id, board = String(p.boards[0]);
+  const m = p.bracket.rounds[0][0];
+  f('podsApplyResult')(t, p, () => { m.void = true; m.aLegs = null; m.bLegs = null; m.winnerId = null; });
+  const entries = plan(t).boards[board].filter((e) => e.key === key);
+  assert.ok(!entries.some((e) => e.ri === 1), 'group final is not planned');
+  assert.ok(entries.some((e) => e.ri === 0 && e.mi === 1), 'the other semifinal still is');
+});

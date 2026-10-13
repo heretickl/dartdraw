@@ -63,3 +63,24 @@ test('building the board plan for 540 players in 64 groups is fast and stays sma
   assert.ok(size < 400000, 'plan is ' + size + ' bytes');
   f('stampDoneTimes')(t);                         // also fast on a big event
 });
+
+test('voiding matches across a 540-player, 64-group event stays fast and keeps the plan consistent', () => {
+  const t = makeTournament(app, 540, { pods: 64, boards: 32 }); useState(app, t);
+  t.format.anticipatedStartTime = '10:00';
+  app.persist = () => {}; app.render = () => {};
+  f('generatePods')(t, seededRng(9)); f('podsConfirmAll')(t);
+  const t0 = Date.now();
+  t.pods.slice(0, 20).forEach((p) => {
+    const m = p.bracket.rounds[0].find((x) => !x.bye);
+    f('podsApplyResult')(t, p, () => { m.void = true; m.aLegs = null; m.bLegs = null; m.winnerId = null; m.wo = false; });
+  });
+  const plan = f('buildBoardPlan')(t);
+  const took = Date.now() - t0;
+  assert.ok(took < 1500, 'took ' + took + ' ms');
+  const queued = [].concat(...Object.values(plan.boards));
+  t.pods.slice(0, 20).forEach((p) => {
+    const m = p.bracket.rounds[0].find((x) => x.void);
+    const mi = p.bracket.rounds[0].indexOf(m);
+    assert.ok(!queued.some((e) => e.key === 'pod:' + p.id && e.ri === 0 && e.mi === mi));
+  });
+});

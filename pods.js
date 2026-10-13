@@ -240,11 +240,14 @@ function generateFinalsFromPods(t){
 }
 
 function podChampion(pod){ return bracketChampion(pod.bracket) || null; }
-function podIsFinished(pod){ return !!podChampion(pod); }
+/* A group whose final was marked "neither showed" has no winner. */
+function podNoWinner(pod){ var last = pod.bracket.rounds[pod.bracket.rounds.length - 1][0]; return !!(last && last.void); }
+function podIsFinished(pod){ return !!podChampion(pod) || podNoWinner(pod); }
 /* True when the Finals match at (ri, mi), or any later match that depends on it, already has a score. */
 function podsFinalsFeedScored(fin, ri, mi){
   for(var r=ri, idx=mi; r<fin.rounds.length; r++, idx=Math.floor(idx/2)){
-    if(fin.rounds[r][idx].aLegs != null || fin.rounds[r][idx].bLegs != null) return true;
+    var m = fin.rounds[r][idx];
+    if(m.aLegs != null || m.bLegs != null) return true;
   }
   return false;
 }
@@ -269,14 +272,50 @@ function syncFinalsFromPods(t){
            (propagateByes only ever pushes winners forward). That match is unscored, or we would have returned above. */
         if(!winner && fin.rounds.length > 1){
           var nx = fin.rounds[1][Math.floor(mi/2)], ns = mi % 2 === 0 ? 'aEntryId' : 'bEntryId';
-          if(nx[ns]){ nx[ns] = null; nx.winnerId = null; nx.aLegs = null; nx.bLegs = null; nx.wo = false; nx.bye = false; }
+          if(nx[ns]){ nx[ns] = null; nx.winnerId = null; nx.aLegs = null; nx.bLegs = null; nx.wo = false; nx.bye = false; delete nx.void; }
         }
       }
       result.changed = true;
     });
   });
+  podsSettleDeadSlots(t, fin, result);
   if(result.changed) propagateByes(fin.rounds);
+  settleVoids(fin.rounds, true);
   return result;
+}
+/* A Finals first-round match fed by two groups: when a group finished with no winner its slot is dead, so the other
+   group's winner gets a bye (both dead: the match is void). When no slot is dead, any bye or void made that way is
+   cleared. A match fed by a single group keeps its seeded bye unless that group has no winner (then it is void). Refused
+   (reported in `blocked`) when a Finals match that depends on this one already has a score. */
+function podsSettleDeadSlots(t, fin, result){
+  fin.rounds[0].forEach(function(m, mi){
+    if(!m.aFromPod !== !m.bFromPod){   // a seeded bye fed by a single group: void when that group has no winner
+      var only = podsList(t).find(function(p){ return p.id === (m.aFromPod || m.bFromPod); });
+      if(only && podNoWinner(only)){
+        if(m.void) return;
+        if(podsFinalsFeedScored(fin, 0, mi)){ result.blocked.push(only.id); return; }
+        m.void = true; m.bye = false; m.winnerId = null; m.aLegs = null; m.bLegs = null; m.wo = false;
+        result.changed = true;
+      } else if(m.void){
+        if(podsFinalsFeedScored(fin, 0, mi)){ result.blocked.push(m.aFromPod || m.bFromPod); return; }
+        delete m.void; m.bye = true; m.winnerId = (only && only.winnerId) || null; m.aLegs = null; m.bLegs = null; m.wo = false;
+        result.changed = true;
+      }
+      return;
+    }
+    if(!m.aFromPod || !m.bFromPod) return;
+    var pa = podsList(t).find(function(p){ return p.id === m.aFromPod; }), pb = podsList(t).find(function(p){ return p.id === m.bFromPod; });
+    var da = !!pa && podNoWinner(pa), db = !!pb && podNoWinner(pb);
+    var wantBye = false, wantVoid = false, wantWinner = null;
+    if(da && db) wantVoid = true;
+    else if(da || db){ var other = da ? pb : pa; if(other && other.winnerId){ wantBye = true; wantWinner = other.winnerId; } }
+    else if(!(m.bye || (m.void && !m.aEntryId && !m.bEntryId))) return;   // nothing dead, and no bye or void made by a dead slot to clear
+    if(!!m.bye === wantBye && !!m.void === wantVoid && (m.winnerId || null) === wantWinner) return;
+    if((da || db || m.bye || m.void) && podsFinalsFeedScored(fin, 0, mi)){ result.blocked.push(da ? m.aFromPod : m.bFromPod); return; }
+    m.bye = wantBye; m.winnerId = wantWinner; m.aLegs = null; m.bLegs = null; m.wo = false;
+    if(wantVoid) m.void = true; else delete m.void;
+    result.changed = true;
+  });
 }
 /* Pushes each match's winner into the next round and, round by round, clears a next-round slot (and that match's
    result) whose feeder no longer has that winner, so correcting an early result cannot leave a stale later one.
@@ -287,9 +326,10 @@ function podsPropagate(rounds){
       var next = rounds[r+1][Math.floor(i/2)], slot = i % 2 === 0 ? 'aEntryId' : 'bEntryId', want = m.winnerId || null;
       if(next[slot] === want) return;
       next[slot] = want;
-      next.winnerId = null; next.aLegs = null; next.bLegs = null; next.wo = false; next.bye = false;
+      next.winnerId = null; next.aLegs = null; next.bLegs = null; next.wo = false; next.bye = false; delete next.void;
     });
   }
+  settleVoids(rounds, true);   // resolves matches fed by a void match
 }
 /* Applies an edit to a group's bracket (apply() mutates pod.bracket.rounds), then re-syncs the Finals. If the
    Finals refuses because a dependent Finals match is scored, the edit is undone. */
@@ -330,7 +370,10 @@ function podsUnconfirm(t, podId){
 /* Real matches in a group (byes excluded) and how many have a winner. */
 function podMatchCounts(pod){
   var done = 0, total = 0;
-  pod.bracket.rounds.forEach(function(r){ r.forEach(function(m){ if(m.bye) return; total++; if(m.winnerId) done++; }); });
+  pod.bracket.rounds.forEach(function(r){ r.forEach(function(m){
+    if(m.bye || (m.void && !m.aEntryId && !m.bEntryId)) return;     // not a real match: a bye, or a match made void by its feeders
+    total++; if(m.winnerId || m.void) done++;
+  }); });
   return { done:done, total:total };
 }
 function podsProgress(t){

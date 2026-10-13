@@ -9,7 +9,7 @@ function bpMatchOf(t, e){ var b = bpBracket(t, e.key); return b && b.rounds[e.ri
 function bpSlotName(t, m, side){
   var id = m[side+'EntryId'], from = m[side+'FromPod'];
   if(id) return (t.entriesList.find(function(e){ return e.id === id; }) || {}).name || 'Unknown';
-  if(from){ var p = podsList(t).find(function(x){ return x.id === from; }); return 'Winner of Group '+(p ? p.label : '?'); }
+  if(from){ var p = podsList(t).find(function(x){ return x.id === from; }); return p && podNoWinner(p) ? 'Group '+p.label+': no winner' : 'Winner of Group '+(p ? p.label : '?'); }
   return 'To be decided';
 }
 function bpWhere(t, e){
@@ -57,7 +57,7 @@ function bpFinalsBoardsHTML(t, plan){
   Object.keys(plan.boards).forEach(function(b){ plan.boards[b].forEach(function(e){ if(e.key === 'ko') auto[e.ri+'|'+e.mi] = b; }); });
   var rows = '';
   fin.rounds.forEach(function(round, ri){ round.forEach(function(m, mi){
-    if(m.bye) return;
+    if(m.bye || m.void) return;
     rows += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;font-size:12px"><span>'+
       escapeHtml(koRoundName(fin, ri))+' · '+escapeHtml(bpSlotName(t, m, 'a'))+' v '+escapeHtml(bpSlotName(t, m, 'b'))+'</span>'+
       '<span>Board <input type="text" inputmode="numeric" style="width:54px;height:26px;font-size:12px" value="'+escapeHtml(String(m.board || ''))+'" placeholder="'+escapeHtml(String(auto[ri+'|'+mi] || ''))+'" onchange="bpSetFinalsBoard('+ri+','+mi+',this.value)"></span></div>';
@@ -69,7 +69,7 @@ function bpToggleCall(bracketKey, ri, mi){
   var b = bracketByKey(state, bracketKey), m = b && b.rounds[ri] && b.rounds[ri][mi];
   if(!m) return;
   if(m.called){ delete m.called; delete m.calledAt; delete m.calledPair; }  // a call can always be cleared
-  else if(m.winnerId || m.bye || !m.aEntryId || !m.bEntryId) return;       // but only a playable match can be called
+  else if(m.winnerId || m.bye || m.void || !m.aEntryId || !m.bEntryId) return;       // but only a playable match can be called
   else { m.called = true; m.calledAt = Date.now(); m.calledPair = m.aEntryId + '|' + m.bEntryId; }
   persist(); render();
 }

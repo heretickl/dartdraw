@@ -81,7 +81,7 @@ For a first-round match it then applies the same rules as above:
 - one dead and the other's group has a winner: the match is a bye for that winner;
 - one dead and the other open: the match waits.
 
-A first-round Finals match whose two slots are both fed by groups is only a bye or void while a slot is dead. When no slot is dead, its `bye` and `void` are cleared, so reversing the void that made a group "no winner" restores the match. A match fed by a single group (a seeded bye) keeps its existing `bye`.
+A first-round Finals match whose two slots are both fed by groups is only a bye or void while a slot is dead. When no slot is dead, its `bye` and `void` are cleared, so reversing the void that made a group "no winner" restores the match. A first-round Finals match fed by a single group (a seeded bye) becomes void when that group finished with no winner, and returns to a bye if the group gets a winner again.
 
 Later Finals rounds are settled by `propagateByes` and `settleVoids` as in any bracket. The existing guard stays: if a slot's entry would change and the Finals match it feeds, or a later one that depends on it, already has a score, the sync reports it as blocked and `podsApplyResult` undoes the edit.
 
@@ -94,7 +94,7 @@ Later Finals rounds are settled by `propagateByes` and `settleVoids` as in any b
 - **Reversing.** Opening a void match's score dialog (`koMatchScoreModal`) shows "Neither player attended" and a **Reverse** button that clears the void through the same two paths. Entering a score in the dialog also clears it (the `apply` function deletes `m.void`). `koMatchScoreModal`'s early return for a match without both players is unchanged.
 - **Chart click.** A void match stays clickable on a chart that is interactive, so it can be reversed.
 - **Group progress.** `podMatchCounts` counts a void match as done, so a group with a void match can reach "finished". `podStatusText` says "No winner" for a finished group without one.
-- **Standings (Stage 6).** The group winners table shows "—" for a group with no winner. The Finals placings card says there is no champion when the final match is void.
+- **Standings (Stage 6).** The group winners table shows "No winner" for a group with no winner. The Finals placings card says there is no champion when the final match is void.
 - **No clock work.** A void match has no `doneAt` and no result time.
 
 ## Board plan
