@@ -17,6 +17,7 @@ function loadViewer() {
   };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'viewer', 'render.js'), 'utf8'), ctx, { filename: 'viewer/render.js' });
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'viewer', 'home.js'), 'utf8'), ctx, { filename: 'viewer/home.js' });
   scripts.forEach((s, i) => vm.runInContext(s, ctx, { filename: 'viewer/index.html#' + i }));
   return ctx;
 }
@@ -29,4 +30,13 @@ function setViewerState(ctx, view) {
 }
 const runViewer = (ctx, code) => vm.runInContext(code, ctx);
 
-module.exports = { loadViewer, setViewerState, runViewer };
+// Loads just the home page script (pure builders and state) into a bare context.
+function loadHome() {
+  const ctx = { console, Math, JSON, Date, Array, Object, String, Number, parseInt, parseFloat, isNaN, encodeURIComponent, decodeURIComponent,
+    setTimeout: () => 0, clearTimeout: () => {}, document: stubDocument, window: {}, location: { hash: '' }, localStorage: { getItem: () => null, setItem() {}, removeItem() {} } };
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'viewer', 'home.js'), 'utf8'), ctx, { filename: 'viewer/home.js' });
+  return ctx;
+}
+
+module.exports = { loadViewer, loadHome, setViewerState, runViewer };

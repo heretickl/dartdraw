@@ -1,0 +1,74 @@
+/* The public home page (viewer/home.js). Uses the viewer's theme tokens (theme.css) in dark and light. */
+:root{--hm-line:rgba(255,255,255,.22);--hm-top:#1a2a3e;--hm-bot:#0f1823;
+  --hm-sh:0 1px 0 rgba(255,255,255,.07) inset,0 8px 22px rgba(0,0,0,.55);--hm-sh-hover:0 1px 0 rgba(255,255,255,.1) inset,0 12px 28px rgba(0,0,0,.65)}
+:root[data-theme="light"]{--hm-line:rgba(13,27,42,.28);--hm-top:#ffffff;--hm-bot:#eef3f9;
+  --hm-sh:0 1px 0 #fff inset,0 2px 4px rgba(13,27,42,.08),0 8px 20px rgba(13,27,42,.12);--hm-sh-hover:0 1px 0 #fff inset,0 4px 8px rgba(13,27,42,.1),0 14px 28px rgba(13,27,42,.18)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--hm-line:rgba(13,27,42,.28);--hm-top:#ffffff;--hm-bot:#eef3f9;
+  --hm-sh:0 1px 0 #fff inset,0 2px 4px rgba(13,27,42,.08),0 8px 20px rgba(13,27,42,.12);--hm-sh-hover:0 1px 0 #fff inset,0 4px 8px rgba(13,27,42,.1),0 14px 28px rgba(13,27,42,.18)}}
+
+.hm{padding-bottom:40px}
+.hm-wrap{max-width:860px;margin:0 auto;padding:0 16px}
+/* sticky top: brand row, one smart search field, status tabs */
+.hm-top{padding:0;margin:0;position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#10233e 0%,#0a1624 100%);color:#f3f7fb;border-bottom:1px solid var(--line)}
+.hm-top .hm-wrap{padding-top:10px}
+.hm-row1{display:flex;align-items:center;justify-content:space-between;gap:12px;height:44px}
+.hm-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.hm-mark{width:31px;height:31px;border:3px solid #d9ad45;border-radius:50%;display:grid;place-items:center;font:800 15px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;color:#d9ad45;flex:0 0 auto}
+.hm-brand b{font:800 20px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;letter-spacing:.3px}
+.hm-brand i{font-style:normal;font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.2em;color:#8fa1b6;text-transform:uppercase;margin-left:2px}
+.hm-ibtn{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#dbe5f1;font-size:17px;cursor:pointer;display:grid;place-items:center}
+.hm-ibtn:focus-visible,.hm-seg button:focus-visible,.hm-ev:focus-visible,.hm-find input:focus-visible,.hm-open:focus-visible,.hm-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.hm-find{position:relative;margin:12px 0 0;display:block}
+.hm-find svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;opacity:.7}
+.hm-find input{width:100%;height:46px;font:inherit;font-size:16px;padding:0 14px 0 42px;border:1px solid rgba(255,255,255,.26);border-radius:14px;background:rgba(255,255,255,.08);color:#f3f7fb;outline:none}
+.hm-find input::placeholder{color:#9fb0c4}
+.hm-open{display:flex;margin:8px 0 0;padding:11px 14px;border-radius:12px;background:var(--gold);color:#251a00;font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.06em;text-transform:uppercase;align-items:center;justify-content:space-between;text-decoration:none}
+.hm-seg{display:flex;gap:4px;margin-top:10px}
+.hm-seg button{flex:1;min-height:46px;border:0;border-bottom:3px solid transparent;background:none;color:#9fb0c4;font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}
+.hm-seg button .hm-c{font-size:13px;min-width:22px;padding:1px 6px;border-radius:99px;background:rgba(255,255,255,.12);color:#dbe5f1}
+.hm-seg button[aria-selected="true"]{color:#fff;border-bottom-color:var(--blue)}
+.hm-dot{width:8px;height:8px;border-radius:50%;background:#ff4b57;animation:hm-pulse 1.6s ease-in-out infinite}
+@keyframes hm-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.hm-dot{animation:none}}
+/* list */
+/* theme.css styles the bare header and main elements (padding:16px); the home page keeps its own spacing */
+.hm-body{padding:0;margin:0}
+.hm-body .hm-wrap{padding-top:6px}
+.hm-upd{display:flex;align-items:center;gap:8px;margin:14px 2px 0;font-size:13px;color:var(--muted)}
+.hm-upd i{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.hm-upd.hm-bad i{background:var(--gold)}
+.hm-group{margin-top:22px}
+.hm-group h2{margin:0 2px 8px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.hm-group h2 span{font-weight:500;letter-spacing:.08em}
+.hm-list{display:grid;gap:12px}
+.hm-ev{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:14px 16px 14px 14px;min-height:76px;text-decoration:none;color:inherit;position:relative;
+  background:linear-gradient(180deg,var(--hm-top),var(--hm-bot));border:1.5px solid var(--hm-line);border-radius:16px;box-shadow:var(--hm-sh);transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease}
+.hm-ev:hover{transform:translateY(-2px);box-shadow:var(--hm-sh-hover);border-color:var(--blue)}
+.hm-ev:active{transform:translateY(0)}
+@media (prefers-reduced-motion:reduce){.hm-ev{transition:none}.hm-ev:hover{transform:none}}
+.hm-ev.hm-live{border-color:rgba(224,34,47,.55)}
+.hm-ev.hm-live::before{content:"";position:absolute;left:-1.5px;top:14px;bottom:14px;width:5px;border-radius:0 5px 5px 0;background:var(--live)}
+.hm-lead{width:52px;display:grid;place-items:center}
+.hm-tile{width:52px;border:1px solid var(--line-strong);border-radius:12px;text-align:center;padding:5px 0 6px;font-family:var(--display);line-height:1}
+.hm-tile s{display:block;text-decoration:none;font-size:11px;font-weight:600;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.hm-tile b{display:block;font-size:24px;font-weight:700;margin:2px 0}
+.hm-tba b{font-size:15px;margin:11px 0;letter-spacing:.08em;color:var(--muted)}
+.hm-ring{--p:0;width:48px;height:48px;border-radius:50%;background:conic-gradient(var(--blue) calc(var(--p)*1%),var(--line) 0);display:grid;place-items:center}
+.hm-ring span{width:38px;height:38px;border-radius:50%;background:var(--hm-bot);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:14px}
+.hm-livedot{width:14px;height:14px;border-radius:50%;background:var(--live)}
+.hm-trophy{width:48px;height:48px;border-radius:50%;background:var(--green-tint);display:grid;place-items:center;font-size:21px}
+.hm-name{font-family:var(--display);font-weight:700;font-size:21px;letter-spacing:.03em;text-transform:uppercase;line-height:1.1;overflow-wrap:anywhere}
+.hm-sub{margin-top:5px;font-size:14px;color:var(--muted);display:flex;gap:4px 10px;flex-wrap:wrap;align-items:center}
+.hm-sub b{color:var(--ink);font-weight:600}
+.hm-fmt{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line-strong);border-radius:99px;padding:0 8px}
+.hm-chev{color:var(--on-blue);font-size:24px;line-height:1}
+.hm-none{padding:26px 8px 0;text-align:center;color:var(--muted)}
+.hm-btn{display:inline-block;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;min-height:44px;padding:10px 18px;border:1px solid var(--blue);border-radius:99px;background:var(--blue-tint);color:var(--on-blue);cursor:pointer;text-decoration:none}
+.hm-foot{text-align:center;color:var(--muted);font-size:13px;padding:30px 16px 10px;line-height:1.7}
+@media (min-width:860px){
+  .hm-row1{height:46px}
+  .hm-brand b{font-size:22px}
+  .hm-ev{padding:16px 20px 16px 16px;min-height:80px}
+  .hm-name{font-size:23px}
+  .hm-sub{font-size:15px}
+}

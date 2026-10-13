@@ -1,0 +1,163 @@
+// Pure logic for the public event list: which events are live, upcoming or finished, and the small allow-listed
+// summary of each. No database, no DOM. The endpoint (api/events.js) feeds it rows of the public_tournaments view.
+// Only the fields copied in describe() ever leave this file; anything added to a tournament later stays private.
+
+const cfg = require('./listConfig');
+const { SLUG_RE } = require('./publicView');
+
+const DAY = 86400000, HOUR = 3600000;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/, TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const FORMATS = ['roundrobin', 'knockout', 'rrknockout', 'podknockout'];
+const UNITS = ['Singles', 'Doubles', 'Triples', 'Teams'];
+
+const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
+
+// ---- brackets ----
+function roundsOf(b) { return b && Array.isArray(b.rounds) ? b.rounds.filter(Array.isArray) : []; }
+const isReal = (m) => !!m && !m.bye && !m.void;
+function champion(b) {
+  const r = roundsOf(b);
+  if (!r.length) return null;
+  const last = r[r.length - 1], m = last[0];
+  return last.length === 1 && m && m.winnerId && !m.void ? m.winnerId : null;
+}
+function voidFinal(b) {
+  const r = roundsOf(b);
+  if (!r.length) return false;
+  const m = r[r.length - 1][0];
+  return !!(m && m.void);
+}
+const finished = (b) => !!(champion(b) || voidFinal(b));
+const started = (b) => roundsOf(b).some((round) => round.some((m) => m && ((m.winnerId && !m.bye) || m.void)));
+function counts(b) {
+  let done = 0, total = 0;
+  roundsOf(b).forEach((round) => round.forEach((m) => { if (isReal(m)) { total++; if (m.winnerId) done++; } }));
+  return { done, total };
+}
+function roundName(b, idx) {
+  const r = roundsOf(b), fromEnd = r.length - idx;
+  if (fromEnd === 1) return 'Final';
+  if (fromEnd === 2) return 'Semifinals';
+  if (fromEnd === 3) return 'Quarterfinals';
+  return 'Round of ' + r[idx].length * 2;
+}
+// The first round that still has a real match to play, with how many of that round's real matches are done.
+function currentRound(b) {
+  const r = roundsOf(b);
+  for (let i = 0; i < r.length; i++) {
+    const real = r[i].filter(isReal);
+    if (real.some((m) => !m.winnerId)) return { name: roundName(b, i), done: real.filter((m) => m.winnerId).length, total: real.length };
+  }
+  return null;
+}
+
+// ---- round-robin groups ----
+const pairKey = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
+function groupCounts(g) {
+  const ids = Array.isArray(g.entryIds) ? g.entryIds : [];
+  const sc = g.scores && typeof g.scores === 'object' ? g.scores : {};
+  let total = 0, done = 0;
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+    total++;
+    const s = sc[pairKey(ids[i], ids[j])];
+    if (s && typeof s === 'object') done++;
+  }
+  return { done, total };
+}
+
+// What the event looks like: its format, whether play has started or finished, and the champion if there is one.
+function analyse(d) {
+  const type = d.format && d.format.formatType;
+  const groups = (d.groups || []).filter((g) => g && g.confirmed).map(groupCounts);
+  const groupsDone = groups.some((c) => c.total > 0) && groups.every((c) => c.done === c.total);
+  const groupsStarted = groups.some((c) => c.done > 0);
+  const pods = (d.pods || []).filter((p) => p && p.confirmed && p.bracket);
+  const fin = d.knockout && d.knockout.podFinals ? d.knockout : null;
+  const main = d.knockout || null;
+  const out = { type, started: false, finished: false, winnerId: null, groups, groupsDone, pods, fin, main };
+  if (type === 'roundrobin') { out.started = groupsStarted; out.finished = groupsDone; }
+  else if (type === 'knockout') { out.started = started(main); out.finished = finished(main); out.winnerId = champion(main); }
+  else if (type === 'rrknockout') { out.started = groupsStarted || started(main); out.finished = finished(main); out.winnerId = champion(main); }
+  else if (type === 'podknockout') { out.started = pods.some((p) => started(p.bracket)) || started(fin); out.finished = finished(fin); out.winnerId = champion(fin); }
+  return out;
+}
+
+// The matches of the stage the event is in, so the ring never drops because a later stage is generated.
+function progressOf(d, a) {
+  a = a || analyse(d);
+  const sum = (list) => list.reduce((s, c) => ({ done: s.done + c.done, total: s.total + c.total }), { done: 0, total: 0 });
+  const group = (c) => (c.total > 0 ? { stage: 'Group stage', done: c.done, total: c.total } : null);
+  const ko = (b, prefix) => { const c = currentRound(b); return c ? { stage: (prefix || '') + c.name, done: c.done, total: c.total } : null; };
+  if (a.type === 'roundrobin') return group(sum(a.groups));
+  if (a.type === 'knockout') return ko(a.main);
+  if (a.type === 'rrknockout') return a.groupsDone && a.main ? (ko(a.main) || group(sum(a.groups))) : group(sum(a.groups));
+  if (a.type === 'podknockout') {
+    const podsDone = a.pods.length > 0 && a.pods.every((p) => finished(p.bracket));
+    if (a.fin && (podsDone || started(a.fin))) return ko(a.fin, 'Finals · ');
+    return group(sum(a.pods.map((p) => counts(p.bracket))));
+  }
+  return null;
+}
+
+// One row of the public_tournaments view -> { status, item }. status is 'live', 'upcoming', 'results' or null (not listed now).
+function describe(row, now) {
+  const none = { status: null, item: null };
+  const d = row && row.data;
+  if (!d || typeof d !== 'object' || typeof row.slug !== 'string' || !SLUG_RE.test(row.slug)) return none;
+  if (String(d.listed) !== 'true') return none;
+  const a = analyse(d);
+  if (FORMATS.indexOf(a.type) === -1) return none;
+  const updated = new Date(row.updated_at).getTime();
+  if (!isFinite(updated)) return none;
+  const ec = d.eventCreation || {}, fmt = d.format || {};
+  const date = typeof ec.date === 'string' && DATE_RE.test(ec.date) ? ec.date : '';
+  const age = now - updated;
+  let status = null;
+  if (a.finished) { if (age <= cfg.RESULTS_DAYS * DAY) status = 'results'; }
+  else if (a.started) { if (age <= cfg.LIVE_STALE_HOURS * HOUR) status = 'live'; }
+  else if (date) { if (date >= isoDay(now - cfg.UPCOMING_GRACE_DAYS * DAY)) status = 'upcoming'; }
+  else if (age <= cfg.QUERY_DAYS * DAY) status = 'upcoming';
+  if (!status) return none;
+  const event = clean(ec.eventName, 120), tournament = clean(ec.tournamentName, 120);
+  const item = {
+    slug: row.slug,
+    event: event || tournament || 'Untitled event',
+    tournament,
+    date,
+    start: typeof fmt.anticipatedStartTime === 'string' && TIME_RE.test(fmt.anticipatedStartTime) ? fmt.anticipatedStartTime : '',
+    format: a.type,
+    unit: UNITS.indexOf(ec.competitionUnit) !== -1 ? ec.competitionUnit : 'Singles',
+    entries: (d.entriesList || []).filter((e) => e && !e.withdrawn).length,
+    updatedAt: new Date(updated).toISOString(),
+  };
+  if (status === 'results') {
+    const w = a.winnerId ? (d.entriesList || []).find((e) => e && e.id === a.winnerId) : null;
+    item.winner = w ? clean(w.name, 120) : '';
+  }
+  if (status === 'live') {
+    const p = progressOf(d, a);
+    if (p) item.progress = p;
+  }
+  return { status, item };
+}
+
+function buildList(rows, now) {
+  const out = { live: [], upcoming: [], results: [] };
+  (rows || []).forEach((row) => {
+    let r;
+    try { r = describe(row, now); } catch (e) { return; }      // one malformed row must not break the list (and its data is never logged)
+    if (r.status) out[r.status].push(r.item);
+  });
+  const newest = (x, y) => (x.updatedAt < y.updatedAt ? 1 : x.updatedAt > y.updatedAt ? -1 : 0);
+  out.live.sort(newest); out.results.sort(newest);
+  out.upcoming.sort((x, y) => (x.date || '9999').localeCompare(y.date || '9999') || (x.start || '99:99').localeCompare(y.start || '99:99') || x.event.localeCompare(y.event));
+  return {
+    generatedAt: new Date(now).toISOString(),
+    live: out.live.slice(0, cfg.MAX_PER_LIST),
+    upcoming: out.upcoming.slice(0, cfg.MAX_PER_LIST),
+    results: out.results.slice(0, cfg.MAX_PER_LIST),
+  };
+}
+
+module.exports = { analyse, progressOf, describe, buildList, roundsOf, counts, currentRound, finished, started };

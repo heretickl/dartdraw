@@ -12,6 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/render.css">
 <link rel="stylesheet" href="/theme.css">
+<link rel="stylesheet" href="/home.css">
 </head>
 <body>
 <header id="head" hidden>
@@ -38,6 +39,7 @@
 <footer>Results update automatically · Powered by DartDraw</footer>
 
 <script src="/render.js"></script>
+<script src="/home.js"></script>
 <script>
 /* Read-only results viewer. Fetches the sanitized public copy of one
    tournament and draws it with the same standings / bracket code the
@@ -749,9 +751,9 @@ window.addEventListener('resize', function(){
   applyBracketFit();
 });
 
-function showMessage(title, text){
+function showMessage(title, text, extraHTML){
   el('head').hidden = true; el('nav').hidden = true; el('finderWrap').hidden = true;
-  el('app').innerHTML = '<div class="msg"><h1>'+title+'</h1><p class="empty">'+text+'</p></div>';
+  el('app').innerHTML = '<div class="msg"><h1>'+title+'</h1><p class="empty">'+text+'</p>'+(extraHTML || '')+'</div>';
 }
 function setStatus(){
   var stale = lastOkAt && (Date.now() - lastOkAt) > POLL_MS*3;
@@ -761,13 +763,16 @@ function setStatus(){
 }
 
 async function load(){
-  if(!SLUG){ showMessage('No results link', 'Open the link the organiser shared with you.'); return false; }
+  if(!SLUG){                                              // the bare address: the home page (home.js), or the plain message if that script did not load
+    if(typeof showHome === 'function') showHome(); else showMessage('No results link', 'Open the link the organiser shared with you.');
+    return false;
+  }
   try{
     var res = await fetch('/api/public/'+encodeURIComponent(SLUG), {cache:'no-store'});
     if(res.status===404){
       // Keep polling: the organiser may republish, and the page should come back on its own.
       state = null; lastUpdatedAt = null;
-      showMessage('Results not available', 'This link isn\'t valid, or the organiser has taken the results offline.');
+      showMessage('Results not available', 'This link isn\'t valid, or the organiser has taken the results offline.', typeof hmHomeLinkHTML === 'function' ? hmHomeLinkHTML() : '');
       return true;
     }
     if(!res.ok) throw new Error('HTTP '+res.status);
