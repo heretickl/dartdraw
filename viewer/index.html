@@ -755,11 +755,32 @@ function showMessage(title, text, extraHTML){
   el('head').hidden = true; el('nav').hidden = true; el('finderWrap').hidden = true;
   el('app').innerHTML = '<div class="msg"><h1>'+title+'</h1><p class="empty">'+text+'</p>'+(extraHTML || '')+'</div>';
 }
+/* Has any match been played? A group score, or a bracket match with a winner (a bye does not count) or marked void.
+   Until then the header says "Starting soon" rather than "Live". */
+function bracketStarted(b){
+  var rounds = b && Array.isArray(b.rounds) ? b.rounds : [];
+  return rounds.some(function(r){
+    return Array.isArray(r) && r.some(function(m){ return !!m && ((m.winnerId && !m.bye) || m.void); });
+  });
+}
+function eventStarted(s){
+  if(!s) return false;
+  var groups = Array.isArray(s.groups) ? s.groups : [], pods = Array.isArray(s.pods) ? s.pods : [];
+  if(groups.some(function(g){
+    var sc = g && g.scores && typeof g.scores === 'object' ? g.scores : {};
+    return Object.keys(sc).some(function(k){ return sc[k] && typeof sc[k] === 'object'; });
+  })) return true;
+  return bracketStarted(s.knockout) || bracketStarted(s.knockoutLosers) || pods.some(function(p){ return !!p && bracketStarted(p.bracket); });
+}
+function statusPillHTML(started, stale, lastOkAt){
+  if(stale) return '<span class="live-pill off">Offline</span> Reconnecting…';
+  var upd = ' Updated ' + (lastOkAt ? clockLabel(lastOkAt) : '');
+  return started ? '<span class="live-pill"><i></i>Live</span>' + upd : '<span class="live-pill soon">Starting soon</span>' + upd;
+}
 function setStatus(){
   var stale = lastOkAt && (Date.now() - lastOkAt) > POLL_MS*3;
-  el('hStatus').innerHTML = stale
-    ? '<span class="live-pill off">Offline</span> Reconnecting…'
-    : '<span class="live-pill"><i></i>Live</span> Updated ' + (lastOkAt ? clockLabel(lastOkAt) : '');
+  var started = state ? eventStarted(state) : false;
+  el('hStatus').innerHTML = statusPillHTML(started, stale, lastOkAt);
 }
 
 async function load(){

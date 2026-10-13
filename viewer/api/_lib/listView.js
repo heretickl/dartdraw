@@ -84,20 +84,81 @@ function analyse(d) {
 }
 
 // The matches of the stage the event is in, so the ring never drops because a later stage is generated.
+// Between two stages (every group played, the next stage not built yet) the same counts carry a fixed `next` string.
 function progressOf(d, a) {
   a = a || analyse(d);
   const sum = (list) => list.reduce((s, c) => ({ done: s.done + c.done, total: s.total + c.total }), { done: 0, total: 0 });
   const group = (c) => (c.total > 0 ? { stage: 'Group stage', done: c.done, total: c.total } : null);
+  const between = (p, next) => (p ? { stage: p.stage, done: p.done, total: p.total, next } : null);
   const ko = (b, prefix) => { const c = currentRound(b); return c ? { stage: (prefix || '') + c.name, done: c.done, total: c.total } : null; };
   if (a.type === 'roundrobin') return group(sum(a.groups));
   if (a.type === 'knockout') return ko(a.main);
-  if (a.type === 'rrknockout') return a.groupsDone && a.main ? (ko(a.main) || group(sum(a.groups))) : group(sum(a.groups));
+  if (a.type === 'rrknockout') {
+    if (a.groupsDone && !a.main) return between(group(sum(a.groups)), 'Knockout draw next');
+    return a.groupsDone && a.main ? (ko(a.main) || group(sum(a.groups))) : group(sum(a.groups));
+  }
   if (a.type === 'podknockout') {
     const podsDone = a.pods.length > 0 && a.pods.every((p) => finished(p.bracket));
     if (a.fin && (podsDone || started(a.fin))) return ko(a.fin, 'Finals · ');
-    return group(sum(a.pods.map((p) => counts(p.bracket))));
+    const g = group(sum(a.pods.map((p) => counts(p.bracket))));
+    return podsDone && !a.fin ? between(g, 'Finals next') : g;
   }
   return null;
+}
+
+// ---- stages: one small status object per stage of the event, for the subcards on the home page ----
+// Every value is a fixed enum string or an integer computed from counts; nothing is copied from tournament text.
+// key: groups | knockout | finals. state: groups -> notstarted | live | done; knockout/finals -> waiting | next | ready | live | done.
+// done/total: matches played / all matches (the current round while a knockout is live). groups: confirmed groups (groups stage only).
+// round: the current round's name (live knockout/finals only). advance: entries that go through (rrknockout, before the draw only).
+function stagesOf(d, a, status) {   // status is the event's overall status; the stages themselves do not depend on it
+  d = d && typeof d === 'object' ? d : {};
+  a = a || analyse(d);
+  const int = (n) => (Number.isFinite(n) && n > 0 ? Math.floor(n) : 0);
+  const sum = (list) => list.reduce((s, c) => ({ done: s.done + int(c.done), total: s.total + int(c.total) }), { done: 0, total: 0 });
+  const groupsStage = (state, c, n) => ({ key: 'groups', state, done: c.done, total: c.total, groups: n });
+  const hasBracket = (b) => roundsOf(b).length > 0;
+  // A knockout (or the Finals) from its own bracket. With no result: `ready` (drawn, nothing played).
+  const koStage = (key, b) => {
+    if (finished(b)) { const c = counts(b); return { key, state: 'done', done: c.total, total: c.total }; }
+    if (started(b)) {
+      const cr = currentRound(b), c = cr || counts(b), s = { key, state: 'live', done: int(c.done), total: int(c.total) };
+      if (cr) s.round = cr.name;
+      return s;
+    }
+    return { key, state: 'ready', done: 0, total: 0 };
+  };
+  const idle = (key, state) => ({ key, state, done: 0, total: 0 });
+  if (a.type === 'roundrobin' || a.type === 'rrknockout') {
+    const c = sum(a.groups), n = a.groups.length;
+    const g = groupsStage(a.groupsDone ? 'done' : a.groups.some((x) => x.done > 0) ? 'live' : 'notstarted', c, n);
+    if (a.type === 'roundrobin') return [g];
+    let k;
+    if (hasBracket(a.main)) k = koStage('knockout', a.main);
+    else {
+      k = idle('knockout', a.groupsDone ? 'next' : 'waiting');
+      const per = Math.max(1, parseInt((d.format || {}).qualifiersPerGroup, 10) || 2);
+      const advance = (Array.isArray(d.groups) ? d.groups : []).filter((x) => x && x.confirmed)
+        .reduce((s, x) => s + Math.min(Array.isArray(x.entryIds) ? x.entryIds.length : 0, per), 0);
+      if (advance > 0) k.advance = advance;
+    }
+    if (k.state === 'live' || k.state === 'done') g.state = 'done';   // a knockout with results means the groups are over, whatever a missing score says (the counts stay honest)
+    return [g, k];
+  }
+  if (a.type === 'knockout') return [hasBracket(a.main) ? koStage('knockout', a.main) : idle('knockout', 'next')];
+  if (a.type === 'podknockout') {
+    const podsDone = a.pods.length > 0 && a.pods.every((p) => finished(p.bracket));
+    const c = sum(a.pods.map((p) => counts(p.bracket)));
+    const g = groupsStage(podsDone ? 'done' : a.pods.some((p) => started(p.bracket)) ? 'live' : 'notstarted', c, a.pods.length);
+    let f;
+    // Only a real Finals result makes it live. A void in the skeleton (a group whose final was voided) is not a result: it appears while other groups are still playing.
+    const finResult = roundsOf(a.fin).some((r) => r.some((m) => m && m.winnerId && !m.bye));
+    if (finished(a.fin) || finResult) f = koStage('finals', a.fin);
+    else f = idle('finals', podsDone ? 'next' : 'waiting');
+    if (f.state === 'live' || f.state === 'done') g.state = 'done';   // same for the Finals: the groups are over once it has results
+    return [g, f];
+  }
+  return [];
 }
 
 // One row of the public_tournaments view -> { status, item }. status is 'live', 'upcoming', 'results' or null (not listed now).
@@ -130,6 +191,7 @@ function describe(row, now) {
     unit: UNITS.indexOf(ec.competitionUnit) !== -1 ? ec.competitionUnit : 'Singles',
     entries: (d.entriesList || []).filter((e) => e && !e.withdrawn).length,
     updatedAt: new Date(updated).toISOString(),
+    stages: stagesOf(d, a, status),
   };
   if (status === 'results') {
     const w = a.winnerId ? (d.entriesList || []).find((e) => e && e.id === a.winnerId) : null;
@@ -160,4 +222,4 @@ function buildList(rows, now) {
   };
 }
 
-module.exports = { analyse, progressOf, describe, buildList, roundsOf, counts, currentRound, finished, started };
+module.exports = { analyse, progressOf, stagesOf, describe, buildList, roundsOf, counts, currentRound, finished, started };

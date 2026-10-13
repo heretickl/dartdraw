@@ -108,17 +108,93 @@ function hmTile(date){
 }
 
 /* ---- cards and lists ---- */
+/* ---- stage subcards: one subcard per stage inside the one event card (the server sends it.stages) ---- */
+var HM_STAGE_STATES = { groups:['notstarted', 'live', 'done'], knockout:['waiting', 'next', 'ready', 'live', 'done'], finals:['waiting', 'next', 'ready', 'live', 'done'] };
+function hmInt(n){ n = n | 0; return n > 0 ? n : 0; }
+function hmRingHTML(d, t){
+  var pct = t > 0 ? Math.max(0, Math.min(99, Math.floor(100 * d / t))) : 0;   // the ring never shows 100%
+  return '<div class="hm-ring" style="--p:' + pct + '" role="img" aria-label="' + pct + ' percent played"><span>' + pct + '%</span></div>';
+}
+function hmPipHTML(kind, inner){
+  return '<div class="hm-pip' + (kind ? ' ' + kind : '') + '"' + (kind ? ' aria-hidden="true"' : '') + '>' + inner + '</div>';
+}
+function hmStageLabel(it, key){
+  return key === 'knockout' ? 'Knockout' : key === 'finals' ? 'Finals' : (it.format === 'podknockout' ? 'Groups' : 'Round robin');
+}
+function hmAdvanceText(it, n){
+  var w = hmHas(HM_NOUN, it.unit) ? HM_NOUN[it.unit] : ['entry', 'entries'];
+  return n + ' ' + (n === 1 ? w[0] + ' advances' : w[1] + ' advance');
+}
+/* One subcard. idx/count place it among the stages (the stage number on a waiting pip; a single stage has no number). */
+function hmStageHTML(kind, it, s, idx, count){
+  var st = s.state, isGroups = s.key === 'groups';
+  var d = hmInt(s.done), t = hmInt(s.total), n = hmInt(s.groups);
+  var num = count > 1 ? String(idx + 1) : '';
+  var nGroups = n > 0 ? n + (n === 1 ? ' group' : ' groups') : '';
+  var cls = '', lead, v, sub = '';
+  var winner = kind === 'results' && typeof it.winner === 'string' && it.winner && idx === count - 1 && !isGroups;
+  if(st === 'live'){
+    cls = ' is-live'; lead = hmRingHTML(d, t);
+    if(isGroups){ v = 'In progress'; sub = d + ' of ' + t + ' matches' + (nGroups ? ' \u00B7 ' + nGroups : ''); }
+    else { v = typeof s.round === 'string' && s.round ? s.round : 'In progress'; sub = d + ' of ' + t + ' matches played'; }
+  } else if(st === 'done'){
+    cls = ' is-done';
+    var played = t > 0 ? (isGroups ? d : t) + ' of ' + t + ' matches' : '';   // no matches at all (a bracket of one): say nothing about them
+    if(winner){ lead = hmPipHTML('trophy', '\uD83C\uDFC6'); v = 'Winner ' + it.winner; sub = played ? 'Complete \u00B7 ' + played : 'Complete'; }
+    else { lead = hmPipHTML('done', '\u2713'); v = 'Complete'; sub = [played, isGroups ? nGroups : ''].filter(Boolean).join(' \u00B7 '); }
+  } else if(st === 'next'){
+    lead = hmPipHTML('draw', '\u2026'); v = s.key === 'finals' ? 'Up next' : 'Draw next';
+    var adv = hmInt(s.advance); sub = adv > 0 ? hmAdvanceText(it, adv) : '';
+  } else if(st === 'ready'){
+    cls = ''; lead = hmPipHTML(num ? '' : 'dot', num); v = 'Draw made'; sub = 'Not started yet';
+  } else if(st === 'waiting'){
+    cls = ' is-wait'; lead = hmPipHTML(num ? '' : 'dot', num); v = 'Waiting for groups'; sub = 'Starts when every group is done';
+  } else {   // groups, notstarted
+    cls = ' is-wait'; lead = hmPipHTML(num ? '' : 'dot', num); v = 'Not started'; sub = nGroups;
+  }
+  return '<div class="hm-stage' + cls + '"><div class="hm-lead">' + lead + '</div><div><div class="k">' + hmEsc(hmStageLabel(it, s.key)) + '</div>' +
+    '<div class="v">' + hmEsc(v) + '</div><div class="s">' + hmEsc(sub) + '</div></div></div>';
+}
+/* The stages the page knows how to show (the rest are skipped); an empty result means the old single card is used. */
+function hmKnownStages(it){
+  var out = [];
+  if(!Array.isArray(it.stages)) return out;
+  it.stages.forEach(function(s){
+    if(s && typeof s === 'object' && hmHas(HM_STAGE_STATES, s.key) && HM_STAGE_STATES[s.key].indexOf(s.state) !== -1) out.push(s);
+  });
+  return out;
+}
+function hmMultiCardHTML(kind, it, stages){
+  var href = '/live/' + encodeURIComponent(it.slug);
+  var fmt = hmFormatLabel(it.format), tag = fmt ? '<span class="hm-fmt">' + hmEsc(fmt) + '</span>' : '';
+  var ent = hmEntriesHTML(it), entHTML = ent ? '<span>' + ent + '</span>' : '';
+  var time = kind === 'upcoming' ? hmTimeLabel(it.start) : '';
+  return '<a class="hm-ev hm-multi' + (kind === 'live' ? ' hm-live' : '') + '" href="' + hmEsc(href) + '"><div class="hm-head">' +
+    (kind === 'upcoming' ? '<div class="hm-lead">' + hmTile(it.date) + '</div>' : '') +
+    '<div class="hm-main"><div class="hm-name">' + hmEsc(it.event) + '</div><div class="hm-sub">' + (time ? '<b>' + hmEsc(time) + '</b>' : '') + tag + entHTML + '</div></div>' +
+    '<span class="hm-chev" aria-hidden="true">\u203A</span></div>' +
+    '<div class="hm-stages">' + stages.map(function(s, i){ return hmStageHTML(kind, it, s, i, stages.length); }).join('') + '</div></a>';
+}
+
 function hmCardHTML(kind, it){
+  var stages = hmKnownStages(it);
+  if(stages.length) return hmMultiCardHTML(kind, it, stages);   // otherwise (an older server) the single card below
   var href = '/live/' + encodeURIComponent(it.slug);
   var fmt = hmFormatLabel(it.format), tag = fmt ? '<span class="hm-fmt">' + hmEsc(fmt) + '</span>' : '';
   var ent = hmEntriesHTML(it), entHTML = ent ? '<span>' + ent + '</span>' : '';
   var lead = '', lines = '';
   if(kind === 'live'){
     var p = it.progress, pct = p && p.total > 0 ? Math.min(99, Math.floor(100 * p.done / p.total)) : null;
-    lead = pct == null ? '<div class="hm-livedot" aria-hidden="true"></div>'
-      : '<div class="hm-ring" style="--p:' + pct + '" role="img" aria-label="' + pct + ' percent played"><span>' + pct + '%</span></div>';
-    lines = '<div class="hm-sub">' + tag + entHTML + '</div>' +
-      (p ? '<div class="hm-sub">' + hmEsc(p.stage) + ' \u00B7 ' + (p.done | 0) + ' of ' + (p.total | 0) + ' matches played</div>' : '');
+    var next = p && typeof p.next === 'string' ? p.next : '';   // between two stages: the stage is done and this says what comes next
+    if(next){
+      lead = '<div class="hm-ring" style="--p:100" role="img" aria-label="stage complete"><span class="hm-tick">\u2713</span></div>';
+      lines = '<div class="hm-sub">' + tag + entHTML + '</div>' + '<div class="hm-sub">' + hmEsc(p.stage) + ' complete \u00B7 ' + hmEsc(next) + '</div>';
+    } else {
+      lead = pct == null ? '<div class="hm-livedot" aria-hidden="true"></div>'
+        : '<div class="hm-ring" style="--p:' + pct + '" role="img" aria-label="' + pct + ' percent played"><span>' + pct + '%</span></div>';
+      lines = '<div class="hm-sub">' + tag + entHTML + '</div>' +
+        (p ? '<div class="hm-sub">' + hmEsc(p.stage) + ' \u00B7 ' + (p.done | 0) + ' of ' + (p.total | 0) + ' matches played</div>' : '');
+    }
   } else if(kind === 'upcoming'){
     var time = hmTimeLabel(it.start);
     lead = hmTile(it.date);

@@ -55,6 +55,7 @@
 .hm-tba b{font-size:15px;margin:11px 0;letter-spacing:.08em;color:var(--muted)}
 .hm-ring{--p:0;width:48px;height:48px;border-radius:50%;background:conic-gradient(var(--blue) calc(var(--p)*1%),var(--line) 0);display:grid;place-items:center}
 .hm-ring span{width:38px;height:38px;border-radius:50%;background:var(--hm-bot);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:14px}
+.hm-ring span.hm-tick{color:var(--green);font-size:20px}
 .hm-livedot{width:14px;height:14px;border-radius:50%;background:var(--live)}
 .hm-trophy{width:48px;height:48px;border-radius:50%;background:var(--green-tint);display:grid;place-items:center;font-size:21px}
 .hm-name{font-family:var(--display);font-weight:700;font-size:21px;letter-spacing:.03em;text-transform:uppercase;line-height:1.1;overflow-wrap:anywhere}
@@ -65,6 +66,30 @@
 .hm-none{padding:26px 8px 0;text-align:center;color:var(--muted)}
 .hm-btn{display:inline-block;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;min-height:44px;padding:10px 18px;border:1px solid var(--blue);border-radius:99px;background:var(--blue-tint);color:var(--on-blue);cursor:pointer;text-decoration:none}
 .hm-foot{text-align:center;color:var(--muted);font-size:13px;padding:30px 16px 10px;line-height:1.7}
+/* one subcard per stage inside the event card (round robin, knockout, groups, finals) */
+.hm-ev.hm-multi{display:block;padding:14px}
+.hm-ev.hm-multi .hm-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.hm-ev.hm-multi .hm-head>.hm-lead{flex:none}
+.hm-ev.hm-multi .hm-main{flex:1;min-width:0}
+.hm-ev.hm-multi .hm-name{font-size:22px}
+.hm-stages{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
+@media (min-width:640px){.hm-stages{grid-template-columns:1fr 1fr}}
+.hm-stage{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line-strong);border-radius:12px;background:rgba(127,127,127,.07)}
+.hm-stage:only-child{grid-column:1/-1}
+.hm-stage .hm-lead{width:44px}
+.hm-stage .hm-ring{width:40px;height:40px}.hm-stage .hm-ring span{width:31px;height:31px;font-size:12px}
+.hm-stage .k{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.hm-stage .v{font-weight:600;font-size:15px;line-height:1.25;margin-top:1px;overflow-wrap:anywhere}
+.hm-stage .s{font-size:13px;color:var(--muted);margin-top:1px}
+.hm-stage.is-done{border-color:rgba(46,209,127,.45)}
+.hm-stage.is-wait{border-style:dashed}
+.hm-stage.is-wait .v{color:var(--muted)}
+.hm-stage.is-live{border-color:rgba(224,34,47,.5)}
+.hm-pip{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--line-strong);color:var(--muted);font-size:15px}
+.hm-pip.dot::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.hm-pip.done{border-color:var(--green);color:var(--green);font-size:18px}
+.hm-pip.trophy{background:var(--green-tint);border-color:transparent;font-size:19px}
+.hm-pip.draw{border-style:dashed;border-color:var(--blue);color:var(--blue)}
 @media (min-width:860px){
   .hm-row1{height:46px}
   .hm-brand b{font-size:22px}

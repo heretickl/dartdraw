@@ -46,10 +46,11 @@ This turns the bare address into a branded home page with a list of events, in t
   - With nothing matching: "No events match “…”. Have a link or code? Paste it in the search box."
 - **Tabs:** Live, Upcoming, Results, each with a count; a red dot on Live when there are any, pulsing unless reduced motion is requested. The first tab shown is Live if it has events, otherwise Upcoming if it has events, otherwise Results. The tab is kept in the address after `#/` (`#/live`, `#/upcoming`, `#/results`).
 - **Tournament headings:** events are grouped under their tournament name with the date on the right, in the order of the list. Events with the same tournament name and the same date share a heading.
-- **Cards:** one per event, a link to `/live/<slug>`.
-  - **Live:** event name, a format tag, entries ("24 players", "12 pairs", "8 teams"), a progress ring and a line such as "Group stage · 11 of 24 matches played". A red outline and a red bar down the left edge.
-  - **Upcoming:** a calendar tile (month, day, weekday), the event name, the start time if the organiser set one, the format tag and the entries.
-  - **Results:** a trophy, the event name, "Winner <name>" when the event has a champion (knockout, round robin then knockout, Group Boards); a round robin never shows a winner line. The card also shows the format tag and the entries.
+- **Cards:** one per event, a link to `/live/<slug>`, holding one **subcard** per stage (one for a round robin or a knockout, two for round robin then knockout and for Group Boards). The card's header has the event name, then the format tag and the entries ("24 players", "12 pairs", "8 teams"), and a chevron; on Upcoming it starts with the calendar tile (month, day, weekday) and shows the start time, if the organiser set one, in bold before the tag. Live cards have a red outline and a red bar down the left edge. Subcards sit side by side from 640px wide and stack on a phone. Each subcard shows the status of its own stage:
+  - **Round robin** (**Groups** on Group Boards): "Not started" with the group count; "In progress" with a ring and "10 of 30 matches · 8 groups"; "Complete" with a check mark.
+  - **Knockout** (**Finals** on Group Boards): "Waiting for groups" (starts when every group is done); "Draw next" ("Up next" for Finals) with how many entries advance; "Draw made" (not started yet); the current round's name with a ring and "3 of 8 matches played"; "Complete" with a check mark.
+  - A ring never reads 100%. On **Results**, the last knockout or Finals subcard shows a trophy and "Winner <name>" with "Complete · 23 of 23 matches". The winner is shown nowhere else on the card, and a round robin never shows one.
+  - A server that does not send `stages` gets the older single card (ring and `progress` line, calendar tile, or trophy and winner); `progress` is still sent for that reason.
   - Every card has an outline, a soft gradient and a shadow; it lifts slightly on hover unless reduced motion is requested. Tap targets are at least 72px tall.
 - **Footer:** "Results update automatically · Powered by DartDraw".
 - **Refresh:** the list reloads every 30 seconds while the page is visible, and when it becomes visible again. A failed reload keeps the last good list and shows "Can't refresh right now. Retrying…" under the header's update line. The update line reads "Updated just now" / "Updated 2 min ago".
@@ -101,7 +102,8 @@ One `item` per event, and nothing else from the event's data:
 | `unit` | `Singles`, `Doubles`, `Triples` or `Teams` |
 | `entries` | Number of entries that have not withdrawn |
 | `updatedAt` | Time of the last save |
-| `progress` | Live only: `{ stage, done, total }` (see below) |
+| `progress` | Live only: `{ stage, done, total }`, plus `next` between two stages (see below). Still sent for older clients |
+| `stages` | Every item: one object per stage of the event (see "Stages" below) |
 | `winner` | Results only: the champion's name, or `""` |
 
 Scores, players' names (other than the champion's), clubs, notes, board plans and the tournament's other settings are never returned.
@@ -125,7 +127,24 @@ For a live event, the matches of the current stage only, so the ring never drops
 - Round robin then knockout: "Group stage" with group matches until every group is complete, then the knockout as above.
 - Group Boards: "Group stage" with the matches of all group brackets until they are all complete, then "Finals" and its round as above.
 
-`done` and `total` are plain counts. The ring shows `done / total`, and never shows 100% while the event is live.
+`done` and `total` are plain counts. The ring shows `done / total`, and never shows a 100% percentage while the event is live.
+
+Between two stages `progress` also carries `next`, one of two fixed strings, and nothing else ever has it: `"Knockout draw next"` for round robin then knockout when every group is complete and the knockout is not generated yet, and `"Finals next"` for Group Boards when every confirmed group is finished and the Finals is not built yet. The counts are the finished stage's (for example 30 of 30). The card then shows a full ring with a check mark instead of a percentage, and the line "<stage> complete · <next>" (for example "Group stage complete · Knockout draw next") in place of the matches-played line.
+
+### Stages
+
+`stages` is a list with one object per stage: `roundrobin` has `[groups]`, `knockout` `[knockout]`, `rrknockout` `[groups, knockout]` and `podknockout` (Group Boards) `[groups, finals]`. Each object has only these keys, and every value is a fixed string or a count, never tournament text:
+
+- `key`: `groups`, `knockout` or `finals`.
+- `state`: `groups`: `notstarted`, `live` or `done` (done when every confirmed group is complete). `knockout` and `finals`: `waiting` (the stage before is not complete; a Group Boards Finals skeleton may already exist), `next` (the stage before is complete and there is no bracket or Finals result yet; a plain knockout with no bracket is always `next`, "draw next"), `ready` (a plain knockout or a knockout after groups has been drawn and has no result yet), `live` or `done`.
+- `done`, `total`: whole numbers. `groups`: matches played of all matches in the confirmed groups. `knockout` and `finals` while `live`: the current round's real matches; when `done`: every real match of the bracket; otherwise 0 and 0.
+- `groups` (groups stage only): how many confirmed groups there are.
+- `round` (a live knockout or finals only): the current round's name, from the same fixed set as `progress.stage`.
+- `advance` (the knockout of round robin then knockout, while `waiting` or `next`, when above 0): how many entries go through, the sum over confirmed groups of the smaller of the group's size and the qualifiers per group (2 when unset).
+
+Once the knockout or Finals is `live` or `done`, the groups stage is always reported as `done`, even if a group result was never entered (a bracket drawn early from the standings, a withdrawn player); its `done` and `total` stay the real counts, so the card can honestly say "28 of 30 matches". A `ready`, `next` or `waiting` later stage changes nothing. The organiser app no longer allows the knockout to be drawn before every group is finished, so this rule only matters for tournaments drawn before that change (and for Group Boards, whose Finals skeleton exists early).
+
+The overall status (live, upcoming, results) is decided exactly as above.
 
 ### Caching
 
@@ -168,6 +187,7 @@ For a live event, the matches of the current stage only, so the ring never drops
 
 - `listView`: allow-list (a seeded event full of private fields leaks none of them), classification of live, upcoming, results, stale and unlisted for each format, the 48 hour and 7 day edges, date with and without a start time, ordering and the caps, progress for every format and stage (including a void match and a bye), and the winner for each format (none for a round robin).
 - `events` endpoint: GET only, the exact query shape (reads only `public_tournaments`, never the base table), the cache header, a database error.
+- `stages`: every format and moment (including a bracket drawn early, a void final, a Group Boards Finals skeleton with unfinished pods, a one-entry group and degenerate data); the subcard markup, wording, rings, pips and escaping; the stage CSS (two columns from 640px, a single subcard across the row).
 - `home.js`: tab choice and counts, grouping under tournament headings, each card type, search filtering and the code box (code, pasted link, pasted deep link, junk), escaping of hostile names, empty and error states, refresh keeps the last good list.
 - Organiser: the checkbox, disabled when Public results is off or the viewer address is unset, turning Public results off clears it, an old tournament without the flag is unlisted.
 - The existing viewer, public-view and golden tests still pass; `check-viewer` still passes.
@@ -178,7 +198,7 @@ For a live event, the matches of the current stage only, so the ring never drops
 2. A seeded event full of private data: nothing beyond the allow-list in the response.
 3. Boundary times: live just inside and just outside 48 hours, results just inside and outside 7 days, an event dated yesterday and the day before.
 4. A hostile event name or winner name, and a hostile pasted "code".
-5. A multi-stage event across its stages: within a stage the progress never moves backwards, a new stage starts the ring again from 0, and it never reads 100% while live.
+5. A multi-stage event across its stages: within a stage the progress never moves backwards, a new stage starts the ring again from 0, and it never reads 100% while live (between stages it shows the check mark instead).
 
 ## Documentation
 

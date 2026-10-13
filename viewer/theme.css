@@ -68,6 +68,7 @@ header .sub{font-family:var(--display);font-weight:500;font-size:15px;letter-spa
 .live-pill{display:inline-flex;align-items:center;gap:6px;background:var(--live);color:#fff;border-radius:99px;padding:3px 12px;font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.1em;text-transform:uppercase}
 .live-pill i{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.6s ease-in-out infinite}
 .live-pill.off{background:#4a3a14;color:#f4b43a}
+.live-pill.soon{background:var(--blue-tint);color:var(--on-blue)}
 @keyframes pulse{50%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){.live-pill i{animation:none}}
 .pill{border:1px solid rgba(255,255,255,.18);border-radius:99px;padding:2px 12px;font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:#f3f7fb}
@@ -120,8 +121,16 @@ main{padding:16px}
 .std-table th,.std-table td{padding-left:4px;padding-right:4px}
 .std-table th{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.1em}
 .std-table td{font-family:var(--display);font-size:17px;font-weight:600}
-.std-table td.l{font-family:var(--body);font-size:15px;font-weight:600}
+.std-table td.l{font-family:var(--body);font-size:15px;font-weight:600;overflow-wrap:anywhere}
 .std-table td.pts{font-size:20px;font-weight:700}
+/* A phone is about 309px wide inside the card: tighter cells so Pts and TB stay on screen even with long doubles names. */
+@media (max-width: 420px){
+  .std-table th,.std-table td{padding-left:3px;padding-right:3px}
+  .std-table th{font-size:12px;letter-spacing:.05em}
+  .std-table td{font-size:16px}
+  .std-table td.l{font-size:14px}
+  .std-table td.pts{font-size:18px}
+}
 .grid{border-collapse:collapse;font-size:14px;min-width:100%}
 .grid th,.grid td{border:1px solid var(--line);padding:7px 9px;text-align:center;white-space:nowrap;font-family:var(--display);font-size:16px}
 .grid th{background:var(--paper2);color:var(--muted);font-weight:600}
