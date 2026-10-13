@@ -4283,22 +4283,46 @@ function regenerateKnockoutBracket(){
   } else { doIt(); }
 }
 /* ---------- Round robin -> Knockout: generating the bracket from group standings ---------- */
+/* The rule for Round robin + knockout: the bracket can only be drawn (or
+   redrawn) while every group that feeds it is complete. No override.
+   collectRankedEntries takes standings from every group that has started, so a
+   group counts if it is confirmed OR has started (un-confirming a half-played
+   group, or a withdrawal that un-confirms it, must not get round the rule). A
+   group that is neither confirmed nor started contributes nothing and is
+   ignored. Returns null when drawing is allowed, otherwise {none:true} (no such
+   group) or {groups:[labels of the open groups]}. */
+function knockoutDrawBlock(t){
+  const feeding = (t.groups||[]).filter(g=>g.confirmed || g.gameStarted);
+  if(!feeding.length) return { none:true };
+  const open = feeding.filter(g=>!groupIsComplete(g)).map(g=>g.label);
+  return open.length ? { groups: open } : null;
+}
+function knockoutDrawBlockHTML(block){
+  return '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>The knockout can only be drawn once every group is finished.</b>'+
+    (block.groups ? 'Still to finish: '+block.groups.map(l=>'Group '+escapeHtml(l)).join(', ')+'.' : '')+'</div>';
+}
+function knockoutDrawBlockModal(block){
+  const body = block.groups
+    ? 'The knockout can only be drawn once every group is finished. Still to finish: '+block.groups.map(l=>'Group '+escapeHtml(l)).join(', ')+'.'
+    : 'The knockout can only be drawn once every group is finished. There are no confirmed groups yet.';
+  openModal({title:'Finish the round robin first', body, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
+}
 function stage5KnockoutSection(){
   const t = state;
+  const block = knockoutDrawBlock(t);
   let html = '<div class="card" id="stage5-ko-main"><h2>Knockout stage</h2>';
   if(!t.knockout){
-    const confirmedGroups = t.groups.filter(g=>g.confirmed);
-    const incompleteGroups = confirmedGroups.filter(g=>!groupIsComplete(g));
     const plateNote = t.format.losersPool ? (t.format.plateQualifiersPerGroup ? ', next '+t.format.plateQualifiersPerGroup+' per group to the Plate pool, anyone below that eliminated' : ', everyone else to the Plate pool') : '';
-    html += '<p class="intro">Generates the knockout bracket from each group\'s current standings ('+t.format.qualifiersPerGroup+' entr'+(t.format.qualifiersPerGroup==1?'y':'ies')+' per group, '+(t.format.advanceMode==='seeded'?'seeded by group position':'random draw')+plateNote+').</p>'+
-      (!confirmedGroups.length || incompleteGroups.length ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Round robin still in progress</b>'+(incompleteGroups.length ? 'Group'+(incompleteGroups.length===1?'':'s')+' '+incompleteGroups.map(g=>g.label).join(', ')+' still '+(incompleteGroups.length===1?'has':'have')+' unscored matches. ' : '')+'Generating now uses whatever standings exist so far — usually best to wait until every group\'s games are finished.</div>' : '')+
-      '<div class="buttonrow"><button class="btn primary" onclick="confirmGenerateKnockoutFromRR()">Generate knockout bracket</button></div>';
+    html += '<p class="intro">Draws the knockout bracket from each group\'s final standings once every group is finished ('+t.format.qualifiersPerGroup+' entr'+(t.format.qualifiersPerGroup==1?'y':'ies')+' per group, '+(t.format.advanceMode==='seeded'?'seeded by group position':'random draw')+plateNote+').</p>'+
+      (block ? knockoutDrawBlockHTML(block) : '')+
+      '<div class="buttonrow"><button class="btn primary"'+(block?' disabled':'')+' onclick="confirmGenerateKnockoutFromRR()">Generate knockout bracket</button></div>';
   } else {
     const startOffset = knockoutStartOffset(t, computeRoundRobinSchedule(t));
     const totalBoards = Math.max(1, parseInt(t.eventCreation.boards)||1);
     const split = splitExclusiveBoards(totalBoards, t.knockout.size, t.knockoutLosers ? t.knockoutLosers.size : 0);
     html += '<p class="intro">Click a match to enter its result. The winner advances automatically to the next round.</p>'+
-      '<div class="buttonrow" style="margin-bottom:10px"><button class="btn ghost" onclick="regenerateKnockoutFromRR()">Regenerate from current standings</button></div>'+
+      (block ? knockoutDrawBlockHTML(block) : '')+
+      '<div class="buttonrow" style="margin-bottom:10px"><button class="btn ghost"'+(block?' disabled':'')+' onclick="regenerateKnockoutFromRR()">Regenerate from current standings</button></div>'+
       (t.knockoutLosers ? '<div class="hint" style="margin:-4px 0 10px">Main and Plate pool run on their own exclusive boards — '+split.main+' for Main, '+split.plate+' for Plate pool.</div>' : '')+
       knockoutScheduleSummaryHTML(t, t.knockout, 'knockout', startOffset, split.main)+
       '<div class="mko-artboard-scroll">'+mirroredChartHTML(t.knockout, t, {interactive:true, bracketKey:'knockout'})+'</div>';
@@ -4359,6 +4383,7 @@ function knockoutScheduleSummaryHTML(t, bracket, bracketKey, startOffsetMs, boar
 }
 function generateKnockoutFromRR(){
   const t = state;
+  if(knockoutDrawBlock(t)) return;   // the bracket is only ever drawn once every group is finished
   const qualifiers = collectQualifiers(t);
   if(qualifiers.length<2){ openModal({title:'Not enough entries', body:'At least 2 entries need to advance — check group standings and the entries-per-group setting in Format & branding.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
   let ordered = t.format.advanceMode==='random' ? shuffleArray(qualifiers) : qualifiers;
@@ -4443,8 +4468,9 @@ function blockForUnresolvedTies(){
   return true;
 }
 /* Runs the tie check, then generates. An unresolved tie at a cut-off blocks
-   generation outright (unlike the unfinished-round-robin gate there's no
-   "generate anyway"): the organiser must set the positions first. */
+   generation outright (no "generate anyway"): the organiser must set the
+   positions first. (Whether every group is finished is checked before this,
+   and again inside generateKnockoutFromRR.) */
 function generateKnockoutFromRRChecked(){
   const t = state;
   const issues = cutoffTieIssues(t);
@@ -4462,22 +4488,16 @@ function generateKnockoutFromRRChecked(){
     onConfirm: ()=>{}
   });
 }
-/* The gate: if any confirmed group still has unscored matches, require an
-   explicit "generate anyway" confirmation instead of proceeding straight
-   to generateKnockoutFromRR. */
+/* The gate: the knockout can only be drawn once every confirmed group is
+   complete. There is no "generate anyway"; when blocked it explains why and stops. */
 function confirmGenerateKnockoutFromRR(){
-  const t = state;
-  const incompleteGroups = t.groups.filter(g=>g.confirmed && !groupIsComplete(g));
-  if(incompleteGroups.length){
-    const names = incompleteGroups.map(g=>g.label).join(', ');
-    // Deferred: openModal closes the modal after onConfirm returns, which
-    // would immediately close a second modal opened from inside it.
-    openModal({title:'Round robin isn\'t finished', body:'Group'+(incompleteGroups.length===1?'':'s')+' '+names+' still '+(incompleteGroups.length===1?'has':'have')+' unscored matches. Generating now will use whatever standings exist for '+(incompleteGroups.length===1?'it':'them')+' so far. Continue anyway?', confirmLabel:'Generate anyway', confirmClass:'danger', onConfirm: ()=> setTimeout(generateKnockoutFromRRChecked, 0)});
-  } else {
-    generateKnockoutFromRRChecked();
-  }
+  const block = knockoutDrawBlock(state);
+  if(block){ knockoutDrawBlockModal(block); return; }
+  generateKnockoutFromRRChecked();
 }
 function regenerateKnockoutFromRR(){
+  const block = knockoutDrawBlock(state);
+  if(block){ knockoutDrawBlockModal(block); return; }
   const doIt = ()=> setTimeout(generateKnockoutFromRRChecked, 0);
   if(bracketHasScores(state.knockout) || (state.knockoutLosers && bracketHasScores(state.knockoutLosers))){
     openModal({title:'Regenerate bracket?', body:'This discards all knockout results entered so far and rebuilds from current group standings.', confirmLabel:'Regenerate', confirmClass:'danger', onConfirm:doIt});
