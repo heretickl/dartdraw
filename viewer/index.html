@@ -294,8 +294,26 @@ function defaultTab(tabs){
 function currentRoute(tabs){
   var raw = (location.hash||'').replace(/^#\/?/, ''), tv = /[?&]tv=1(&|$)/.test(raw), h = raw.split('?')[0], m = /^p\/(.+)$/.exec(h);
   if(m){ var pid; try{ pid = decodeURIComponent(m[1]); }catch(e){ pid = m[1]; } return {name:'p', id:pid}; }
+  var sub = /^(groups|bracket)\/(.+)$/.exec(h);
+  if(sub && tabs.indexOf(sub[1])!==-1){ var sel; try{ sel = decodeURIComponent(sub[2]); }catch(e){ sel = sub[2]; } return {name:sub[1], sel:sel, tv:false}; }
   var name = tabs.indexOf(h)!==-1 ? h : defaultTab(tabs);
   return {name:name, tv:(tv && name==='boards')};
+}
+/* The Group Boards screen a #/bracket/... address names: 'finals', or the group labelled in 'group-<label>'. The codes on the
+   printed sheets use these addresses, and so does #/groups/A for one round-robin group. One that names something this event
+   doesn't have just shows the whole tab. Applied once per address, so the picker still works afterwards. */
+var appliedSel = null;
+/* All the groups, or only the one a #/groups/<label> address names (with a way back to the rest). */
+function groupsTabHTML(label){
+  var one = label ? state.groups.find(function(g){ return g.label===label; }) : null;
+  return one ? '<a class="back" href="#/groups">← All groups</a>'+groupCardHTML(one) : state.groups.map(groupCardHTML).join('');
+}
+function applyBracketSel(r){
+  if(r.name!=='bracket' || !r.sel){ appliedSel = null; return; }
+  if(appliedSel===r.sel) return;
+  appliedSel = r.sel;
+  var lm = /^group-(.+)$/.exec(r.sel), p = lm ? (state.pods||[]).find(function(x){ return x.label===lm[1]; }) : null;
+  if(p) podSel = p.id; else if(r.sel==='finals') podSel = 'finals';
 }
 var TAB_LABEL = {me:'Me', following:'Following', groups:'Groups', boards:'Boards', bracket:'Bracket'};
 
@@ -657,12 +675,14 @@ function render(){
     return;
   }
   var r = currentRoute(tabs), body = '';
+  if(!(r.name==='bracket' && r.sel)) appliedSel = null;
   if(r.name==='me') body = meHTML();
   else if(r.name==='following') body = followingHTML();
   else if(r.name==='p') body = playerPageHTML(r.id, {back:true});
-  else if(r.name==='groups') body = state.groups.map(groupCardHTML).join('');
+  else if(r.name==='groups') body = groupsTabHTML(r.sel);
   else if(r.name==='boards') body = boardsTabHTML(!!r.tv);
   else if(r.name==='bracket'){
+    applyBracketSel(r);
     if((state.pods||[]).length) body += podsBracketTabHTML();
     else {
       if(state.knockout) body += bracketCardHTML(state.knockout, 'ko', type==='rrknockout' ? 'Main bracket' : 'Bracket');
