@@ -14,8 +14,9 @@ function pick(obj, keys) {
 }
 
 function publicMatch(m) {
-  const out = pick(m, ['id', 'aEntryId', 'bEntryId', 'aLegs', 'bLegs', 'winnerId', 'bye', 'wo', 'aFromPod', 'bFromPod', 'called', 'board']);
+  const out = pick(m, ['id', 'aEntryId', 'bEntryId', 'aLegs', 'bLegs', 'winnerId', 'bye', 'wo', 'aFromPod', 'bFromPod', 'called', 'board', 'void']);
   if (out.called) out.called = true; else delete out.called;
+  if (out.void) out.void = true; else delete out.void;     // neither player attended: true or omitted
   const board = parseInt(out.board, 10);
   if (board >= 1 && board <= 9999) out.board = board; else delete out.board;
   return out;

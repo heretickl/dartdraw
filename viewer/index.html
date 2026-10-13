@@ -157,6 +157,7 @@ function koOpponent(l, id){ return l.m.aEntryId===id ? l.m.bEntryId : l.m.aEntry
 function koResultText(l, id){
   var m = l.m, mine = m.aEntryId===id, my = mine ? m.aLegs : m.bLegs, op = mine ? m.bLegs : m.aLegs;
   if(m.bye) return 'Bye';
+  if(m.void) return 'Neither attended';
   if(!m.winnerId) return koOpponent(l, id) ? 'To play' : 'Waiting';
   return (m.winnerId===id ? 'Won ' : 'Lost ') + (my!=null && op!=null ? my+'–'+op : '') + (m.wo ? ' (WO)' : '');
 }
@@ -169,6 +170,7 @@ function statusLine(id){
   var ko = koLines(id);
   if(ko.length){
     var l = ko[ko.length-1], m = l.m, opp = koOpponent(l, id), inFinal = l.ri===l.b.rounds.length-1;
+    if(m.void) return 'Out in the '+l.round+(l.b.podLabel ? ' of '+l.title : l.b.podFinals ? ' of the Finals' : '')+' · neither player attended';
     if(m.winnerId){
       if(m.winnerId===id){
         if(l.b.podLabel && inFinal) return 'Won '+l.title+' · through to the Finals';
@@ -378,7 +380,7 @@ function groupCardHTML(g){
 
 /* ---------- Group Boards: pick Finals, all groups, or one group ---------- */
 var podSel = 'finals';   // 'finals' | 'all' | a group id
-function podFinished(p){ return !!(p.bracket && bracketIsComplete(p.bracket)); }
+function podFinished(p){ return !!(p.bracket && (bracketIsComplete(p.bracket) || bracketIsVoidFinal(p.bracket))); }
 function podsPickerHTML(){
   var pods = state.pods||[], open = pods.filter(function(p){ return !podFinished(p); }), done = pods.filter(podFinished);
   var mine = myId() ? pods.find(function(p){ return p.entryIds.indexOf(myId())!==-1; }) : null;
@@ -393,10 +395,10 @@ function podsPickerHTML(){
 function podsAllHTML(){
   var pods = state.pods||[];
   return '<section class="card"><h2>All groups <span class="sub">'+pods.filter(podFinished).length+' of '+pods.length+' finished</span></h2><div class="podgrid">'+pods.map(function(p){
-    var w = podFinished(p) ? bracketChampion(p.bracket) : null;
+    var done = podFinished(p), w = done ? bracketChampion(p.bracket) : null;
     return '<button type="button" class="podcard" data-pod="'+escapeHtml(p.id)+'"><b>Group '+escapeHtml(p.label)+'</b>'+
       '<span class="note">'+(p.boards && p.boards.length ? 'Board '+p.boards.join(', ')+' · ' : '')+p.entryIds.length+' players'+(podStartLine(p) ? ' · '+escapeHtml(podStartLine(p)) : '')+'</span>'+
-      '<span class="'+(w ? 'pw' : 'pp')+'">'+(w ? 'Winner: '+escapeHtml(entryName(w)) : 'In progress')+'</span></button>';
+      '<span class="'+(w ? 'pw' : 'pp')+'">'+(w ? 'Winner: '+escapeHtml(entryName(w)) : done ? 'No winner' : 'In progress')+'</span></button>';
   }).join('')+'</div></section>';
 }
 function podsBracketTabHTML(){
@@ -447,7 +449,7 @@ function bpMatchOfEntry(e){ var b = bracketForKey(e.key); return b && b.rounds[e
 function bpSideText(m, side){
   var id = m[side+'EntryId'], from = m[side+'FromPod'];
   if(id) return entryName(id);
-  if(from){ var p = (state.pods||[]).find(function(x){ return x.id===from; }); return 'Winner of Group '+(p ? p.label : '?'); }
+  if(from){ var p = (state.pods||[]).find(function(x){ return x.id===from; }); return p && bracketIsVoidFinal(p.bracket) ? 'Group '+p.label+': no winner' : 'Winner of Group '+(p ? p.label : '?'); }
   return 'To be decided';
 }
 function bpMatchText(e){ var m = bpMatchOfEntry(e); return m ? bpSideText(m, 'a')+' v '+bpSideText(m, 'b') : ''; }
@@ -566,7 +568,7 @@ function rsSlotHTML(b, ri, mi, side){
   var m = b.rounds[ri][mi], id = m[side+'EntryId'], legs = m[side+'Legs'];
   if(!id){
     var txt = 'To be decided', fromPod = m[side+'FromPod'];
-    if(fromPod){ var pp = (state.pods||[]).find(function(p){ return p.id===fromPod; }); txt = 'Winner of Group '+(pp ? pp.label : '?'); }
+    if(fromPod){ var pp = (state.pods||[]).find(function(p){ return p.id===fromPod; }); txt = (pp && bracketIsVoidFinal(pp.bracket)) ? 'Group '+pp.label+': no winner' : 'Winner of Group '+(pp ? pp.label : '?'); }
     else if(m.bye) txt = 'Bye';
     else if(ri>0){ var fi = 2*mi + (side==='a' ? 0 : 1); if(b.rounds[ri-1][fi]) txt = 'Winner of '+koMatchTag(b, state, ri-1, fi); }
     return '<div class="rs ph"><span>'+escapeHtml(txt)+'</span></div>';
@@ -582,7 +584,8 @@ function rsSlotHTML(b, ri, mi, side){
 }
 function rsMatchHTML(b, ri, mi){
   var m = b.rounds[ri][mi], tag = koMatchTag(b, state, ri, mi);
-  var status = m.bye ? '<span class="mt dim">Bye</span>'
+  var status = m.void ? '<span class="mt dim">'+((m.aEntryId || m.bEntryId) ? 'Neither attended' : 'Not played')+'</span>'
+    : m.bye ? '<span class="mt dim">Bye</span>'
     : m.winnerId ? ''
     : (m.aEntryId && m.bEntryId) ? '<span class="mt rdy">To play</span>'
     : '<span class="mt dim">Waiting</span>';

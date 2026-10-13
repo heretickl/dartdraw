@@ -98,3 +98,15 @@ test('a published match has called true or nothing, and board a whole number 1 t
   assert.ok(!('called' in vm[1])); assert.ok(!('board' in vm[1]));
   assert.ok(!('board' in view.knockout.rounds[0][0])); assert.ok(!('board' in view.knockout.rounds[0][1]));
 });
+
+test('void is published as true, or omitted', () => {
+  const t = event(true);
+  t.pods[0].bracket.rounds[0][0].void = true;
+  t.pods[0].bracket.rounds[0][1].void = 'yes';
+  t.pods[1].bracket.rounds[0][0].void = false;
+  const view = toPublicView(JSON.parse(JSON.stringify(t)));
+  assert.equal(view.pods[0].bracket.rounds[0][0].void, true);
+  assert.equal(view.pods[0].bracket.rounds[0][1].void, true);
+  assert.equal('void' in view.pods[1].bracket.rounds[0][0], false);
+  assert.equal('void' in view.pods[2].bracket.rounds[0][0], false);
+});
