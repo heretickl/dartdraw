@@ -1,6 +1,6 @@
-const { requireAdmin } = require('../../_lib/auth');
-const { sql } = require('../../_lib/db');
-const { TIERS, ROLES, getSummary, activeAdminCount, isActiveAdmin, lookupTarget, bodyObject } = require('../../_lib/adminOrganizers');
+const { requireAdmin } = require('../../../_lib/auth');
+const { sql } = require('../../../_lib/db');
+const { TIERS, ROLES, getSummary, activeAdminCount, isActiveAdmin, lookupTarget, bodyObject } = require('../../../_lib/adminOrganizers');
 
 // Admin only.
 // PATCH  /api/admin/organizers/:id { tier?, role?, suspended? } -> { organizer }

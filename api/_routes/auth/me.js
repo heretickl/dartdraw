@@ -1,5 +1,5 @@
-const { requireAuth } = require('../_lib/auth');
-const { entryLimitFor } = require('../_lib/tiers');
+const { requireAuth } = require('../../_lib/auth');
+const { entryLimitFor } = require('../../_lib/tiers');
 
 module.exports = async (req, res) => {
   const organizer = await requireAuth(req, res);

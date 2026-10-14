@@ -1,5 +1,5 @@
 // Site-wide settings kept in the site_settings table (key text, value jsonb): how long the public home page keeps events.
-// The Admin tab edits them (api/admin/settings.js); the public viewer reads them through the public_settings view.
+// The Admin tab edits them (api/_routes/admin/settings.js); the public viewer reads them through the public_settings view.
 const { sql } = require('./db');
 
 // resultsDays: how many days a finalized event stays under Results.

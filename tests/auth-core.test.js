@@ -14,9 +14,9 @@ require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
 } };
 
 const auth = require('../api/_lib/auth');
-const loginHandler = require('../api/auth/login');
-const meHandler = require('../api/auth/me');
-const configHandler = require('../api/auth/config');
+const loginHandler = require('../api/_routes/auth/login');
+const meHandler = require('../api/_routes/auth/me');
+const configHandler = require('../api/_routes/auth/config');
 
 const SECRET = 'test-secret-for-auth-core';
 const COOKIE = '__Host-session';

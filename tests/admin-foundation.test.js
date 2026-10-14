@@ -13,7 +13,7 @@ require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
 
 const auth = require('../api/_lib/auth');
 const { effectiveTier, entryLimitFor } = require('../api/_lib/tiers');
-const meHandler = require('../api/auth/me');
+const meHandler = require('../api/_routes/auth/me');
 const tournamentHandler = require('../api/tournaments/[id]');
 
 const SECRET = 'test-secret-for-admin-foundation';

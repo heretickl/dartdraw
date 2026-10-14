@@ -1,10 +1,10 @@
 const bcrypt = require('bcryptjs');
-const { isMailConfigured } = require('../_lib/mail');
-const { BCRYPT_COST, normalizeEmail, findByEmail, createOrganizer, replaceUnverifiedCredentials } = require('../_lib/accounts');
+const { isMailConfigured } = require('../../_lib/mail');
+const { BCRYPT_COST, normalizeEmail, findByEmail, createOrganizer, replaceUnverifiedCredentials } = require('../../_lib/accounts');
 const {
   REGISTER_MESSAGE, TOO_MANY, MIN_PASSWORD,
   isValidEmail, throttled, minResponseMs, padTo, canMail, sendVerifyEmail, sendAlreadyRegisteredEmail
-} = require('../_lib/authflow');
+} = require('../../_lib/authflow');
 
 // Open sign-up. Closed (403) unless SIGNUP_OPEN=true and email is configured.
 // Every well-formed request gets the same answer, in the same minimum time,

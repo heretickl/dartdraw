@@ -1,7 +1,7 @@
-const { requireAdmin } = require('../../_lib/auth');
-const { sql } = require('../../_lib/db');
-const { getEventSummary } = require('../../_lib/adminEvents');
-const { bodyObject, transferTarget } = require('../../_lib/adminOrganizers');
+const { requireAdmin } = require('../../../_lib/auth');
+const { sql } = require('../../../_lib/db');
+const { getEventSummary } = require('../../../_lib/adminEvents');
+const { bodyObject, transferTarget } = require('../../../_lib/adminOrganizers');
 
 const ACTIONS = ['reopen', 'unpublish', 'unlist', 'transfer', 'delete'];
 

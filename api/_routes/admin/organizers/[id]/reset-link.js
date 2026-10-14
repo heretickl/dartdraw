@@ -1,6 +1,6 @@
-const { requireAdmin } = require('../../../_lib/auth');
-const { issueToken } = require('../../../_lib/tokens');
-const { lookupTarget, linkFor, mailLink } = require('../../../_lib/adminOrganizers');
+const { requireAdmin } = require('../../../../_lib/auth');
+const { issueToken } = require('../../../../_lib/tokens');
+const { lookupTarget, linkFor, mailLink } = require('../../../../_lib/adminOrganizers');
 
 // Admin only. POST /api/admin/organizers/:id/reset-link -> { link }
 // Issues a 1-hour reset token for the organiser (earlier unused reset tokens stop working) and answers with the

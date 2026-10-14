@@ -1,11 +1,12 @@
-const { normalizeEmail, findByEmail } = require('../_lib/accounts');
+const { normalizeEmail, findByEmail } = require('../../_lib/accounts');
 const {
-  RESEND_MESSAGE, TOO_MANY,
-  isValidEmail, throttled, minResponseMs, padTo, canMail, sendVerifyEmail
-} = require('../_lib/authflow');
+  FORGOT_MESSAGE, TOO_MANY,
+  isValidEmail, throttled, minResponseMs, padTo, canMail, sendResetEmail
+} = require('../../_lib/authflow');
 
-// POST { email }: sends a new verification link if the account exists and is
-// still unverified. Always the same generic answer, after the same minimum time.
+// POST { email }: emails a password-reset link if the account exists, is not
+// suspended and has a real password. Always the same generic answer, after the
+// same minimum time.
 module.exports = async (req, res) => {
   const startedAt = Date.now();
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
@@ -18,15 +19,15 @@ module.exports = async (req, res) => {
   }
 
   let status = 200;
-  let result = { ok: true, message: RESEND_MESSAGE };
+  let result = { ok: true, message: FORGOT_MESSAGE };
   try {
-    if (await throttled('resend', req, email)) {
+    if (await throttled('forgot', req, email)) {
       res.status(429).json({ error: TOO_MANY });
       return;
     }
     const account = await findByEmail(email);
-    if (account && canMail(account) && !account.email_verified_at) {
-      await sendVerifyEmail(req, account.id, email);
+    if (account && canMail(account)) {
+      await sendResetEmail(req, account.id, email);
     }
   } catch (e) {
     status = 500;

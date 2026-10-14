@@ -13,7 +13,7 @@ require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
 
 const auth = require('../api/_lib/auth');
 const settings = require('../api/_lib/settings');
-const handler = require('../api/admin/settings');
+const handler = require('../api/_routes/admin/settings');
 
 const SECRET = 'test-secret-for-admin-settings';
 const COOKIE = '__Host-session';

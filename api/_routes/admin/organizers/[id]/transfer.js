@@ -1,6 +1,6 @@
-const { requireAdmin } = require('../../../_lib/auth');
-const { sql } = require('../../../_lib/db');
-const { lookupTarget, transferTarget, bodyObject } = require('../../../_lib/adminOrganizers');
+const { requireAdmin } = require('../../../../_lib/auth');
+const { sql } = require('../../../../_lib/db');
+const { lookupTarget, transferTarget, bodyObject } = require('../../../../_lib/adminOrganizers');
 
 // Admin only. POST /api/admin/organizers/:id/transfer { toOrganizerId } -> { moved }
 // Moves every event owned by :id to the target in a single UPDATE of created_by. Nothing else about the events

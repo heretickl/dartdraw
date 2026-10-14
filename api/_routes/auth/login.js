@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
-const { signSession, setSessionCookie } = require('../_lib/auth');
-const { normalizeEmail, findByEmail, toSessionUser, DUMMY_HASH } = require('../_lib/accounts');
-const { clientIp, hit, clear } = require('../_lib/throttle');
+const { signSession, setSessionCookie } = require('../../_lib/auth');
+const { normalizeEmail, findByEmail, toSessionUser, DUMMY_HASH } = require('../../_lib/accounts');
+const { clientIp, hit, clear } = require('../../_lib/throttle');
 
 const WINDOW_MS = 15 * 60 * 1000;
 const EMAIL_LIMIT = 10;

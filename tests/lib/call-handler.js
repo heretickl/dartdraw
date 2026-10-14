@@ -3,7 +3,7 @@
 //   const r = await callHandler(handler, { method: 'POST', body: {...}, cookies: {...} });
 //   r.statusCode, r.body, r.headers (lower-cased names; Set-Cookie as set)
 //
-// Other options: query, headers, ip (sets req.socket.remoteAddress).
+// Other options: url (req.url, for the routers in api/auth and api/admin), query, headers, ip (sets req.socket.remoteAddress).
 
 async function callHandler(handler, opts) {
   opts = opts || {};
@@ -11,6 +11,7 @@ async function callHandler(handler, opts) {
   Object.keys(opts.headers || {}).forEach((k) => { headers[k.toLowerCase()] = opts.headers[k]; });
   const req = {
     method: opts.method || 'GET',
+    url: opts.url,
     body: opts.body,
     query: opts.query || {},
     headers,

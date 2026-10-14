@@ -1,8 +1,8 @@
 const bcrypt = require('bcryptjs');
-const { sql } = require('../_lib/db');
-const { findById, DUMMY_HASH } = require('../_lib/accounts');
-const { peekToken, consumeToken } = require('../_lib/tokens');
-const { VERIFY_FAILED, TOO_MANY, verifyThrottled } = require('../_lib/authflow');
+const { sql } = require('../../_lib/db');
+const { findById, DUMMY_HASH } = require('../../_lib/accounts');
+const { peekToken, consumeToken } = require('../../_lib/tokens');
+const { VERIFY_FAILED, TOO_MANY, verifyThrottled } = require('../../_lib/authflow');
 
 // POST { token, password }: marks the email verified. No automatic sign-in.
 //

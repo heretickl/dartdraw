@@ -15,11 +15,11 @@ require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
 const auth = require('../api/_lib/auth');
 const mail = require('../api/_lib/mail');
 const tokens = require('../api/_lib/tokens');
-const registerHandler = require('../api/auth/register');
-const verifyHandler = require('../api/auth/verify');
-const resendHandler = require('../api/auth/resend-verification');
-const forgotHandler = require('../api/auth/forgot');
-const resetHandler = require('../api/auth/reset');
+const registerHandler = require('../api/_routes/auth/register');
+const verifyHandler = require('../api/_routes/auth/verify');
+const resendHandler = require('../api/_routes/auth/resend-verification');
+const forgotHandler = require('../api/_routes/auth/forgot');
+const resetHandler = require('../api/_routes/auth/reset');
 
 const SECRET = 'test-secret-for-auth-flows';
 const COOKIE = '__Host-session';
@@ -371,7 +371,7 @@ test('verify: two concurrent requests with the same token - only one succeeds', 
 
 test('a verified account can then sign in (end to end with login)', async () => {
   const raw = await newUnverified();
-  const loginHandler = require('../api/auth/login');
+  const loginHandler = require('../api/_routes/auth/login');
   const before = await post(loginHandler, { email: 'bob@example.com', password: 'longenough' });
   assert.equal(before.statusCode, 403);
   assert.equal(before.body.code, 'unverified');
@@ -703,7 +703,7 @@ test('reset: two concurrent requests with the same token - only one succeeds', a
 });
 
 test('reset then login with the new password works end to end', async () => {
-  const loginHandler = require('../api/auth/login');
+  const loginHandler = require('../api/_routes/auth/login');
   await post(forgotHandler, { email: 'a@example.com' });
   await post(resetHandler, { token: tokenIn(outbox()[0]), password: 'brand-new-pass' });
   assert.equal((await post(loginHandler, { email: 'a@example.com', password: OLD_PASSWORD })).statusCode, 401);

@@ -1,5 +1,5 @@
-const { requireAdmin } = require('../../_lib/auth');
-const { parseListQuery, listEvents } = require('../../_lib/adminEvents');
+const { requireAdmin } = require('../../../_lib/auth');
+const { parseListQuery, listEvents } = require('../../../_lib/adminEvents');
 
 // Admin only. GET /api/admin/events?q=&owner=&limit=&offset=
 //   -> { events: [{ id, tournamentName, eventName, owner: { id, name, email }, format, date, published, listed,

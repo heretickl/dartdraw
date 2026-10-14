@@ -1,4 +1,4 @@
-const { isMailConfigured } = require('../_lib/mail');
+const { isMailConfigured } = require('../../_lib/mail');
 
 // Public (no login): lets the login page show or hide its Sign up link.
 module.exports = async (req, res) => {

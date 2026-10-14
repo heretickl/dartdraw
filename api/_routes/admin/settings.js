@@ -1,6 +1,6 @@
-const { requireAdmin } = require('../_lib/auth');
-const { sql } = require('../_lib/db');
-const { SETTING_LIMITS, getSettings, validateSettings } = require('../_lib/settings');
+const { requireAdmin } = require('../../_lib/auth');
+const { sql } = require('../../_lib/db');
+const { SETTING_LIMITS, getSettings, validateSettings } = require('../../_lib/settings');
 
 // Admin only. The public home page retention numbers.
 //   GET /api/admin/settings -> { resultsDays, liveHours, limits }

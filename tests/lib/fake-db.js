@@ -22,10 +22,10 @@
 //   INSERT INTO organizers (email, password_hash, name, role, tier, email_verified_at)
 //        VALUES (?, ?, ?, ?, ?, ?::boolean-ish) RETURNING ...     (accounts.createOrganizer)
 //   UPDATE organizers SET email_verified_at = now() WHERE id = ? AND email_verified_at IS NULL
-//        (api/auth/verify; returns the updated ids)
+//        (api/_routes/auth/verify; returns the updated ids)
 //   UPDATE organizers SET password_hash = ?, email_verified_at = COALESCE(email_verified_at, now()),
 //        token_version = token_version + 1 WHERE id = ? AND suspended = false RETURNING id
-//        (api/auth/reset; vals: hash, id)
+//        (api/_routes/auth/reset; vals: hash, id)
 //   UPDATE organizers SET name = ?, password_hash = ? WHERE id = ? AND email_verified_at IS NULL RETURNING id
 //        (accounts.replaceUnverifiedCredentials; register on an unverified email)
 //
@@ -56,7 +56,7 @@
 //        (vals: json, id, [owner,] stamp; created_by is never changed)
 //   DELETE FROM tournaments WHERE id = ? [AND created_by = ?] AND (data->>'finalized' IS NULL OR data->>'finalized' IN ('false', '0', '')) RETURNING id
 //
-// admin organisers API (api/_lib/adminOrganizers.js and api/admin/organizers/*)
+// admin organisers API (api/_lib/adminOrganizers.js and api/_routes/admin/organizers/*)
 //   SELECT o.id, ..., (SELECT count(*)::int FROM tournaments t WHERE t.created_by = o.id) AS event_count
 //        FROM organizers o WHERE o.email <> 'public@dartdraw.local' ORDER BY o.created_at DESC, o.id
 //        (list; the By-id form has AND o.id = ? and no ORDER BY)
@@ -70,7 +70,7 @@
 //        AND (NOT <target is an active admin> OR (SELECT count(*) FROM admins) > 1) RETURNING id   (refused with 23503 while tournaments reference it; cascades auth_tokens)
 //   UPDATE tournaments SET created_by = ? WHERE created_by = ? RETURNING id   (vals: target, source; updated_at untouched)
 //
-// admin events API (api/_lib/adminEvents.js and api/admin/events/*); the summary SELECT list is the one in adminEvents.js
+// admin events API (api/_lib/adminEvents.js and api/_routes/admin/events/*); the summary SELECT list is the one in adminEvents.js
 //   <summary select> FROM tournaments t JOIN organizers o ON o.id = t.created_by <owner/q filter> ORDER BY t.updated_at DESC, t.id LIMIT ? OFFSET ?
 //        (vals: owner, owner, pat x5, limit, offset; pat is an ILIKE pattern with backslash escapes, null = no search)
 //   SELECT count(*)::int AS n FROM tournaments t JOIN organizers o ON o.id = t.created_by <owner/q filter>   (vals: owner, owner, pat x5)
@@ -81,7 +81,7 @@
 //   UPDATE tournaments SET created_by = ? WHERE id = ? RETURNING id   (vals: target, id; data and updated_at untouched)
 //   DELETE FROM tournaments WHERE id = ? RETURNING id
 //
-// site_settings (api/_lib/settings.js, api/admin/settings.js); db.dropTable('site_settings') makes every statement on it fail with 42P01
+// site_settings (api/_lib/settings.js, api/_routes/admin/settings.js); db.dropTable('site_settings') makes every statement on it fail with 42P01
 //   SELECT key, value FROM site_settings WHERE key IN ('resultsDays', 'liveHours')
 //   INSERT INTO site_settings (key, value, updated_at) VALUES ('resultsDays', ?::jsonb, now()), ('liveHours', ?::jsonb, now())
 //        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()   (vals: json, json)

@@ -1,4 +1,4 @@
-// Shared pieces of the Admin organisers endpoints (api/admin/organizers/*).
+// Shared pieces of the Admin organisers endpoints (api/_routes/admin/organizers/*).
 const { sql } = require('./db');
 const { PUBLIC_ORGANIZER_EMAIL } = require('./auth');
 const { effectiveTier } = require('./tiers');
@@ -50,7 +50,7 @@ async function getSummary(id) {
 
 // An "active admin" is someone who can actually sign in as an admin right now: role admin, not suspended, email verified,
 // and a real password (an invited account has the unusable hash 'disabled' until the invite link sets one).
-// The last-admin guard in the PATCH and DELETE statements (api/admin/organizers/[id].js) uses the same definition in SQL.
+// The last-admin guard in the PATCH and DELETE statements (api/_routes/admin/organizers/[id].js) uses the same definition in SQL.
 async function activeAdminCount() {
   const rows = await sql`
     SELECT count(*)::int AS n FROM organizers

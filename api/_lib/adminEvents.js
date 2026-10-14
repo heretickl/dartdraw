@@ -1,4 +1,4 @@
-// Shared pieces of the Admin events endpoints (api/admin/events/*).
+// Shared pieces of the Admin events endpoints (api/_routes/admin/events/*).
 // Events are always read through jsonb path extraction (never the whole `data` column), so a list of
 // events does not drag every entry list, board plan and logo image out of the database.
 const { sql } = require('./db');

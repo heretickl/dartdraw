@@ -1,10 +1,10 @@
-const { requireAdmin, PUBLIC_ORGANIZER_EMAIL } = require('../../_lib/auth');
-const { normalizeEmail, findByEmail, createOrganizer } = require('../../_lib/accounts');
-const { isValidEmail } = require('../../_lib/authflow');
-const { issueToken } = require('../../_lib/tokens');
-const { TIERS, listSummaries, getSummary, bodyObject, linkFor, mailLink } = require('../../_lib/adminOrganizers');
+const { requireAdmin, PUBLIC_ORGANIZER_EMAIL } = require('../../../_lib/auth');
+const { normalizeEmail, findByEmail, createOrganizer } = require('../../../_lib/accounts');
+const { isValidEmail } = require('../../../_lib/authflow');
+const { issueToken } = require('../../../_lib/tokens');
+const { TIERS, listSummaries, getSummary, bodyObject, linkFor, mailLink } = require('../../../_lib/adminOrganizers');
 
-// Admin only (every handler under api/admin starts with requireAdmin).
+// Admin only (every handler under api/_routes/admin starts with requireAdmin).
 // GET  /api/admin/organizers -> { organizers: [{ id, email, name, role, tier, effectiveTier, suspended, verified, createdAt, eventCount }] }
 //   Every organiser except the shared Public row, newest first.
 // POST /api/admin/organizers { name, email, tier } -> 201 { organizer, link }

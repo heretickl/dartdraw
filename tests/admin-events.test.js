@@ -12,10 +12,10 @@ require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
 } };
 
 const auth = require('../api/_lib/auth');
-const listHandler = require('../api/admin/events/index');
-const itemHandler = require('../api/admin/events/[id]');
+const listHandler = require('../api/_routes/admin/events/index');
+const itemHandler = require('../api/_routes/admin/events/[id]');
 const tournamentHandler = require('../api/tournaments/[id]');
-const organizersTransfer = require('../api/admin/organizers/[id]/transfer');
+const organizersTransfer = require('../api/_routes/admin/organizers/[id]/transfer');
 
 const SECRET = 'test-secret-for-admin-events';
 const COOKIE = '__Host-session';

@@ -1,8 +1,8 @@
 const bcrypt = require('bcryptjs');
-const { sql } = require('../_lib/db');
-const { consumeToken } = require('../_lib/tokens');
-const { BCRYPT_COST } = require('../_lib/accounts');
-const { INVALID_LINK, MIN_PASSWORD } = require('../_lib/authflow');
+const { sql } = require('../../_lib/db');
+const { consumeToken } = require('../../_lib/tokens');
+const { BCRYPT_COST } = require('../../_lib/accounts');
+const { INVALID_LINK, MIN_PASSWORD } = require('../../_lib/authflow');
 
 // POST { token, password }: sets a new password using a reset or invite link.
 // Also marks the email verified (the link proved ownership) and bumps
