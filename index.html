@@ -2096,16 +2096,17 @@ function reconcileConfirmations(t){
 
 /* ---------- Persistence helpers ---------- */
 let saveTimer = null;
-let lastSaveStatus = '';          // what the save status last said ('saving' | 'error' | 'ok' | 'locked' | 'finalizing' | ''), so finalizeResults can refuse after a failed/conflicted save
+let lastSaveStatus = '';          // what the save status last said ('saving' | 'error' | 'failed' | 'ok' | 'locked' | 'finalizing' | ''), so finalizeResults can refuse after a failed/conflicted save
 let finalizing = false;           // true from "Accept & finalize" until the server has answered; edits are not saved meanwhile
 let droppedWhileFinalizing = false;
 function setSaveStatus(status){
   lastSaveStatus = status;
   const el = document.getElementById('saveStatus');
   if(!el) return;
-  el.textContent = status==='saving' ? 'Saving…' : status==='error' ? 'Updated elsewhere — click to reload' : status==='ok' ? 'Saved' : status==='locked' ? 'This event is finalized — only an Admin can change it' : status==='finalizing' ? 'Finalizing…' : '';
-  el.classList.toggle('error', status==='error');
-  el.onclick = status==='error' ? ()=>{ if(state) openTournament(state.id); } : null;
+  el.textContent = status==='saving' ? 'Saving…' : status==='error' ? 'Updated elsewhere — click to reload' : status==='failed' ? 'Couldn’t save — click to retry' : status==='ok' ? 'Saved' : status==='locked' ? 'This event is finalized — only an Admin can change it' : status==='finalizing' ? 'Finalizing…' : '';
+  el.classList.toggle('error', status==='error' || status==='failed');
+  /* 'error' = the saved copy is newer than this tab's (a real conflict): reload it. 'failed' = the save did not reach the server (network or server error): try the save again. */
+  el.onclick = status==='error' ? ()=>{ if(state) openTournament(state.id); } : status==='failed' ? ()=>{ flushSave(); } : null;
 }
 /* External behaviour is unchanged: every call site still just does
    `persist(); render();` after mutating `state`. Internally this now debounces
@@ -2203,7 +2204,7 @@ async function flushSaveOnce(){
     setSaveStatus('ok');
     return true;
   }catch(e){
-    setSaveStatus('error');
+    setSaveStatus('failed');
     return false;
   }
 }
@@ -2383,8 +2384,8 @@ function finalizeResults(){
    reloads the server copy and finalizes nothing. While this runs, persist() drops edits (see `finalizing`). */
 async function runFinalize(t){
   if(state!==t || isLocked(t) || finalizing || !eventComplete(t)) return;
-  if(lastSaveStatus==='error'){
-    finalizeNotice('Not finalized', 'The last save did not go through, so this copy may be out of date. Click the status message at the top to reload, check the event, then try again.');
+  if(lastSaveStatus==='error' || lastSaveStatus==='failed'){
+    finalizeNotice('Not finalized', 'The last save did not go through, so this copy may be out of date. Click the status message at the top (to reload or retry), check the event, then try again.');
     return;
   }
   const id = t.id;
