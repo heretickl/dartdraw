@@ -41,13 +41,14 @@ test('answers only GET', async () => {
 test('reads only the public view, only listed rows, with bounded windows and a row cap', async () => {
   calls = []; rows = []; failWith = null;
   await call('GET');
-  assert.equal(calls.length, 1);
-  const q = calls[0].text.replace(/\s+/g, ' ');
+  assert.equal(calls.length, 2);                          // the retention settings, then the events
+  assert.match(calls[0].text, /FROM public_settings/);
+  const q = calls[1].text.replace(/\s+/g, ' ');
   assert.match(q, /FROM public_tournaments/);
   assert.doesNotMatch(q, /FROM tournaments/i); assert.doesNotMatch(q, /organizers/i);
   assert.match(q, /data->>'listed' = 'true'/);
   assert.match(q, /ORDER BY updated_at DESC/); assert.match(q, /LIMIT/);
-  const vals = calls[0].vals;
+  const vals = calls[1].vals;
   assert.ok(vals.includes(cfg.MAX_ROWS), 'row cap passed as a value');
   const iso = vals.filter((v) => typeof v === 'string');
   assert.ok(iso.some((v) => /^\d{4}-\d{2}-\d{2}$/.test(v)), 'yesterday as a date');
@@ -75,7 +76,7 @@ test('an unlisted row that somehow came back is dropped, and nothing outside the
 test('the query selects only a small built object, never the whole data column or the large parts of a tournament', async () => {
   calls = []; rows = []; failWith = null;
   await call('GET');
-  const q = calls[0].text.replace(/\s+/g, ' ');
+  const q = calls[1].text.replace(/\s+/g, ' ');
   assert.doesNotMatch(q, /SELECT slug, data/i);
   assert.doesNotMatch(q, /SELECT\s+\*/i);
   assert.match(q, /jsonb_build_object\(/);

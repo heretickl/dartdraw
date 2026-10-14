@@ -62,7 +62,7 @@ test('a finalized event is a result with its winner, whatever its last save time
   assert.equal(r.item.winner, t.entriesList.find((e) => e.id === last.winnerId).name);
 });
 
-test('results stay for 7 days after finalizing, then drop off', () => {
+test('results stay for 14 days (the default) after finalizing, then drop off', () => {
   const t = complete();
   t.finalized = { at: iso(NOW - cfg.RESULTS_DAYS * DAY) }; assert.equal(lv.describe(row(t), NOW).status, 'results');
   t.finalized = { at: iso(NOW - cfg.RESULTS_DAYS * DAY - 1000) }; assert.equal(lv.describe(row(t), NOW).status, null);

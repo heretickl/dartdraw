@@ -1,5 +1,6 @@
 const { sql } = require('./_lib/db');
 const { buildList } = require('./_lib/listView');
+const { loadSettings } = require('./_lib/siteSettings');
 const cfg = require('./_lib/listConfig');
 
 // GET /api/events -> { generatedAt, live, upcoming, results }
@@ -10,6 +11,8 @@ const cfg = require('./_lib/listConfig');
 // The query builds a small JSON object in SQL holding only the top-level keys listView.js reads (none of the large
 // images or plans), so a cache miss does not pull whole tournaments out of the database. If listView.js starts reading
 // another key, add it to that object. (In WHERE, `data` is still the table column; the alias only names the output.)
+// The retention numbers (days of results, hours of live) come from the public_settings view on each request (see
+// _lib/siteSettings.js; a missing view or row means the defaults), and the row window widens to cover them.
 const DAY = 86400000;
 
 module.exports = async (req, res) => {
@@ -17,7 +20,9 @@ module.exports = async (req, res) => {
   try {
     const now = Date.now();
     const yesterday = new Date(now - cfg.UPCOMING_GRACE_DAYS * DAY).toISOString().slice(0, 10);
-    const since = new Date(now - cfg.QUERY_DAYS * DAY).toISOString();
+    const settings = await loadSettings(sql);
+    const windowDays = Math.max(cfg.QUERY_DAYS, settings.resultsDays + 1, Math.ceil(settings.liveHours / 24) + 1);
+    const since = new Date(now - windowDays * DAY).toISOString();
     const rows = await sql`
       SELECT slug, updated_at, jsonb_build_object(
           'listed', data->'listed',
@@ -35,7 +40,7 @@ module.exports = async (req, res) => {
     // Short shared cache: many visitors cost about one query per window.
     // No stale-while-revalidate: an event that is unpublished or unlisted must disappear promptly.
     res.setHeader('Cache-Control', 'public, s-maxage=30');
-    res.status(200).json(buildList(rows, now));
+    res.status(200).json(buildList(rows, now, settings));
   } catch (e) {
     res.status(500).json({ error: 'Could not load events.' });
   }

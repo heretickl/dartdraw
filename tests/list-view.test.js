@@ -111,7 +111,7 @@ test('a Group Boards Finals with no champion or a void final counts as finished'
   assert.equal(lv.describe(row(t), NOW).item.winner, '');
 });
 
-test('time boundaries: live 48 hours, results 7 days, upcoming yesterday, undated 8 days', () => {
+test('time boundaries: live 48 hours, results 14 days, upcoming yesterday, undated 8 days', () => {
   const live = knockoutEvent(8); play(live.knockout.rounds[0][0], 'a');
   assert.equal(lv.describe(row(live, cfg.LIVE_STALE_HOURS * HOUR), NOW).status, 'live');
   assert.equal(lv.describe(row(live, cfg.LIVE_STALE_HOURS * HOUR + 1000), NOW).status, null);
@@ -432,7 +432,7 @@ test('stages: the overall status is decided as before for a round robin then kno
   t.knockout = bracketOf(t, 4); playOut(app, t.knockout, () => 'a');
   assert.equal(lv.describe(row(t), NOW).status, 'live');                                     // all played, not finalized
   fin(t); assert.equal(lv.describe(row(t), NOW).status, 'results');
-  assert.equal(lv.describe(row(fin(t, 8 * DAY)), NOW).status, null);                         // finalized too long ago: not listed at all
+  assert.equal(lv.describe(row(fin(t, 15 * DAY)), NOW).status, null);                       // finalized too long ago: not listed at all
 });
 
 // ---- a later stage that has results means the groups stage is over, whatever the group scores say ----

@@ -167,8 +167,16 @@ function stagesOf(d, a, status) {   // status is the event's overall status; the
   return [];
 }
 
+// The two retention numbers: from the settings object when it has a whole-number value, otherwise the listConfig default.
+function retention(settings) {
+  const s = settings && typeof settings === 'object' ? settings : {};
+  const pick = (v, dflt) => (typeof v === 'number' && isFinite(v) && v > 0 ? v : dflt);
+  return { resultsDays: pick(s.resultsDays, cfg.RESULTS_DAYS), liveHours: pick(s.liveHours, cfg.LIVE_STALE_HOURS) };
+}
+
 // One row of the public_tournaments view -> { status, item }. status is 'live', 'upcoming', 'results' or null (not listed now).
-function describe(row, now) {
+// settings is the optional { resultsDays, liveHours } from siteSettings.js; without it the listConfig defaults apply.
+function describe(row, now, settings) {
   const none = { status: null, item: null };
   const d = row && row.data;
   if (!d || typeof d !== 'object' || typeof row.slug !== 'string' || !SLUG_RE.test(row.slug)) return none;
@@ -181,11 +189,12 @@ function describe(row, now) {
   const date = typeof ec.date === 'string' && DATE_RE.test(ec.date) ? ec.date : '';
   const age = now - updated;
   const fin = finalizedAt(d);
+  const keep = retention(settings);
   let status = null;
-  // Results only once the organiser has finalized the event, and for RESULTS_DAYS after that. A finished-looking
+  // Results only once the organiser has finalized the event, and for resultsDays after that. A finished-looking
   // event that was never finalized is just a started one: live while it is being saved, else not listed.
-  if (fin !== null) { if (now - fin <= cfg.RESULTS_DAYS * DAY) status = 'results'; }
-  else if (a.started) { if (age <= cfg.LIVE_STALE_HOURS * HOUR) status = 'live'; }
+  if (fin !== null) { if (now - fin <= keep.resultsDays * DAY) status = 'results'; }
+  else if (a.started) { if (age <= keep.liveHours * HOUR) status = 'live'; }
   else if (date) { if (date >= isoDay(now - cfg.UPCOMING_GRACE_DAYS * DAY)) status = 'upcoming'; }
   else if (age <= cfg.QUERY_DAYS * DAY) status = 'upcoming';
   if (!status) return none;
@@ -213,11 +222,11 @@ function describe(row, now) {
   return { status, item };
 }
 
-function buildList(rows, now) {
+function buildList(rows, now, settings) {
   const out = { live: [], upcoming: [], results: [] };
   (rows || []).forEach((row) => {
     let r;
-    try { r = describe(row, now); } catch (e) { return; }      // one malformed row must not break the list (and its data is never logged)
+    try { r = describe(row, now, settings); } catch (e) { return; }      // one malformed row must not break the list (and its data is never logged)
     if (r.status) out[r.status].push(r.item);
   });
   const newest = (x, y) => (x.updatedAt < y.updatedAt ? 1 : x.updatedAt > y.updatedAt ? -1 : 0);

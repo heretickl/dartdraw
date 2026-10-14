@@ -174,6 +174,9 @@ function mkoFitFontSize(bracket, t, baseFontSize, slotWidth){
   return Math.max(6, Math.floor(baseFontSize * (availW/totalW)));
 }
 
+/* A value for use inside '...' in an onclick="..." attribute: JS-escaped first, then HTML-escaped. */
+function mkoJsArg(v){ return escapeHtml(String(v==null ? '' : v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/[\r\n]+/g,' ')); }
+
 function mkoSlot(m, side, t, ri, tokens){
   const id = m[side+'EntryId'];
   const legs = m[side+'Legs'];
@@ -191,7 +194,7 @@ function mkoSlot(m, side, t, ri, tokens){
   const name = escapeHtml(bracketEntryName(t, id) || 'Unknown');
   const seed = (ri===0 && m.__seeds) ? (bracketSeedForDisplay(t, m.__seeds, m.__seedLabels, id) || '') : '';
   return {
-    text: name, seed: String(seed), legs: legs!=null ? String(legs) : '',
+    text: name, seed: escapeHtml(String(seed)), legs: legs!=null ? escapeHtml(String(legs)) : '',
     fw: isWin ? 800 : 400, color: m.void ? tokens.muted : tokens.ink, bg: isWin ? tokens.winBg : (tokens.boxBg||'#fff'),
     border: '1px solid '+tokens.line,
     wo: !!(m.wo && m.winnerId && !isWin), // this side is the one who no-showed
@@ -314,8 +317,8 @@ function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice, interactiv
       const aSlot = mkoSlot(m, 'a', t, ri, tokens);
       const bSlot = mkoSlot(m, 'b', t, ri, tokens);
       const clickable = interactive && m.aEntryId && m.bEntryId && !m.bye;
-      const clickAttr = clickable ? ' class="mko-clickable" onclick="koMatchScoreModal(\''+bracketKey+'\','+ri+','+mi+')"' : '';
-      const woLink = clickable && !m.void ? '<div style="flex:0 0 auto;text-align:center;font-size:'+Math.max(7,fontSize*0.6).toFixed(1)+'px;color:var(--blue);text-decoration:underline;cursor:pointer;padding:1px 0 0;'+(mirror===-1?'transform:scaleX(-1);':'')+'" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+ri+','+mi+')">Mark no-show…</div>' : '';
+      const clickAttr = clickable ? ' class="mko-clickable" onclick="koMatchScoreModal(\''+mkoJsArg(bracketKey)+'\','+ri+','+mi+')"' : '';
+      const woLink = clickable && !m.void ? '<div style="flex:0 0 auto;text-align:center;font-size:'+Math.max(7,fontSize*0.6).toFixed(1)+'px;color:var(--blue);text-decoration:underline;cursor:pointer;padding:1px 0 0;'+(mirror===-1?'transform:scaleX(-1);':'')+'" onclick="event.stopPropagation();openKoNoShowPicker(\''+mkoJsArg(bracketKey)+'\','+ri+','+mi+')">Mark no-show…</div>' : '';
       groupsHtml += '<div style="flex:1;display:flex;flex-direction:column;"'+clickAttr+'>'+
         '<div style="flex:1;display:flex;align-items:center;"><div style="position:relative;width:100%;">'+mkoBoxHTML(aSlot, boxHeight, fontSize, mirror===-1, geom.readable)+(m.bye ? '' : mkoTagHTML(koMatchTag(bracket, t, ri, mi), fontSize, mirror===-1))+'</div></div>'+
         '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(bSlot, boxHeight, fontSize, mirror===-1, geom.readable)+'</div>'+
@@ -348,7 +351,7 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interacti
   const championId = bracketIsComplete(bracket) ? bracketChampion(bracket) : null;
   const championName = championId ? escapeHtml(bracketEntryName(t, championId)) : '';
   const clickable = interactive && finalMatch.aEntryId && finalMatch.bEntryId && !finalMatch.bye;
-  const clickAttr = clickable ? ' class="mko-clickable" onclick="koMatchScoreModal(\''+bracketKey+'\','+finalRi+',0)"' : '';
+  const clickAttr = clickable ? ' class="mko-clickable" onclick="koMatchScoreModal(\''+mkoJsArg(bracketKey)+'\','+finalRi+',0)"' : '';
 
   let championHtml = '';
   if(showChampion){
@@ -379,7 +382,7 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interacti
     (bSlot.ns ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">NO-SHOW</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';">'+bSlot.legs+'</span></div>'+
     '</div>'+
-    (clickable && !finalMatch.void ? '<div style="font-size:11px;color:var(--blue);text-decoration:underline;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openKoNoShowPicker(\''+bracketKey+'\','+finalRi+',0)">Mark no-show…</div>' : '')+
+    (clickable && !finalMatch.void ? '<div style="font-size:11px;color:var(--blue);text-decoration:underline;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openKoNoShowPicker(\''+mkoJsArg(bracketKey)+'\','+finalRi+',0)">Mark no-show…</div>' : '')+
     championHtml+
     '</div></div></div></div>';
 }
