@@ -2096,6 +2096,7 @@ function reconcileConfirmations(t){
 
 /* ---------- Persistence helpers ---------- */
 let saveTimer = null;
+let savePending = false, saveRev = 0;   // an edit that no save has carried to the server yet; saveRev counts edits so a save only clears what it carried
 let lastSaveStatus = '';          // what the save status last said ('saving' | 'error' | 'failed' | 'ok' | 'locked' | 'finalizing' | ''), so finalizeResults can refuse after a failed/conflicted save
 let finalizing = false;           // true from "Accept & finalize" until the server has answered; edits are not saved meanwhile
 let droppedWhileFinalizing = false;
@@ -2124,6 +2125,7 @@ function persist(){
   tournamentsCache[state.id] = state;
   renderSavedList();
   clearTimeout(saveTimer);
+  savePending = true; saveRev++;
   saveTimer = setTimeout(flushSave, 500);
 }
 function normalizeForSave(){
@@ -2166,6 +2168,7 @@ async function flushSaveOnce(){
   if(lockedIds.has(id)) return false;
   const payload = state;
   const expected = dbUpdatedAtCache[id] || null;
+  const rev = saveRev;
   setSaveStatus('saving');
   try{
     const res = await apiFetch('/api/tournaments/'+id, {
@@ -2201,6 +2204,7 @@ async function flushSaveOnce(){
     if(!res.ok) throw new Error('save failed');
     const saved = await res.json();
     dbUpdatedAtCache[id] = saved.updated_at;
+    if(saveRev===rev) savePending = false;
     setSaveStatus('ok');
     return true;
   }catch(e){
@@ -2211,11 +2215,18 @@ async function flushSaveOnce(){
 /* Best-effort synchronous flush so a debounced save isn't lost on tab close. A finalized event is never sent. */
 function flushSaveNow(){
   if(!state || lockedIds.has(state.id)) return;
+  /* Only an edit that no save has carried yet needs this. Sending the same copy again would change the stored version
+     stamp behind this tab's back, and the tab's next save would then be refused as "updated elsewhere". */
+  if(!savePending || saveInFlight) return;
   clearTimeout(saveTimer);
-  fetch('/api/tournaments/'+state.id, {
+  const id = state.id, rev = saveRev;
+  fetch('/api/tournaments/'+id, {
     method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ data: state, expectedUpdatedAt: dbUpdatedAtCache[state.id]||null }),
+    body: JSON.stringify({ data: state, expectedUpdatedAt: dbUpdatedAtCache[id]||null }),
     keepalive: true
+  }).then(r=> r && r.ok ? r.json() : null).then(saved=>{
+    /* The tab may stay open (it was only hidden): remember the new stamp so its next save is not a false conflict. */
+    if(saved && saved.updated_at){ dbUpdatedAtCache[id] = saved.updated_at; if(saveRev===rev) savePending = false; }
   }).catch(()=>{});
 }
 window.addEventListener('beforeunload', flushSaveNow);

@@ -254,11 +254,12 @@ test('flushSaveOnce does not even send a request for a locked id', async () => {
 test('flushSaveNow skips locked ids entirely', () => {
   reset();
   fresh('knockout', { knockout: br('a'), finalized: { at: AT } }); run(app, 'lockedIds.add("t_fin1")');
-  let sent = 0; app.fetch = () => { sent++; return { catch() {} }; };
+  let sent = 0; app.fetch = () => { sent++; return Promise.resolve({ ok: false }); };
+  run(app, 'savePending = true');
   f('flushSaveNow')();
   assert.equal(sent, 0);
   run(app, 'lockedIds.clear()'); f('flushSaveNow')();
-  assert.equal(sent, 1);                                  // an editable one still flushes
+  assert.equal(sent, 1);                                  // an editable one with an unsaved edit still flushes
 });
 
 test('flushSave resolves only when the save that carries the latest change has finished', async () => {

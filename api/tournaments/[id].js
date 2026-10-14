@@ -42,12 +42,19 @@ module.exports = async (req, res) => {
   const isAdmin = organizer.role === 'admin';
 
   if (req.method === 'GET') {
-    const rows = isAdmin
+    let rows;
+    try {
+      rows = isAdmin
       ? await sql`SELECT id, data, updated_at FROM tournaments WHERE id = ${id}`
       : await sql`
         SELECT id, data, updated_at FROM tournaments
         WHERE id = ${id} AND created_by = ${organizer.id}
       `;
+    } catch (e) {
+      console.error('GET /api/tournaments/' + id + ' failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
+      res.status(500).json({ error: 'Could not load tournament.' });
+      return;
+    }
     if (!rows.length) { res.status(404).json({ error: 'Not found.' }); return; }
     res.status(200).json(rows[0]);
     return;
@@ -101,8 +108,8 @@ module.exports = async (req, res) => {
       return;
     }
     // Strip anything that could become script in the organiser app (see tournament-sanitize.js). Strips, never rejects.
-    sanitizeTournamentData(data);
     try {
+      sanitizeTournamentData(data);
       const existingRows = await sql`SELECT id, data, updated_at, created_by FROM tournaments WHERE id = ${id}`;
       const existing = existingRows[0];
 
@@ -175,6 +182,8 @@ module.exports = async (req, res) => {
       }
       res.status(200).json(updated[0]);
     } catch (e) {
+      // The reason goes to the server log (Vercel > Logs), never to the browser.
+      console.error('PUT /api/tournaments/' + id + ' failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
       res.status(500).json({ error: 'Could not save tournament.' });
     }
     return;

@@ -78,3 +78,65 @@ test('a successful save shows Saved', async () => {
   assert.equal(await f('flushSaveOnce')(), true);
   assert.equal(el.textContent, 'Saved');
 });
+
+/* ---- leaving the tab must not make the tab's own next save a false conflict ---- */
+const tick = () => new Promise((r) => setImmediate(r));
+
+test('hiding the tab with nothing unsaved sends nothing (it would only change the stored version behind the tab’s back)', () => {
+  setup(); run(app, 'savePending = false; saveInFlight = false');
+  let sent = 0; app.fetch = () => { sent++; return Promise.resolve({ ok: true, json: async () => ({ updated_at: 'X' }) }); };
+  f('flushSaveNow')();
+  assert.equal(sent, 0);
+});
+
+test('hiding the tab with an unsaved edit saves it and remembers the new version stamp, so the next save is not refused', async () => {
+  setup(); run(app, 'dbUpdatedAtCache["t_ss1"] = "S1"; savePending = true; saveRev = 3; saveInFlight = false');
+  const sent = [];
+  app.fetch = (url, o) => { sent.push(JSON.parse(o.body)); return Promise.resolve({ ok: true, json: async () => ({ updated_at: 'S2' }) }); };
+  f('flushSaveNow')();
+  await tick(); await tick();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].expectedUpdatedAt, 'S1');
+  assert.equal(run(app, 'dbUpdatedAtCache["t_ss1"]'), 'S2');   // the tab now knows the stamp the server holds
+  assert.equal(run(app, 'savePending'), false);
+  // and a save right after (the tab was only hidden, not closed) carries the new stamp
+  const bodies = [];
+  app.apiFetch = (url, o) => { bodies.push(JSON.parse(o.body)); return Promise.resolve({ ok: true, status: 200, json: async () => ({ updated_at: 'S3' }) }); };
+  assert.equal(await f('flushSaveOnce')(), true);
+  assert.equal(bodies[0].expectedUpdatedAt, 'S2');
+});
+
+test('a failed hide-time save keeps the edit marked unsaved so it is tried again', async () => {
+  setup(); run(app, 'savePending = true; saveRev = 1; saveInFlight = false');
+  app.fetch = () => Promise.resolve({ ok: false, status: 500 });
+  f('flushSaveNow')(); await tick(); await tick();
+  assert.equal(run(app, 'savePending'), true);
+});
+
+test('a save already on its way is not duplicated by hiding the tab', () => {
+  setup(); run(app, 'savePending = true; saveInFlight = true');
+  let sent = 0; app.fetch = () => { sent++; return Promise.resolve({ ok: true, json: async () => ({}) }); };
+  f('flushSaveNow')();
+  assert.equal(sent, 0);
+  run(app, 'saveInFlight = false');
+});
+
+test('an edit marks the tab as having an unsaved change, and a completed save clears it (unless a newer edit arrived)', async () => {
+  setup(); statusEl();
+  run(app, 'savePending = false; saveRev = 0');
+  app.apiFetch = () => Promise.resolve({ ok: true, status: 200, json: async () => ({ updated_at: 'S9' }) });
+  f('persist')();
+  assert.equal(run(app, 'savePending'), true);
+  clearTimeoutStub();
+  assert.equal(await f('flushSaveOnce')(), true);
+  assert.equal(run(app, 'savePending'), false);
+  // an edit made while a save is in flight is not cleared by that save finishing
+  let release; const gate = new Promise((r) => { release = r; });
+  app.apiFetch = () => gate.then(() => ({ ok: true, status: 200, json: async () => ({ updated_at: 'S10' }) }));
+  f('persist')(); clearTimeoutStub();
+  const inflight = f('flushSaveOnce')();
+  f('persist')(); clearTimeoutStub();                       // a second edit lands while the first save is out
+  release(); await inflight;
+  assert.equal(run(app, 'savePending'), true);
+});
+function clearTimeoutStub() { run(app, 'clearTimeout(saveTimer); saveTimer = null'); }
