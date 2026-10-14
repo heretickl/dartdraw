@@ -12,7 +12,7 @@ require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
 } };
 
 const authRouter = require('../api/auth/[action]');
-const adminRouter = require('../api/admin/[...route]');
+const adminRouter = require('../api/_routes/adminRouter');
 const auth = require('../api/_lib/auth');
 
 const UUID = '3f2b8c1e-5a4d-4e7b-9c6a-1d2e3f4a5b6c';
