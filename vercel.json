@@ -1,5 +1,9 @@
 {
   "redirects": [
     { "source": "/viewer/:path*", "destination": "/", "permanent": false }
+  ],
+  "headers": [
+    { "source": "/verify.html", "headers": [{ "key": "Referrer-Policy", "value": "no-referrer" }] },
+    { "source": "/reset.html", "headers": [{ "key": "Referrer-Policy", "value": "no-referrer" }] }
   ]
 }

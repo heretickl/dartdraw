@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Choose a new password - DartDraw</title>
+<style>
+:root{--navy:#10233e;--blue:#1f6feb;--gold:#d9ad45;--ink:#142133;--muted:#5b6877;--line:#dbe2ea;--bg:#edf2f6;--red:#b3261e;--green:#1b6e3c}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--bg);font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:32px;box-shadow:0 12px 28px #26394a1a;width:100%;max-width:380px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:.3px;font-size:20px;margin-bottom:4px}
+.brand-mark{width:31px;height:31px;border:3px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-size:15px;background:var(--navy);color:var(--gold)}
+h1{margin:0;font:inherit}
+p.sub{margin:0 0 22px;color:var(--muted);font-size:13px}
+.field{margin:0 0 14px}
+.field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+input{height:44px;border:1px solid #8a97a6;border-radius:7px;padding:9px 11px;font-size:16px;width:100%;font-family:inherit;color:var(--ink);background:#fff}
+.btn{display:block;text-align:center;text-decoration:none;border:0;border-radius:8px;padding:12px 14px;min-height:44px;font-weight:750;font-size:14px;font-family:inherit;cursor:pointer;width:100%;background:var(--blue);color:#fff;margin-top:6px}
+.btn:hover{background:#1a5fcc}
+.btn:disabled{opacity:.6;cursor:default}
+a:focus-visible,input:focus-visible,.btn:focus-visible,.msg:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+input:focus-visible{border-color:var(--blue)}
+.msg{border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:14px}
+.msg:empty{display:none}
+.msg.err{background:#fdeceb;color:var(--red)}
+.msg.ok{background:#e8f5ec;color:var(--green)}
+.foot{text-align:center;margin-top:14px;font-size:13px;color:var(--muted)}
+.foot a{display:inline-block;padding:10px 6px;color:var(--blue);text-decoration:underline;font-weight:700}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand"><span class="brand-mark" aria-hidden="true">D</span> <h1>DartDraw</h1></div>
+  <p class="sub">Choose a new password.</p>
+  <div class="msg" id="msg" aria-live="polite" tabindex="-1"></div>
+  <form id="resetForm">
+    <div class="field"><label for="password">New password</label><input type="password" id="password" autocomplete="new-password" minlength="8" aria-describedby="pwHint" required>
+      <div class="hint" id="pwHint">At least 8 characters.</div>
+    </div>
+    <div class="field"><label for="confirm">Confirm new password</label><input type="password" id="confirm" autocomplete="new-password" minlength="8" required></div>
+    <button class="btn" id="submitBtn" type="submit">Set new password</button>
+  </form>
+  <a class="btn" id="signinLink" href="/login.html" hidden>Sign in</a>
+  <div class="foot" id="forgotFoot" hidden><a href="/forgot.html">Request a new link</a></div>
+</main>
+<script>
+const msgEl = document.getElementById('msg');
+const form = document.getElementById('resetForm');
+const btn = document.getElementById('submitBtn');
+// The token only ever travels in the request body.
+const token = new URLSearchParams(location.search).get('token');
+
+function show(text, kind){
+  msgEl.textContent = text;
+  msgEl.className = 'msg ' + kind;
+}
+function finish(text, kind){
+  form.hidden = true;
+  show(text, kind);
+  msgEl.focus();
+}
+
+if(!token){
+  finish('This link is invalid or has expired.', 'err');
+  document.getElementById('forgotFoot').hidden = false;
+}
+
+form.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  msgEl.textContent = ''; msgEl.className = 'msg';
+  const password = document.getElementById('password').value;
+  const confirmValue = document.getElementById('confirm').value;
+  if(password.length < 8){
+    show('Password must be at least 8 characters.', 'err');
+    document.getElementById('password').focus();
+    return;
+  }
+  if(password !== confirmValue){
+    show('The two passwords do not match.', 'err');
+    document.getElementById('confirm').focus();
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    const res = await fetch('/api/auth/reset', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token, password })
+    });
+    let body = {};
+    try{ body = await res.json(); }catch(err){ body = {}; }
+    if(res.ok){
+      finish('Your password has been changed. You can now sign in.', 'ok');
+      document.getElementById('signinLink').hidden = false;
+      return;
+    }
+    if(res.status === 400 && body.error && /link/i.test(body.error)){
+      finish(body.error, 'err');
+      document.getElementById('forgotFoot').hidden = false;
+      return;
+    }
+    show(body.error || 'Could not reset your password.', 'err');
+  }catch(err){
+    show('Could not reach the server. Check your connection and try again.', 'err');
+  }
+  btn.disabled = false; btn.textContent = 'Set new password';
+});
+</script>
+</body>
+</html>

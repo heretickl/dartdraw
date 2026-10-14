@@ -4,14 +4,14 @@ Web app for creating, managing, and printing darts tournament charts — built f
 
 ## Usage
 
-Open the deployed URL and use the app as normal — the print-ready chart still updates as you work, exactly as before. By default no login is required (see below).
+Open the deployed URL and use the app as normal — the print-ready chart still updates as you work, exactly as before. Login is off until you switch it on (see "Organiser accounts and login" below).
 
 ## Deployment
 
 Hosted on Vercel with a Neon Postgres database.
 
 1. **Neon**: create a project, open the SQL Editor and run `schema.sql` once to
-   create the `organizers` and `tournaments` tables. Copy the **pooled**
+   create the `organizers`, `tournaments` and sign-in tables (a database that already exists is upgraded with `migrations/2026-10-13-accounts.sql`, see below). Copy the **pooled**
    connection string.
 2. **Vercel**: import this repo as a new project (Framework Preset "Other" —
    zero config, no build step). Add two Environment Variables:
@@ -23,21 +23,85 @@ Hosted on Vercel with a Neon Postgres database.
 Local development: copy `.env.example` to `.env` (or `.env.local`), fill in
 the values, and run `vercel dev`.
 
-### Requiring organizer login
+### Organiser accounts and login
 
-By default the app is open to anyone with the URL — every visitor shares one
-implicit "Public" account. To require sign-in instead (each organizer then
-only sees their own tournaments), set two more Environment Variables and
-redeploy:
+Each organiser has their own account and sees only their own tournaments. Two
+access levels exist, and they differ in one thing only:
 
-- `REQUIRE_LOGIN` = `true`
-- `SIGNUP_CODE` — a code of your choosing; anyone signing up at
-  `/register.html` must enter it, so only share it with people who should
-  get an account.
+| Level | Entries per event |
+|-------|-------------------|
+| **Basic** (the default for new sign-ups) | up to 64 |
+| **Pro** | unlimited |
 
-Set `REQUIRE_LOGIN` back to `false` (or remove it) and redeploy to re-open
-the app to the public; existing accounts and their tournaments are
-unaffected either way.
+Entries are counted without withdrawn ones, and a doubles pair counts as one.
+The server enforces the limit, so it cannot be bypassed from the browser. A
+Basic organiser whose event is already larger than 64 (for example after being
+moved down from Pro) can keep editing it but cannot add entries. One account is
+the **Admin** (the project owner). Only `scripts/create-admin.js` can create an
+admin; sign-up never can. The Admin tab itself is a later project.
+
+Login stays **off** until you switch it on, so nothing changes for a running
+site until step 3 below. Use these steps in this order:
+
+1. **Run the migration (once).** Open the Neon SQL Editor and run
+   `migrations/2026-10-13-accounts.sql`. It adds the account columns and the
+   `auth_tokens` and `auth_throttle` tables, marks every existing real account as
+   verified and Pro, and is safe to run again. (A fresh install already gets all
+   of this from `schema.sql`.)
+2. **Create the Admin and adopt the existing tournaments.** On your own computer,
+   with the Neon **pooled** connection string:
+
+   ```
+   DATABASE_URL="postgresql://..." node scripts/create-admin.js --email you@example.com --name "Your Name" --adopt-public
+   ```
+
+   It asks for a password (at least 8 characters, not shown as you type). To avoid
+   the prompt you can set `ADMIN_PASSWORD` in the environment instead; the password
+   is never accepted as a command-line argument and never printed. The script
+   creates the account, or if that email already exists, promotes it to Admin /
+   Pro / verified, sets the new password and signs out its old sessions.
+   `--adopt-public` moves every tournament of the old shared "Public" account
+   (finalized ones included) to your account in a single database statement, so it
+   either all happens or none of it does, and prints how many were moved. Running
+   it again moves nothing. Tournaments owned by other accounts are never touched,
+   and the Public account itself can never sign in.
+3. **Switch login on.** In Vercel set `REQUIRE_LOGIN` = `true` and `APP_URL` = the
+   app's public address (no trailing slash), then redeploy. Sign in as the Admin;
+   your existing tournaments are there. Setting `REQUIRE_LOGIN` back to `false`
+   (or removing it) is an emergency fallback that re-opens the shared Public
+   account, which after the move shows an empty list.
+4. **Later, when you have a domain: open sign-up.** Verify the domain with
+   [Resend](https://resend.com), then set `RESEND_API_KEY`, `MAIL_FROM` (for
+   example `DartDraw <noreply@your-domain>`), keep `APP_URL`, set
+   `SIGNUP_OPEN` = `true`, and redeploy. Sign-up opens, and the login page shows
+   the Sign up link. People verify their email by opening a link and entering the password they chose at sign-up, and Forgot password
+   works. Until then sign-up stays closed (the endpoint answers 403 and the link
+   is hidden) and no email is sent.
+5. **The old `SIGNUP_CODE` setting is retired.** Sign-up no longer reads it; you
+   can delete it from Vercel.
+
+Environment variables (see `.env.example`):
+
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | Neon pooled connection string. |
+| `SESSION_SECRET` | Long random string that signs session cookies. |
+| `REQUIRE_LOGIN` | `true` to require sign-in. Anything else keeps the shared Public account. |
+| `APP_URL` | Public address of the app, no trailing slash. Used for the links in emails. Required in production. |
+| `SIGNUP_OPEN` | `true` to allow open sign-up. It only opens if email is also configured. |
+| `MAIL_PROVIDER` | `resend` (default) or `console`. `console` writes each message and its link to the server log, for development only. |
+| `RESEND_API_KEY` | Resend API key (needed for `resend`). |
+| `MAIL_FROM` | Sender address on a domain verified in Resend (needed for `resend`). |
+| `VIEWER_URL` | Address of the public results site. |
+
+Without a domain the Admin can still sign in (step 2 needs no email), but
+sign-up, email verification and Forgot password are unavailable. When the Admin
+tab arrives, accounts the Admin creates before email exists will be handed over
+as a one-time link to share by hand.
+Sign-up and password reset links are single use and expire (verify 24 hours,
+reset 1 hour, invite 7 days). A password reset, or suspending an account, signs
+that account out everywhere immediately. Sign-in, sign-up, forgot and resend are
+rate limited.
 
 ## Public results site (separate Vercel project)
 

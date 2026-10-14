@@ -1,5 +1,6 @@
 const { sql } = require('../_lib/db');
 const { requireAuth } = require('../_lib/auth');
+const { checkEntryLimit } = require('../_lib/tiers');
 
 // GET /api/tournaments/:id     -> { id, data, updated_at }
 // PUT /api/tournaments/:id     -> body { data, expectedUpdatedAt }, upserts.
@@ -13,6 +14,10 @@ const { requireAuth } = require('../_lib/auth');
 //   it yet, so it is saved normally. The UPDATE itself is conditional on the
 //   stamp that was checked, so a save/finalize landing in between is answered
 //   with 409 (or 403 if the row became finalized) instead of being overwritten.
+//   After that check, a Basic organiser (see api/_lib/tiers.js) is refused with 403
+//   { code: 'entry_limit', limit, error } when the save would hold more active entries
+//   than the limit AND more than the stored copy does (insert included). This is the only
+//   place tournament rows are created or changed (api/tournaments/index.js is read-only).
 // DELETE /api/tournaments/:id
 //   Also refused with 403 { error, finalized: true } for a finalized event.
 //   Only an Admin (via the database for now) can change or remove one. The
@@ -83,6 +88,14 @@ module.exports = async (req, res) => {
 
       if (existing && isFinalized(existing.data)) {
         res.status(403).json(FINALIZED_BODY);
+        return;
+      }
+
+      // Basic accounts cannot grow an event past the limit. An event already over it (e.g. after a downgrade) can still be
+      // edited and shrunk, just not grown. Checked after the finalized lock, and before any write.
+      const over = checkEntryLimit(organizer.tier, data, existing && existing.data);
+      if (over) {
+        res.status(403).json({ code: 'entry_limit', limit: over.limit, error: 'Basic accounts allow up to ' + over.limit + ' entries per event.' });
         return;
       }
 
