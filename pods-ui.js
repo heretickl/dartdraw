@@ -9,13 +9,13 @@ function podsSummaryHTML(n, p){
   if(!p) return '<b>Choose how many groups.</b> Players are dealt into this many small knockouts, and each group winner goes through to the Finals.';
   if(!v.ok) return '<b style="color:#c0392b">'+escapeHtml(v.message)+'</b>';
   var sizes = podSizes(n, p), min = sizes[sizes.length-1], max = sizes[0], fin = nearestBracket(p);
-  return '<b>'+p+' groups of '+(min===max ? min : min+' to '+max)+' players.</b> Finals: '+(fin.size===8 ? 'an ' : 'a ')+fin.size+'-slot chart for '+p+' group winners'+
+  return '<b>'+p+' groups of '+(min===max ? min : min+' to '+max)+' players.</b> Finals: '+(fin.size===8 ? 'an ' : 'a ')+escText(fin.size)+'-slot chart for '+p+' group winners'+
     (fin.byes ? ' ('+fin.byes+' bye'+(fin.byes===1?'':'s')+' for the strongest groups)' : '')+'.';
 }
 function podsFormatFieldsHTML(){
   var f = state.format, n = podsPlayerCount(state), p = parseInt(f.podCount) || 0, advanced = !!state.eventCreation.advancedMode;
   return '<div class="grid2">'+
-      '<div class="field"><label>Best of legs (the Finals, and groups unless set below)</label><input id="f_bestof" type="number" min="1" step="2" value="'+f.bestOfLegs+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>'+
+      '<div class="field"><label>Best of legs (the Finals, and groups unless set below)</label><input id="f_bestof" type="number" min="1" step="2" value="'+escText(f.bestOfLegs)+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>'+
       '<div class="field"><label>Number of groups</label><input id="f_podcount" type="number" min="2" max="'+PODS_MAX+'" value="'+(p || '')+'" oninput="podsPreviewSettings()"></div>'+
     '</div>'+
     '<div class="grid2"><div class="field"><label>Best of legs inside each group</label><input id="f_podlegs" type="number" min="1" step="2" value="'+(parseInt(f.podLegs) || parseInt(f.bestOfLegs) || 5)+'"></div><div></div></div>'+
@@ -47,13 +47,13 @@ function podsCardsHTML(pods){
         var e = state.entriesList.find(function(x){ return x.id === id; }) || {};
         return '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:3px 0;font-size:13px">'+
           '<span>'+podsSeedBadge(id, seeds)+escapeHtml(e.name || '')+(e.org ? ' <small style="color:var(--muted)">'+escapeHtml(e.org)+'</small>' : '')+'</span>'+
-          (editable ? '<button class="btn ghost" style="padding:2px 8px;font-size:11px" onclick="podsMoveModal(\''+id+'\')">Move…</button>' : '')+'</div>';
+          (editable ? '<button class="btn ghost" style="padding:2px 8px;font-size:11px" onclick="podsMoveModal(\''+escJs(id)+'\')">Move…</button>' : '')+'</div>';
       }).join('');
       return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><strong>Group '+escapeHtml(p.label)+'</strong>'+
           '<span class="hint" style="margin:0">'+p.entryIds.length+' players</span></div>'+
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px"><label style="margin:0">Board'+(p.boards.length === 1 ? '' : 's')+'</label>'+
-          '<input type="text" style="width:90px;height:28px;font-size:12px" value="'+p.boards.join(', ')+'" onchange="setPodBoards(\''+p.id+'\',this.value)"></div>'+
+          '<input type="text" style="width:90px;height:28px;font-size:12px" value="'+escText(p.boards.join(', '))+'" onchange="setPodBoards(\''+escJs(p.id)+'\',this.value)"></div>'+
         rows+'</div>';
     }).join('')+'</div>';
 }
@@ -65,7 +65,7 @@ function podsRosterWarningHTML(){
   function name(id){ return escapeHtml((t.entriesList.find(function(e){ return e.id === id; }) || {}).name || 'Unknown'); }
   return '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>The entry list has changed since the draw</b>'+
     (unplaced.length ? '<div>'+unplaced.length+' player'+(unplaced.length === 1 ? ' isn\'t' : 's aren\'t')+' in a group: '+
-      unplaced.map(function(id){ return name(id)+' <a href="javascript:void(0)" style="font-size:11px" onclick="podsPlaceModal(\''+id+'\')">Place…</a>'; }).join(', ')+'</div>' : '')+
+      unplaced.map(function(id){ return name(id)+' <a href="javascript:void(0)" style="font-size:11px" onclick="podsPlaceModal(\''+escJs(id)+'\')">Place…</a>'; }).join(', ')+'</div>' : '')+
     (gone.length ? '<div>'+gone.length+' player'+(gone.length === 1 ? ' was' : 's were')+' removed or withdrawn but still '+(gone.length === 1 ? 'sits' : 'sit')+' in a group: '+
       gone.map(name).join(', ')+' <a href="javascript:void(0)" style="font-size:11px" onclick="podsRemoveGoneClick()">Remove them</a></div>' : '')+
   '</div>';
@@ -81,9 +81,9 @@ function podsCountWarningHTML(){
 }
 function podsPlaceModal(entryId){
   var name = (state.entriesList.find(function(e){ return e.id === entryId; }) || {}).name || '';
-  var opts = podsList(state).filter(podsCanEdit).map(function(p){ return '<option value="'+p.id+'">Group '+escapeHtml(p.label)+' ('+p.entryIds.length+' players)</option>'; }).join('');
+  var opts = podsList(state).filter(podsCanEdit).map(function(p){ return '<option value="'+escText(p.id)+'">Group '+escapeHtml(p.label)+' ('+p.entryIds.length+' players)</option>'; }).join('');
   openModal({
-    title:'Place '+name,
+    title:'Place '+escapeHtml(name),
     bodyHTML: opts ? '<div class="field"><label>Into group</label><select id="plTo">'+opts+'</select></div>'
                    : '<p>Every group is confirmed or has scores. Unconfirm a group first.</p>',
     confirmLabel:'Place', confirmClass:'primary',
@@ -191,7 +191,7 @@ function podsMoveFillSwap(){
   if(!to || !sw) return;
   var pod = podsList(state).find(function(p){ return p.id === to.value; });
   sw.innerHTML = '<option value="">No swap</option>'+(pod ? pod.entryIds.map(function(id){
-    return '<option value="'+id+'">'+escapeHtml((state.entriesList.find(function(e){ return e.id === id; }) || {}).name || '')+'</option>';
+    return '<option value="'+escText(id)+'">'+escapeHtml((state.entriesList.find(function(e){ return e.id === id; }) || {}).name || '')+'</option>';
   }).join('') : '');
 }
 function podsMoveModal(entryId){
@@ -199,10 +199,10 @@ function podsMoveModal(entryId){
   if(!from) return;
   var name = (state.entriesList.find(function(e){ return e.id === entryId; }) || {}).name || '';
   var opts = podsList(state).filter(function(p){ return p.id !== from.id && podsCanEdit(p); }).map(function(p){
-    return '<option value="'+p.id+'">Group '+escapeHtml(p.label)+' ('+p.entryIds.length+' players)</option>';
+    return '<option value="'+escText(p.id)+'">Group '+escapeHtml(p.label)+' ('+p.entryIds.length+' players)</option>';
   }).join('');
   openModal({
-    title:'Move '+name,
+    title:'Move '+escapeHtml(name),
     bodyHTML: opts
       ? '<div class="field"><label>To group</label><select id="mvTo" onchange="podsMoveFillSwap()">'+opts+'</select></div>'+
         '<div class="field"><label>Swap with (optional)</label><select id="mvSwap"></select></div>'+
@@ -230,14 +230,14 @@ function podsStage4(){
   html += '<div class="card"><h2>Confirm groups &amp; build the Finals</h2>'+
     '<p class="intro">Confirm each group once its draw is right. When the last group is confirmed, the Finals chart is built with "Winner of Group N" placeholders. A group with scores can\'t be unconfirmed.</p>'+
     '<div class="summary-grid" style="margin-bottom:12px"><div><label>Groups confirmed</label><strong>'+prog.confirmed+' of '+prog.total+'</strong></div>'+
-      '<div><label>Finals</label><strong>'+(podsFinals(t) ? podsFinals(t).size+'-slot chart built' : 'Not built yet')+'</strong></div></div>'+
+      '<div><label>Finals</label><strong>'+(podsFinals(t) ? escText(podsFinals(t).size)+'-slot chart built' : 'Not built yet')+'</strong></div></div>'+
     '<div class="buttonrow"><button class="btn primary" '+(prog.confirmed === prog.total ? 'disabled ' : '')+'onclick="podsConfirmAllClick()">Confirm all groups</button>'+
       (podsFinals(t) ? '<button class="btn secondary" onclick="doFinalPrint()">Print bracket pack</button><button class="btn primary" onclick="goStage(5)">Continue to manage tournament →</button>' : '')+'</div>'+
     '<div class="printlist">'+pods.map(function(p){
       return '<div><span>Group '+escapeHtml(p.label)+' — '+p.entryIds.length+' players · '+podBoardLabel(p)+'</span><span>'+
         (p.confirmed
-          ? '<b style="color:#1d8a4a">Confirmed</b> <a href="javascript:void(0)" style="font-size:11px" onclick="podsUnconfirmClick(\''+p.id+'\')">Unconfirm</a>'
-          : '<b style="color:#c0392b">Not confirmed</b> <a href="javascript:void(0)" style="font-size:11px" onclick="podsConfirmClick(\''+p.id+'\')">Confirm</a>')+'</span></div>';
+          ? '<b style="color:#1d8a4a">Confirmed</b> <a href="javascript:void(0)" style="font-size:11px" onclick="podsUnconfirmClick(\''+escJs(p.id)+'\')">Unconfirm</a>'
+          : '<b style="color:#c0392b">Not confirmed</b> <a href="javascript:void(0)" style="font-size:11px" onclick="podsConfirmClick(\''+escJs(p.id)+'\')">Confirm</a>')+'</span></div>';
     }).join('')+'</div></div>';
   if(podsFinals(t)) html += '<div class="card"><h3 style="margin:0 0 10px">Finals</h3><div class="mko-artboard-scroll">'+mirroredChartHTML(podsFinals(t), t, {interactive:false})+'</div></div>';
   return html;
@@ -276,7 +276,7 @@ function podsGridHTML(pods){
   if(!list.length) return '<p class="intro">No groups to show.</p>';
   return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">'+list.map(function(p){
     var st = podStatusText(p);
-    return '<div onclick="podsSelect(\''+p.id+'\')" style="cursor:pointer;border:1px solid var(--line);border-radius:10px;padding:10px 12px">'+
+    return '<div onclick="podsSelect(\''+escJs(p.id)+'\')" style="cursor:pointer;border:1px solid var(--line);border-radius:10px;padding:10px 12px">'+
       '<div style="display:flex;justify-content:space-between"><strong>Group '+escapeHtml(p.label)+'</strong><span class="hint" style="margin:0">'+podBoardLabel(p)+'</span></div>'+
       '<div style="font-size:12px;color:'+st.color+';margin-top:4px">'+escapeHtml(st.text)+'</div></div>';
   }).join('')+'</div>';
@@ -306,7 +306,7 @@ function podsStage5(){
     html += '<div class="buttonrow" style="margin-bottom:10px"><button class="btn ghost" onclick="podsSelect(\'grid\')">← All groups</button></div>'+
       '<h3 style="margin:0 0 8px">Group '+escapeHtml(selPod.label)+' · '+podBoardLabel(selPod)+'</h3>'+
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:12px"><label style="margin:0">Change board'+(selPod.boards.length === 1 ? '' : 's')+'</label>'+
-        '<input type="text" style="width:100px;height:28px;font-size:12px" value="'+selPod.boards.join(', ')+'" onchange="setPodBoards(\''+selPod.id+'\',this.value)"></div>'+
+        '<input type="text" style="width:100px;height:28px;font-size:12px" value="'+escText(selPod.boards.join(', '))+'" onchange="setPodBoards(\''+escJs(selPod.id)+'\',this.value)"></div>'+
       (selPod.confirmed ? '' : '<div class="confirm-box">Confirm this group in Confirm &amp; Print Bracket before entering results.</div>')+
       '<div class="mko-artboard-scroll">'+mirroredChartHTML(selPod.bracket, t, {interactive:selPod.confirmed, bracketKey:podBracketKey(selPod)})+'</div>';
   }

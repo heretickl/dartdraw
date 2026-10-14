@@ -1,4 +1,5 @@
 const { sql } = require('./db');
+const { effectiveTier } = require('./tiers');
 
 // One bcrypt cost for every password hash the app makes (sign-up, reset, the
 // create-admin script) and for the dummy compare below, so the time to check a
@@ -36,9 +37,10 @@ async function createOrganizer({ email, name, passwordHash, role, tier, verified
   return toSessionUser(rows[0]);
 }
 
-// The fields safe to hand to the browser.
+// The fields safe to hand to the browser. tier is the effective one (an Admin is Pro whatever is stored), so the
+// login response, createOrganizer and requireAuth / /api/auth/me all agree.
 function toSessionUser(row) {
-  return { id: row.id, email: row.email, name: row.name, role: row.role, tier: row.tier };
+  return { id: row.id, email: row.email, name: row.name, role: row.role, tier: effectiveTier(row) };
 }
 
 // Signing up again with an email whose account is still unverified: the new

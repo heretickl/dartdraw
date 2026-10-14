@@ -43,3 +43,11 @@ CREATE TABLE auth_throttle (
   window_start timestamptz NOT NULL,
   count        integer NOT NULL
 );
+
+-- Site-wide settings edited from the Admin tab (public home page retention).
+-- Until a row exists the app uses its defaults (resultsDays 14, liveHours 48).
+CREATE TABLE site_settings (
+  key        text PRIMARY KEY,
+  value      jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);

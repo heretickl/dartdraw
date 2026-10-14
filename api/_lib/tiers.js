@@ -9,6 +9,16 @@ function entryLimitFor(tier) {
   return ENTRY_LIMITS.basic;
 }
 
+// The access level an organiser actually gets. An Admin has every Pro-level
+// access whatever the stored tier says; anyone else gets their stored tier
+// (missing or unknown -> 'basic'). Pro gating must read this, never the raw
+// column.
+function effectiveTier(organizer) {
+  if (organizer && organizer.role === 'admin') return 'pro';
+  const tier = organizer && organizer.tier;
+  return (tier === 'pro' || tier === 'basic') ? tier : 'basic';
+}
+
 // Active (non-withdrawn) entries in an event's data. Tolerant of junk.
 function countActiveEntries(data) {
   const list = data && typeof data === 'object' ? data.entriesList : null;
@@ -31,4 +41,4 @@ function checkEntryLimit(tier, newData, oldData) {
   return null;
 }
 
-module.exports = { ENTRY_LIMITS, entryLimitFor, countActiveEntries, checkEntryLimit };
+module.exports = { ENTRY_LIMITS, effectiveTier, entryLimitFor, countActiveEntries, checkEntryLimit };

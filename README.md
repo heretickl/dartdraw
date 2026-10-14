@@ -38,7 +38,7 @@ The server enforces the limit, so it cannot be bypassed from the browser. A
 Basic organiser whose event is already larger than 64 (for example after being
 moved down from Pro) can keep editing it but cannot add entries. One account is
 the **Admin** (the project owner). Only `scripts/create-admin.js` can create an
-admin; sign-up never can. The Admin tab itself is a later project.
+admin; sign-up never can. The Admin runs the service from the Admin tab (see "Admin tab" below).
 
 Login stays **off** until you switch it on, so nothing changes for a running
 site until step 3 below. Use these steps in this order:
@@ -95,13 +95,43 @@ Environment variables (see `.env.example`):
 | `VIEWER_URL` | Address of the public results site. |
 
 Without a domain the Admin can still sign in (step 2 needs no email), but
-sign-up, email verification and Forgot password are unavailable. When the Admin
-tab arrives, accounts the Admin creates before email exists will be handed over
-as a one-time link to share by hand.
+sign-up, email verification and Forgot password are unavailable. The Admin tab
+covers that gap: accounts the Admin creates, and password resets, are handed over
+as a one-time link to share by hand (see "Admin tab" below).
 Sign-up and password reset links are single use and expire (verify 24 hours,
 reset 1 hour, invite 7 days). A password reset, or suspending an account, signs
 that account out everywhere immediately. Sign-in, sign-up, forgot and resend are
 rate limited.
+
+### Admin tab
+
+The Admin account sees an **Admin** entry (gold) in the organiser sidebar, below the account bar; **Back to my events** returns to the normal screens. The server checks the Admin role on every Admin call, so the entry being hidden for other people is a convenience, not the protection. An Admin has **Pro access** whatever tier is stored on the account (no entry limit), plus the Admin tab. It has three views:
+
+- **Organisers.** List everyone with tier, role, status (Active, Suspended, Unverified) and event count. Add an organiser (name, email, tier), change a tier, suspend or reactivate, make or remove an Admin, copy a password reset link, transfer all of someone's events to another organiser, and delete an organiser. Guards: you cannot change your own role, suspend yourself or delete yourself; the last active Admin cannot be demoted, suspended or deleted; an organiser who still owns events cannot be deleted (transfer the events first); suspending or demoting someone signs them out everywhere.
+- **Events.** Search every organiser's events and filter by owner. **Open** loads an event in the normal editor with an "Editing ...'s event as Admin" banner, and saving keeps the original owner. Per event: **Reopen** (finalized events only), **Unpublish** (turns off Public results and the public listing), **Unlist** (removes it from the public home page but keeps its private link), **Transfer** to another organiser, and **Delete**. A finalized event stays locked, even for the Admin, until it is reopened; an Admin who opens one gets a **Reopen to edit** button.
+- **Settings.** How long events stay on the public home page: Results days (1 to 90, default 14) and Live hours (1 to 168, default 48). See "Retention" under "Public home page".
+
+**Rolling it out.** Do these in order:
+
+1. In the Neon SQL Editor run `migrations/2026-10-14-admin.sql` (creates the `site_settings` table; safe to run again).
+2. In the Neon SQL Editor run `viewer/sql/settings.sql` (creates the `public_settings` view the public site reads, and grants it to `viewer_ro`).
+3. Deploy the organiser project and the viewer project (each deploys from `main`).
+
+Until step 2 is done the public site simply uses 14 days and 48 hours, so deploying first does not break anything; the Settings numbers just have no effect on the public site until the view exists.
+
+**Reopening a finalized event.** Once an organiser accepts the results the event is closed: the organiser app refuses every save and delete for it, and the public pages show **Final results**. The Admin reopens it with the **Reopen** button on the Events view (or **Reopen to edit** on the event itself). That removes the finalized marker, so the event goes back to Live (or wherever its progress puts it) and the organiser can edit again; an organiser who still has the event open gets the normal "changed elsewhere" message and needs to reload it. This replaces the old manual step. If the Admin tab is ever unavailable, the same thing can be done in the Neon SQL Editor:
+
+```sql
+UPDATE tournaments SET data = data - 'finalized', updated_at = now() WHERE id = '<tournament id>';
+```
+
+**Handing over links without an email domain.** Until Resend is set up (step 4 above) no email is sent, so the Admin passes links on by hand:
+
+- **New organiser.** Add organiser shows an invite link with a Copy button. Send it to them yourself (WhatsApp, text, anything). The link works once and for 7 days, and opens the page where they choose their password. The account is already verified.
+- **Forgotten password.** Open the organiser's row and use the reset link action, copy the link and send it to them. It works once and for 1 hour. Using it signs them out everywhere. Never ask an organiser to tell you their password.
+- Treat these links like passwords: anyone holding an unused link can set the password for that account. Issuing a new reset link cancels the previous unused reset link, so if one went to the wrong place, make a new one. An unused invite link is a separate kind and is not cancelled by a reset link; if an invite went astray, delete the new account (allowed while it owns no events) and add the organiser again.
+
+Once email is configured, the same actions also email the link, and the link is still shown to the Admin.
 
 ## Public results site (separate Vercel project)
 
@@ -153,19 +183,9 @@ The viewer's bare address (for example `https://dartdraw-viewer.vercel.app/`) is
 
 - **Opt-in.** An event appears only when its organiser ticks **List on the public page** on the Public results card (it is off by default, and turning Public results off turns it off too). Events that are only published keep working through their private link and are never listed. A duplicated tournament starts unlisted, and turning Public results on never brings back an old listed flag.
 - **What it shows.** Event and tournament name, date, start time, format, number of entries, a progress ring while live, and the winner once finished. Scores, other players, clubs and notes are never part of the list (`viewer/api/_lib/listView.js` is the allow-list).
-- **Rules.** Live means play has started, the organiser has not finalized the event, and it was saved within 48 hours (an event with every match played stays Live until it is finalized). Upcoming means not started and dated yesterday or later. Results are events the organiser has finalized with **Accept results & finalize**, and stay for 7 days after finalizing. The event page shows **Final results** only for a finalized event. An unstarted event with no date is upcoming while it was saved within 8 days. A round robin shows no winner line.
-- **Where the limits live.** `viewer/api/_lib/listConfig.js`. They are plain constants for now; an admin setting could replace them later.
-- **How it is served.** `GET /api/events` reads the existing `public_tournaments` view through the existing read-only role (no migration, no new grant) and is cached for 30 seconds, so an unlisted or unpublished event disappears within about half a minute. The page itself is `viewer/home.js` and `viewer/home.css`, in the viewer project.
-
-### Reopening a finalized event (until the Admin panel exists)
-
-Once an organiser accepts the results, the event is closed: the organiser app refuses every save and delete for it, and the public pages show **Final results**. There is no Reopen button. Until the Admin panel is built, an Admin can reopen an event by removing the `finalized` marker in the Neon SQL Editor:
-
-```sql
-UPDATE tournaments SET data = data - 'finalized', updated_at = now() WHERE id = '<tournament id>';
-```
-
-This is the only way to reopen a finalized event for now. The organiser needs to reload the event afterwards.
+- **Rules.** Live means play has started, the organiser has not finalized the event, and it was saved within 48 hours (the default; see "Retention" below; an event with every match played stays Live until it is finalized). Upcoming means not started and dated yesterday or later. Results are events the organiser has finalized with **Accept results & finalize**, and stay for 14 days after finalizing (the default; see "Retention" below). The event page shows **Final results** only for a finalized event. An unstarted event with no date is upcoming while it was saved within 8 days. A round robin shows no winner line.
+- **Retention.** How long a finalized event stays under Results (1 to 90 days, default 14) and how long an unfinished event stays under Live now (1 to 168 hours, default 48) are set by the Admin in the Admin tab, Settings. To let the public site read them, run `viewer/sql/settings.sql` once in the Neon SQL Editor (after `migrations/2026-10-14-admin.sql`, which creates the `site_settings` table). It creates the `public_settings` view, which exposes only those two values, and grants it to `viewer_ro`. Until that is run, or if the view is missing or holds a bad value, the public site uses the defaults (14 days, 48 hours); out-of-range numbers are clamped. The built-in defaults and ranges live in `viewer/api/_lib/listConfig.js`.
+- **How it is served.** `GET /api/events` reads the `public_tournaments` view and the `public_settings` view through the read-only role and is cached for 30 seconds, so an unlisted or unpublished event disappears within about half a minute. The page itself is `viewer/home.js` and `viewer/home.css`, in the viewer project.
 
 ## Group Boards format
 

@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const cookie = require('cookie');
 const { sql } = require('./db');
 const { findById, toSessionUser } = require('./accounts');
+const { effectiveTier } = require('./tiers');
 
 const COOKIE_NAME = '__Host-session';
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
@@ -86,7 +87,7 @@ function _resetPublicOrganizerCache() {
 // Call at the top of a protected handler. Writes the 401 itself and returns
 // null when unauthenticated, so callers can just `if (!organizer) return;`.
 // Returns { id, email, name, role, tier } taken from the database row (never
-// from the token).
+// from the token); tier is the effective tier (see tiers.effectiveTier).
 async function requireAuth(req, res) {
   if (process.env.REQUIRE_LOGIN !== 'true') {
     try {
@@ -116,7 +117,21 @@ async function requireAuth(req, res) {
     res.status(401).json({ error: 'Not authenticated' });
     return null;
   }
-  return toSessionUser(row);
+  // tier is the effective one (an Admin is Pro whatever the stored tier says).
+  return Object.assign(toSessionUser(row), { tier: effectiveTier(row) });
+}
+
+// Call at the top of an admin-only handler. Writes the 401 (not signed in) or
+// 403 (signed in, not an admin) itself and returns null, so callers can just
+// `if (!admin) return;`. In the shared-Public fallback nobody is an admin.
+async function requireAdmin(req, res) {
+  const organizer = await requireAuth(req, res);
+  if (!organizer) return null;
+  if (organizer.role !== 'admin') {
+    res.status(403).json({ error: 'Admin only.' });
+    return null;
+  }
+  return organizer;
 }
 
 module.exports = {
@@ -125,5 +140,7 @@ module.exports = {
   clearSessionCookie,
   getOrganizerFromRequest,
   requireAuth,
+  requireAdmin,
+  PUBLIC_ORGANIZER_EMAIL,
   _resetPublicOrganizerCache
 };

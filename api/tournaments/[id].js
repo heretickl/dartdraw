@@ -1,6 +1,7 @@
 const { sql } = require('../_lib/db');
 const { requireAuth } = require('../_lib/auth');
 const { checkEntryLimit } = require('../_lib/tiers');
+const { sanitizeTournamentData, isRouteId } = require('../../tournament-sanitize');
 
 // GET /api/tournaments/:id     -> { id, data, updated_at }
 // PUT /api/tournaments/:id     -> body { data, expectedUpdatedAt }, upserts.
@@ -20,8 +21,10 @@ const { checkEntryLimit } = require('../_lib/tiers');
 //   place tournament rows are created or changed (api/tournaments/index.js is read-only).
 // DELETE /api/tournaments/:id
 //   Also refused with 403 { error, finalized: true } for a finalized event.
-//   Only an Admin (via the database for now) can change or remove one. The
+//   Only an Admin can change or remove one, and only after the Admin tab's Reopen. The
 //   DELETE statement itself skips finalized rows, so it cannot race a finalize.
+// An Admin caller (organizer.role === 'admin') is not scoped to created_by on GET, PUT and DELETE; an update never changes
+//   created_by, and a PUT for an unknown id inserts a row owned by the Admin. Every other rule above applies to Admins too.
 const FINALIZED_BODY = { error: 'This event is finalized. Only an Admin can change it.', finalized: true };
 
 function isFinalized(data) {
@@ -35,32 +38,48 @@ module.exports = async (req, res) => {
   const { id } = req.query;
   if (!id) { res.status(400).json({ error: 'Missing id.' }); return; }
 
+  // An Admin works on any organiser's event: the same statements without the owner filter, and an update never changes the owner.
+  const isAdmin = organizer.role === 'admin';
+
   if (req.method === 'GET') {
-    const rows = await sql`
-      SELECT id, data, updated_at FROM tournaments
-      WHERE id = ${id} AND created_by = ${organizer.id}
-    `;
+    const rows = isAdmin
+      ? await sql`SELECT id, data, updated_at FROM tournaments WHERE id = ${id}`
+      : await sql`
+        SELECT id, data, updated_at FROM tournaments
+        WHERE id = ${id} AND created_by = ${organizer.id}
+      `;
     if (!rows.length) { res.status(404).json({ error: 'Not found.' }); return; }
     res.status(200).json(rows[0]);
     return;
   }
 
   if (req.method === 'DELETE') {
-    const found = await sql`SELECT data FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
+    const found = isAdmin
+      ? await sql`SELECT data FROM tournaments WHERE id = ${id}`
+      : await sql`SELECT data FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
     if (found.length && isFinalized(found[0].data)) {
       res.status(403).json(FINALIZED_BODY);
       return;
     }
     // The SQL refuses finalized rows itself, so a finalize landing between the SELECT above and this DELETE still wins.
     // (data->>'finalized' is NULL when absent or JSON null; 'false', '0' and '' are the falsy stored values.)
-    const deleted = await sql`
-      DELETE FROM tournaments
-      WHERE id = ${id} AND created_by = ${organizer.id}
-        AND (data->>'finalized' IS NULL OR data->>'finalized' IN ('false', '0', ''))
-      RETURNING id
-    `;
+    const deleted = isAdmin
+      ? await sql`
+        DELETE FROM tournaments
+        WHERE id = ${id}
+          AND (data->>'finalized' IS NULL OR data->>'finalized' IN ('false', '0', ''))
+        RETURNING id
+      `
+      : await sql`
+        DELETE FROM tournaments
+        WHERE id = ${id} AND created_by = ${organizer.id}
+          AND (data->>'finalized' IS NULL OR data->>'finalized' IN ('false', '0', ''))
+        RETURNING id
+      `;
     if (!deleted.length) {
-      const again = await sql`SELECT data FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
+      const again = isAdmin
+        ? await sql`SELECT data FROM tournaments WHERE id = ${id}`
+        : await sql`SELECT data FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
       if (again.length && isFinalized(again[0].data)) {
         res.status(403).json(FINALIZED_BODY);
         return;
@@ -71,16 +90,23 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'PUT') {
+    // The id becomes a primary key and is later put into onclick handlers: plain letters, digits, _ and - only.
+    if (!isRouteId(id)) {
+      res.status(400).json({ error: 'Invalid tournament id.' });
+      return;
+    }
     const { data, expectedUpdatedAt } = req.body || {};
     if (!data || typeof data !== 'object') {
       res.status(400).json({ error: 'Missing tournament data.' });
       return;
     }
+    // Strip anything that could become script in the organiser app (see tournament-sanitize.js). Strips, never rejects.
+    sanitizeTournamentData(data);
     try {
       const existingRows = await sql`SELECT id, data, updated_at, created_by FROM tournaments WHERE id = ${id}`;
       const existing = existingRows[0];
 
-      if (existing && existing.created_by !== organizer.id) {
+      if (existing && !isAdmin && existing.created_by !== organizer.id) {
         // Belongs to someone else - treat like it doesn't exist.
         res.status(404).json({ error: 'Not found.' });
         return;
@@ -121,14 +147,23 @@ module.exports = async (req, res) => {
 
       // Conditional on the stamp we just checked (to the millisecond, the precision of the JS value), so a save or a
       // finalize that lands between the SELECT above and this write is not overwritten.
-      const updated = await sql`
-        UPDATE tournaments SET data = ${JSON.stringify(data)}::jsonb, updated_at = now()
-        WHERE id = ${id} AND created_by = ${organizer.id}
-          AND abs(extract(epoch FROM updated_at) - extract(epoch FROM ${existingIso}::timestamptz)) < 0.001
-        RETURNING id, updated_at
-      `;
+      const updated = isAdmin
+        ? await sql`
+          UPDATE tournaments SET data = ${JSON.stringify(data)}::jsonb, updated_at = now()
+          WHERE id = ${id}
+            AND abs(extract(epoch FROM updated_at) - extract(epoch FROM ${existingIso}::timestamptz)) < 0.001
+          RETURNING id, updated_at
+        `
+        : await sql`
+          UPDATE tournaments SET data = ${JSON.stringify(data)}::jsonb, updated_at = now()
+          WHERE id = ${id} AND created_by = ${organizer.id}
+            AND abs(extract(epoch FROM updated_at) - extract(epoch FROM ${existingIso}::timestamptz)) < 0.001
+          RETURNING id, updated_at
+        `;
       if (!updated.length) {
-        const nowRows = await sql`SELECT id, data, updated_at, created_by FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
+        const nowRows = isAdmin
+          ? await sql`SELECT id, data, updated_at, created_by FROM tournaments WHERE id = ${id}`
+          : await sql`SELECT id, data, updated_at, created_by FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
         const current = nowRows[0];
         if (!current) { res.status(404).json({ error: 'Not found.' }); return; }
         if (isFinalized(current.data)) { res.status(403).json(FINALIZED_BODY); return; }
