@@ -103,6 +103,14 @@ reset 1 hour, invite 7 days). A password reset, or suspending an account, signs
 that account out everywhere immediately. Sign-in, sign-up, forgot and resend are
 rate limited.
 
+**Change password.** Anyone signed in (organisers and the Admin) can change their own
+password with the **Change password** button next to **Log out** in the account bar. It asks for
+the current password, the new one (8 to 200 characters, different from the current one) and the
+new one again. A change signs out every other device and browser on that account; the one you
+changed it in stays signed in. It does not need email, so it works without a domain. The server
+limits it to 5 attempts per account and 20 per address every 15 minutes (a wrong current
+password counts), and it is not offered in public mode (`REQUIRE_LOGIN` not `true`). The button stays usable on a finalized event.
+
 ### Admin tab
 
 The Admin account sees an **Admin** entry (gold) in the organiser sidebar, below the account bar; **Back to my events** returns to the normal screens. The server checks the Admin role on every Admin call, so the entry being hidden for other people is a convenience, not the protection. An Admin has **Pro access** whatever tier is stored on the account (no entry limit), plus the Admin tab. It has three views:
@@ -110,6 +118,8 @@ The Admin account sees an **Admin** entry (gold) in the organiser sidebar, below
 - **Organisers.** List everyone with tier, role, status (Active, Suspended, Unverified) and event count. Add an organiser (name, email, tier), change a tier, suspend or reactivate, make or remove an Admin, copy a password reset link, transfer all of someone's events to another organiser, and delete an organiser. Guards: you cannot change your own role, suspend yourself or delete yourself; the last active Admin cannot be demoted, suspended or deleted; an organiser who still owns events cannot be deleted (transfer the events first); suspending or demoting someone signs them out everywhere.
 - **Events.** Search every organiser's events and filter by owner. **Open** loads an event in the normal editor with an "Editing ...'s event as Admin" banner, and saving keeps the original owner. Per event: **Reopen** (finalized events only), **Unpublish** (turns off Public results and the public listing), **Unlist** (removes it from the public home page but keeps its private link), **Transfer** to another organiser, and **Delete**. A finalized event stays locked, even for the Admin, until it is reopened; an Admin who opens one gets a **Reopen to edit** button.
 - **Settings.** How long events stay on the public home page: Results days (1 to 90, default 14) and Live hours (1 to 168, default 48). See "Retention" under "Public home page".
+
+An Admin changes their own password like anyone else, with **Change password** in the account bar; there is no Admin-tab action for your own account.
 
 **Rolling it out.** Do these in order:
 

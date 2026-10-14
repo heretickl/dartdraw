@@ -16,7 +16,7 @@ const adminRouter = require('../api/admin/[...route]');
 const auth = require('../api/_lib/auth');
 
 const UUID = '3f2b8c1e-5a4d-4e7b-9c6a-1d2e3f4a5b6c';
-const AUTH_ACTIONS = ['login', 'logout', 'me', 'config', 'register', 'verify', 'resend-verification', 'forgot', 'reset'];
+const AUTH_ACTIONS = ['login', 'logout', 'me', 'config', 'register', 'verify', 'resend-verification', 'forgot', 'reset', 'change-password'];
 const ADMIN_FILES = ['organizers/index', 'organizers/[id]', 'organizers/[id]/reset-link', 'organizers/[id]/transfer', 'events/index', 'events/[id]', 'settings'];
 
 // ---- stubbed handlers: which handler does each URL reach, and with what req.query ----
@@ -40,7 +40,7 @@ const withStubs = () => { calls = []; AUTH_ACTIONS.forEach((a) => stub('auth/' +
 const viaAuth = (url, o) => callHandler(authRouter, Object.assign({ method: 'GET', url }, o));
 const viaAdmin = (url, o) => callHandler(adminRouter, Object.assign({ method: 'GET', url }, o));
 
-test('auth router: each of the nine actions reaches its own handler', async () => {
+test('auth router: each of the ten actions reaches its own handler', async () => {
   withStubs();
   try {
     for (const action of AUTH_ACTIONS) {

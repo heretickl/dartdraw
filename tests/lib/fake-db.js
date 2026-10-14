@@ -26,6 +26,8 @@
 //   UPDATE organizers SET password_hash = ?, email_verified_at = COALESCE(email_verified_at, now()),
 //        token_version = token_version + 1 WHERE id = ? AND suspended = false RETURNING id
 //        (api/_routes/auth/reset; vals: hash, id)
+//   UPDATE organizers SET password_hash = ?, token_version = token_version + 1 WHERE id = ? AND password_hash = ? RETURNING token_version
+//        (api/_routes/auth/change-password; vals: new hash, id, old hash; returns the new token_version)
 //   UPDATE organizers SET name = ?, password_hash = ? WHERE id = ? AND email_verified_at IS NULL RETURNING id
 //        (accounts.replaceUnverifiedCredentials; register on an unverified email)
 //
@@ -218,6 +220,14 @@ function createFakeDb(seed) {
       return hit.map((r) => ({ id: r.id }));
     }
 
+    if (has(/^UPDATE organizers SET password_hash = \?, token_version = token_version \+ 1 WHERE id = \? AND password_hash = \? RETURNING token_version$/i)) {
+      const hit = tables.organizers.filter((r) => r.id === vals[1] && r.password_hash === vals[2]);
+      hit.forEach((r) => {
+        r.password_hash = vals[0];
+        r.token_version = Number(r.token_version || 0) + 1;
+      });
+      return hit.map((r) => ({ token_version: r.token_version }));
+    }
     if (has(/^UPDATE organizers SET name = \?, password_hash = \? WHERE id = \? AND email_verified_at IS NULL RETURNING id$/i)) {
       const hit = tables.organizers.filter((r) => r.id === vals[2] && r.email_verified_at == null);
       hit.forEach((r) => { r.name = vals[0]; r.password_hash = vals[1]; });

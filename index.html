@@ -37,7 +37,8 @@ button{font-family:inherit}
 .event-card label{color:#a9c7ec;font-size:10px;letter-spacing:.11em;text-transform:uppercase}
 .event-card strong{display:block;margin:6px 0 2px;font-size:14px}
 .event-card span{font-size:12px;color:#cbd6e2}
-.organizer-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#a9c7ec;margin:0 0 6px}
+.organizer-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:11px;color:#a9c7ec;margin:0 0 6px}
+.organizer-bar .org-actions{display:flex;gap:4px;flex-wrap:wrap}
 .organizer-bar button{font-size:10px;padding:4px 8px;border-radius:5px;border:1px solid #3b536f;background:#0e1e34;color:#cbd8e6;cursor:pointer}
 .organizer-bar button:hover{background:#1a3252}
 .tier-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;font-size:10px;font-weight:700;letter-spacing:.02em;border:1px solid #3b536f;color:#cbd8e6;background:#0e1e34;cursor:default}
@@ -2250,7 +2251,8 @@ const FINALIZED_ALLOWED_ACTIONS = [
   'openInNewWindow', 'openExpandedPreview', 'closeExpandedPreview', 'setActiveGroup', 'closeModal',
   'jumpToStage5Section', 'toggleFormSection', 'toggleStage5RRCharts', 'setStage3ViewMode', 'podsSelect', 'podsSetFilter',
   'newTournament', 'scrollToLibrary',
-  'adminReopenCurrent'   // the Admin's "Reopen to edit" button (admin-ui.js; the server only lets an Admin do it)
+  'adminReopenCurrent',  // the Admin's "Reopen to edit" button (admin-ui.js; the server only lets an Admin do it)
+  'openChangePassword'   // the account bar's "Change password" button: it touches the account, never the event
 ];
 /* True when an onclick attribute only calls allow-listed functions (quoted text is ignored; assignments are refused). */
 function finalizedActionAllowed(code){
@@ -2484,11 +2486,87 @@ function renderOrganizerBar(){
   const badge = (tier==='basic' || tier==='pro')
     ? ' <span class="tier-badge '+tier+'"'+(lim!==null ? ' title="Up to '+lim+' entries per event"' : '')+'>'+(currentOrganizer.role==='admin' ? 'Admin' : tier==='pro' ? 'Pro' : 'Basic')+'</span>'
     : '';
-  el.innerHTML = '<span>'+escapeHtml(currentOrganizer.name||currentOrganizer.email)+badge+'</span><button onclick="logout()">Log out</button>';
+  el.innerHTML = '<span>'+escapeHtml(currentOrganizer.name||currentOrganizer.email)+badge+'</span><span class="org-actions"><button onclick="openChangePassword()">Change password</button><button onclick="logout()">Log out</button></span>';
 }
 async function logout(){
   await fetch('/api/auth/logout', {method:'POST'}).catch(()=>{});
   window.location.href = '/login.html';
+}
+
+/* ---------- Change password ----------
+   The account bar's "Change password" button opens a modal with three password fields. The checks below run in the
+   browser first (nothing is sent until they pass); the server repeats them (api/_routes/auth/change-password.js) and
+   adds the real one, the current password. A successful change signs every OTHER device out; this browser gets a fresh
+   session cookie in the same response and stays signed in. openModal's onConfirm is synchronous, so the confirm
+   button is wired here instead: changePasswordBusy is set before the first await, so a double click sends one request. */
+const CHANGE_PASSWORD_MIN = 8, CHANGE_PASSWORD_MAX = 200;
+let changePasswordBusy = false;
+/* '' when the three values are acceptable, else the message to show. */
+function changePasswordCheck(current, next, repeat){
+  if(!current || !next || !repeat) return 'Fill in all three fields.';
+  if(next.length < CHANGE_PASSWORD_MIN) return 'The new password must be at least '+CHANGE_PASSWORD_MIN+' characters.';
+  if(next.length > CHANGE_PASSWORD_MAX) return 'The new password must be at most '+CHANGE_PASSWORD_MAX+' characters.';
+  if(next !== repeat) return 'The new passwords do not match.';
+  if(next === current) return 'Choose a new password that is different from the current one.';
+  return '';
+}
+function changePasswordFormHTML(){
+  return '<div class="field"><label for="cpCurrent">Current password</label><input id="cpCurrent" type="password" autocomplete="current-password" onkeydown="changePasswordKey(event)"></div>'+
+    '<div class="field"><label for="cpNew">New password</label><input id="cpNew" type="password" autocomplete="new-password" onkeydown="changePasswordKey(event)"></div>'+
+    '<div class="field"><label for="cpRepeat">Repeat new password</label><input id="cpRepeat" type="password" autocomplete="new-password" onkeydown="changePasswordKey(event)"></div>'+
+    '<p class="hint">At least '+CHANGE_PASSWORD_MIN+' characters. Changing it signs you out on your other devices.</p>';
+}
+function openChangePassword(){
+  if(!currentOrganizer || currentOrganizer.publicMode) return;
+  changePasswordBusy = false;
+  openModal({title:'Change password', bodyHTML: changePasswordFormHTML(), confirmLabel:'Change password', confirmClass:'primary', onConfirm:()=>{}});
+  const btn = document.getElementById('modalConfirmBtn');
+  if(btn) btn.onclick = submitChangePassword;
+  const first = document.getElementById('cpCurrent');
+  if(first && first.focus) first.focus();
+}
+function changePasswordKey(ev){
+  if(ev && ev.key==='Enter'){ if(ev.preventDefault) ev.preventDefault(); submitChangePassword(); }
+}
+function changePasswordShowError(msg){
+  const errEl = document.getElementById('modalErr');
+  if(!errEl) return;
+  errEl.textContent = msg;      /* textContent: server text is never parsed as HTML */
+  errEl.style.display = msg ? 'block' : 'none';
+}
+async function submitChangePassword(){
+  if(changePasswordBusy) return;
+  const curEl = document.getElementById('cpCurrent'), newEl = document.getElementById('cpNew'), repEl = document.getElementById('cpRepeat');
+  if(!curEl || !newEl || !repEl) return;     /* the modal is not open */
+  const current = String(curEl.value||''), next = String(newEl.value||''), repeat = String(repEl.value||'');
+  const bad = changePasswordCheck(current, next, repeat);
+  if(bad){ changePasswordShowError(bad); return; }
+  changePasswordBusy = true;
+  changePasswordShowError('');
+  const btn = document.getElementById('modalConfirmBtn');
+  if(btn) btn.disabled = true;
+  let message = '';
+  try{
+    const res = await apiFetch('/api/auth/change-password', { method:'POST', body: JSON.stringify({ currentPassword: current, newPassword: next }) });
+    let body = null;
+    try{ body = await res.json(); }catch(e){}
+    if(res.ok && body && body.ok){
+      changePasswordBusy = false;
+      closeModal();
+      openModal({title:'Password changed', body:'Your password has been changed. Your other devices and browsers have been signed out; this one stays signed in.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
+      return;
+    }
+    message = (body && typeof body.error==='string' && body.error) ? body.error : 'Could not change the password. Please try again.';
+  }catch(e){
+    message = 'Could not change the password. Check your connection and try again.';
+  }
+  changePasswordBusy = false;
+  /* only if the change-password modal is still the one on screen (it may have been closed while the request ran) */
+  if(document.getElementById('cpCurrent')){
+    changePasswordShowError(message);
+    const b = document.getElementById('modalConfirmBtn');
+    if(b) b.disabled = false;
+  }
 }
 function computeStageFor(t){
   return !t.eventCreation.saved ? 1

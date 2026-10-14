@@ -3,7 +3,7 @@
 // and this router picks one by the last path segment of the URL). Each handler is called unchanged with (req, res);
 // method checks, cookies and error bodies stay inside the handlers.
 //
-//   /api/auth/login | logout | me | config | register | verify | resend-verification | forgot | reset
+//   /api/auth/login | logout | me | config | register | verify | resend-verification | forgot | reset | change-password
 //
 // The action is read from req.url, not from req.query.action, so it does not depend on how the platform shapes the
 // query. Anything else answers 404 { error: 'Not found.' }. The literal require() paths keep the file tracer bundling
@@ -17,7 +17,8 @@ const ROUTES = {
   verify: () => require('../_routes/auth/verify'),
   'resend-verification': () => require('../_routes/auth/resend-verification'),
   forgot: () => require('../_routes/auth/forgot'),
-  reset: () => require('../_routes/auth/reset')
+  reset: () => require('../_routes/auth/reset'),
+  'change-password': () => require('../_routes/auth/change-password')
 };
 
 function lastSegment(url) {
