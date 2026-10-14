@@ -258,3 +258,29 @@ test('CLI: hashes with the same bcrypt cost as the rest of the app (10) unless a
   const stored = c.db.tables.organizers.find((o) => o.email === 'owner@example.com').password_hash;
   assert.equal(bcrypt.getRounds(stored), BCRYPT_COST);
 });
+
+test('parseArgs ignores a bare -- and accepts long dashes pasted from a document, and an unknown option explains the usage', () => {
+  assert.deepEqual(parseArgs(['--', '--email', 'a@b.co', '--', '--adopt-public']), { email: 'a@b.co', name: '', adoptPublic: true });
+  assert.deepEqual(parseArgs(['—email', 'a@b.co', '–name', 'A B', '—adopt-public']), { email: 'a@b.co', name: 'A B', adoptPublic: true });
+  assert.throws(() => parseArgs(['--nope']), /Unknown option: --nope\. Usage: node scripts\/create-admin\.js --email/);
+  assert.throws(() => parseArgs(['--email']), /--email needs a value/);
+});
+
+test('parseArgs accepts options with the dashes stripped by a shell (email=..., name=..., adopt-public)', () => {
+  assert.deepEqual(parseArgs(['email=a@b.co', 'name=Bob Smith', 'adopt-public']), { email: 'a@b.co', name: 'Bob Smith', adoptPublic: true });
+  assert.deepEqual(parseArgs(['-email', 'a@b.co']), { email: 'a@b.co', name: '', adoptPublic: false });
+});
+
+test('CLI: ADMIN_EMAIL, ADMIN_NAME and ADMIN_ADOPT_PUBLIC work when no options are passed (no dashes needed)', async () => {
+  const c = cli({ argv: [], env: { DATABASE_URL: 'postgres://fake', ADMIN_PASSWORD: PASSWORD, ADMIN_EMAIL: 'Owner@Example.com', ADMIN_NAME: 'Owner', ADMIN_ADOPT_PUBLIC: 'true' } });
+  assert.equal(await c.run(), 0);
+  assert.match(c.out.join('\n'), /owner@example\.com/);
+  assert.match(c.out.join('\n'), /2 tournament/);
+  assert.equal(c.db.tables.organizers.find((o) => o.email === 'owner@example.com').role, 'admin');
+});
+
+test('CLI: without any email it prints the usage and exits 1', async () => {
+  const c = cli({ argv: [], env: { DATABASE_URL: 'postgres://fake', ADMIN_PASSWORD: PASSWORD } });
+  assert.equal(await c.run(), 1);
+  assert.match(c.err.join('\n'), /Usage: node scripts\/create-admin\.js/);
+});

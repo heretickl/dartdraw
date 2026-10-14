@@ -58,22 +58,26 @@ async function createAdmin({ sql, email, name, passwordHash, adoptPublic }) {
   return { adminId: rows[0].admin_id, moved: Number(rows[0].moved) };
 }
 
+// Options are matched by name, so --email, -email, a long dash from a pasted document, or no dash at all (some
+// Windows shells strip the leading dashes) all work; "--email=x" and "--email x" both work. A bare "--" is ignored.
+// ADMIN_EMAIL, ADMIN_NAME and ADMIN_ADOPT_PUBLIC in the environment are the dash-free alternative (see main).
+const USAGE = 'Usage: node scripts/create-admin.js --email you@example.com [--name "Your Name"] [--adopt-public]';
 function parseArgs(argv) {
   const out = { email: '', name: '', adoptPublic: false };
   for (let i = 0; i < argv.length; i++) {
-    let a = argv[i];
-    let inline;
-    const eq = a.indexOf('=');
-    if (a.startsWith('--') && eq > 0) { inline = a.slice(eq + 1); a = a.slice(0, eq); }
+    const raw = String(argv[i]);
+    if (raw === '--') continue;
+    const m = /^[-‐-―−]*([^=]*)(?:=([\s\S]*))?$/.exec(raw);
+    const key = m[1].toLowerCase(), inline = m[2];
     const value = () => {
       if (inline !== undefined) return inline;
-      if (i + 1 >= argv.length || argv[i + 1].startsWith('--')) throw new Error(a + ' needs a value.');
-      return argv[++i];
+      if (i + 1 >= argv.length || /^[-‐-―−]/.test(String(argv[i + 1]))) throw new Error('--' + key + ' needs a value.');
+      return String(argv[++i]);
     };
-    if (a === '--email') out.email = value();
-    else if (a === '--name') out.name = value();
-    else if (a === '--adopt-public') out.adoptPublic = true;
-    else throw new Error('Unknown option: ' + a);
+    if (key === 'email') out.email = value();
+    else if (key === 'name') out.name = value();
+    else if (key === 'adopt-public' || key === 'adoptpublic') out.adoptPublic = true;
+    else throw new Error('Unknown option: ' + raw + '. ' + USAGE);
   }
   return out;
 }
@@ -160,7 +164,10 @@ async function main(opts) {
   const error = opts.error || console.error;
   try {
     const args = parseArgs(argv);
-    if (!args.email) throw new Error('Usage: node scripts/create-admin.js --email you@example.com [--name "Your Name"] [--adopt-public]\n--email is required.');
+    if (!args.email) args.email = env.ADMIN_EMAIL || '';
+    if (!args.name) args.name = env.ADMIN_NAME || '';
+    if (!args.adoptPublic) args.adoptPublic = /^(1|true|yes)$/i.test(String(env.ADMIN_ADOPT_PUBLIC || ''));
+    if (!args.email) throw new Error(USAGE + '\n--email (or ADMIN_EMAIL) is required.');
     if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set.');
 
     let password = env.ADMIN_PASSWORD;
