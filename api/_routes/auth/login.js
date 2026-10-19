@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { signSession, setSessionCookie } = require('../../_lib/auth');
 const { normalizeEmail, findByEmail, toSessionUser, DUMMY_HASH } = require('../../_lib/accounts');
-const { clientIp, hit, clear } = require('../../_lib/throttle');
+const { clientIp, hit, clear, release } = require('../../_lib/throttle');
 
 const WINDOW_MS = 15 * 60 * 1000;
 const EMAIL_LIMIT = 10;
@@ -55,6 +55,9 @@ module.exports = async (req, res) => {
     }
 
     await clear(emailKey);
+    // The attempt was counted up front; a sign-in that worked gives the address its count back, so a big shared network
+    // full of organisers signing in correctly cannot lock itself out. Failed and refused attempts keep counting.
+    await release(ipKey, WINDOW_MS);
     setSessionCookie(res, signSession(organizer));
     res.status(200).json(toSessionUser(organizer));
   } catch (e) {

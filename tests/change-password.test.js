@@ -341,3 +341,23 @@ test('no new deployable function: the handler lives under api/_routes and only t
 test('the fake db still fails loudly on unknown SQL', async () => {
   await assert.rejects(() => db.sql`UPDATE organizers SET password_hash = ${'x'} WHERE id = ${'org1'}`, /unrecognised SQL/);
 });
+
+test('throttle: a success gives the address its count back, a failure does not', async () => {
+  await change(good({ currentPassword: 'wrong guess' }));
+  assert.equal(throttleRow('chpw:ip:127.0.0.1').count, 1);
+  const ok = await change(good());
+  assert.equal(ok.statusCode, 200);
+  assert.equal(throttleRow('chpw:ip:127.0.0.1').count, 1, 'the successful change was counted and given back');
+  // validation failures and wrong passwords keep counting
+  await change(good({ newPassword: 'x' }));
+  assert.equal(throttleRow('chpw:ip:127.0.0.1').count, 2);
+});
+
+test('throttle: successful changes by many accounts behind one address never trip the address limit', async () => {
+  for (let i = 0; i < 30; i++) {
+    db.tables.organizers.push(row({ id: 'c' + i, email: 'c' + i + '@example.com' }));
+    const r = await change(good(), { cookies: sessionCookie(stored('c' + i)), ip: '7.7.7.7' });
+    assert.equal(r.statusCode, 200, 'account ' + i);
+  }
+  assert.equal(throttleRow('chpw:ip:7.7.7.7').count, 0);
+});

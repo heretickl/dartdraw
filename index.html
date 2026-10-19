@@ -2452,6 +2452,7 @@ async function runFinalize(t){
     if(res && res.ok){
       const savedRow = await res.json();
       dbUpdatedAtCache[id] = savedRow.updated_at;
+      if(savedRow.finalized && typeof savedRow.finalized==='object') t.finalized = savedRow.finalized;   // the server's clock, not this device's
       lockedIds.add(id);                                        // locked only once the server has accepted it
       const dropped = finish();
       setSaveStatus('ok');

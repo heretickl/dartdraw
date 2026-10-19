@@ -48,6 +48,8 @@
 //   INSERT INTO auth_throttle (key, window_start, count) VALUES (?, now(), 1) ON CONFLICT (key) DO UPDATE ... (key, windowMs, windowMs) [RETURNING count]
 //   SELECT count FROM auth_throttle WHERE key = ? AND window_start > now() - windowMs
 //   DELETE FROM auth_throttle WHERE key = ?
+//   UPDATE auth_throttle SET count = GREATEST(count - 1, 0) WHERE key = ? AND window_start > now() - windowMs   (vals: key, windowMs; release)
+//   DELETE FROM auth_throttle WHERE window_start < now() - interval '1 day'   (cleanup)
 //
 // tournaments
 //   SELECT ... FROM tournaments WHERE id = ? AND created_by = ?
@@ -320,6 +322,17 @@ function createFakeDb(seed) {
     }
     if (has(/^DELETE FROM auth_throttle WHERE key = \?$/i)) {
       tables.auth_throttle = tables.auth_throttle.filter((r) => r.key !== vals[0]);
+      return [];
+    }
+    if (has(/^UPDATE auth_throttle SET count = GREATEST\(count - 1, 0\) WHERE key = \? AND window_start > now\(\) - /i)) {
+      const windowMs = Number(vals[1]);
+      tables.auth_throttle
+        .filter((r) => r.key === vals[0] && r.window_start.getTime() > nowMs - windowMs)
+        .forEach((r) => { r.count = Math.max(r.count - 1, 0); });
+      return [];
+    }
+    if (has(/^DELETE FROM auth_throttle WHERE window_start < now\(\) - interval '1 day'$/i)) {
+      tables.auth_throttle = tables.auth_throttle.filter((r) => r.window_start.getTime() >= nowMs - 24 * 60 * 60 * 1000);
       return [];
     }
 

@@ -386,3 +386,84 @@ test('BCRYPT_COST is 10 and DUMMY_HASH is a real hash at that cost', () => {
   assert.equal(accounts.BCRYPT_COST, 10);
   assert.equal(bcrypt.getRounds(accounts.DUMMY_HASH), accounts.BCRYPT_COST);
 });
+
+// ---- throttle: release and cleanup ----
+
+test('throttle.release gives one count back, never goes below 0, and only inside the current window', async () => {
+  const W = 15 * 60e3;
+  await throttle.release('none', W);                         // no row: nothing happens
+  assert.equal(db.tables.auth_throttle.length, 0);
+  await throttle.record('k', W); await throttle.record('k', W); await throttle.record('k', W);
+  await throttle.release('k', W);
+  assert.equal(db.tables.auth_throttle.find((r) => r.key === 'k').count, 2);
+  await throttle.release('k', W); await throttle.release('k', W);
+  await throttle.release('k', W); await throttle.release('k', W);
+  assert.equal(db.tables.auth_throttle.find((r) => r.key === 'k').count, 0, 'never negative');
+  assert.equal(await throttle.isBlocked('k', 1, W), false);
+  // an expired window is left alone (the next record() restarts it)
+  await throttle.record('old', W); await throttle.record('old', W);
+  db.advance(W + 1);
+  await throttle.release('old', W);
+  assert.equal(db.tables.auth_throttle.find((r) => r.key === 'old').count, 2);
+  // other keys are untouched
+  await throttle.record('a', W); await throttle.record('b', W);
+  await throttle.release('a', W);
+  assert.equal(db.tables.auth_throttle.find((r) => r.key === 'b').count, 1);
+});
+
+test('throttle.release is a single statement', async () => {
+  await throttle.record('k', 1000);
+  const before = db.calls.length;
+  await throttle.release('k', 1000);
+  assert.equal(db.calls.length - before, 1);
+  assert.match(db.calls[before].text, /^UPDATE auth_throttle SET count = GREATEST\(count - 1, 0\) WHERE key = \? AND window_start > now\(\)/);
+});
+
+test('throttle.cleanup removes rows older than a day and keeps recent ones', async () => {
+  const DAY = 24 * 3600e3;
+  const T = db.now().getTime();
+  db.tables.auth_throttle.push(
+    { key: 'ancient', window_start: new Date(T - 3 * DAY), count: 5 },
+    { key: 'just-over', window_start: new Date(T - DAY - 1000), count: 1 },
+    { key: 'recent', window_start: new Date(T - DAY + 60e3), count: 2 },
+    { key: 'fresh', window_start: new Date(T), count: 1 },
+  );
+  await throttle.cleanup();
+  assert.deepEqual(db.tables.auth_throttle.map((r) => r.key).sort(), ['fresh', 'recent']);
+});
+
+test('throttle.record runs cleanup on a random draw under 0.02, and not at or above it', async () => {
+  const DAY = 24 * 3600e3;
+  const orig = throttle._random;
+  assert.equal(orig, Math.random, 'the default source is Math.random');
+  db.tables.auth_throttle.push({ key: 'stale', window_start: new Date(db.now().getTime() - 2 * DAY), count: 1 });
+  try {
+    throttle._random = () => 0.02;
+    await throttle.record('k', 1000);
+    assert.ok(db.tables.auth_throttle.some((r) => r.key === 'stale'), '0.02 is not under the threshold');
+    throttle._random = () => 0.99;
+    await throttle.record('k', 1000);
+    assert.ok(db.tables.auth_throttle.some((r) => r.key === 'stale'));
+    throttle._random = () => 0.0199;
+    await throttle.record('k', 1000);
+    assert.equal(db.tables.auth_throttle.some((r) => r.key === 'stale'), false, 'cleaned');
+    assert.equal(db.tables.auth_throttle.find((r) => r.key === 'k').count, 3, 'the counting itself is unaffected');
+  } finally { throttle._random = orig; }
+});
+
+test('throttle.record is not broken by a failing cleanup or a failing random source', async () => {
+  const orig = throttle._random;
+  const realSql = db.sql;
+  db.sql = async (strings, ...vals) => {
+    if (/DELETE FROM auth_throttle WHERE window_start/.test(strings.join('?'))) throw new Error('cleanup exploded');
+    return realSql(strings, ...vals);
+  };
+  try {
+    throttle._random = () => 0;
+    assert.equal(await throttle.record('k', 1000), 1);
+    assert.equal(await throttle.hit('k', 5, 1000), false);
+    assert.equal(db.tables.auth_throttle.find((r) => r.key === 'k').count, 2);
+    throttle._random = () => { throw new Error('random exploded'); };
+    assert.equal(await throttle.record('k', 1000), 3);
+  } finally { throttle._random = orig; db.sql = realSql; }
+});

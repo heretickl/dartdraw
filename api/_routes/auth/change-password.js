@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const { sql } = require('../../_lib/db');
 const { requireAuth, signSession, setSessionCookie } = require('../../_lib/auth');
 const { BCRYPT_COST, findById } = require('../../_lib/accounts');
-const { clientIp, hit, clear } = require('../../_lib/throttle');
+const { clientIp, hit, clear, release } = require('../../_lib/throttle');
 const { MIN_PASSWORD, TOO_MANY } = require('../../_lib/authflow');
 
 const WINDOW_MS = 15 * 60 * 1000;
@@ -80,6 +80,7 @@ module.exports = async (req, res) => {
     }
 
     await clear(accountKey);
+    await release(ipKey, WINDOW_MS);   // a successful change gives the address its count back; failures keep counting
     setSessionCookie(res, signSession({
       id: row.id, email: row.email, name: row.name, token_version: Number(rows[0].token_version)
     }));

@@ -77,7 +77,7 @@ test('login success: cookie set, body shape, email throttle key cleared, ip key 
   assert.match(setCookie, /HttpOnly/);
   assert.match(setCookie, /Secure/);
   assert.equal(throttleRow('login:email:a@example.com'), undefined);
-  assert.ok(throttleRow('login:ip:127.0.0.1'), 'the address counter is not cleared by a success');
+  assert.equal(throttleRow('login:ip:127.0.0.1').count, 1, 'the failure still counts; the success was given back');
   assert.equal(JSON.stringify(r.body).includes('password'), false);
 });
 
@@ -156,7 +156,7 @@ test('login: 429 after 40 failures from one address across different emails', as
   // another address is unaffected
   const other = await login({ email: 'a@example.com', password: PASSWORD }, { headers: { 'x-forwarded-for': '203.0.113.9, 10.0.0.1' } });
   assert.equal(other.statusCode, 200);
-  assert.equal(throttleRow('login:ip:203.0.113.9').count, 1, 'a success is counted against the address and not cleared');
+  assert.equal(throttleRow('login:ip:203.0.113.9').count, 0, 'a success is counted and then given back');
 });
 
 test('login: 30 concurrent attempts against one email - at most 10 reach the password check, the rest are 429', async () => {
@@ -391,4 +391,64 @@ test('config needs no login and is GET only', async () => {
   assert.equal(r.statusCode, 200);
   assert.equal(typeof r.body.signupOpen, 'boolean');
   assert.equal((await callHandler(configHandler, { method: 'POST' })).statusCode, 405);
+});
+
+// ---- login: successful sign-ins give the address its count back ----
+
+test('login: 60 successful sign-ins in a row from one address never get a 429, and the address counter stays at 0', async () => {
+  for (let i = 0; i < 60; i++) {
+    const r = await login({ email: 'a@example.com', password: PASSWORD });
+    assert.equal(r.statusCode, 200, 'sign-in ' + (i + 1));
+  }
+  assert.equal(throttleRow('login:ip:127.0.0.1').count, 0);
+  assert.equal(throttleRow('login:email:a@example.com'), undefined);
+});
+
+test('login: many different organisers signing in correctly from one shared address are never locked out', async () => {
+  for (let i = 0; i < 50; i++) db.tables.organizers.push(row({ id: 'm' + i, email: 'm' + i + '@example.com' }));
+  for (let i = 0; i < 50; i++) {
+    const r = await login({ email: 'm' + i + '@example.com', password: PASSWORD }, { headers: { 'x-forwarded-for': '198.51.100.7' } });
+    assert.equal(r.statusCode, 200, 'organiser ' + i);
+  }
+  assert.equal(throttleRow('login:ip:198.51.100.7').count, 0);
+});
+
+test('login: failed attempts still count against the address, and successes in between only give back their own', async () => {
+  for (let i = 0; i < 39; i++) {
+    const r = await login({ email: 'e' + i + '@example.com', password: 'wrong-password' });
+    assert.equal(r.statusCode, 401);
+  }
+  for (let i = 0; i < 5; i++) assert.equal((await login({ email: 'a@example.com', password: PASSWORD })).statusCode, 200);
+  assert.equal(throttleRow('login:ip:127.0.0.1').count, 39);
+  assert.equal((await login({ email: 'x40@example.com', password: 'wrong-password' })).statusCode, 401);   // the 40th is still allowed
+  const blocked = await login({ email: 'a@example.com', password: PASSWORD });                              // the 41st, even a correct one, is refused
+  assert.equal(blocked.statusCode, 429);
+  assert.equal(blocked.headers['set-cookie'], undefined);
+  assert.equal(throttleRow('login:ip:127.0.0.1').count, 41, 'a refused attempt keeps counting');
+});
+
+test('login: 40 failures then a 41st correct attempt from one address is refused', async () => {
+  for (let i = 0; i < 40; i++) assert.equal((await login({ email: 'f' + i + '@example.com', password: 'nope-nope-nope' })).statusCode, 401);
+  assert.equal((await login({ email: 'a@example.com', password: PASSWORD })).statusCode, 429);
+});
+
+test('login: parallel wrong guesses are still limited when successes are mixed in', async () => {
+  const wrong = Array.from({ length: 50 }, (_, i) => login({ email: 'p' + i + '@example.com', password: 'wrong-password' }));
+  const results = await Promise.all(wrong);
+  assert.equal(results.filter((r) => r.statusCode === 401).length, 40);
+  assert.equal(results.filter((r) => r.statusCode === 429).length, 10);
+  assert.equal((await login({ email: 'a@example.com', password: PASSWORD })).statusCode, 429);
+});
+
+test('login: unverified and suspended outcomes (correct password) still count against the address', async () => {
+  for (let i = 0; i < 20; i++) {
+    db.tables.organizers.push(row({ id: 'u' + i, email: 'u' + i + '@example.com', email_verified_at: null }));
+    db.tables.organizers.push(row({ id: 's' + i, email: 's' + i + '@example.com', suspended: true }));
+  }
+  for (let i = 0; i < 20; i++) {
+    assert.equal((await login({ email: 'u' + i + '@example.com', password: PASSWORD })).statusCode, 403);
+    assert.equal((await login({ email: 's' + i + '@example.com', password: PASSWORD })).statusCode, 403);
+  }
+  assert.equal(throttleRow('login:ip:127.0.0.1').count, 40);
+  assert.equal((await login({ email: 'a@example.com', password: PASSWORD })).statusCode, 429);
 });

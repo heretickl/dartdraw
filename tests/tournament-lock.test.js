@@ -209,3 +209,71 @@ test('DELETE: the SQL carries the finalized guard, and falsy stored values are s
   assert.match(issued(/^\s*DELETE/i)[0].text, /data->>'finalized' IS NULL/);
   assert.equal(store.t1, undefined);
 });
+
+/* ---------- the finalized time comes from the server clock ---------- */
+const writtenData = () => {
+  const u = issued(/^\s*UPDATE/i)[0], i = issued(/^\s*INSERT/i)[0];
+  return JSON.parse(u ? u.vals[0] : i.vals[1]);
+};
+const nearNow = (iso, before, after) => { const ms = new Date(iso).getTime(); return ms >= before && ms <= after; };
+
+test('finalizing: the server stamps its own time, whatever the client sent (future, past, junk)', async () => {
+  const sent = [
+    { at: '2999-01-01T00:00:00.000Z' }, { at: '1999-01-01T00:00:00.000Z' }, { at: 'not a date', extra: 1, more: [1] },
+    true, {}, 'yes', 7, [], { at: 12345 },
+  ];
+  for (const f of sent) {
+    seed('t1', { name: 'X' });
+    const before = Date.now();
+    const res = await call('PUT', 't1', putBody({ name: 'X', finalized: f }));
+    const after = Date.now();
+    assert.equal(res.statusCode, 200, JSON.stringify(f));
+    const w = writtenData();
+    assert.deepEqual(Object.keys(w.finalized), ['at'], 'only the one key survives: ' + JSON.stringify(f));
+    assert.equal(new Date(w.finalized.at).toISOString(), w.finalized.at);
+    assert.ok(nearNow(w.finalized.at, before, after), 'server time, not ' + JSON.stringify(f));
+    assert.deepEqual(res.body.finalized, w.finalized, 'the response carries what was saved');
+    assert.equal(res.body.id, 't1');
+    assert.equal(res.body.updated_at, '2026-10-13T12:00:00.000Z');
+  }
+});
+
+test('finalizing a row that does not exist yet (201) is stamped by the server too and returns finalized', async () => {
+  seed('t1', { name: 'X' });
+  const before = Date.now();
+  const res = await call('PUT', 'brandnew', { data: { name: 'N', finalized: { at: '2999-01-01T00:00:00.000Z' } } });
+  const after = Date.now();
+  assert.equal(res.statusCode, 201);
+  const w = writtenData();
+  assert.ok(nearNow(w.finalized.at, before, after));
+  assert.deepEqual(res.body.finalized, w.finalized);
+  assert.equal(res.body.id, 'brandnew');
+});
+
+test('a second finalize attempt on an already finalized row is still 403 and writes nothing', async () => {
+  seed('t1', { name: 'X' });
+  assert.equal((await call('PUT', 't1', putBody({ name: 'X', finalized: { at: '2000-01-01T00:00:00.000Z' } }))).statusCode, 200);
+  seed('t1', { name: 'X', finalized: { at: '2026-10-13T09:00:00.000Z' } });
+  const again = await call('PUT', 't1', putBody({ name: 'X', finalized: { at: '2999-01-01T00:00:00.000Z' } }));
+  assert.equal(again.statusCode, 403);
+  assert.deepEqual(again.body, { error: FINAL_MSG, finalized: true });
+  assert.equal(issued(/^\s*UPDATE/i).length, 0);
+  assert.equal(store.t1.data.finalized.at, '2026-10-13T09:00:00.000Z');
+});
+
+test('saves without finalized are unchanged: the data is written as sent and the response has no finalized key', async () => {
+  seed('t1', { name: 'X' });
+  const res = await call('PUT', 't1', putBody({ name: 'Y' }));
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(writtenData(), { name: 'Y' });
+  assert.deepEqual(res.body, { id: 't1', updated_at: '2026-10-13T12:00:00.000Z' });
+  const created = await call('PUT', 'brandnew', { data: { name: 'N' } });
+  assert.equal(created.statusCode, 201);
+  assert.equal('finalized' in created.body, false);
+  // a falsy finalized is not a finalize: left alone, not stamped, not returned
+  seed('t1', { name: 'X' });
+  const falsy = await call('PUT', 't1', putBody({ name: 'Y', finalized: false }));
+  assert.equal(falsy.statusCode, 200);
+  assert.equal(writtenData().finalized, false);
+  assert.equal('finalized' in falsy.body, false);
+});

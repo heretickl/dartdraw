@@ -340,6 +340,30 @@ test('finalizeResults confirms, saves with finalized set, and locks only after t
   assert.equal(notices(m).length, 0);
 });
 
+test('finalizeResults: the client adopts the finalized time the server returns, not its own', async () => {
+  reset(); const t = fresh('knockout', { knockout: br('a') });
+  const m = captureModal();
+  const SERVER_AT = '2026-10-13T09:31:00.000Z';
+  const srv = fakeServer({ finalPut: () => ({ ok: true, status: 200, json: async () => ({ id: 't_fin1', updated_at: 'S2', finalized: { at: SERVER_AT } }) }) });
+  app.apiFetch = srv.fn;
+  f('finalizeResults')(); await m.calls[0].onConfirm(); await settle();
+  assert.equal(srv.finals.length, 1);
+  assert.notEqual(srv.finals[0].data.finalized.at, SERVER_AT);   // the browser still sends its own (the server discards it)
+  assert.equal(t.finalized.at, SERVER_AT);                       // the banner shows the server's time
+  assert.equal(run(app, 'lockedIds.has("t_fin1")'), true);
+  assert.equal(run(app, 'dbUpdatedAtCache.t_fin1'), 'S2');
+});
+
+test('finalizeResults: a response without finalized keeps the time the client stamped', async () => {
+  reset(); const t = fresh('knockout', { knockout: br('a') });
+  const m = captureModal();
+  const srv = fakeServer({ finalPut: () => ({ ok: true, status: 200, json: async () => ({ updated_at: 'S2' }) }) });
+  app.apiFetch = srv.fn;
+  f('finalizeResults')(); await m.calls[0].onConfirm(); await settle();
+  assert.deepEqual(plain(t.finalized), plain(srv.finals[0].data.finalized));
+  assert.equal(run(app, 'lockedIds.has("t_fin1")'), true);
+});
+
 test('finalizeResults: while the finalize PUT is in flight the tab says so and persist() drops edits, then reloads if any were dropped', async () => {
   reset(); fresh('knockout', { knockout: br('a') });
   const m = captureModal(); const statuses = []; app.setSaveStatus = (s) => statuses.push(s);

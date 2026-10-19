@@ -20,8 +20,21 @@ async function isBlocked(key, limit, windowMs) {
   return rows.length > 0 && Number(rows[0].count) >= limit;
 }
 
+// Cleanup runs on about 2% of record() calls. The random source is module-level so tests can replace it
+// (throttle._random = () => 0.01).
+const CLEANUP_CHANCE = 0.02;
+// Deletes rows whose window started more than a day ago (every window is far shorter, so they can never count again).
+async function cleanup() {
+  await sql`DELETE FROM auth_throttle WHERE window_start < now() - interval '1 day'`;
+}
+
 // Counts one event for `key`; returns the count in the current window.
 async function record(key, windowMs) {
+  // Opportunistic housekeeping on about 2% of calls (one small DELETE of old rows). Awaited, so it finishes while the
+  // serverless function is still running, but a failure of any kind is swallowed: record() must never fail because of it.
+  try {
+    if (module.exports._random() < CLEANUP_CHANCE) await cleanup();
+  } catch (e) { /* ignore */ }
   const rows = await sql`
     INSERT INTO auth_throttle (key, window_start, count) VALUES (${key}, now(), 1)
     ON CONFLICT (key) DO UPDATE SET
@@ -46,4 +59,14 @@ async function clear(key) {
   await sql`DELETE FROM auth_throttle WHERE key = ${key}`;
 }
 
-module.exports = { clientIp, isBlocked, record, hit, clear };
+// Gives one counted event back (a sign-in that succeeded should not use up the shared address's allowance). One
+// statement: never below 0, only inside the key's current window (an expired window is left for the next record() to
+// restart), and nothing happens when there is no row.
+async function release(key, windowMs) {
+  await sql`
+    UPDATE auth_throttle SET count = GREATEST(count - 1, 0)
+    WHERE key = ${key} AND window_start > now() - (${windowMs}::double precision * interval '1 millisecond')
+  `;
+}
+
+module.exports = { clientIp, isBlocked, record, hit, clear, release, cleanup, _random: Math.random };

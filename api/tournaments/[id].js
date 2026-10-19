@@ -9,6 +9,9 @@ const { sanitizeTournamentData, isRouteId } = require('../../tournament-sanitize
 //   insert). If it exists, expectedUpdatedAt must match the stored
 //   updated_at or the write is rejected with 409 + the current row, so a
 //   stale client never silently clobbers a newer save.
+//   The success body (200 or 201) is { id, updated_at }, plus `finalized` only when the saved data has one. A save carrying a
+//   truthy `finalized` for a row that is not finalized yet has it replaced by { at: <server clock, ISO> }: the browser's time
+//   is never trusted for it and no other key survives.
 //   A finalized event (stored data.finalized is truthy) is closed: PUT is
 //   refused with 403 { error, finalized: true }, whatever the incoming data
 //   says. The PUT that first sets `finalized` is on a row that does not have
@@ -124,6 +127,12 @@ module.exports = async (req, res) => {
         return;
       }
 
+      // The finalized time is the server's clock, never the browser's (a device with a wrong clock must not decide when the
+      // event leaves the public Results window). Reached only when the stored row is not finalized, so this save is the one
+      // that closes it: whatever the client sent as `finalized` is discarded and replaced by the one key the server owns.
+      if (isFinalized(data)) data.finalized = { at: new Date().toISOString() };
+      const savedFinalized = isFinalized(data) ? { finalized: data.finalized } : {};
+
       // Basic accounts cannot grow an event past the limit. An event already over it (e.g. after a downgrade) can still be
       // edited and shrunk, just not grown. Checked after the finalized lock, and before any write.
       const over = checkEntryLimit(organizer.tier, data, existing && existing.data);
@@ -138,7 +147,7 @@ module.exports = async (req, res) => {
           VALUES (${id}, ${JSON.stringify(data)}::jsonb, ${organizer.id})
           RETURNING id, updated_at
         `;
-        res.status(201).json(inserted[0]);
+        res.status(201).json(Object.assign({}, inserted[0], savedFinalized));
         return;
       }
 
@@ -180,7 +189,7 @@ module.exports = async (req, res) => {
         });
         return;
       }
-      res.status(200).json(updated[0]);
+      res.status(200).json(Object.assign({}, updated[0], savedFinalized));
     } catch (e) {
       // The reason goes to the server log (Vercel > Logs), never to the browser.
       console.error('PUT /api/tournaments/' + id + ' failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
