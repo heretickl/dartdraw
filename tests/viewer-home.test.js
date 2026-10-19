@@ -527,6 +527,51 @@ test('stage subcards: a results card shows the winner only in the last knockout 
   assert.doesNotMatch(call('hmCardHTML', 'live', rrkItem(done(), { winner: 'Alex Doe' })), /Alex Doe/);
 });
 
+// ---- a finished event that the organiser has not finalized yet: progress carries next = 'Awaiting final results' ----
+const AWAIT = 'Awaiting final results';
+test('awaiting final results: the single-stage card shows a full ring with a check and "<stage> complete - Awaiting final results" for every format', () => {
+  [['roundrobin', 'Group stage', 30], ['knockout', 'Knockout', 7], ['rrknockout', 'Knockout', 23], ['podknockout', 'Finals', 7]].forEach(([format, stage, total]) => {
+    const html = call('hmCardHTML', 'live', item({ format, progress: { stage, done: total, total, next: AWAIT } }));
+    assert.match(html, /--p:100/, format); assert.match(html, /<span class="hm-tick">✓<\/span>/, format); assert.match(html, /aria-label="stage complete"/, format);
+    assert.ok(html.includes(stage + ' complete · ' + AWAIT), html);
+    assert.doesNotMatch(html, /matches played|--p:99|99%/, format);
+    const other = ['Group stage', 'Knockout', 'Finals'].filter((x) => x !== stage);
+    other.forEach((x) => assert.ok(!html.includes(x), format + ' must not mention ' + x));
+  });
+  const void0 = call('hmCardHTML', 'live', item({ format: 'knockout', progress: { stage: 'Knockout', done: 0, total: 0, next: AWAIT } }));   // a bracket whose only match was voided: still sensible
+  assert.match(void0, /Knockout complete · Awaiting final results/); assert.doesNotMatch(void0, /NaN|undefined/);
+});
+
+test('awaiting final results: the multi-stage card says it on the last (done) stage only, and only on a live card', () => {
+  const rrk = (extra) => rrkItem([stg({ state: 'done', done: 30, total: 30 }), { key: 'knockout', state: 'done', done: 23, total: 23 }], extra);
+  const s = subs(call('hmCardHTML', 'live', rrk({ progress: { stage: 'Knockout', done: 23, total: 23, next: AWAIT } })));
+  assert.equal(s.length, 2);
+  assert.equal(txt(s[1], 'k'), 'Knockout'); assert.equal(txt(s[1], 'v'), 'Complete'); assert.equal(txt(s[1], 's'), '23 of 23 matches · ' + AWAIT);
+  assert.equal(txt(s[0], 's'), '30 of 30 matches · 8 groups');                      // the groups subcard is unchanged
+  const plainLive = subs(call('hmCardHTML', 'live', rrk()));
+  assert.equal(txt(plainLive[1], 's'), '23 of 23 matches');                          // no progress.next: unchanged
+  const res = subs(call('hmCardHTML', 'results', rrk({ winner: 'Alex Doe', progress: { stage: 'Knockout', done: 23, total: 23, next: AWAIT } })));
+  assert.equal(txt(res[1], 's'), 'Complete · 23 of 23 matches');                     // Results cards never show it
+  const rr = subs(call('hmCardHTML', 'live', item({ format: 'roundrobin', stages: [stg({ state: 'done', done: 18, total: 18, groups: 3 })], progress: { stage: 'Group stage', done: 18, total: 18, next: AWAIT } })));
+  assert.equal(txt(rr[0], 's'), '18 of 18 matches · 3 groups · ' + AWAIT);
+  const pod = subs(call('hmCardHTML', 'live', item({ format: 'podknockout', stages: [stg({ state: 'done', done: 12, total: 12, groups: 4 }), { key: 'finals', state: 'done', done: 7, total: 7 }], progress: { stage: 'Finals', done: 7, total: 7, next: AWAIT } })));
+  assert.equal(txt(pod[1], 's'), '7 of 7 matches · ' + AWAIT); assert.equal(txt(pod[0], 's'), '12 of 12 matches · 4 groups');
+  const gap = subs(call('hmCardHTML', 'live', rrkItem([stg({ state: 'done', done: 30, total: 30 }), { key: 'knockout', state: 'next', done: 0, total: 0, advance: 24 }], { progress: { stage: 'Group stage', done: 30, total: 30, next: 'Knockout draw next' } })));
+  assert.equal(txt(gap[0], 's'), '30 of 30 matches · 8 groups'); assert.equal(txt(gap[1], 's'), '24 pairs advance');   // the draw gap is not touched
+});
+
+test('awaiting final results: a hostile or odd next is escaped or ignored on the multi-stage card', () => {
+  const bad = '<img src=x onerror=alert(1)>';
+  const stages = [stg({ state: 'done', done: 30, total: 30 }), { key: 'knockout', state: 'done', done: 3, total: 3 }];
+  const html = call('hmCardHTML', 'live', rrkItem(stages, { progress: { stage: 'Knockout', done: 3, total: 3, next: bad } }));
+  assert.ok(!html.includes('<img'), html); assert.match(html, /3 of 3 matches · &lt;img/);
+  [null, 5, {}, [], ''].forEach((n) => {
+    const out = call('hmCardHTML', 'live', rrkItem(stages, { progress: { stage: 'Knockout', done: 3, total: 3, next: n } }));
+    assert.doesNotMatch(out, /NaN|undefined|null|\[object/); assert.equal(txt(subs(out)[1], 's'), '3 of 3 matches');
+  });
+  assert.doesNotMatch(call('hmCardHTML', 'live', rrkItem(stages, { progress: null })), /undefined|null/);
+});
+
 test('stage subcards: hostile round, winner, names and numbers are escaped or coerced', () => {
   const bad = '<img src=x onerror=alert(1)>';
   const live = call('hmCardHTML', 'live', rrkItem([stg(), { key: 'knockout', state: 'live', done: 1, total: 2, round: bad }], { event: bad }));

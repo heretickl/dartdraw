@@ -15,7 +15,7 @@
   --nav:rgba(7,12,19,.94);--scroll:#2a3a4d;
   --glow-blue:0 0 0 1px rgba(43,140,255,.6),0 0 22px rgba(43,140,255,.28);
   --glow-gold:0 0 0 1px rgba(244,180,58,.55),0 0 18px rgba(244,180,58,.2);
-  --box-bg:#0b131c;--win-bg:#133d32;--final-ink:#f3f7fb;
+  --box-bg:#0b131c;--win-bg:#133d32;--final-ink:#f3f7fb;--muted-on-win:#97a4b5;
   --tb-bg:rgba(43,140,255,.18);--tb-fg:#8cc2ff;--tb-level-bg:rgba(255,45,58,.18);--tb-level-fg:#ff8088;
 
   --live:#e0222f;
@@ -33,7 +33,7 @@
   --nav:rgba(255,255,255,.94);--scroll:#c3ceda;
   --glow-blue:0 0 0 1px rgba(21,96,216,.55);
   --glow-gold:0 0 0 1px rgba(138,91,0,.45);
-  --box-bg:#ffffff;--win-bg:#e3f6ec;--final-ink:#0d1b2a;
+  --box-bg:#ffffff;--win-bg:#e3f6ec;--final-ink:#0d1b2a;--muted-on-win:#556476;
   --tb-bg:#e3eeff;--tb-fg:#1456c0;--tb-level-bg:#fde8ea;--tb-level-fg:#b3202d;
 }
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
@@ -47,10 +47,12 @@
   --nav:rgba(255,255,255,.94);--scroll:#c3ceda;
   --glow-blue:0 0 0 1px rgba(21,96,216,.55);
   --glow-gold:0 0 0 1px rgba(138,91,0,.45);
-  --box-bg:#ffffff;--win-bg:#e3f6ec;--final-ink:#0d1b2a;
+  --box-bg:#ffffff;--win-bg:#e3f6ec;--final-ink:#0d1b2a;--muted-on-win:#556476;
   --tb-bg:#e3eeff;--tb-fg:#1456c0;--tb-level-bg:#fde8ea;--tb-level-fg:#b3202d;
 }}
 
+/* Small muted text inside a winner box (the seed number, a WO tag) is inline var(--muted) from render.js. In dark mode that is 4.06:1 on the winner fill, so it takes the lighter --muted-on-win there (4.76:1). In both light palettes --muted-on-win equals --muted, so nothing changes. */
+[style*="var(--win-bg"] span[style*="var(--muted)"]{color:var(--muted-on-win)!important}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
 .wrap{max-width:1100px;margin:0 auto}

@@ -91,20 +91,27 @@ function finalizedAt(d) {
 
 // The matches of the stage the event is in, so the ring never drops because a later stage is generated.
 // Between two stages (every group played, the next stage not built yet) the same counts carry a fixed `next` string.
+// When the last stage of the format is finished but the organiser has not finalized the event, it is that stage, full, with the fixed next AWAITING.
+const AWAITING = 'Awaiting final results';
 function progressOf(d, a) {
+  d = d && typeof d === 'object' ? d : {};
   a = a || analyse(d);
   const sum = (list) => list.reduce((s, c) => ({ done: s.done + c.done, total: s.total + c.total }), { done: 0, total: 0 });
   const group = (c) => (c.total > 0 ? { stage: 'Group stage', done: c.done, total: c.total } : null);
   const between = (p, next) => (p ? { stage: p.stage, done: p.done, total: p.total, next } : null);
+  const complete = (stage, c) => ({ stage, done: c.total, total: c.total, next: AWAITING });
+  const unfinalized = finalizedAt(d) === null;
   const ko = (b, prefix) => { const c = currentRound(b); return c ? { stage: (prefix || '') + c.name, done: c.done, total: c.total } : null; };
-  if (a.type === 'roundrobin') return group(sum(a.groups));
-  if (a.type === 'knockout') return ko(a.main);
+  if (a.type === 'roundrobin') return unfinalized && a.groupsDone ? complete('Group stage', sum(a.groups)) : group(sum(a.groups));
+  if (a.type === 'knockout') return unfinalized && finished(a.main) ? complete('Knockout', counts(a.main)) : ko(a.main);
   if (a.type === 'rrknockout') {
+    if (unfinalized && finished(a.main)) return complete('Knockout', counts(a.main));
     if (a.groupsDone && !a.main) return between(group(sum(a.groups)), 'Knockout draw next');
     return a.groupsDone && a.main ? (ko(a.main) || group(sum(a.groups))) : group(sum(a.groups));
   }
   if (a.type === 'podknockout') {
     const podsDone = a.pods.length > 0 && a.pods.every((p) => finished(p.bracket));
+    if (unfinalized && podsDone && a.fin && finished(a.fin)) return complete('Finals', counts(a.fin));
     if (a.fin && (podsDone || started(a.fin))) return ko(a.fin, 'Finals · ');
     const g = group(sum(a.pods.map((p) => counts(p.bracket))));
     return podsDone && !a.fin ? between(g, 'Finals next') : g;

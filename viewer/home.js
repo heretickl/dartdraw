@@ -141,7 +141,11 @@ function hmStageHTML(kind, it, s, idx, count){
     cls = ' is-done';
     var played = t > 0 ? (isGroups ? d : t) + ' of ' + t + ' matches' : '';   // no matches at all (a bracket of one): say nothing about them
     if(winner){ lead = hmPipHTML('trophy', '\uD83C\uDFC6'); v = 'Winner ' + it.winner; sub = played ? 'Complete \u00B7 ' + played : 'Complete'; }
-    else { lead = hmPipHTML('done', '\u2713'); v = 'Complete'; sub = [played, isGroups ? nGroups : ''].filter(Boolean).join(' \u00B7 '); }
+    else {
+      // The last stage is over but the organiser has not accepted the results yet: the server says so in progress.next.
+      var wait = kind === 'live' && idx === count - 1 && it.progress && typeof it.progress.next === 'string' ? it.progress.next : '';
+      lead = hmPipHTML('done', '\u2713'); v = 'Complete'; sub = [played, isGroups ? nGroups : '', wait].filter(Boolean).join(' \u00B7 ');
+    }
   } else if(st === 'next'){
     lead = hmPipHTML('draw', '\u2026'); v = s.key === 'finals' ? 'Up next' : 'Draw next';
     var adv = hmInt(s.advance); sub = adv > 0 ? hmAdvanceText(it, adv) : '';
