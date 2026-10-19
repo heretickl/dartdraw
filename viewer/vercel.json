@@ -1,4 +1,5 @@
 {
+  "regions": ["sin1"],
   "rewrites": [
     { "source": "/live/:slug", "destination": "/index.html" }
   ]
