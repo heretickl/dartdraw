@@ -30,6 +30,9 @@ input:focus-visible{border-color:var(--blue)}
 .foot{text-align:center;margin-top:14px;font-size:13px;color:var(--muted)}
 .foot a{display:inline-block;padding:10px 6px;color:var(--blue);text-decoration:underline;font-weight:700}
 [hidden]{display:none!important}
+/* Embedded in the pop-up on the public site (login.html?embed=1): no page background or centring, a flat card. */
+html.embed body{display:block;min-height:0;padding:0;background:transparent}
+html.embed .card{max-width:none;border:0;border-radius:0;box-shadow:none;margin:0;background:transparent;padding:30px 30px 24px}
 </style>
 </head>
 <body>
@@ -49,6 +52,15 @@ input:focus-visible{border-color:var(--blue)}
   <div class="foot" id="signupFoot" hidden>Need an account? <a href="/register.html">Sign up</a></div>
 </main>
 <script>
+/* Embedded mode: the public site shows this page in a pop-up. Success and the other pages then open in the whole window. */
+const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.top !== window;
+if(embedded){
+  document.documentElement.classList.add('embed');
+  document.querySelectorAll('a').forEach((a) => { a.target = '_top'; });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape'){ window.parent.postMessage({ type:'dartdraw-close-login' }, location.origin); }
+  });
+}
 const msgEl = document.getElementById('msg');
 const resendBox = document.getElementById('resendBox');
 const resendBtn = document.getElementById('resendBtn');
@@ -89,7 +101,10 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
       email: document.getElementById('email').value,
       password: document.getElementById('password').value
     });
-    if(res.ok){ window.location.href = '/'; return; }
+    if(res.ok){
+      if(embedded){ window.top.location.replace('/app'); } else { window.location.replace('/app'); }
+      return;
+    }
     if(res.status === 403 && body.code === 'unverified'){
       show('Please verify your email first.', 'err');
       resendBox.hidden = false;

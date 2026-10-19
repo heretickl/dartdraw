@@ -175,7 +175,7 @@ test('verify: reads ?token=, asks for the sign-up password, and POSTs token + pa
   // The token is never put into a URL we call or a link we build.
   assertTokenOnlyInBody(js);
   assert.doesNotMatch(js, /href\s*=\s*[^;]*token/);
-  assert.match(markup(html['verify.html']), /href="\/login\.html"/);
+  assert.match(markup(html['verify.html']), /href="\/\?login=1"/);
 });
 
 test('verify: nothing is sent when the page loads - only the submit handler calls fetch (scanners and prefetch verify nothing)', () => {
@@ -204,7 +204,7 @@ test('forgot: email field, POST /api/auth/forgot, generic confirmation', () => {
   assert.match(fieldTag('forgot.html', 'email'), /type="email"/);
   assert.match(fieldTag('forgot.html', 'email'), /autocomplete="email"/);
   assert.match(html['forgot.html'], /If an account exists for that email/);
-  assert.match(markup(html['forgot.html']), /href="\/login\.html"/);
+  assert.match(markup(html['forgot.html']), /href="\/\?login=1"/);
 });
 
 // ---------- reset ----------
@@ -222,7 +222,7 @@ test('reset: reads ?token=, new + confirm password, POST /api/auth/reset', () =>
   assert.match(js, /JSON\.stringify\(\{\s*token,\s*password/);
   assert.doesNotMatch(js, /localStorage|sessionStorage|document\.cookie/);
   assertTokenOnlyInBody(js);
-  assert.match(markup(html['reset.html']), /href="\/login\.html"/);
+  assert.match(markup(html['reset.html']), /href="\/\?login=1"/);
 });
 
 // ---------- vercel.json ----------

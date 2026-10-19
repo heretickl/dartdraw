@@ -1,6 +1,6 @@
 /* Group Boards screens: builds HTML strings and handles clicks for stages 2 to 7. All game logic lives in
    pods.js. Organisers see "Group"; the internal name is "pods" (state.pods) so it never clashes with the
-   round-robin state.groups. Needs globals from index.html (state, persist, render, openModal, escapeHtml,
+   round-robin state.groups. Needs globals from app.html (state, persist, render, openModal, escapeHtml,
    nearestBracket, knockoutLegsFieldsHTML, ...). Only called while rendering or on a click. */
 
 /* ---------- Stage 2: format settings ---------- */

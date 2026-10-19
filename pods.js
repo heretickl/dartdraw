@@ -1,5 +1,5 @@
-/* Group Boards: pure logic, no DOM. Loaded after render.js and before the main script in index.html.
-   It calls engine functions defined in index.html (ensureSeedOrder, generateBracket, uid, nearestBracket,
+/* Group Boards: pure logic, no DOM. Loaded after render.js and before the main script in app.html.
+   It calls engine functions defined in app.html (ensureSeedOrder, generateBracket, uid, nearestBracket,
    seedSlotOrder, propagateByes, matchDurationMinutes, simulateKnockoutMinutes) and render.js
    (bracketChampion) at call time. Organisers and spectators see these as "Groups"; the internal name is
    "pods" so they never clash with state.groups (round robin). */

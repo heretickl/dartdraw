@@ -1,8 +1,8 @@
 /* Cleans a tournament object (the `data` of a saved event) of values that could turn into script when the organiser app
    builds HTML from them. One file, two users: api/tournaments/[id].js runs it on every save (so nothing hostile is stored),
-   and index.html runs it on every event it loads (so an Admin who opens another organiser's event is protected even from
+   and app.html runs it on every event it loads (so an Admin who opens another organiser's event is protected even from
    rows saved before the server rule existed). It strips, it never rejects, and legitimate data passes through unchanged:
-   names and other text are NOT rewritten (they are escaped where the page is built; see escText / escJs / imgSrc in index.html).
+   names and other text are NOT rewritten (they are escaped where the page is built; see escText / escJs / imgSrc in app.html).
 
    What it does:
    - format.logo must be a base64 image data URI (png, jpeg, gif, webp), otherwise it is removed.

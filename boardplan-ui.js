@@ -1,5 +1,5 @@
 /* Board schedule screens for Group Boards: the organiser's Boards panel and the two print sheets. The plan itself
-   comes from boardplan.js. Needs globals from index.html (state, persist, render, escapeHtml, goStage, koRoundName,
+   comes from boardplan.js. Needs globals from app.html (state, persist, render, escapeHtml, goStage, koRoundName,
    epochClockLabel, koMatchScoreModal, openKoNoShowPicker, ...). Only called while rendering or on a click. */
 
 /* ---------- Boards panel (Stage 5) ---------- */

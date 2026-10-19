@@ -10,7 +10,7 @@ const { KINDS, build, makeInjector, callAll, parseLeaks, RETURNS_HTML } = requir
 // by hostile data is tolerated (it is not a leak); the sinks are still exercised because the HTML is captured before and after.
 //
 // If this fails, the message names the field that leaked and the function that wrote it. Fix the builder (escText / escJs / imgSrc in
-// index.html, escapeHtml elsewhere), not the test.
+// app.html, escapeHtml elsewhere), not the test.
 
 function leaksFor(kind, mode, part, parts) {
   const { app, t } = build(kind);

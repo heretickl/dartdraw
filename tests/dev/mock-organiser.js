@@ -1,5 +1,5 @@
 // Local organiser for checking screens in a browser without Neon or login:  node tests/dev/mock-organiser.js
-// then open http://localhost:5393 . Tournaments live in memory and are lost when the server stops.
+// then open http://localhost:5393/app (the organiser app is app.html, served at /app). Tournaments live in memory and are lost when the server stops.
 const http = require('http'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const db = {};   // id -> { data, updated_at }
@@ -18,7 +18,7 @@ http.createServer(async (req, res) => {
     if (req.method === 'PUT') { const b = await readBody(req); const updated_at = new Date().toISOString(); db[id] = { data: b.data, updated_at }; return send(200, { id, updated_at }); }
     if (req.method === 'DELETE') { delete db[id]; res.statusCode = 204; return res.end(); }
   }
-  const file = path.join(ROOT, url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname));
+  const file = path.join(ROOT, (url.pathname === '/' || url.pathname === '/app') ? 'app.html' : decodeURIComponent(url.pathname));
   if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.statusCode = 404; return res.end('not found'); }
   res.setHeader('Content-Type', MIME[path.extname(file)] || 'text/plain');
   res.end(fs.readFileSync(file));

@@ -1,6 +1,6 @@
-/* Board schedule for Group Boards: pure logic, no DOM. Loaded after pods.js and before the main script in index.html.
+/* Board schedule for Group Boards: pure logic, no DOM. Loaded after pods.js and before the main script in app.html.
    Builds each board's queue of matches (groups in order, then the Finals), with a status per match and, when an
-   anticipated start time is set, an estimated start time. Needs globals from index.html (anticipatedStartEpoch,
+   anticipated start time is set, an estimated start time. Needs globals from app.html (anticipatedStartEpoch,
    matchDurationMinutes, legsForKnockoutRound) and pods.js (podsList, podsFinals, bracketByKey). */
 
 /* Stamps the time a result was entered, and clears the stamp when a result is undone. Entering a result also

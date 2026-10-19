@@ -4,7 +4,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp, run, useState } = require('./lib/helpers');
 
-// The "Change password" button in the account bar and its modal (index.html). The endpoint is tested in
+// The "Change password" button in the account bar and its modal (app.html). The endpoint is tested in
 // change-password.test.js; here apiFetch is stubbed and the exact request and the screen behaviour are checked.
 const app = loadApp();
 const f = (n) => run(app, n);
@@ -229,7 +229,7 @@ test('server text is never parsed as HTML (written with textContent, not innerHT
   await click();
   assert.equal(els.modalErr.textContent, EVIL);        // shown as text
   assert.equal(els.modalErr.innerHTML, 'untouched');   // never assigned as markup
-  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'app.html'), 'utf8');
   const fn = src.slice(src.indexOf('function changePasswordShowError'), src.indexOf('async function submitChangePassword'));
   assert.doesNotMatch(fn, /innerHTML/);
 });
@@ -342,7 +342,7 @@ test('on a finalized event the real Change password button stays enabled and cli
 });
 
 test('the account bar is outside the stage area, so a finalized event never locks it', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'app.html'), 'utf8');
   const bar = src.indexOf('id="organizerBar"');
   const aside = src.indexOf('<aside class="sidebar">');
   const asideEnd = src.indexOf('</aside>');

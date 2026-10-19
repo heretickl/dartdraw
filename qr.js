@@ -2,7 +2,7 @@
    (up to 213 bytes of text, enough for a results link). qrMatrix(text) returns the modules as an array of rows of
    0/1, or null when the text does not fit; qrSvg(text, opts) draws them as an inline SVG with the required quiet zone.
    The encoding follows ISO/IEC 18004: data and Reed-Solomon codewords interleaved, the 8 mask patterns scored with
-   the standard penalty rules, format and version information added. Loaded before the main script in index.html. */
+   the standard penalty rules, format and version information added. Loaded before the main script in app.html. */
 
 /* Level M by version: [error-correction codewords per block, [[blocks, data codewords per block], ...]] */
 var QR_M_BLOCKS = {

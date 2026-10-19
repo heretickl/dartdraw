@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp, run, useState } = require('./lib/helpers');
 
-// The Admin screens (admin-ui.js) and their hooks in index.html. The server endpoints are tested elsewhere
+// The Admin screens (admin-ui.js) and their hooks in app.html. The server endpoints are tested elsewhere
 // (admin-organizers, admin-events, admin-settings); here apiFetch is stubbed and the exact call is checked.
 const app = loadApp();
 const f = (n) => run(app, n);

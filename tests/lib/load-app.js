@@ -1,4 +1,4 @@
-// Loads the organiser app (render.js, optional pods files, then index.html's inline scripts) into a
+// Loads the organiser app (render.js, optional pods files, then app.html's inline scripts) into a
 // Node vm context with a stubbed browser, so the real functions can be tested.
 const fs = require('fs'), vm = require('vm'), path = require('path'), crypto = require('crypto');
 const ROOT = path.join(__dirname, '..', '..');
@@ -31,7 +31,7 @@ class FixedDate extends Date {
 }
 
 function loadApp(extraFiles) {
-  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
   const scripts = [...html.matchAll(/<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   const ctx = {
     console, Math: seededMath(12345), JSON, Date: FixedDate, Array, Object, String, Number, Set, Map, Intl,
@@ -42,7 +42,7 @@ function loadApp(extraFiles) {
   vm.createContext(ctx);
   const files = ['render.js'].concat(['tournament-sanitize.js', 'pods.js', 'pods-ui.js', 'admin-ui.js', 'qr.js', 'boardplan.js', 'boardplan-ui.js'].filter((f) => fs.existsSync(path.join(ROOT, f)))).concat(extraFiles || []);
   files.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f }));
-  scripts.forEach((s, i) => vm.runInContext(s, ctx, { filename: 'index.html#' + i }));
+  scripts.forEach((s, i) => vm.runInContext(s, ctx, { filename: 'app.html#' + i }));
   return ctx;
 }
 const run = (ctx, code) => vm.runInContext(code, ctx);

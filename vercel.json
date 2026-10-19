@@ -3,8 +3,41 @@
   "redirects": [
     { "source": "/viewer/:path*", "destination": "/", "permanent": false }
   ],
+  "rewrites": [
+    { "source": "/app", "destination": "/app.html" },
+    { "source": "/features", "destination": "/features.html" },
+    { "source": "/how-it-works", "destination": "/how-it-works.html" }
+  ],
   "headers": [
-    { "source": "/verify.html", "headers": [{ "key": "Referrer-Policy", "value": "no-referrer" }] },
-    { "source": "/reset.html", "headers": [{ "key": "Referrer-Policy", "value": "no-referrer" }] }
+    { "source": "/verify.html", "headers": [
+      { "key": "Referrer-Policy", "value": "no-referrer" },
+      { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },
+      { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+    ] },
+    { "source": "/reset.html", "headers": [
+      { "key": "Referrer-Policy", "value": "no-referrer" },
+      { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },
+      { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+    ] },
+    { "source": "/login.html", "headers": [
+      { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },
+      { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+    ] },
+    { "source": "/register.html", "headers": [
+      { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },
+      { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+    ] },
+    { "source": "/forgot.html", "headers": [
+      { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },
+      { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+    ] },
+    { "source": "/app", "headers": [
+      { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },
+      { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+    ] },
+    { "source": "/app.html", "headers": [
+      { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },
+      { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+    ] }
   ]
 }

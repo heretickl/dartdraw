@@ -4,7 +4,23 @@ Web app for creating, managing, and printing darts tournament charts — built f
 
 ## Usage
 
-Open the deployed URL and use the app as normal — the print-ready chart still updates as you work, exactly as before. Login is off until you switch it on (see "Organiser accounts and login" below).
+Open the deployed URL for the public site, then log in (or go straight to `/app`) and use the app as normal — the print-ready chart still updates as you work, exactly as before. Login is off until you switch it on (see "Organiser accounts and login" below).
+
+### Site structure
+
+| Address | File | What it is |
+| --- | --- | --- |
+| `/` | `index.html` | Public landing page. A visitor who is already signed in is sent on to `/app`. |
+| `/features` | `features.html` | Public features page. |
+| `/how-it-works` | `how-it-works.html` | Public how-it-works page. |
+| `/app` | `app.html` | The organiser app (the tournament editor). Signed-out visitors are sent to `/?login=1`. |
+| (pop-up) | `login.html` | The sign-in form. The public pages show it in a pop-up (`login.html?embed=1` in an iframe); `/?login=1` or `/#login` opens that pop-up. `login.html` may only be framed by this site. |
+
+The clean URLs are rewrites in `vercel.json`. The three public pages are **generated** by `scripts/build-landing.js`
+(shared styles, header, closing band and login pop-up live there). Do not edit `index.html`, `features.html` or
+`how-it-works.html` by hand: change the script and regenerate with `npm run build-landing`. The pages are committed, so
+Vercel still has no build step, and `npm test` fails if they are out of step with the script. The register, verify, forgot and
+reset pages link back to the pop-up with `/?login=1`.
 
 ## Deployment
 
@@ -249,8 +265,9 @@ does. The public results page shows "Neither attended" for such a match.
 - `npm test` runs every test (Node's built-in runner, no dependencies). `tests/golden/existing-formats.json`
   snapshots how the three older formats render; if you change them on purpose, regenerate it with
   `UPDATE_GOLDEN=1 npm test`.
-- `node tests/dev/mock-organiser.js` serves the organiser at http://localhost:5393 with in-memory storage and no
-  login, for trying the screens in a browser.
+- `node tests/dev/mock-organiser.js` serves the organiser app (`app.html`) at http://localhost:5393 (or `/app`) with
+  in-memory storage and no login, for trying the screens in a browser.
+- `npm run build-landing` regenerates the public pages (`index.html`, `features.html`, `how-it-works.html`).
 - `node tests/dev/make-sample-view.js 40 8 3` then `node tests/dev/mock-viewer.js` serves the public page for a
   sample Group Boards event at http://localhost:5392/live/testslug12.
 

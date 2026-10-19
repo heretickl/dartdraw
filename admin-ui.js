@@ -1,9 +1,9 @@
 /* Admin screens (organiser app): Organisers, Events and Settings, drawn into #stageArea while adminState.view is
-   set (render() in index.html hands over to renderAdminView()). Only an account with role 'admin' sees any of this;
+   set (render() in app.html hands over to renderAdminView()). Only an account with role 'admin' sees any of this;
    the server checks the role again on every /api/admin/* call, so hiding things here is a convenience, not the
    protection. Every function that acts or draws refuses to run when !isAdminUser(). All text that comes from the
    server (names, emails, event names, error messages) goes through escapeHtml before it is put into HTML.
-   Needs globals from index.html: currentOrganizer, state, currentStage, lockedIds, tournamentsCache, dbUpdatedAtCache,
+   Needs globals from app.html: currentOrganizer, state, currentStage, lockedIds, tournamentsCache, dbUpdatedAtCache,
    apiFetch, openModal, render, renderSavedList, openTournament, escapeHtml. Only called while rendering or on a click. */
 
 var adminState = {

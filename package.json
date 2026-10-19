@@ -6,6 +6,7 @@
   "scripts": {
     "sync-viewer": "node scripts/sync-viewer.js",
     "check-viewer": "node scripts/sync-viewer.js --check",
+    "build-landing": "node scripts/build-landing.js",
     "test": "node --test"
   },
   "engines": {
