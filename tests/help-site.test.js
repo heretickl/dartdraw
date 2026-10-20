@@ -165,7 +165,7 @@ test('the guide covers the topics organisers need, each as an anchored article',
     'creating-an-event': ['Singles', 'Doubles', 'pair', 'Number of entries', 'Tournament date'],
     'choosing-a-format': ['Round robin', 'Knockout', 'Group Boards', 'Plate pool', 'Best of legs', 'Optional'.toLowerCase()],
     'entries-and-check-in': ['Check-in', 'Withdraw', 'Mark no-show', 'Neither showed', 'Organisation', 'Seed'],
-    'draws-and-printing': ['Random draw', 'Print bracket pack', 'rules', 'handout', 'sponsor', 'QR'],
+    'draws-and-printing': ['Random draw', 'Print bracket pack', 'rules', 'sponsor', 'QR'],
     'managing-the-tournament': ['Start all games', 'Save score', 'Boards', 'incident'],
     'full-page-window': ['Open in new window', 'F11', 'pop-up'],
     'publishing-results': ['Publish results', 'List on the public page', 'every 20 seconds', 'Player 1'],
@@ -257,7 +257,7 @@ test('the buttons, labels and messages the guide quotes still exist in app.html 
     'Participants & Seeding', 'Seed this bracket', 'Number of seeds', 'Check in all', 'Only show who hasn\'t checked in yet', 'Not everyone is checked in',
     'Withdraw', 'Swap with…', 'Mark no-show…', 'Neither showed', 'Reverse it', 'Adjust positions…', 'Reset all', 'Un-confirmed automatically',
     'Flat list', 'Grouped view', 'Confirm this chart', 'Generate bracket', 'Regenerate bracket', 'Print bracket pack',
-    'handout sheet (roster + fixtures) for each', 'Include the rules & format sheet as the first page of the pack', 'Include sponsor footer on printed charts',
+    'Include the rules & format sheet as the first page of the pack', 'Include sponsor footer on printed charts',
     'Knockout bracket paper size', 'Players A–Z', 'Draw groups', 'Move…', 'Winner of Group', 'no winner',
     'Start all games', 'Go print the pack first', 'Start without printing', 'Scores are locked', 'Save score', 'Generate knockout bracket', 'Regenerate from current standings', 'Start round',
     'The knockout can only be drawn once every group is finished', 'Resolve ties before continuing', 'Call', 'Uncall', 'Enter result', 'Finals boards', '+ Log incident',
@@ -505,7 +505,7 @@ test('QR codes: only the sheets the guide names carry one, and the guide says th
   const t = articleText('draws-and-printing');
   assert.match(t, /Only some sheets carry a QR code/);
   assert.match(t, /group charts, the knockout and Finals bracket sheets, the Group Boards group sheets, and in Group Boards the Boards and Players A–Z sheets/);
-  assert.match(t, /The rules sheet, the running order and the pair handouts do not have one/);
+  assert.match(t, /The rules sheet and the running order do not have one/);
   assert.match(t, /address of the public site is set up/);
   assert.doesNotMatch(t, /each printed sheet has a QR/i);
 });

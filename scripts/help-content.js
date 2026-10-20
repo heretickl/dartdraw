@@ -211,7 +211,7 @@ const sections = [
       {
         id: 'draws-and-printing',
         title: 'Groups, draws and printing (steps 3 and 4)',
-        summary: 'Draw and confirm the groups, then print the blank pack: charts, rules sheet, handouts, logos and QR codes.',
+        summary: 'Draw and confirm the groups, then print the blank pack: charts, rules sheet, logos and QR codes.',
         body: `
 <h4 id="draw">Drawing the groups</h4>
 <p>In a round robin, step 3 is called <b>Draw &amp; groups</b>. Entries stay as &ldquo;Not drawn&rdquo; until you click <b>Random draw</b>. Click it again to deal everyone out afresh; DartDraw asks first because it discards your manual swaps.</p>
@@ -233,7 +233,6 @@ const sections = [
 <li>a master running order, board by board;</li>
 <li>one chart for each confirmed group;</li>
 <li>the knockout bracket, or a projected bracket with labels like A1 before the groups are played;</li>
-<li>a handout for every pair in Doubles: tick <b>Also print a pair handout sheet (roster + fixtures) for each pair</b>;</li>
 <li>in Group Boards, a <b>Players A&ndash;Z</b> sheet, a <b>Boards</b> sheet, one sheet for each group and the Finals.</li>
 </ul>
 <p>Knockout brackets have a <b>Knockout bracket paper size</b> (A4, A3, A2 or A1). A very large bracket is split over several sheets so the writing stays readable.</p>
@@ -243,7 +242,7 @@ const sections = [
 <p>Your tournament logo goes in every sheet header. Sponsor logos (Advanced setup) print in the footer when <b>Include sponsor footer on printed charts</b> is ticked. The rules sheet is written for you from your settings: the format, scoring, how many go through, tie-break order, plus anything you typed in <b>Walkover, conduct &amp; other rules</b>.</p>
 
 <h4 id="qr-codes">QR codes</h4>
-<p>Only some sheets carry a QR code, with the live address beside it in the header: the round robin group charts, the knockout and Finals bracket sheets, the Group Boards group sheets, and in Group Boards the <b>Boards</b> and <b>Players A&ndash;Z</b> sheets. The rules sheet, the running order and the pair handouts do not have one.</p>
+<p>Only some sheets carry a QR code, with the live address beside it in the header: the round robin group charts, the knockout and Finals bracket sheets, the Group Boards group sheets, and in Group Boards the <b>Boards</b> and <b>Players A&ndash;Z</b> sheets. The rules sheet and the running order do not have one.</p>
 <p>Each code opens that sheet&rsquo;s own page: a group chart opens that group, a bracket sheet opens the bracket, the Boards sheet opens the Boards tab, and Players A&ndash;Z opens the event. The codes are made in your browser, so printing does not need extra internet.</p>
 <p>They only appear when <b>Publish results</b> is on <em>and</em> the address of the public site is set up (if the Public results card says it is not, tell your admin). Switch publishing on before you print, or the codes will not be there.</p>
 `

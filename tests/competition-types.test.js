@@ -214,8 +214,8 @@ SIZES.forEach((n) => FORMATS.forEach((ft) => {
     else assert.match(render(4), /Tick off each pair/);
     assert.doesNotMatch(render(3) + render(4), /Team name|Tick off each player/);
     const pre = printAll(t);
-    assert.match(pre, /PAIR HANDOUT/); assert.doesNotMatch(pre, /TEAM HANDOUT|team captain/);
-    assert.match(pre, /Alice0/);                                           // the roster of a pair shows on its handout
+    assert.doesNotMatch(pre, /HANDOUT|team captain/);                       // Doubles events print no handout sheets, even if the old setting is on
+    assert.equal(f('teamHandoutToggleHTML')(), '');                         // and the tick box is not offered
     assert.equal(f('eventComplete')(t), false);
 
     if (ft !== 'knockout') {
