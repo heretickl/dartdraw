@@ -272,7 +272,8 @@ function hmShouldWrite(last, next){ return last !== next; }
 function hmHeaderHTML(){
   return '<header class="hm-top"><div class="hm-wrap">' +
     '<div class="hm-row1"><a class="hm-brand" href="/"><span class="hm-mark" aria-hidden="true">D</span><b>DartDraw</b><i>Live</i></a>' +
-    '<button class="hm-ibtn" id="hmTheme" type="button" aria-label="Colour theme: auto. Tap to change">' + HM_THEME_ICON.auto + '</button></div>' +
+    '<div class="hm-tools"><a class="hm-help" href="/help">Help</a>' +
+    '<button class="hm-ibtn" id="hmTheme" type="button" aria-label="Colour theme: auto. Tap to change">' + HM_THEME_ICON.auto + '</button></div></div>' +
     '<label class="hm-find"><svg viewBox="0 0 24 24" fill="none" stroke="#dbe5f1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>' +
     '<input id="hmQ" type="search" placeholder="Search events or paste a code" aria-label="Search events, or paste an event link or code" autocomplete="off" autocapitalize="off" spellcheck="false"></label>' +
     '<div id="hmOpen"></div>' +
@@ -360,7 +361,7 @@ function showHome(){
   root.innerHTML = hmHeaderHTML() +
     '<main class="hm-body"><div class="hm-wrap"><div class="hm-upd" id="hmUpd"></div>' +
     '<div id="hmList" role="tabpanel"></div>' +
-    '<p class="hm-foot">Results update automatically \u00B7 Powered by DartDraw</p></div></main>';
+    '<p class="hm-foot">Results update automatically \u00B7 Powered by DartDraw \u00B7 <a href="/help">Help</a></p></div></main>';
   document.body.insertBefore(root, document.body.firstChild);
   hmApplyTheme(hmSavedTheme());
   HM.tab = hmTabFromHash(location.hash);

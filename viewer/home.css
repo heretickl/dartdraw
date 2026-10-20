@@ -97,3 +97,9 @@
   .hm-name{font-size:23px}
   .hm-sub{font-size:15px}
 }
+/* the Help link beside the colour button, and in the footer line */
+.hm-tools{display:flex;align-items:center;gap:8px}
+.hm-help{display:inline-flex;align-items:center;height:38px;padding:0 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#dbe5f1;font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none}
+.hm-help:hover{background:rgba(255,255,255,.12)}
+.hm-help:focus-visible{outline:2px solid #8fc2ff;outline-offset:2px}
+.hm-foot a{color:var(--on-blue);font-weight:600}
