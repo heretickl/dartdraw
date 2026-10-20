@@ -1,11 +1,13 @@
-// Generates the public marketing site: index.html (landing, served at /), features.html (/features) and
-// how-it-works.html (/how-it-works), from shared parts (CSS, icon sprite, header, closing band, login pop-up).
-//   node scripts/build-landing.js     writes the three pages into the repo root
+// Generates the public site: index.html (landing, served at /), features.html (/features), how-it-works.html
+// (/how-it-works) and help.html (/help), from shared parts (CSS, icon sprite, header, closing band, login pop-up).
+// The words on the Help page live in scripts/help-content.js (data only); this file lays them out.
+//   node scripts/build-landing.js     writes the four pages into the repo root
 //   npm run build-landing             same
 // Do not edit the generated pages by hand: tests/landing-site.test.js fails when they differ from this script's output.
 // The organiser app itself is app.html (served at /app); the sign-in form is login.html, shown in the pop-up.
 const fs = require('fs'), path = require('path');
 const OUT = path.join(__dirname, '..');
+const help = require('./help-content');
 
 const CSS = `
 :root{--navy:#0f2240;--navy-2:#0a1a33;--ink:#142133;--muted:#566578;--line:#dfe6ee;--bg:#f3f6fb;--white:#fff;--gold:#c8941a;--gold-big:#c08a12;--gold-soft:#fbf1d6;--blue:#1769e0;--blue-d:#1257bd}
@@ -104,6 +106,10 @@ h2.sec{margin:0 0 34px;font-size:clamp(28px,3.2vw,40px);letter-spacing:-.03em;co
 .close .foot .brand{color:#fff;font-size:22px}
 .close .foot .mark{background:transparent;color:#f0b73a;border-color:#f0b73a;width:32px;height:32px;font-size:15px}
 .close .foot .sep{width:1px;height:26px;background:#4a5f82}
+.foot-nav{display:flex;justify-content:center;flex-wrap:wrap;gap:0 26px;margin:30px 0 0}
+.foot-nav a{color:#dfe7f3;text-decoration:none;font-weight:600;font-size:15px;padding:12px 2px;border-bottom:2px solid transparent}
+.foot-nav a:hover{color:#fff;border-bottom-color:#f0b73a}
+.foot-nav+.foot{margin-top:14px}
 /* sub-page heroes */
 .phero{background:linear-gradient(180deg,#f2f6fc,#e9f0f9);padding:30px 0 56px;position:relative;overflow:hidden}
 .phero:before{content:"";position:absolute;right:-220px;top:-260px;width:760px;height:760px;border-radius:50%;background:repeating-radial-gradient(circle at center,transparent 0 56px,rgba(15,34,64,.045) 57px 58px)}
@@ -210,6 +216,7 @@ const header = (page) => `
   <nav class="nav-links" aria-label="Main">
     <a href="/features"${page === 'features' ? ' aria-current="page"' : ''}>Features</a>
     <a href="/how-it-works"${page === 'how' ? ' aria-current="page"' : ''}>How it works</a>
+    <a href="/help"${page === 'help' ? ' aria-current="page"' : ''}>Help</a>
   </nav>
   <span class="spacer"></span>
   <a class="btn sm" href="/login.html" data-login>Log in</a>
@@ -219,6 +226,11 @@ const closing = (headline) => `
 <section class="close" aria-labelledby="closeH"><div class="wrap">
   <h2 id="closeH">${headline}</h2>
   <a class="btn" href="/login.html" data-login>Log in ${arrow}</a>
+  <nav class="foot-nav" aria-label="Footer">
+    <a href="/features">Features</a>
+    <a href="/how-it-works">How it works</a>
+    <a href="/help">Help</a>
+  </nav>
   <div class="foot"><a class="brand" href="/"><span class="mark" aria-hidden="true">D</span>DartDraw</a><span class="sep" aria-hidden="true"></span><span>Tournament charts, made simple.</span></div>
 </div></section>`;
 
@@ -288,7 +300,7 @@ window.__ddSignedIn=fetch('/api/auth/me',{credentials:'same-origin',cache:'no-st
 })();
 </script>`;
 
-const page = (title, desc, pageKey, body, headline) => `<!doctype html>
+const page = (title, desc, pageKey, body, headline, extraCss) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -297,9 +309,9 @@ const page = (title, desc, pageKey, body, headline) => `<!doctype html>
 <meta name="description" content="${desc}">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>${CSS}</style>${pageKey === 'landing' ? signedInRedirect : ''}
+<style>${CSS}${extraCss || ''}</style>${pageKey === 'landing' ? signedInRedirect : ''}
 </head>
-<body>
+<body id="top">
 ${ICONS}
 ${header(pageKey)}
 <main id="main">
@@ -428,14 +440,214 @@ const how = `
   </div>
 </div></section>`;
 
+/* ---------------- help ---------------- */
+const HELP_CSS = `
+[hidden]{display:none!important}
+.phero .hsearch{margin:26px 0 0;max-width:640px}
+.hsearch label{display:block;margin:0 0 8px;font-weight:700;font-size:15px;color:var(--navy)}
+.hsearch input{display:block;width:100%;font:inherit;font-size:18px;line-height:1.3;padding:14px 18px;min-height:54px;border:1.5px solid #bcc9db;border-radius:12px;background:#fff;color:var(--ink);box-shadow:0 4px 14px rgba(15,34,64,.06);-webkit-appearance:none;appearance:none}
+.hsearch input::placeholder{color:#5b6a7f}
+.hsearch input:focus{border-color:var(--blue);outline:3px solid rgba(23,105,224,.28);outline-offset:0}
+.hcount{margin:8px 0 0;min-height:22px;font-size:14.5px;color:var(--muted)}
+section.band.help{padding:36px 0 64px}
+.help-layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:44px;align-items:start}
+.help-toc{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:6px 8px 10px;box-shadow:0 2px 0 rgba(15,34,64,.03)}
+.help-toc summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:8px 10px;font-weight:800;font-size:16px;color:var(--navy);cursor:pointer;list-style:none}
+.help-toc summary::-webkit-details-marker{display:none}
+.help-toc summary:after{content:"\\25BE";display:none;font-size:18px;color:var(--gold-big);transition:transform .15s}
+.help-toc[open] summary:after{transform:rotate(180deg)}
+.help-toc .s-mob{display:none}
+.toc-h{margin:8px 10px 2px;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#7a5600}
+.help-toc ol{list-style:none;margin:0;padding:0}
+.help-toc li a{display:block;padding:8px 10px;border-radius:8px;font-size:15px;line-height:1.35;color:#2b3a50;text-decoration:none}
+.help-toc li a:hover{background:#eef3fa;color:var(--navy)}
+.help-main{min-width:0}
+.hgroup{margin:0 0 16px;font-size:clamp(26px,3vw,34px);letter-spacing:-.03em;line-height:1.1;color:var(--navy);scroll-margin-top:18px}
+.hgroup:not(:first-child){margin-top:44px}
+.hintro{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin:0 0 24px;padding:16px 18px;background:#fff;border:1px solid var(--line);border-radius:14px}
+.hintro p{margin:0;flex:1 1 280px;font-size:16px;color:#32435a}
+.hempty{margin:0 0 20px;padding:18px 20px;background:#fff;border:1px dashed #b9c4d3;border-radius:14px;color:#32435a;font-size:16.5px}
+.harticle{margin:0 0 20px;padding:26px 28px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 0 rgba(15,34,64,.03);scroll-margin-top:18px;overflow-wrap:anywhere}
+.hhead{display:flex;align-items:baseline;gap:8px;margin:0 0 4px}
+.harticle h3{margin:0;font-size:clamp(23px,2.5vw,29px);line-height:1.15;letter-spacing:-.02em;color:var(--navy)}
+.hhead .anchor{padding:6px 4px;font-weight:700;color:#8a6410;text-decoration:none}
+.hhead .anchor:hover,.hhead .anchor:focus{color:var(--navy)}
+.harticle .sum{margin:0 0 16px;font-size:16.5px;color:var(--muted)}
+.harticle h4{margin:28px 0 8px;font-size:18.5px;line-height:1.25;color:var(--navy);scroll-margin-top:18px}
+.hbody>h4:first-child{margin-top:4px}
+.harticle p,.harticle li,.harticle dd,.faq-body p,.faq-body li{font-size:16.5px;line-height:1.55;color:#26364b}
+.harticle p,.faq-body p{margin:0 0 12px}
+.harticle ol,.harticle ul,.faq-body ol,.faq-body ul{margin:0 0 14px;padding-left:24px}
+.harticle li,.faq-body li{margin:6px 0}
+.harticle b,.faq-body b{color:var(--navy);font-weight:700}
+.harticle a,.faq-body a{color:var(--blue-d)}
+.callout{margin:14px 0;padding:12px 16px;background:var(--gold-soft);border-left:4px solid var(--gold);border-radius:8px}
+.harticle dl.msgs{margin:0 0 12px}
+.harticle dl.msgs dt{margin:14px 0 0;padding:6px 12px;background:#f1f5fa;border-radius:8px;font-weight:700;color:var(--navy);font-size:16px;line-height:1.4}
+.harticle dl.msgs dd{margin:6px 0 0 12px;font-size:16px}
+.totop{margin:20px 0 0;font-size:14.5px}
+.harticle .totop a,.hgroup-end a{font-weight:600;text-decoration:none;color:var(--blue-d)}
+.harticle:target,details.faq:target{box-shadow:0 0 0 3px var(--gold)}
+details.faq{margin:0 0 10px;background:#fff;border:1px solid var(--line);border-radius:12px;scroll-margin-top:18px;overflow-wrap:anywhere}
+details.faq summary{position:relative;min-height:52px;padding:14px 52px 14px 18px;font-size:17px;font-weight:700;line-height:1.35;color:var(--navy);cursor:pointer;list-style:none}
+details.faq summary::-webkit-details-marker{display:none}
+details.faq summary:after{content:"+";position:absolute;right:18px;top:50%;margin-top:-14px;width:28px;height:28px;border-radius:50%;background:var(--gold-soft);color:#7a5600;font-size:20px;line-height:28px;text-align:center}
+details.faq[open] summary:after{content:"\\2013"}
+details.faq[open] summary{border-bottom:1px solid var(--line)}
+.faq-body{padding:14px 18px 6px}
+.hgroup-end{margin:6px 0 0;font-size:14.5px}
+@media (max-width:960px){
+  .help-layout{grid-template-columns:minmax(0,1fr);gap:18px}
+  .help-toc{position:static;max-height:none;padding:2px 6px}
+  .help-toc summary:after{display:inline}
+  .help-toc .s-desk{display:none}
+  .help-toc .s-mob{display:inline}
+}
+@media (max-width:640px){
+  section.band.help{padding:24px 0 48px}
+  .harticle{padding:20px 16px}
+  .hsearch input{font-size:17px}
+  details.faq summary{padding:13px 50px 13px 14px;font-size:16.5px}
+  .faq-body{padding:12px 14px 4px}
+  .harticle p,.harticle li,.harticle dd,.faq-body p,.faq-body li{font-size:16px}
+}
+@media print{
+  header.top,.close,.help-toc,.hsearch,.totop,.hgroup-end,.skip,dialog{display:none!important}
+  .phero{padding:0}.phero:before{display:none}
+}
+`;
+
+/* The search box and the contents list. Without JavaScript the search box stays hidden, everything is shown, and the
+   contents list is an ordinary open list of links. With it: typing filters the guide and the questions, and on a
+   narrow screen the contents list folds away until it is wanted. */
+const HELP_SCRIPT = `
+<script>
+(function(){
+var form=document.getElementById('helpSearch'),input=document.getElementById('helpQ');
+if(!form||!input)return;
+var count=document.getElementById('helpCount'),empty=document.getElementById('helpEmpty'),emptyQ=document.getElementById('helpEmptyQ');
+var items=[].slice.call(document.querySelectorAll('[data-item]'));
+var heads=[].slice.call(document.querySelectorAll('[data-group-head]'));
+var tocItems=[].slice.call(document.querySelectorAll('[data-toc]'));
+var texts=items.map(function(el){return String(el.textContent||'').toLowerCase().replace(/\\s+/g,' ')});
+form.hidden=false;
+function terms(q){return String(q||'').toLowerCase().split(/\\s+/).filter(Boolean)}
+function apply(){
+  var ts=terms(input.value),shown=0,vis={},perGroup={};
+  items.forEach(function(el,i){
+    var ok=ts.every(function(t){return texts[i].indexOf(t)>=0});
+    el.hidden=!ok;
+    vis[el.getAttribute('id')]=ok;
+    if(ok){shown++;var g=el.getAttribute('data-group');perGroup[g]=(perGroup[g]||0)+1}
+    if(el.getAttribute('data-kind')==='faq'){
+      if(ts.length&&ok&&!el.open){el.open=true;el.__bySearch=true}
+      else if((!ts.length||!ok)&&el.__bySearch){el.open=false;el.__bySearch=false}
+    }
+  });
+  heads.forEach(function(h){h.hidden=!perGroup[h.getAttribute('data-group-head')]});
+  tocItems.forEach(function(li){
+    var id=li.getAttribute('data-toc');
+    li.hidden=!(id in vis?vis[id]:!!perGroup[id]);
+  });
+  if(count)count.textContent=ts.length?(shown+(shown===1?' result':' results')):'';
+  if(empty){empty.hidden=!(ts.length&&!shown);if(emptyQ)emptyQ.textContent=String(input.value).replace(/^\\s+|\\s+$/g,'')}
+}
+input.addEventListener('input',apply);
+input.addEventListener('keydown',function(e){if(e.key==='Escape'&&input.value){input.value='';apply()}});
+form.addEventListener('submit',function(e){e.preventDefault()});
+function itemOf(el){while(el&&!(el.getAttribute&&el.getAttribute('data-item')!==null))el=el.parentNode;return el}
+function onHash(){
+  var id=String((typeof location!=='undefined'&&location.hash)||'').slice(1);
+  if(!id)return;
+  var el=document.getElementById(id);
+  var it=itemOf(el);
+  if(!it)return;
+  if(it.hidden){input.value='';apply();if(el.scrollIntoView)el.scrollIntoView()}
+  if(it.getAttribute('data-kind')==='faq'&&!it.open)it.open=true;
+}
+window.addEventListener('hashchange',onHash);
+onHash();
+var toc=document.getElementById('helpToc'),mq=window.matchMedia?window.matchMedia('(min-width: 961px)'):null;
+if(toc&&mq){
+  var sum=toc.querySelector('summary');
+  toc.open=mq.matches;
+  if(sum)sum.addEventListener('click',function(e){if(mq.matches)e.preventDefault()});
+  toc.addEventListener('click',function(e){var t=e.target;if(t&&t.tagName==='A'&&!mq.matches)toc.open=false});
+  var sync=function(){if(mq.matches)toc.open=true};
+  if(mq.addEventListener)mq.addEventListener('change',sync);else if(mq.addListener)mq.addListener(sync);
+}
+})();
+</script>`;
+
+const helpArticle = (it) => `
+    <article class="harticle" id="${it.id}" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>${it.title}</h3><a class="anchor" href="#${it.id}" aria-label="Link to this section">#</a></div>
+      ${it.summary ? `<p class="sum">${it.summary}</p>` : ''}
+      <div class="hbody">${it.body}</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>`;
+const helpQuestion = (it) => `
+    <details class="faq" id="${it.id}" data-item data-group="faq" data-kind="faq">
+      <summary>${it.title}</summary>
+      <div class="faq-body">${it.body}</div>
+    </details>`;
+
+function helpPage() {
+  const guideLinks = (sec) => sec.items.map((it) => `<li data-toc="${it.id}"><a href="#${it.id}">${it.title}</a></li>`).join('\n          ');
+  const toc = help.sections.map((sec) => sec.kind === 'guide'
+    ? `<p class="toc-h">${sec.title}</p>
+        <ol>
+          ${guideLinks(sec)}
+        </ol>`
+    : `<p class="toc-h">Quick answers</p>
+        <ol>
+          <li data-toc="${sec.id}"><a href="#${sec.id}">${sec.title} (${sec.items.length})</a></li>
+        </ol>`).join('\n        ');
+  const main = help.sections.map((sec) => `
+    <h2 class="hgroup" id="${sec.id}" data-group-head="${sec.id}">${sec.title}</h2>${sec.items.map(sec.kind === 'guide' ? helpArticle : helpQuestion).join('')}
+    ${sec.kind === 'faq' ? '<p class="hgroup-end"><a href="#top">Back to top &uarr;</a></p>' : ''}`).join('\n');
+  return `
+<section class="phero" aria-labelledby="helpH"><div class="wrap">
+  <p class="eyebrow">Help</p>
+  <h1 id="helpH">${help.title}</h1>
+  <p class="lede">${help.lede}</p>
+  <form class="hsearch" id="helpSearch" role="search" hidden>
+    <label for="helpQ">Search the help</label>
+    <input id="helpQ" type="search" placeholder="Try &ldquo;no-show&rdquo;, &ldquo;print&rdquo; or &ldquo;pop-up&rdquo;" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p class="hcount" id="helpCount" aria-live="polite"></p>
+  </form>
+</div></section>
+
+<section class="band alt help" aria-label="Help articles and questions"><div class="wrap help-layout">
+  <nav class="help-toc" aria-label="Help contents">
+    <details id="helpToc" open>
+      <summary><span class="s-desk">Contents</span><span class="s-mob">Jump to a topic</span></summary>
+      <div>
+        ${toc}
+      </div>
+    </details>
+  </nav>
+  <div class="help-main">
+    <div class="hintro">
+      <p>Following an event as a spectator? The public results site has its own <a href="${help.VIEWER_HELP_URL}" target="_blank" rel="noopener">help page for spectators</a>.</p>
+      <a class="btn sm" href="/login.html" data-login>Log in to DartDraw</a>
+    </div>
+    <p class="hempty" id="helpEmpty" hidden>Nothing matches &ldquo;<span id="helpEmptyQ"></span>&rdquo;. Try fewer or different words, such as &ldquo;score&rdquo;, &ldquo;print&rdquo; or &ldquo;knockout&rdquo;.</p>
+${main}
+  </div>
+</div></section>
+${HELP_SCRIPT}`;
+}
+
 const SHARED_HEADLINE = 'Less time on charts. <em>More time on the oche.</em>';
 
-/* The three pages as { file name: html }. Pure: no file access, so the tests can compare it with what is on disk. */
+/* The four pages as { file name: html }. Pure: no file access, so the tests can compare it with what is on disk. */
 function render() {
   return {
     'index.html': page('DartDraw – Your tournament. Every draw, organised.', 'Create draws, organise groups and prepare branded darts tournament charts – all in one place.', 'landing', landing, SHARED_HEADLINE),
     'features.html': page('Features – DartDraw', 'Round robin, knockout, group boards, live results and branded A4 charts – everything you need to run a darts draw.', 'features', features, SHARED_HEADLINE),
-    'how-it-works.html': page('How it works – DartDraw', 'Seven steps from event setup to the first throw: create, choose a format, build charts, print, run the day, finalize and accept.', 'how', how, 'Ready to run your <em>next draw?</em>')
+    'how-it-works.html': page('How it works – DartDraw', 'Seven steps from event setup to the first throw: create, choose a format, build charts, print, run the day, finalize and accept.', 'how', how, 'Ready to run your <em>next draw?</em>'),
+    'help.html': page('Help for organisers – DartDraw', 'Step-by-step guides and answers to common questions for DartDraw organisers: setting up an event, running the day, printing, live results and finishing.', 'help', helpPage(), 'Ready to run your <em>next draw?</em>', HELP_CSS)
   };
 }
 

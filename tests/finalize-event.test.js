@@ -269,7 +269,8 @@ test('flushSave resolves only when the save that carries the latest change has f
   const realFetch = app.apiFetch;
   app.apiFetch = (url, opts) => new Promise((resolve) => { gates.push(() => { order.push('put'); resolve({ ok: true, status: 200, json: async () => ({ updated_at: 'u' + gates.length }) }); }); });
   let first = f('flushSave')(); first.then(() => order.push('first done'));
-  let second = f('flushSave')(); second.then(() => order.push('second done'));   // arrives while the first is in flight
+  run(app, 'saveRev++; markPending(state.id)');                                 // a new edit arrives while the first is in flight
+  let second = f('flushSave')(); second.then(() => order.push('second done'));
   await tick(); assert.equal(gates.length, 1);
   gates[0](); await tick(); await tick(); await tick();
   assert.equal(gates.length, 2);          // the follow-up save started
@@ -277,6 +278,23 @@ test('flushSave resolves only when the save that carries the latest change has f
   gates[1](); await tick(); await tick(); await tick();
   app.apiFetch = realFetch;
   assert.deepEqual(order, ['put', 'first done', 'put', 'second done']);
+});
+
+test('a second flushSave with no new edit waits for the save in flight and sends nothing more (no extra or resurrecting PUT)', async () => {
+  reset();
+  fresh('knockout', { knockout: br('a') });
+  run(app, 'pendingSaves.clear(); savePending = false');
+  const gates = [];
+  const realFetch = app.apiFetch;
+  app.apiFetch = (url, opts) => new Promise((resolve) => { gates.push(() => resolve({ ok: true, status: 200, json: async () => ({ updated_at: 'u' + gates.length }) })); });
+  const first = f('flushSave')();
+  const second = f('flushSave')();
+  // answer every PUT that turns up (a few rounds), so a wrongly sent follow-up is counted instead of hanging the test
+  for (let i = 0; i < 4; i++) { await tick(); gates.forEach((g) => g()); await tick(); await tick(); }
+  assert.equal(await first, true);
+  assert.equal(await second, true, 'resolved with the save that carried the latest change');
+  assert.equal(gates.length, 1, 'no follow-up PUT');
+  app.apiFetch = realFetch;
 });
 
 /* ---------- finalizeResults ---------- */

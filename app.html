@@ -76,7 +76,10 @@ body.admin-mode .step{display:none}
 .save-status{font-size:10px;color:#7fa0c4;margin:0 0 16px;min-height:12px}
 .save-status.error{color:#f2a49c;cursor:pointer;text-decoration:underline}
 .main{padding:28px 34px 42px;overflow:auto}
-.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.topbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 14px;margin-bottom:24px}
+.topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.help-link{font-size:12px;font-weight:700;color:var(--navy);text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:99px;padding:8px 14px}
+.help-link:hover{background:#f3f5f7;border-color:#cad5e0}
 .topbar h1{font-size:23px;margin:0}
 .topbar p{margin:5px 0 0;color:var(--muted);font-size:13px}
 .tag{background:#e5eefc;color:#1956ad;border-radius:99px;font-size:12px;padding:8px 12px;font-weight:700}
@@ -102,6 +105,7 @@ body.admin-mode .step{display:none}
 .hint{font-size:11px;color:var(--muted);margin-top:4px}
 input,select,textarea{height:38px;border:1px solid #cad5e0;border-radius:7px;padding:9px 11px;font-size:13px;background:#fff;width:100%;font-family:inherit;color:var(--ink)}
 textarea{height:auto;min-height:60px;resize:vertical}
+#stageArea input,#stageArea select,#stageArea textarea{scroll-margin-top:96px}   /* a focused box is not left under the sticky jump bar or banner */
 input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;flex-shrink:0;cursor:pointer}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
@@ -317,12 +321,92 @@ body.mko-popout #stageArea{height:100vh;display:flex;flex-direction:column}
 .lineup-total .lineup-seg-lines{border-bottom:1px solid #ccc}
 .lineup-sig{font-size:7.5px;color:#8a97a5;margin-top:5px;border-top:1px solid #e4e7ea;padding-top:3px}
 .lineup-card .logo-placeholder{width:44px !important;height:44px !important;font-size:7px}
+/* Full-page window header tools: its own save status (no sidebar there) and Print */
+.popout-tools{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.popout-save-status{margin:0;font-size:12px;color:var(--muted);min-height:0}
+.popout-save-status.error{color:var(--red);font-weight:700}
+/* Stale window: "Updated elsewhere". In flow at the top of the page and sticky in the main window; fixed over the
+   header in a full-page window (whose layout is exactly one screen high). */
+.stale-banner{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;background:#fdeceb;border-bottom:2px solid var(--red);color:#6b1d14;padding:10px 18px;font-size:13px;line-height:1.45;box-shadow:0 4px 14px #0002}
+.stale-banner > span{flex:1 1 240px;min-width:0}
+.stale-banner b{color:var(--red)}
+.stale-banner .btn{background:var(--red);color:#fff;flex-shrink:0}
+.stale-banner[hidden]{display:none}
+body.mko-popout .stale-banner{position:fixed;left:0;right:0;top:0}
+body.stale-on .stage5-jumpnav{top:64px}
+.fin-toast.info-toast{background:#e5eefc;border-color:#b9cff3;color:#1956ad}
+/* Phone on its side: a slim, dismissible note */
+.phone-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--navy);color:#e6edf5;border-bottom:2px solid var(--gold);padding:5px 8px 5px 16px;font-size:12px}
+.phone-banner[hidden]{display:none}
+.phone-banner-close{border:0;background:transparent;color:var(--gold);font-size:20px;line-height:1;min-width:40px;min-height:36px;cursor:pointer}
+/* Touch device held upright: rotate notice over the whole app (the app stays loaded underneath) */
+.device-gate{position:fixed;inset:0;z-index:10000;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center}
+.device-gate[hidden]{display:none}
+.device-gate-box{max-width:360px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.device-gate-box .brand-mark{width:54px;height:54px;font-size:26px;border-width:4px}
+.device-gate-box p{margin:0;font-size:18px;line-height:1.45;font-weight:700}
+.device-gate-box p.device-gate-phone{font-size:14px;font-weight:400;color:#cbd8e6}
+.device-gate-logout{margin-top:10px;border:1px solid #3b536f;background:transparent;color:#cbd8e6;border-radius:8px;padding:10px 18px;font-size:13px;min-height:44px;cursor:pointer}
+body.device-gate-on{overflow:hidden}
+/* Compact top bar: replaces the sidebar on narrow screens and on short touch screens (a phone on its side) */
+.compact-bar{display:none;position:relative;align-items:center;gap:8px 10px;background:var(--navy);color:#fff;padding:6px 12px;flex-wrap:wrap}
+.compact-bar .brand-mark{width:26px;height:26px;font-size:13px;border-width:2px;flex-shrink:0}
+.compact-stage{display:flex;align-items:center;gap:6px;min-height:40px;padding:6px 12px;border:1px solid #3b536f;border-radius:8px;background:#162d4a;color:#fff;font-weight:800;font-size:13px;cursor:pointer;max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compact-stage span:first-child{overflow:hidden;text-overflow:ellipsis}
+.compact-save{margin:0 auto 0 0;font-size:11px;min-height:0}
+.compact-link{display:inline-flex;align-items:center;min-height:40px;padding:6px 12px;border:1px solid #3b536f;border-radius:8px;background:transparent;color:#cbd8e6;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer}
+.compact-menu{position:absolute;left:8px;top:calc(100% + 4px);z-index:70;width:min(340px,calc(100vw - 16px));max-height:calc(100vh - 70px);max-height:calc(100dvh - 70px);overflow-y:auto;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px #0004;padding:6px}
+.compact-menu[hidden]{display:none}
+.compact-menu-h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:8px 10px 4px}
+.compact-item{display:block;width:100%;text-align:left;min-height:42px;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:var(--ink);font-size:13px;font-weight:700;cursor:pointer}
+.compact-item:hover{background:#f2f7ff}
+.compact-item.active{background:#fdf8e9;box-shadow:inset 3px 0 0 var(--gold)}
+.compact-item:disabled{color:#9fb0be;cursor:not-allowed;background:transparent}
+body.mko-popout .compact-bar{display:none !important}
+/* Short screens (a phone on its side): modals use the whole height, scroll inside, and keep their buttons in view */
+@media (max-height:520px){
+  .modal-backdrop,.preview-modal-backdrop{padding:8px}
+  .modal,.preview-modal{max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);padding:16px 18px}
+  .modal .buttonrow{position:sticky;bottom:-16px;background:#fff;margin:6px -18px -16px;padding:10px 18px 12px;border-top:1px solid var(--line)}
+  .picker-list{max-height:none}
+}
+/* Touch screens only: bigger hit areas (at least 40px). The mouse-and-keyboard look is unchanged. Charts are left
+   alone: they are drawn to scale, and a tap on a score opens a full-size box. */
+@media (pointer:coarse){
+  .btn,.adm-btn,.adm-tab,.help-link,.saved-actions button,.organizer-bar button,.board-toggle button,.shape-toggle button,.stage5-jumpnav a{min-height:40px}
+  .adm-back,.admin-nav-btn,.open-btn,.new-tournament{min-height:40px}
+  .stage5-jumpnav a,.help-link,.adm-back{display:inline-flex;align-items:center}
+  .btn.ghost,.saved-actions button,.organizer-bar button,.board-toggle button,.shape-toggle button{min-width:40px}
+  input:not([type="checkbox"]):not([type="radio"]),select{min-height:40px}
+  .entry-row input[type=text]{height:40px}
+  input[type="checkbox"],input[type="radio"],.toggle-row input[type="checkbox"],.toggle-row input[type="radio"]{width:22px !important;height:22px !important}
+  .form-section-header{min-height:44px}
+  .picker-row{min-height:44px}
+  .preview-modal-close{width:40px;height:40px}
+  .phone-banner-close{min-height:40px}
+}
 @media(max-width:1100px){.app{grid-template-columns:250px 1fr}.main{padding:24px}}
-@media(max-width:700px){.app{display:block}.sidebar{display:none}.main{padding:18px}}
+/* Compact layout: a narrow window (any device), or a phone (body.is-phone, set by applyDeviceGate from the SCREEN size,
+   the same test as the phone banner, so a tablet's on-screen keyboard shrinking the window never flips the layout). */
+@media (max-width:700px){
+  .app{display:block}
+  .sidebar{display:none}
+  .compact-bar{display:flex}
+  .main{padding:14px 16px 28px}
+  .main .topbar{display:none}
+  .stage5-jumpnav{position:static}
+}
+body.is-phone:not(.mko-popout) .app{display:block}
+body.is-phone:not(.mko-popout) .sidebar{display:none}
+body.is-phone:not(.mko-popout) .compact-bar{display:flex}
+body.is-phone:not(.mko-popout) .main{padding:14px 16px 28px}
+body.is-phone:not(.mko-popout) .main .topbar{display:none}
+body.is-phone:not(.mko-popout) .stage5-jumpnav{position:static}
 @media print{
   body{background:#fff}
   *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
   .app{display:none}
+  .stale-banner,.phone-banner,.device-gate,.compact-bar,.fin-toast{display:none !important}
   .sidebar,.main .topbar,.card,.entries-panel,.summary-card,.group-nav,.print-controls,.preview-head,.preview-modal-backdrop{display:none !important}
   .print-sheet{box-shadow:none;border:none;width:277mm;height:190mm;aspect-ratio:auto;page-break-after:always;margin:0 auto}
   .print-sheet:last-child{page-break-after:auto}
@@ -353,6 +437,27 @@ body.mko-popout #stageArea{height:100vh;display:flex;flex-direction:column}
 </style>
 </head>
 <body>
+<div class="stale-banner" id="staleBanner" role="alert" hidden>
+  <span><b>Updated elsewhere — reload to get the latest.</b> This event was changed in another window, tab or device. Your last change here was not saved. Reload, then enter it again if it is missing.</span>
+  <button class="btn" onclick="reloadStale()">Reload</button>
+</div>
+<div class="phone-banner" id="phoneBanner" hidden><span>DartDraw works best on a tablet, laptop or desktop.</span><button class="phone-banner-close" onclick="dismissPhoneBanner()" aria-label="Dismiss">×</button></div>
+<div class="device-gate" id="deviceGate" role="dialog" aria-modal="true" aria-labelledby="deviceGateMsg" hidden>
+  <div class="device-gate-box">
+    <span class="brand-mark">D</span>
+    <p id="deviceGateMsg">Please rotate your device to landscape to use DartDraw.</p>
+    <p class="device-gate-phone" id="deviceGatePhone" hidden>DartDraw works best on a tablet, laptop or desktop.</p>
+    <button class="device-gate-logout" id="deviceGateLogout" onclick="logout()">Log out</button>
+  </div>
+</div>
+<header class="compact-bar" id="compactBar">
+  <span class="brand-mark" aria-hidden="true">D</span>
+  <button class="compact-stage" id="compactStageBtn" onclick="toggleCompactMenu()" aria-expanded="false" aria-controls="compactMenu"><span id="compactStageName">Loading…</span><span aria-hidden="true">▾</span></button>
+  <span class="save-status compact-save" id="saveStatusCompact" role="status"></span>
+  <a class="compact-link" href="/help" target="_blank" rel="noopener">Help</a>
+  <button class="compact-link" onclick="logout()">Log out</button>
+  <nav class="compact-menu" id="compactMenu" aria-label="Steps and events" hidden></nav>
+</header>
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal" id="modalBox"></div>
 </div>
@@ -384,7 +489,7 @@ body.mko-popout #stageArea{height:100vh;display:flex;flex-direction:column}
   <main class="main">
     <div class="topbar">
       <div><h1 id="pageTitle">Loading…</h1><p id="pageSub">Fetching your tournaments.</p></div>
-      <span class="tag">Synced to your account</span>
+      <span class="topbar-right"><a class="help-link" href="/help" target="_blank" rel="noopener">Help</a><span class="tag">Synced to your account</span></span>
     </div>
     <div id="stageArea"><div class="card"><h2>Loading…</h2><p class="intro" style="margin:0">Fetching your tournaments…</p></div></div>
   </main>
@@ -413,6 +518,7 @@ async function apiFetch(url, opts){
   const headers = Object.assign({}, opts.headers);
   if(opts.body) headers['Content-Type'] = 'application/json';
   const res = await fetch(url, Object.assign({}, opts, {headers}));
+  if(res.status===401) stashUnsavedForSignIn();   // signed out mid-save: keep the unsent change (offered back after signing in)
   if(res.status===401){ window.location.replace('/?login=1'); throw new Error('Not authenticated'); }
   return res;
 }
@@ -2101,14 +2207,73 @@ let savePending = false, saveRev = 0;   // an edit that no save has carried to t
 let lastSaveStatus = '';          // what the save status last said ('saving' | 'error' | 'failed' | 'ok' | 'locked' | 'finalizing' | ''), so finalizeResults can refuse after a failed/conflicted save
 let finalizing = false;           // true from "Accept & finalize" until the server has answered; edits are not saved meanwhile
 let droppedWhileFinalizing = false;
+/* The save status is shown in up to three places: the sidebar (#saveStatus), the compact top bar used on narrow or
+   short screens (#saveStatusCompact) and the header of a full-page window (#popoutSaveStatus, which has no sidebar). */
+const SAVE_STATUS_IDS = ['saveStatus', 'saveStatusCompact', 'popoutSaveStatus'];
 function setSaveStatus(status){
   lastSaveStatus = status;
-  const el = document.getElementById('saveStatus');
-  if(!el) return;
-  el.textContent = status==='saving' ? 'Saving…' : status==='error' ? 'Updated elsewhere — click to reload' : status==='failed' ? 'Couldn’t save — click to retry' : status==='ok' ? 'Saved' : status==='locked' ? 'This event is finalized — only an Admin can change it' : status==='finalizing' ? 'Finalizing…' : '';
-  el.classList.toggle('error', status==='error' || status==='failed');
-  /* 'error' = the saved copy is newer than this tab's (a real conflict): reload it. 'failed' = the save did not reach the server (network or server error): try the save again. */
-  el.onclick = status==='error' ? ()=>{ if(state) openTournament(state.id); } : status==='failed' ? ()=>{ flushSave(); } : null;
+  paintSaveStatus();
+}
+function paintSaveStatus(){
+  const status = lastSaveStatus;
+  SAVE_STATUS_IDS.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.textContent = status==='saving' ? 'Saving…' : status==='error' ? 'Updated elsewhere — click to reload' : status==='failed' ? 'Couldn’t save — click to retry' : status==='ok' ? 'Saved' : status==='locked' ? 'This event is finalized — only an Admin can change it' : status==='finalizing' ? 'Finalizing…' : status==='gone' ? 'Deleted elsewhere — this event is no longer saved' : '';
+    if(el.classList && typeof el.classList.toggle==='function') el.classList.toggle('error', status==='error' || status==='failed' || status==='gone');
+    /* 'error' = the saved copy is newer than this tab's (a real conflict): reload it. 'failed' = the save did not reach the server (network or server error): try the save again. */
+    el.onclick = status==='error' ? ()=>{ reloadStale(); } : status==='failed' ? ()=>{ flushSave(); } : null;
+  });
+  renderStaleBanner();
+}
+/* ---------- Stale windows ("Updated elsewhere") ----------
+   A 409 means the server holds a newer copy of the event than this window (another tab, window or device saved it).
+   This window's copy is out of date, so it must never be sent again: saving it would write over the newer results.
+   From the 409 on, the id is in staleIds and NOTHING is PUT for it (debounced saves, retries, the close/hide flush,
+   rename) until the user reloads (reloadStale, or opening the event again, both load the server's copy). The
+   unsaved change in this window is dropped; the banner says so. */
+const staleIds = new Set();
+let staleCurrent = {};   // id -> the server row a 409 sent back ({id, data, updated_at}), used if the reload's GET fails
+function markStale(id, current){
+  staleIds.add(id);
+  if(current && current.data) staleCurrent[id] = current;
+  const wasPending = pendingSaves.has(id);
+  if(wasPending){ pendingSaves.delete(id); if(!pendingSaves.size && !(state && state.id===id)) savePending = false; }   // never sent now
+  if((state && state.id===id) || wasPending){ clearTimeout(saveTimer); saveTimer = null; }   // a pending save for another event is left alone
+  if(pendingSaves.size && !saveTimer) saveTimer = setTimeout(flushSave, 500);
+}
+function staleOpen(){ return !!(state && state.id && staleIds.has(state.id)); }
+function renderStaleBanner(){
+  const el = document.getElementById('staleBanner');
+  const on = staleOpen();
+  if(el) el.hidden = !on;
+  if(document.body && document.body.classList && typeof document.body.classList.toggle==='function') document.body.classList.toggle('stale-on', on);
+  /* In a full-page window the banner is fixed at the top: push the window's content down by its height so it never
+     covers the header or the top of the chart, then re-fit the bracket to the space that is left. */
+  if(popoutMode){
+    const area = document.getElementById('stageArea');
+    if(area && area.style){
+      const h = on && el ? Number(el.offsetHeight)||0 : 0;
+      area.style.paddingTop = h ? h+'px' : '';
+      if(typeof requestAnimationFrame==='function' && typeof fitPopoutChart==='function') requestAnimationFrame(()=>{ try{ fitPopoutChart(); }catch(e){} });
+    }
+  }
+}
+let staleReloading = false;
+async function reloadStale(){
+  if(!state || staleReloading) return;
+  const id = state.id, stage = currentStage;
+  staleReloading = true;
+  let ok = false;
+  try{ ok = !!(await openTournament(id)); }catch(e){ ok = false; }
+  /* The GET failed: fall back to the copy the server sent with the 409 (newer than this window's). */
+  if(!ok && staleCurrent[id] && state && state.id===id){
+    try{ loadTournamentRow(id, JSON.parse(JSON.stringify(staleCurrent[id]))); ok = true; }catch(e){ ok = false; }
+  }
+  staleReloading = false;
+  if(!ok){ setSaveStatus('error'); return; }
+  if(state && state.id===id){ currentStage = stage; render(); }
+  if(lastSaveStatus==='error') setSaveStatus('');
 }
 /* External behaviour is unchanged: every call site still just does
    `persist(); render();` after mutating `state`. Internally this now debounces
@@ -2122,11 +2287,14 @@ function persist(){
   /* While "Accept & finalize" is waiting for the server nothing else may be saved (the finalize PUT carries the data
      that was checked). A dropped edit is sorted out when finalizing ends (see runFinalize). */
   if(finalizing){ droppedWhileFinalizing = true; setSaveStatus('finalizing'); return; }
+  /* Out of date ("Updated elsewhere"): this window's copy must never be sent. Keep saying so until it is reloaded. */
+  if(staleIds.has(state.id)){ setSaveStatus('error'); return; }
+  if(goneIds.has(state.id)){ setSaveStatus('gone'); return; }   // deleted elsewhere: nothing can be saved for it
   normalizeForSave();
   tournamentsCache[state.id] = state;
   renderSavedList();
   clearTimeout(saveTimer);
-  savePending = true; saveRev++;
+  saveRev++; markPending(state.id);
   saveTimer = setTimeout(flushSave, 500);
 }
 function normalizeForSave(){
@@ -2145,11 +2313,196 @@ function normalizeForSave(){
    stay only in this tab). If one is in flight, remember to save again after it
    returns, with the fresh stamp. The returned promise resolves true once the
    save that carries the latest change has succeeded (false if it failed or was
-   refused), so a caller that must know the change reached the server can wait. */
+   refused), so a caller that must know the change reached the server can wait.
+   Unsaved edits are kept per event (pendingSaves: id -> the edit counter at its last edit): a save always sends the
+   event the edit belongs to, and an edit for one event never replaces another event's. Switching away from an event
+   whose edit cannot be delivered is refused (see settlePendingSave / switchBlocked), so a failed save is never left
+   behind silently. A hide/close flush (flushSaveNow) still on its way counts as a save in flight: flushSave waits for
+   it (at most KEEPALIVE_WAIT_MS), so the window does not race itself. */
 let saveInFlight = false, savePendingId = null, saveWaiters = [];
+const pendingSaves = new Map();   // event id -> saveRev at its latest unsaved edit
+let keepaliveSave = null;         // the promise of a hide/close flush still on its way
+let KEEPALIVE_WAIT_MS = 8000;   // let: tests shorten it
+const KEEPALIVE_MAX_BYTES = 60000;   // browsers refuse keepalive bodies over 64KB; bigger ones are sent as a normal save
+/* A 409 is this window's own earlier save (one whose answer was lost, or a slow hide-time save landing first) ONLY when
+   the server's copy is exactly, key for key, a copy this window sent for that same event. Anything else (another
+   window, an Admin's change, an older version of the app) locks the window. A false lock is the safe direction. */
+const sentCopies = new Map();     // event id -> canonical JSON of the last few copies this window sent for it
+function canonJSON(v){
+  return JSON.stringify(v, function(k, val){
+    if(val && typeof val==='object' && !Array.isArray(val)){ const o = {}; Object.keys(val).sort().forEach(x=>{ o[x] = val[x]; }); return o; }
+    return val;
+  });
+}
+function recordSent(id, bodyText){
+  let canon = null;
+  try{ canon = canonJSON(JSON.parse(bodyText).data); }catch(e){ return; }
+  const list = sentCopies.get(id) || [];
+  list.push(canon); while(list.length>3) list.shift();
+  sentCopies.set(id, list);
+}
+function isOwnWrite(id, current){
+  if(!current || !current.data || (current.id!=null && current.id!==id)) return false;
+  const list = sentCopies.get(id);
+  if(!list || !list.length) return false;
+  let canon = null;
+  try{ canon = canonJSON(current.data); }catch(e){ return false; }
+  return list.indexOf(canon)>=0;
+}
+/* ---------- Signed out in the middle of a save (401) ----------
+   The session ended (password changed on another device, account suspended, expired) while a change was waiting or on
+   its way. Before the sign-in redirect the unsent copy is kept in this browser (localStorage, with the organiser's id),
+   and after signing in again it is offered back once: "Restore" saves it with the stamp it was based on, so if the event
+   changed meanwhile the server refuses it (409) and nothing is overwritten; it is then not restored, and the user is told. */
+const UNSAVED_STASH_KEY = 'dartdraw.unsavedChanges';
+function stashUnsavedForSignIn(){
+  try{
+    if(!savePending && !saveInFlight) return;
+    const ids = [...pendingSaves.keys()];
+    const tg = saveTarget();
+    if(tg && ids.indexOf(tg.id)<0 && (savePending || saveInFlight)) ids.push(tg.id);
+    const owner = currentOrganizer && currentOrganizer.id;
+    const list = ids.filter(id=>!unsendable(id)).map(id=>{
+      const t = (state && state.id===id) ? state : tournamentsCache[id];
+      return t ? { owner, id, name: (t.eventCreation && t.eventCreation.tournamentName) || '', data: JSON.parse(JSON.stringify(t)), expectedUpdatedAt: dbUpdatedAtCache[id] || null } : null;
+    }).filter(Boolean);
+    if(list.length) window.localStorage.setItem(UNSAVED_STASH_KEY, JSON.stringify(list));
+  }catch(e){}
+}
+/* After sign-in (window.onload): offer a kept change back, once. Returns what it did, for tests. */
+async function offerRecoveredChanges(){
+  let list = null;
+  try{ list = JSON.parse(window.localStorage.getItem(UNSAVED_STASH_KEY) || 'null'); }catch(e){ list = null; }
+  if(!Array.isArray(list) || !list.length) return 'none';
+  try{ window.localStorage.removeItem(UNSAVED_STASH_KEY); }catch(e){}   // offered once only
+  const me = currentOrganizer && currentOrganizer.id;
+  const x = list.find(r=> r && r.id && r.data && r.owner===me && tournamentsCache[r.id]);
+  if(!x) return 'none';
+  sanitizeLoaded(x.data);
+  if(canonJSON(tournamentsCache[x.id])===canonJSON(x.data)) return 'already saved';
+  const name = escapeHtml(x.name || 'an event');
+  if(!x.expectedUpdatedAt || !sameStamp(dbUpdatedAtCache[x.id], x.expectedUpdatedAt)){
+    openModal({ title:'Unsaved change not restored', body:'When you were signed out, a change to '+name+' had not been saved yet. The event has been changed since, so it was not restored. Check it and enter the change again.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{} });
+    return 'changed since';
+  }
+  openModal({ title:'Restore your unsaved change?', body:'When you were signed out, a change to '+name+' had not been saved yet. DartDraw kept it in this browser. Restore it now?', confirmLabel:'Restore', confirmClass:'primary', onConfirm:()=>{ restoreRecovered(x); } });
+  return 'offered';
+}
+async function restoreRecovered(x){
+  let res = null;
+  try{ res = await apiFetch('/api/tournaments/'+x.id, { method:'PUT', body: JSON.stringify({ data: x.data, expectedUpdatedAt: x.expectedUpdatedAt }) }); }catch(e){}
+  if(res && res.ok){
+    let saved = null; try{ saved = await res.json(); }catch(e){}
+    if(saved && saved.updated_at){ dbUpdatedAtCache[x.id] = saved.updated_at; announceSaved(x.id, saved.updated_at); }
+    await openTournament(x.id);
+    return true;
+  }
+  openModal({ title:'Unsaved change not restored', body:'The change could not be restored'+(res && res.status===409 ? ': the event was changed in the meantime' : '')+'. Check the event and enter the change again.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{} });
+  return false;
+}
+/* Events deleted (or moved to another organiser) elsewhere: a save for them was answered 404. Never sent again. */
+const goneIds = new Set();
+/* The size of a string in UTF-8 bytes (what a keepalive request's 64KB limit counts), not in UTF-16 characters. */
+function utf8Bytes(str){
+  try{ if(typeof TextEncoder==='function') return new TextEncoder().encode(str).length; }catch(e){}
+  let n = 0;
+  for(let i=0;i<str.length;i++){
+    const c = str.charCodeAt(i);
+    if(c<0x80) n += 1; else if(c<0x800) n += 2;
+    else if(c>=0xD800 && c<=0xDBFF && i+1<str.length){ n += 4; i++; }
+    else n += 3;
+  }
+  return n;
+}
+/* Windows of this browser tell each other about every save ("saved", id, updated_at): a window showing that event
+   then knows a newer copy exists, drops its refresh throttle for it, and refreshes quietly if it is the active one. */
+let saveChannel = null;
+try{ if(typeof BroadcastChannel==='function'){ saveChannel = new BroadcastChannel('dartdraw-saves'); saveChannel.onmessage = e=>{ onOtherWindowSaved(e && e.data); }; } }catch(e){ saveChannel = null; }
+function announceSaved(id, stamp){ try{ if(saveChannel) saveChannel.postMessage({ type:'saved', id, updated_at: stamp }); }catch(e){} }
+function onOtherWindowSaved(m){
+  if(!m || m.type!=='saved' || !m.id) return;
+  if(dbUpdatedAtCache[m.id] && sameStamp(dbUpdatedAtCache[m.id], m.updated_at)) return;   // nothing newer than what this window has
+  delete silentRefreshAt[m.id];
+  let active = false;
+  try{ active = document.visibilityState!=='hidden' && (typeof document.hasFocus!=='function' || document.hasFocus()); }catch(e){}
+  if(state && state.id===m.id && active) silentRefresh();
+}
+function markPending(id){ pendingSaves.delete(id); pendingSaves.set(id, saveRev); savePending = true; }
+function clearPending(id){ pendingSaves.delete(id); savePending = pendingSaves.size>0; }
+/* {id, t}: the event to save (the oldest one with an unsaved edit that still exists, else the open one), or null. */
+function saveTarget(){
+  for(const id of pendingSaves.keys()){
+    if(staleIds.has(id) || lockedIds.has(id) || goneIds.has(id)) continue;   // can never be sent
+    const t = (state && state.id===id) ? state : tournamentsCache[id];
+    if(t) return { id, t };
+  }
+  if(!state || !state.id) return null;
+  return { id: state.id, t: state };
+}
+function clearPendingSave(id){
+  if(id===undefined){ pendingSaves.clear(); savePending = false; clearTimeout(saveTimer); saveTimer = null; return; }
+  clearPending(id);
+  if(!savePending){ clearTimeout(saveTimer); saveTimer = null; }
+}
+function pendingFor(id){ return pendingSaves.has(id) || (savePending && pendingSaves.size===0 && !!state && state.id===id); }
+/* Before the open event is replaced (another event, a new one): send any edit still waiting, for its own event.
+   Resolves 'ok' when nothing is left to send (an edit that can never be sent, for a stale or finalized event, is
+   dropped), 'failed' when the save did not get through (network or server), 'stale' when the server refused it
+   because the event was changed elsewhere. The caller must not switch unless it is 'ok'. */
+let lastSettleId = null;      // the event a refused switch was about (named in switchBlocked)
+let switchSettling = false;   // a switch is sending the waiting edit: a refusal must not reload the old event onto the screen
+const unsendable = id=> staleIds.has(id) || lockedIds.has(id) || goneIds.has(id);
+async function settlePendingSave(){
+  if(!savePending){ clearTimeout(saveTimer); saveTimer = null; return 'ok'; }
+  for(const id of [...pendingSaves.keys()]) if(unsendable(id) || finalizing) clearPending(id);
+  if(pendingSaves.size===0 && state && (unsendable(state.id) || finalizing)) savePending = false;
+  if(!savePending){ clearTimeout(saveTimer); saveTimer = null; return 'ok'; }
+  const tg = saveTarget();
+  if(!tg){ clearPendingSave(); return 'ok'; }
+  lastSettleId = tg.id;
+  clearTimeout(saveTimer); saveTimer = null;
+  let ok = false;
+  switchSettling = true;
+  try{ ok = await flushSave(); }catch(e){ ok = false; }
+  finally{ switchSettling = false; }
+  if(staleIds.has(tg.id)) return 'stale';
+  if(lockedIds.has(tg.id)) clearPending(tg.id);
+  /* delivered, or deliberately dropped (finalized, or over the entry limit: those explain themselves) */
+  if(!savePending) return 'ok';
+  return 'failed';
+}
+/* The switch was refused: stay on the event, say why, and offer to leave anyway (dropping the unsaved change). */
+function pendingEventNames(){
+  const ids = [];
+  if(lastSettleId) ids.push(lastSettleId);
+  pendingSaves.forEach((rev, id)=>{ if(ids.indexOf(id)<0 && !unsendable(id)) ids.push(id); });
+  const names = ids.map(id=>{ const t = (state && state.id===id) ? state : tournamentsCache[id]; return t && t.eventCreation ? (t.eventCreation.tournamentName || 'Untitled tournament') : ''; }).filter(Boolean);
+  return names.length ? names.join(', ') : 'this event';
+}
+function switchBlocked(result, proceed){
+  const name = pendingEventNames();
+  if(result==='stale'){
+    openModal({ title:'Updated elsewhere', body:'Your last change to '+escapeHtml(name)+' was not saved: this event was changed in another window, tab or device. You are still on it. Click Reload to get the latest copy and enter your change again, or leave without it.', confirmLabel:'Leave without it', confirmClass:'danger', onConfirm:()=>{ clearPendingSave(); proceed(); } });
+    return;
+  }
+  openModal({ title:'Last change not saved yet', body:'Your last change to '+escapeHtml(name)+' has not been saved yet (check your connection), so you are still on it. Click "Couldn’t save — click to retry" until it says Saved, then try again. Or leave without it.', confirmLabel:'Leave without saving', confirmClass:'danger', onConfirm:()=>{ clearPendingSave(); proceed(); } });
+}
 async function flushSave(){
-  if(!state) return false;
-  if(saveInFlight){ savePendingId = state.id; return new Promise(resolve=>{ saveWaiters.push(resolve); }); }
+  if(keepaliveSave){
+    /* A hide-time save is still on its way: wait for it (not for ever), then send only what is still unsaved. */
+    const wanted = saveTarget(), hadPending = savePending;
+    setSaveStatus('saving');
+    let timer = null, timedOut = false;
+    const kp = keepaliveSave;
+    try{ await Promise.race([kp, new Promise(r=>{ timer = setTimeout(()=>{ timedOut = true; r(); }, KEEPALIVE_WAIT_MS); })]); }catch(e){}
+    clearTimeout(timer);
+    /* given up on: later saves do not wait for it again (if it lands late, the own-copy check recognises it) */
+    if(timedOut && keepaliveSave===kp) keepaliveSave = null;
+    if(hadPending && wanted && !pendingFor(wanted.id) && !savePending){ setSaveStatus('ok'); return true; }   // the hide-time save carried everything
+  }
+  const tg = saveTarget();
+  if(!tg) return false;
+  if(saveInFlight){ savePendingId = tg.id; return new Promise(resolve=>{ saveWaiters.push(resolve); }); }
   saveInFlight = true;
   let ok = false;
   try{ ok = await flushSaveOnce(); }
@@ -2157,81 +2510,258 @@ async function flushSave(){
     saveInFlight = false;
     const waiters = saveWaiters; saveWaiters = [];
     let followUp = null;
-    if(savePendingId){ const wantId = savePendingId; savePendingId = null; if(state && state.id===wantId) followUp = flushSave(); }
+    if(savePendingId){ const wantId = savePendingId; savePendingId = null; const next = saveTarget(); if(next && next.id===wantId && pendingFor(wantId) && !unsendable(wantId)) followUp = flushSave(); }
+    else if(ok && pendingSaves.size>0){ const next = saveTarget(); if(next && pendingSaves.has(next.id)) followUp = flushSave(); }   // another event still has an edit waiting
     if(followUp) followUp.then(r=>waiters.forEach(w=>w(r)));
     else waiters.forEach(w=>w(ok));
   }
   return ok;
 }
 async function flushSaveOnce(){
-  if(!state) return false;
-  const id = state.id;
+  const tg = saveTarget();
+  if(!tg) return false;
+  const id = tg.id, payload = tg.t;
+  const isOpen = ()=> !!(state && state.id===id);
   if(lockedIds.has(id)) return false;
-  const payload = state;
-  const expected = dbUpdatedAtCache[id] || null;
+  if(staleIds.has(id)){ if(isOpen()) setSaveStatus('error'); return false; }   // out of date: never sent (see staleIds)
+  if(goneIds.has(id)){ clearPendingSave(id); if(isOpen()) setSaveStatus('gone'); return false; }
   const rev = saveRev;
   setSaveStatus('saving');
   try{
-    const res = await apiFetch('/api/tournaments/'+id, {
-      method:'PUT',
-      body: JSON.stringify({ data: payload, expectedUpdatedAt: expected })
-    });
-    if(res.status===403){
-      /* The server refuses to change a finalized event. This tab was out of date (or another tab/device
-         finalized it): remember that, drop the edit and show the finalized copy. Never show "Saved". */
-      let body = null;
-      try{ body = await res.json(); }catch(e){}
-      if(body && body.finalized){
-        lockedIds.add(id);
-        setSaveStatus('locked');
-        if(state && state.id===id) reloadLockedTournament(); else refreshCachedTournament(id);
+    for(let attempt=0; attempt<2; attempt++){
+      const expected = dbUpdatedAtCache[id] || null;
+      const bodyText = JSON.stringify({ data: payload, expectedUpdatedAt: expected });
+      recordSent(id, bodyText);
+      const res = await apiFetch('/api/tournaments/'+id, { method:'PUT', body: bodyText });
+      if(res.status===403){
+        /* The server refuses to change a finalized event. This tab was out of date (or another tab/device
+           finalized it): remember that, drop the edit and show the finalized copy. Never show "Saved". */
+        let body = null;
+        try{ body = await res.json(); }catch(e){}
+        if(body && body.finalized){
+          lockedIds.add(id);
+          clearPendingSave(id);
+          setSaveStatus('locked');
+          if(isOpen() && !switchSettling) reloadLockedTournament(); else refreshCachedTournament(id);
+          return false;
+        }
+        if(body && body.code==='entry_limit'){
+          /* Basic limit reached (the server's rule, same as the check in saveStage1): drop the edit (once: it is not
+             retried until the user changes something), show the saved copy. */
+          clearPendingSave(id);
+          if(isOpen() && !switchSettling) reloadServerCopy(id); else refreshCachedTournament(id);
+          showEntryLimitModal();
+          return false;
+        }
+        throw new Error('save failed');
+      }
+      if(res.status===404){
+        /* Deleted (or moved to another organiser) elsewhere: the server never re-creates it. Nothing more is sent. */
+        goneIds.add(id); clearPendingSave(id);
+        if(isOpen()) setSaveStatus('gone'); else if(lastSaveStatus==='saving') setSaveStatus('');
         return false;
       }
-      if(body && body.code==='entry_limit'){
-        /* Basic limit reached (the server's rule, same as the check in saveStage1): drop the edit, show the saved copy. */
-        if(state && state.id===id) reloadServerCopy(id); else refreshCachedTournament(id);
-        showEntryLimitModal();
+      if(res.status===409){
+        let body = null;
+        try{ body = await res.json(); }catch(e){}
+        const current = body && body.current && body.current.data ? body.current : null;
+        /* This window's own earlier save got there first (the server holds exactly a copy it sent): take its stamp and
+           send again. Checked before anything cleans the copy. */
+        if(attempt===0 && isOwnWrite(id, current)){ dbUpdatedAtCache[id] = current.updated_at; continue; }
+        /* The server has a newer copy from elsewhere. Lock this id (no more PUTs) until the user reloads. The server's
+           version stamp is NOT adopted: this window's copy is still the old one, and a save carrying the new stamp
+           would write over the newer results (the bug this lock fixes). */
+        if(current) sanitizeLoaded(current.data);
+        markStale(id, current);
+        if(current && isOpen()) tournamentsCache[id] = current.data;
+        if(isOpen()) setSaveStatus('error');
+        else { clearPendingSave(id); if(lastSaveStatus==='saving') setSaveStatus(''); }   // an event already left: never flag the open one
         return false;
       }
-      throw new Error('save failed');
+      if(!res.ok) throw new Error('save failed');
+      const saved = await res.json();
+      dbUpdatedAtCache[id] = saved.updated_at;
+      announceSaved(id, saved.updated_at);
+      if(pendingSaves.has(id)){ if(pendingSaves.get(id)<=rev) clearPending(id); }
+      else if(saveRev===rev && pendingSaves.size===0) savePending = false;
+      setSaveStatus(savePending && pendingSaves.size>0 && !pendingSaves.has(id) ? 'saving' : 'ok');
+      return true;
     }
-    if(res.status===409){
-      const body = await res.json();
-      dbUpdatedAtCache[id] = body.current.updated_at;
-      if(state && state.id===id) tournamentsCache[id] = sanitizeLoaded(body.current.data);
-      setSaveStatus('error');
-      return false;
-    }
-    if(!res.ok) throw new Error('save failed');
-    const saved = await res.json();
-    dbUpdatedAtCache[id] = saved.updated_at;
-    if(saveRev===rev) savePending = false;
-    setSaveStatus('ok');
-    return true;
+    setSaveStatus('failed');
+    return false;
   }catch(e){
     setSaveStatus('failed');
     return false;
   }
 }
-/* Best-effort synchronous flush so a debounced save isn't lost on tab close. A finalized event is never sent. */
+/* Best-effort flush when the tab is hidden or closed, so a debounced save isn't lost. A finalized or stale event is
+   never sent. Only one at a time (hiding then closing fires twice). A copy too big for a keepalive request (logos) is
+   sent as a normal save instead: that completes when the tab was only hidden; when it comes back, anything still
+   unsaved is sent again (see resumeSaving). */
 function flushSaveNow(){
-  if(!state || lockedIds.has(state.id)) return;
+  const tg = saveTarget();
+  if(!tg || unsendable(tg.id)) return;   // a stale (or finalized, or deleted) event's copy is never sent, not even on close
   /* Only an edit that no save has carried yet needs this. Sending the same copy again would change the stored version
      stamp behind this tab's back, and the tab's next save would then be refused as "updated elsewhere". */
-  if(!savePending || saveInFlight) return;
-  clearTimeout(saveTimer);
-  const id = state.id, rev = saveRev;
-  fetch('/api/tournaments/'+id, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ data: state, expectedUpdatedAt: dbUpdatedAtCache[id]||null }),
-    keepalive: true
-  }).then(r=> r && r.ok ? r.json() : null).then(saved=>{
+  if(!savePending || saveInFlight || keepaliveSave) return;
+  clearTimeout(saveTimer); saveTimer = null;
+  const id = tg.id, rev = saveRev;
+  const bodyText = JSON.stringify({ data: tg.t, expectedUpdatedAt: dbUpdatedAtCache[id]||null });
+  if(utf8Bytes(bodyText) > KEEPALIVE_MAX_BYTES){ flushSave(); return; }
+  recordSent(id, bodyText);
+  let req;
+  try{ req = fetch('/api/tournaments/'+id, { method:'PUT', headers:{'Content-Type':'application/json'}, body: bodyText, keepalive: true }); }   // sent right now: the page may be closing
+  catch(e){ req = Promise.reject(e); }
+  const p = Promise.resolve(req).then(r=>{
+    if(r && r.status===409){
+      return Promise.resolve(r.json ? r.json() : null).catch(()=>null).then(body=>{
+        const current = body && body.current && body.current.data ? body.current : null;
+        /* this window's own save landed first: take its stamp (the edit stays marked unsaved, the next save sends it) */
+        if(isOwnWrite(id, current)){ dbUpdatedAtCache[id] = current.updated_at; return null; }
+        /* Refused: another window saved first. If this tab stays open (it was only hidden), it is now stale. */
+        if(current) sanitizeLoaded(current.data);
+        markStale(id, current);
+        if(state && state.id===id) setSaveStatus('error');
+        else clearPendingSave(id);
+        return null;
+      });
+    }
+    return r && r.ok ? r.json() : null;
+  }).then(saved=>{
     /* The tab may stay open (it was only hidden): remember the new stamp so its next save is not a false conflict. */
-    if(saved && saved.updated_at){ dbUpdatedAtCache[id] = saved.updated_at; if(saveRev===rev) savePending = false; }
-  }).catch(()=>{});
+    if(saved && saved.updated_at){
+      dbUpdatedAtCache[id] = saved.updated_at;
+      announceSaved(id, saved.updated_at);
+      if(pendingSaves.has(id)){ if(pendingSaves.get(id)<=rev) clearPending(id); }
+      else if(saveRev===rev && pendingSaves.size===0) savePending = false;
+    }
+  }).catch(()=>{}).then(()=>{ if(keepaliveSave===p) keepaliveSave = null; });
+  keepaliveSave = p;
 }
-window.addEventListener('beforeunload', flushSaveNow);
-document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushSaveNow(); });
+/* Back in the tab (or back online): an edit the hide-time save could not deliver (too big, failed, offline) is sent
+   now with a normal save; then the quiet refresh may run. */
+function resumeSaving(){
+  if(savePending && !saveTimer && !saveInFlight && !keepaliveSave){
+    const tg = saveTarget();
+    if(tg && !staleIds.has(tg.id) && !lockedIds.has(tg.id)) return flushSave().then(()=>{ silentRefresh(); });
+  }
+  silentRefresh();
+  return Promise.resolve();
+}
+/* Closing the tab, reloading, Back or any other way of leaving the page while a change is unsaved, failing or still on
+   its way: the hide-time save is tried, and the browser is asked to warn ("Leave site?"), so the change is not lost
+   without a word. A change that can never be saved (stale, finalized, deleted) does not warn. */
+function unsavedWorkPending(){
+  if(saveInFlight || keepaliveSave) return true;
+  if(!savePending) return false;
+  const tg = saveTarget();
+  return !!(tg && !unsendable(tg.id));
+}
+function onBeforeUnload(e){
+  flushSaveNow();
+  if(!unsavedWorkPending()) return undefined;
+  if(e){ try{ e.preventDefault(); }catch(x){} e.returnValue = ''; }
+  return '';
+}
+window.addEventListener('beforeunload', onBeforeUnload);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushSaveNow(); else if(document.visibilityState==='visible') resumeSaving(); });
+window.addEventListener('online', ()=>{ resumeSaving(); });
+window.addEventListener('focus', ()=>{ silentRefresh(); });
+/* ---------- Silent refresh (several windows on one event) ----------
+   Windows do not push changes to each other. So when a window comes back into view (it becomes visible or gets
+   focus) it asks the server for the event, and if someone else saved since (a different updated_at) it quietly loads
+   that copy, keeping the step, the group being looked at and the scroll position, and says "Updated with the latest
+   scores". It only does this when nothing could be lost or disturbed: no unsaved or in-flight save, not stale or
+   finalized (those have their own messages), no open box, nobody typing in a text box, no box on the page changed but
+   not yet saved, and not on steps 1-3 (their forms keep what you type until you click Save). It checks at most once
+   every SILENT_REFRESH_MIN_MS per event, as the event (with logos) can be large. Otherwise it does nothing and the
+   stale lock still protects the newer copy. */
+const SILENT_REFRESH_MIN_MS = 5000;
+let refreshClock = ()=> Date.now();   // tests replace it
+let silentRefreshAt = {};   // event id -> when this window last asked the server for it (Date.now())
+let silentRefreshBusy = false;
+function textInputFocused(){
+  const a = document.activeElement;
+  if(!a || !a.tagName) return false;
+  const tag = String(a.tagName).toUpperCase();
+  if(tag==='TEXTAREA' || tag==='SELECT') return true;
+  if(tag==='INPUT') return ['checkbox','radio','button','submit','reset','range','color','file','image'].indexOf(String(a.type||'text').toLowerCase())<0;
+  return !!a.isContentEditable;
+}
+/* True when a box in the step area has a value that differs from the one it was drawn with (typed but not saved). */
+function stageFormDirty(){
+  const area = document.getElementById('stageArea');
+  if(!area || typeof area.querySelectorAll!=='function') return false;
+  let dirty = false;
+  try{
+    area.querySelectorAll('input, textarea, select').forEach(el=>{
+      if(dirty) return;
+      const tag = String(el.tagName||'').toUpperCase(), type = String(el.type||'').toLowerCase();
+      if(tag==='SELECT'){ dirty = [...(el.options||[])].some(o=> !!o.selected !== !!o.defaultSelected); return; }
+      if(type==='checkbox' || type==='radio'){ dirty = !!el.checked !== !!el.defaultChecked; return; }
+      if(type==='file'){ dirty = !!(el.files && el.files.length); return; }
+      if('defaultValue' in el) dirty = String(el.value) !== String(el.defaultValue);
+    });
+  }catch(e){ return true; }
+  return dirty;
+}
+function anyModalOpen(){
+  const shown = el=> !!(el && el.classList && typeof el.classList.contains==='function' && el.classList.contains('show'));
+  return shown(document.getElementById('modalBackdrop')) || shown(document.getElementById('previewModalBackdrop'));
+}
+/* '' when a silent refresh may run now, else the reason it may not. */
+function silentRefreshBlocked(){
+  if(!state || !state.id) return 'no event';
+  const id = state.id;
+  if(!dbUpdatedAtCache[id]) return 'not saved yet';
+  if(staleIds.has(id)) return 'stale';
+  if(goneIds.has(id)) return 'gone';
+  if(lockedIds.has(id) || isLocked(state)) return 'finalized';
+  if(savePending || saveInFlight || keepaliveSave || saveTimer || finalizing || staleReloading || lockedReloading) return 'saving';
+  if(adminViewActive()) return 'admin';
+  if(anyModalOpen()) return 'modal';
+  if(textInputFocused()) return 'typing';
+  if(currentStage>=1 && currentStage<=3) return 'setup step';
+  if(stageFormDirty()) return 'unsaved typing';
+  return '';
+}
+async function silentRefresh(){
+  if(silentRefreshBusy || silentRefreshBlocked()) return false;
+  silentRefreshBusy = true;
+  try{
+    const id = state.id, before = dbUpdatedAtCache[id];
+    const now = refreshClock();
+    if(silentRefreshAt[id] && now - silentRefreshAt[id] < SILENT_REFRESH_MIN_MS) return false;   // asked very recently
+    silentRefreshAt[id] = now;
+    let row = null;
+    try{ const res = await apiFetch('/api/tournaments/'+encodeURIComponent(id)); if(res && res.ok) row = await res.json(); }catch(e){}
+    if(!row || !row.data || !row.updated_at) return false;
+    /* anything may have happened while the request was out: check again */
+    if(!state || state.id!==id || dbUpdatedAtCache[id]!==before || silentRefreshBlocked()) return false;
+    if(sameStamp(row.updated_at, before)) return false;   // nobody else saved: leave the screen alone
+    const stage = currentStage, group = state.activeGroupId;
+    let y = 0; try{ y = window.scrollY || 0; }catch(e){}
+    loadTournamentRow(id, row);
+    if(state && state.id===id){
+      currentStage = stage;
+      if(group && (state.groups||[]).some(g=>g.id===group)) state.activeGroupId = group;
+      render();
+      try{ window.scrollTo(0, y); }catch(e){}
+      showInfoToast('Updated with the latest scores');
+    }
+    return true;
+  }finally{ silentRefreshBusy = false; }
+}
+function showInfoToast(msg){
+  if(!document.body || typeof document.createElement!=='function') return;
+  const d = document.createElement('div');
+  d.className = 'fin-toast info-toast';
+  d.setAttribute && d.setAttribute('role', 'status');
+  d.textContent = msg;
+  document.body.appendChild(d);
+  const tm = setTimeout(()=>{ if(d.parentNode) d.parentNode.removeChild(d); }, 3500);
+  if(tm && tm.unref) tm.unref();
+}
 /* ---------- Finalized (closed) events ----------
    An organiser can "Accept results & finalize" a completed event. That sets
    state.finalized = { at: <ISO date-time> }. A finalized event is closed: the
@@ -2247,7 +2777,7 @@ function isLocked(t){ return !!(t && t.finalized); }
    Every function named here must not change the tournament, or must skip persist() when locked
    (see runPrintPack, podsPrintClick, openExpandedPreview, setActiveGroup). */
 const FINALIZED_ALLOWED_ACTIONS = [
-  'goStage', 'doFinalPrint', 'window.print', 'copyPublicLink', 'this.select',
+  'goStage', 'doFinalPrint', 'window.print', 'popoutPrint', 'copyPublicLink', 'this.select',
   'openInNewWindow', 'openExpandedPreview', 'closeExpandedPreview', 'setActiveGroup', 'closeModal',
   'jumpToStage5Section', 'toggleFormSection', 'toggleStage5RRCharts', 'setStage3ViewMode', 'podsSelect', 'podsSetFilter',
   'newTournament', 'scrollToLibrary',
@@ -2293,6 +2823,9 @@ function finalizedBannerHTML(){
 function isFinalizedId(id){ return lockedIds.has(id) || isLocked(tournamentsCache[id]); }
 function finalizedBlockModal(verb){
   openModal({title:'Event is finalized', body:'Finalized events can only be '+verb+' by an Admin.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
+}
+function staleBlockModal(){
+  openModal({title:'Updated elsewhere', body:'This event was changed in another window, tab or device. Reload it to get the latest copy first.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
 }
 /* Re-reads a tournament this tab only knows from the list (not the open one) after the server said it is finalized. */
 async function refreshCachedTournament(id){
@@ -2397,7 +2930,7 @@ function finalizeResults(){
    reloads the server copy and finalizes nothing. While this runs, persist() drops edits (see `finalizing`). */
 async function runFinalize(t){
   if(state!==t || isLocked(t) || finalizing || !eventComplete(t)) return;
-  if(lastSaveStatus==='error' || lastSaveStatus==='failed'){
+  if(lastSaveStatus==='error' || lastSaveStatus==='failed' || staleIds.has(t.id)){
     finalizeNotice('Not finalized', 'The last save did not go through, so this copy may be out of date. Click the status message at the top (to reload or retry), check the event, then try again.');
     return;
   }
@@ -2408,7 +2941,7 @@ async function runFinalize(t){
   const giveUp = (title, body)=>{
     const dropped = finish();
     if(state===t){ delete t.finalized; render(); }
-    setSaveStatus('');
+    setSaveStatus(staleIds.has(id) ? 'error' : '');   // still out of date: keep saying so
     if(dropped && state===t && !lockedIds.has(id)) persist();
     finalizeNotice(title, body);
   };
@@ -2490,8 +3023,18 @@ function renderOrganizerBar(){
   el.innerHTML = '<span>'+escapeHtml(currentOrganizer.name||currentOrganizer.email)+badge+'</span><span class="org-actions"><button onclick="openChangePassword()">Change password</button><button onclick="logout()">Log out</button></span>';
 }
 async function logout(){
+  if(await logoutBlocked()) return;
   await fetch('/api/auth/logout', {method:'POST'}).catch(()=>{});
   window.location.replace('/?login=1');
+}
+/* Logging out first sends a change still waiting. If it cannot be sent, the user is asked (switchBlocked) instead of
+   the change being thrown away with the session. */
+async function logoutBlocked(){
+  if(!savePending && !saveInFlight && !keepaliveSave) return false;
+  const r = await settlePendingSave();
+  if(r==='ok') return false;
+  switchBlocked(r, ()=>{ logout(); });
+  return true;
 }
 
 /* ---------- Change password ----------
@@ -2606,7 +3149,12 @@ function openInNewWindow(section){
     return;
   }
   const url = location.origin + location.pathname + '?t=' + encodeURIComponent(state.id) + '&stage=5&popout=1&section=' + section;
-  window.open(url, '_blank');
+  const win = window.open(url, '_blank');
+  if(!win) popupBlockedModal();   // window.open gives null when the browser blocked the pop-up
+}
+const POPUP_BLOCKED_MSG = 'Your browser blocked the new window — allow pop-ups for this site, then click the button again.';
+function popupBlockedModal(){
+  openModal({title:'New window blocked', body:POPUP_BLOCKED_MSG, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
 }
 function openInNewWindowButtonHTML(){
   if(state.format.formatType==='rrknockout'){
@@ -2618,7 +3166,16 @@ function openInNewWindowButtonHTML(){
   const section = state.format.formatType==='knockout' ? 'knockout' : 'rr';
   return '<button class="btn ghost" style="flex-shrink:0" onclick="openInNewWindow(\''+section+'\')">Open in new window ↗</button>';
 }
+/* Starting a new event first sends any edit still waiting, for its own event. If that cannot be done (no connection,
+   or the event was changed elsewhere) nothing is replaced and the user is told (switchBlocked). Synchronous when
+   nothing is waiting. */
 function newTournament(){
+  if(savePending){
+    return settlePendingSave().then(r=>{ if(r==='ok') startNewTournament(); else switchBlocked(r, startNewTournament); });
+  }
+  startNewTournament();
+}
+function startNewTournament(){
   adminState.view = null; adminEditing = null;
   state = blankTournament();
   currentStage = 1;
@@ -2626,11 +3183,238 @@ function newTournament(){
 }
 function scrollToLibrary(){ document.getElementById('libraryLabel').scrollIntoView({behavior:'smooth'}); }
 
-async function openTournament(id){
+/* ---------- Compact top bar (narrow or short screens) ----------
+   Under 700px wide, and on a touch screen less than ~520px high (a phone on its side), the sidebar is hidden by CSS
+   and #compactBar takes its place: the current step, a menu with the seven steps (the same rules as goStage: a step
+   opens only once the steps before it are saved), your events, the save status, Help and Log out. */
+const STAGE_TITLES = {1:'Event creation',2:'Format & branding',3:'Chart details',4:'Confirm & Print Bracket',5:'Manage Tournament',6:'Finalize Standings',7:'Print Final Chart'};
+/* True when goStage(n) would open step n (the tie check for steps 6 and 7 is goStage's own: it explains itself). */
+function stageReachable(n){
+  if(!state) return false;
+  if(n>1 && !state.eventCreation.saved) return false;
+  if(n>2 && !state.format.saved) return false;
+  if(n>3 && !state.entriesList.length) return false;
+  return true;
+}
+function compactMenuHTML(){
+  const inAdmin = adminViewActive();
+  let html = '';
+  if(state && !inAdmin){
+    html += '<div class="compact-menu-h" role="presentation">Steps</div>';
+    for(let n=1;n<=7;n++){
+      const ok = stageReachable(n);
+      html += '<button class="compact-item'+(n===currentStage?' active':'')+'"'+(n===currentStage?' aria-current="step"':'')+(ok?' onclick="compactGo('+n+')"':' disabled')+'>'+n+'. '+escapeHtml(STAGE_TITLES[n])+'</button>';
+    }
+  }
+  /* the open event's own Rename / Duplicate / Delete (the sidebar's buttons; the same functions and the same rules) */
+  if(state && !inAdmin && tournamentsCache[state.id] && !foreignOpenIds.has(state.id)){
+    html += '<div class="compact-menu-h" role="presentation">This event</div>';
+    ['rename','duplicate','delete'].forEach(a=>{ html += '<button class="compact-item" onclick="compactEventAction(\''+a+'\')">'+({rename:'Rename',duplicate:'Duplicate',delete:'Delete'})[a]+'</button>'; });
+  }
+  html += '<div class="compact-menu-h" role="presentation">Events</div>';
+  html += '<button class="compact-item" onclick="compactNewTournament()">+ New tournament</button>';
+  const all = Object.values(tournamentsCache).filter(t=>t && !foreignOpenIds.has(t.id)).sort((a,b)=>b.updatedAt-a.updatedAt);
+  all.forEach(t=>{
+    const active = state && state.id===t.id && !inAdmin;
+    html += '<button class="compact-item'+(active?' active':'')+'"'+(active?' aria-current="true"':'')+' onclick="compactOpen(\''+escJs(t.id)+'\')">'+escapeHtml(t.eventCreation.tournamentName||'Untitled tournament')+(isLocked(t)?' · Finalized':'')+'</button>';
+  });
+  if(typeof isAdminUser==='function' && isAdminUser()) html += '<div class="compact-menu-h" role="presentation">Admin</div><button class="compact-item'+(inAdmin?' active':'')+'" onclick="compactAdmin()">Admin</button>';
+  if(currentOrganizer && !currentOrganizer.publicMode) html += '<div class="compact-menu-h" role="presentation">Account</div><button class="compact-item" onclick="compactChangePassword()">Change password</button>';
+  return html;
+}
+function renderCompactBar(){
+  const nameEl = document.getElementById('compactStageName');
+  if(nameEl){
+    const titleEl = document.getElementById('pageTitle');
+    const title = titleEl ? String(titleEl.textContent||'') : '';
+    nameEl.textContent = (state && !adminViewActive() && STAGE_TITLES[currentStage]) ? currentStage+'. '+STAGE_TITLES[currentStage] : (title || 'DartDraw');
+  }
+  const menu = document.getElementById('compactMenu');
+  if(menu && menu.hidden===false) menu.innerHTML = compactMenuHTML();
+}
+/* A disclosure: the step button shows or hides a list of buttons. Opening moves focus to the first usable item;
+   Escape closes it and gives focus back to the button. Its height is capped to what is left of the screen below it. */
+function setCompactMenu(open, refocus){
+  const menu = document.getElementById('compactMenu'), btn = document.getElementById('compactStageBtn');
+  if(!menu) return;
+  const wasOpen = menu.hidden===false;
+  if(open) menu.innerHTML = compactMenuHTML();
+  menu.hidden = !open;
+  if(btn && btn.setAttribute) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if(open){
+    try{
+      const top = menu.getBoundingClientRect().top;
+      const vh = Number(window.innerHeight)||0;
+      if(vh) menu.style.maxHeight = Math.max(140, Math.floor(vh - Math.max(0, top) - 8))+'px';
+    }catch(e){}
+    try{ const first = menu.querySelector('.compact-item:not([disabled])'); if(first && first.focus) first.focus(); }catch(e){}
+  } else if(wasOpen && refocus && btn && btn.focus){
+    try{ btn.focus(); }catch(e){}
+  }
+}
+function toggleCompactMenu(){
+  const menu = document.getElementById('compactMenu');
+  setCompactMenu(!!(menu && menu.hidden), true);
+}
+function compactGo(n){ setCompactMenu(false); goStage(n); window.scrollTo(0,0); }
+function compactNewTournament(){ setCompactMenu(false); newTournament(); }
+function compactOpen(id){ setCompactMenu(false); openTournament(id); }
+function compactAdmin(){ setCompactMenu(false); adminShow('organizers'); }
+function compactChangePassword(){ setCompactMenu(false); openChangePassword(); }
+function compactEventAction(a){
+  setCompactMenu(false);
+  if(!state || !state.id) return;
+  const ev = { stopPropagation(){} };
+  if(a==='rename') renameTournament(state.id, ev);
+  else if(a==='duplicate') duplicateTournament(state.id, ev);
+  else if(a==='delete') deleteTournament(state.id, ev);
+}
+document.addEventListener('click', e=>{
+  const menu = document.getElementById('compactMenu'), bar = document.getElementById('compactBar');
+  if(menu && !menu.hidden && bar && e && e.target && !bar.contains(e.target)) setCompactMenu(false);
+});
+document.addEventListener('keydown', e=>{
+  if(!e || e.key!=='Escape') return;
+  const menu = document.getElementById('compactMenu');
+  if(menu && menu.hidden===false) setCompactMenu(false, true);
+});
+
+/* ---------- Device gate: landscape only on touch screens ----------
+   Laptops and desktops (a fine pointer, or one that can hover) never see a message, whatever the window's shape.
+   On a touch phone or tablet the app works in landscape only: held upright, a full-screen notice asks to rotate (a
+   phone's also says a bigger screen works best). The app stays loaded underneath, so nothing is lost, and the notice
+   goes away by itself on rotation. A phone on its side gets the app plus a slim banner, which can be dismissed for the
+   session; a tablet on its side gets no message. Full-page windows (?popout=1) never show the banner.
+   A "phone" is a device whose short side is under 600 CSS px (the screen, not the window). No user-agent sniffing. */
+function deviceGateState(o){
+  o = o || {};
+  if(!(o.coarse && o.hoverNone)) return 'none';
+  const phone = typeof o.shortSide==='number' && o.shortSide>0 && o.shortSide<600;
+  if(o.portrait) return phone ? 'rotate-phone' : 'rotate-tablet';
+  if(phone && !o.popout) return 'phone-banner';
+  return 'none';
+}
+const PHONE_BANNER_KEY = 'dartdraw.phoneBannerDismissed';
+let phoneBannerDismissedHere = false;
+function phoneBannerDismissed(){
+  if(phoneBannerDismissedHere) return true;
+  try{ return window.sessionStorage.getItem(PHONE_BANNER_KEY)==='1'; }catch(e){ return false; }
+}
+function dismissPhoneBanner(){
+  phoneBannerDismissedHere = true;
+  try{ window.sessionStorage.setItem(PHONE_BANNER_KEY, '1'); }catch(e){}
+  applyDeviceGate();
+}
+/* Upright or sideways is the DEVICE's orientation, not the window's shape: an iPad in Slide Over or Split View, or an
+   Android tablet in split screen, has a tall narrow window while the device itself is on its side, and rotating could
+   never fix that. screen.orientation.type first (iOS 16.4+, Android), then the old window.orientation (0/180 = upright
+   on iOS, where it is the only one), and the window's shape only when neither exists. */
+function devicePortrait(w, h){
+  try{
+    const so = window.screen && window.screen.orientation;
+    const type = so && so.type;
+    if(typeof type==='string' && type) return type.indexOf('portrait')===0;
+  }catch(e){}
+  const o = window.orientation;
+  if(typeof o==='number') return o===0 || o===180;
+  return h > w;
+}
+/* A phone: a touch device whose screen's short side is under 600 CSS px. Used for the gate and for the compact layout. */
+function isPhoneDevice(o){ return !!(o && o.coarse && o.hoverNone && typeof o.shortSide==='number' && o.shortSide>0 && o.shortSide<600); }
+function readDeviceGateInputs(){
+  const mm = q=>{ try{ return !!(window.matchMedia && window.matchMedia(q).matches); }catch(e){ return false; } };
+  const w = Number(window.innerWidth)||0, h = Number(window.innerHeight)||0;
+  const sc = window.screen || {};
+  const short = Math.min(Number(sc.width)||0, Number(sc.height)||0) || Math.min(w, h);
+  let popout = false;
+  try{ popout = new URLSearchParams(String(location.search||'')).get('popout')==='1'; }catch(e){}
+  return { coarse: mm('(pointer: coarse)'), hoverNone: mm('(hover: none)'), shortSide: short, portrait: devicePortrait(w, h), popout };
+}
+/* The app behind the rotate notice is made inert (no Tab, no taps, hidden from screen readers) and focus moves into
+   the notice; both are undone when it goes. */
+const GATE_INERT_IDS = ['compactBar', 'phoneBanner', 'staleBanner', 'modalBackdrop', 'previewModalBackdrop', 'printSheets'];
+let gateInertOn = false;
+function setGateInert(on){
+  if(on===gateInertOn) return;
+  gateInertOn = on;
+  const els = GATE_INERT_IDS.map(id=>document.getElementById(id));
+  try{ if(document.querySelector) els.push(document.querySelector('.app')); }catch(e){}
+  els.forEach(el=>{
+    if(!el) return;
+    try{ el.inert = on; if(on) el.setAttribute('inert', ''); else el.removeAttribute('inert'); }catch(e){}
+  });
+  if(on){
+    const btn = document.getElementById('deviceGateLogout');
+    try{ if(btn && btn.focus) btn.focus(); }catch(e){}
+  }
+}
+/* gate: a deviceGateState() answer (tests), or nothing to read the real device. */
+function applyDeviceGate(arg){
+  let gate, phone;
+  if(typeof arg==='string'){ gate = arg; phone = gate==='rotate-phone' || gate==='phone-banner'; }
+  else { const inputs = arg || readDeviceGateInputs(); gate = deviceGateState(inputs); phone = isPhoneDevice(inputs); }
+  const rotate = gate==='rotate-tablet' || gate==='rotate-phone';
+  const overlay = document.getElementById('deviceGate');
+  if(overlay) overlay.hidden = !rotate;
+  const phoneNote = document.getElementById('deviceGatePhone');
+  if(phoneNote) phoneNote.hidden = gate!=='rotate-phone';
+  const banner = document.getElementById('phoneBanner');
+  if(banner) banner.hidden = !(gate==='phone-banner' && !phoneBannerDismissed());
+  if(document.body && document.body.classList && typeof document.body.classList.toggle==='function'){
+    document.body.classList.toggle('device-gate-on', rotate);
+    document.body.classList.toggle('is-phone', phone);   // the compact layout (CSS): from the screen size, so an on-screen keyboard never flips it
+  }
+  setGateInert(rotate);
+  return gate;
+}
+function initDeviceGate(){
+  const update = ()=>{ try{ applyDeviceGate(); }catch(e){} };
+  update();
+  window.addEventListener('resize', update);
+  window.addEventListener('orientationchange', update);
+  try{ if(window.screen && window.screen.orientation && window.screen.orientation.addEventListener) window.screen.orientation.addEventListener('change', update); }catch(e){}
+  ['(orientation: portrait)', '(pointer: coarse)', '(hover: none)'].forEach(q=>{
+    try{
+      const m = window.matchMedia(q);
+      if(m.addEventListener) m.addEventListener('change', update); else if(m.addListener) m.addListener(update);
+    }catch(e){}
+  });
+}
+try{ initDeviceGate(); }catch(e){}
+
+let lastOpenBlocked = false;   // true when the last openTournament() was refused because a change is waiting
+async function openTournament(id, proceed){
+  lastOpenBlocked = false;
+  /* An edit still waiting for its save delay is sent first, for the event it belongs to. If it cannot be delivered
+     (no connection, or refused because the event was changed elsewhere) the window stays where it is and says so:
+     nothing is replaced, so the change is not lost silently. */
+  const settled = await settlePendingSave();
+  if(settled!=='ok'){ lastOpenBlocked = true; switchBlocked(settled, typeof proceed==='function' ? proceed : ()=>{ openTournament(id); }); return false; }
   if(!foreignOpenIds.has(id)) adminEditing = null;   // an event of your own is open: no "editing someone else's" banner
   const res = await apiFetch('/api/tournaments/'+encodeURIComponent(id));
   if(res.ok){
     const row = await res.json();
+    loadTournamentRow(id, row);
+  }
+  return !!res.ok;
+}
+/* Makes a server row ({data, updated_at}) the open tournament: cleans it, fills in fields older saves lack, and shows
+   it. Loading the server's copy also ends a stale ("Updated elsewhere") lock on that id: this window now holds the
+   latest copy, and the unsaved change it had is dropped. */
+function loadTournamentRow(id, row){
+  {
+    /* A pending edit that can never be sent (its event is stale or finalized) is dropped; so is one for this same event,
+       which the server copy now replaces. A pending edit for another event stays, and is still sent for that event. */
+    if(pendingFor(id)) clearPendingSave(id);
+    for(const pid of [...pendingSaves.keys()]) if(staleIds.has(pid) || lockedIds.has(pid)) clearPending(pid);
+    if(!pendingSaves.size) savePending = false;
+    /* another event now: what the status said was about the one left */
+    const switching = !state || state.id!==id;
+    if(switching && ['error','failed','locked','ok'].indexOf(lastSaveStatus)>=0) lastSaveStatus = '';
+    const wasStale = staleIds.delete(id);
+    goneIds.delete(id);
+    delete staleCurrent[id];
+    if(wasStale){ clearPendingSave(id); if(lastSaveStatus==='error') lastSaveStatus = ''; }
     state = sanitizeLoaded(row.data);
     state.id = id;
     dbUpdatedAtCache[id] = row.updated_at;
@@ -2707,9 +3491,9 @@ async function openTournament(id){
     currentStage = computeStageFor(state);
     adminState.view = null;   // opening an event leaves the Admin screens
     render();
+    if(wasStale || switching) paintSaveStatus();
     migrateLogoIfNeeded(state);
   }
-  return !!res.ok;
 }
 /* A tournament saved before the auto-trim/aspect-fit logo work won't have
    logoAspect set, and its stored logo was never trimmed of baked-in padding.
@@ -2744,6 +3528,7 @@ function deleteTournament(id, ev){
   });
 }
 async function performDelete(id){
+  clearPendingSave(id);   // deleting discards any waiting edit: no save may bring the deleted event back
   let res = null;
   try{ res = await apiFetch('/api/tournaments/'+id, {method:'DELETE'}); }catch(e){}
   if(res && res.status===403){
@@ -2761,6 +3546,7 @@ async function performDelete(id){
   delete tournamentsCache[id];
   delete dbUpdatedAtCache[id];
   lockedIds.delete(id);
+  staleIds.delete(id); delete staleCurrent[id];
   if(state && state.id===id){ state=null; currentStage=1; }
   if(!state){ const remaining = Object.values(tournamentsCache); if(remaining.length){ openTournament(remaining[0].id); } else { newTournament(); } }
   render();
@@ -2771,6 +3557,7 @@ function renameTournament(id, ev){
   const t = tournamentsCache[id];
   if(!t) return;
   if(isFinalizedId(id)){ finalizedBlockModal('renamed'); return; }
+  if(staleIds.has(id)){ staleBlockModal(); return; }   // out of date here: nothing is saved for it until it is reloaded
   openModal({
     title:'Rename tournament',
     bodyHTML:'<div class="field"><label>Tournament name</label><input id="renameInput" type="text" value="'+escapeHtml(t.eventCreation.tournamentName)+'"></div>',
@@ -2778,11 +3565,15 @@ function renameTournament(id, ev){
     onConfirm:()=>{
       const v = document.getElementById('renameInput').value.trim();
       if(!v) return;
+      /* The open event is renamed like any other edit: through persist(), the one guarded save path (stale lock,
+         finalized lock, saves one at a time). Only an event that is not open is saved here directly. */
+      if(state && state.id===id){ state.eventCreation.tournamentName = v; persist(); render(); return; }
       t.eventCreation.tournamentName = v;
       t.updatedAt = Date.now();
-      if(state && state.id===id) state.eventCreation.tournamentName = v;
       render();
-      apiFetch('/api/tournaments/'+id, { method:'PUT', body: JSON.stringify({ data:t, expectedUpdatedAt: dbUpdatedAtCache[id]||null }) })
+      const renameBody = JSON.stringify({ data:t, expectedUpdatedAt: dbUpdatedAtCache[id]||null });
+      recordSent(id, renameBody);
+      apiFetch('/api/tournaments/'+id, { method:'PUT', body: renameBody })
         .then(async res=>{
           if(res.status===403){
             let body = null;
@@ -2795,8 +3586,23 @@ function renameTournament(id, ev){
               return;
             }
           }
-          if(res.status===409){ const body=await res.json(); dbUpdatedAtCache[id]=body.current.updated_at; tournamentsCache[id]=sanitizeLoaded(body.current.data); renderSavedList(); return; }
-          if(res.ok){ const saved=await res.json(); dbUpdatedAtCache[id]=saved.updated_at; }
+          if(res.status===409){
+            let body = null; try{ body = await res.json(); }catch(e){}
+            const current = body && body.current && body.current.data ? body.current : null;
+            /* Opened meanwhile: this window's copy is out of date, so lock it (never adopt the newer stamp for an open copy). */
+            if(state && state.id===id){ markStale(id, current); setSaveStatus('error'); return; }
+            if(current){ dbUpdatedAtCache[id]=current.updated_at; tournamentsCache[id]=sanitizeLoaded(current.data); }   // not open: cache and stamp move together
+            renderSavedList(); return;
+          }
+          if(res.ok){
+            const saved=await res.json();
+            /* Opened meanwhile from a copy read before the rename landed: put the name on it and keep ITS stamp. The
+               next save is then answered 409 with exactly the rename this window sent (recognised as its own), and
+               resends on top of it, so neither the rename nor the open copy's stamp is ever out of step. */
+            if(state && state.id===id && state!==t){ state.eventCreation.tournamentName = v; render(); return; }
+            dbUpdatedAtCache[id]=saved.updated_at;
+            announceSaved(id, saved.updated_at);
+          }
         }).catch(()=>{});
     }
   });
@@ -2889,6 +3695,10 @@ function renderSavedList(){
 
 /* ---------- Main render dispatcher ---------- */
 function render(){
+  try{ renderPage(); }
+  finally{ renderStaleBanner(); renderCompactBar(); }
+}
+function renderPage(){
   document.body.classList.toggle('finalized', isLocked(state));
   document.body.classList.toggle('admin-mode', adminViewActive());
   if(popoutMode){ renderPopoutManage(); return; }
@@ -2941,6 +3751,28 @@ function render(){
 function renderPopoutManage(){
   renderPopoutManageBody();
   if(isLocked(state)) applyFinalizedLock(document.getElementById('stageArea'));   // no banner here: the chart fills the window
+  paintSaveStatus();   // the header's own save status (the sidebar, where #saveStatus lives, is hidden here)
+}
+/* The full-page window's header tools: its save status (it has no sidebar) and Print, which prints the chart this
+   window shows through the same print sheets and print CSS as the main window (see popoutPrint). */
+function popoutToolsHTML(){
+  return '<span class="popout-tools"><span class="save-status popout-save-status" id="popoutSaveStatus" role="status"></span>'+
+    '<button class="btn ghost" onclick="popoutPrint()">Print</button></span>';
+}
+/* Prints what this window shows: the bracket sheet (knockout / Plate pool) or the confirmed round robin charts, built
+   by the same functions the main window's print pack uses (knockoutBracketSheetHTML, chartSheetHTML) into
+   #printSheets, the only thing the print CSS shows. It changes nothing in the event and never saves. */
+function popoutPrintSheetsHTML(){
+  if(!state) return '';
+  if(popoutSection==='rr') return state.groups.filter(g=>g.confirmed).map(g=> chartSheetHTML(g, true)).join('');
+  const bracket = popoutSection==='knockoutLosers' ? state.knockoutLosers : state.knockout;
+  return bracket ? knockoutBracketSheetHTML(bracket) : '';
+}
+function popoutPrint(){
+  const html = popoutPrintSheetsHTML();
+  if(!html){ openModal({title:'Nothing to print yet', body:'There is no chart in this window to print.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
+  document.getElementById('printSheets').innerHTML = html;
+  setTimeout(()=>{ window.print(); }, 60);
 }
 function renderPopoutManageBody(){
   document.body.classList.add('mko-popout');
@@ -2965,7 +3797,7 @@ function renderPopoutManageBody(){
       '<div><div class="mko-popout-title">'+escapeHtml(state.eventCreation.tournamentName)+'</div>'+
       '<div class="mko-popout-sub">'+escapeHtml(state.eventCreation.eventName)+' · '+escapeHtml(bracket.label||'Bracket')+' · '+status+'</div></div>'+
       sponsorLogos+
-      '<button class="btn ghost" onclick="window.print()">Print</button>'+
+      popoutToolsHTML()+
     '</div>'+
     '<div class="mko-popout-fit" id="popoutFit">'+mirroredChartHTML(bracket, state, {interactive:true, bracketKey:popoutSection})+'</div>';
   requestAnimationFrame(fitPopoutChart);
@@ -2988,7 +3820,7 @@ function renderPopoutRR(area){
       '<div><div class="mko-popout-title">'+escapeHtml(state.eventCreation.tournamentName)+'</div>'+
       '<div class="mko-popout-sub">'+escapeHtml(state.eventCreation.eventName)+' · Round robin · '+confirmed.length+' chart'+(confirmed.length===1?'':'s')+'</div></div>'+
       sponsorLogos+
-      '<button class="btn ghost" onclick="window.print()">Print</button>'+
+      popoutToolsHTML()+
     '</div>'+
     '<div class="mko-popout-scroll">'+
       confirmed.map(g=>{
@@ -3022,7 +3854,7 @@ function fitPopoutChart(){
   art.style.top = Math.round((wrap.clientHeight - artH*scale)/2)+'px';
   art.style.transform = 'scale('+scale+')';
 }
-window.addEventListener('resize', ()=>{ if(popoutMode) fitPopoutChart(); });
+window.addEventListener('resize', ()=>{ if(popoutMode){ if(staleOpen()) renderStaleBanner(); fitPopoutChart(); } });
 
 /* ---------- Stage 1: Event Creation ---------- */
 /* Competition types offered for a new event: Singles and Doubles only, for now. Teams and Triples
@@ -3038,10 +3870,10 @@ function unitOptionsHTML(current){
 function stage1(){
   const e = state.eventCreation;
   return '<div class="card">'+
-    '<h2>Create your event</h2><p class="intro">For singles or doubles events. No login or internet connection required.</p>'+
+    '<h2>Create your event</h2><p class="intro">For singles or doubles events.</p>'+
     '<div class="field"><label>Setup mode</label><div class="options">'+
       '<div class="choice'+(!e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(false)"><strong>Basic</strong><small>Just the essentials — format, groups, scores</small></div>'+
-      '<div class="choice'+(e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(true)"><strong>Advanced</strong><small>Scheduling, knockout leg progression, Plate pool, custom team lineups, and more</small></div>'+
+      '<div class="choice'+(e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(true)"><strong>Advanced</strong><small>Scheduling, knockout leg progression, Plate pool, sponsor logos, and more</small></div>'+
     '</div></div>'+
     '<div class="field"><label>Tournament name</label><input id="f_tname" type="text" value="'+escapeHtml(e.tournamentName)+'" placeholder="e.g. KLDA State League 2026"></div>'+
     '<div class="field"><label>Event name</label><input id="f_ename" type="text" value="'+escapeHtml(e.eventName)+'" placeholder="e.g. Open Singles"></div>'+
@@ -3256,7 +4088,7 @@ function stage2(){
     (advanced ? tieBreakEditor() : '');
   return '<div class="card" style="max-width:1000px">'+
     '<h2>Competition format</h2><p class="intro">Choose the format, timing, branding and rules.</p>'+
-    (!advanced ? '<div class="recommend">Using <b>Basic</b> setup. <span style="text-decoration:underline;cursor:pointer" onclick="setAdvancedMode(true)">Switch to Advanced</span> for a live on-schedule indicator, knockout leg progression, the Plate pool, custom team rubber lineups, and more.</div>' : '')+
+    (!advanced ? '<div class="recommend">Using <b>Basic</b> setup. <span style="text-decoration:underline;cursor:pointer" onclick="setAdvancedMode(true)">Switch to Advanced</span> for a live on-schedule indicator, knockout leg progression, the Plate pool, and more.</div>' : '')+
     collapsibleSectionHTML('format', 'Format', '', formatSectionHTML)+
     collapsibleSectionHTML('scheduling', 'Scheduling',
       '<div class="form-section-sub">Board count is used for group-to-board assignment for Round Robin, and to predict the schedule.'+(advanced?' Level of play, start time and breaks are optional and power a live on-schedule indicator in Manage Tournament — never printed.':'')+'</div>',
@@ -5554,10 +6386,12 @@ window.onload = async function(){
     await openTournament(wantId);
     const wantStage = parseInt(params.get('stage'));
     if(wantStage && wantStage!==currentStage){ currentStage = wantStage; render(); }
+    if(!popoutMode) offerRecoveredChanges();
     return;
   }
   const all = Object.values(tournamentsCache).sort((a,b)=>b.updatedAt-a.updatedAt);
-  if(all.length){ openTournament(all[0].id); } else { render(); }
+  if(all.length){ await openTournament(all[0].id); } else { render(); }
+  offerRecoveredChanges();
 };
 </script>
 </body>

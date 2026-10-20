@@ -13,14 +13,29 @@ Open the deployed URL for the public site, then log in (or go straight to `/app`
 | `/` | `index.html` | Public landing page. A visitor who is already signed in is sent on to `/app`. |
 | `/features` | `features.html` | Public features page. |
 | `/how-it-works` | `how-it-works.html` | Public how-it-works page. |
+| `/help` | `help.html` | Public Help page for organisers: a step-by-step guide and an FAQ, with search. The public results site has its own, separate help for spectators at its `/help`. |
 | `/app` | `app.html` | The organiser app (the tournament editor). Signed-out visitors are sent to `/?login=1`. |
 | (pop-up) | `login.html` | The sign-in form. The public pages show it in a pop-up (`login.html?embed=1` in an iframe); `/?login=1` or `/#login` opens that pop-up. `login.html` may only be framed by this site. |
 
-The clean URLs are rewrites in `vercel.json`. The three public pages are **generated** by `scripts/build-landing.js`
-(shared styles, header, closing band and login pop-up live there). Do not edit `index.html`, `features.html` or
-`how-it-works.html` by hand: change the script and regenerate with `npm run build-landing`. The pages are committed, so
-Vercel still has no build step, and `npm test` fails if they are out of step with the script. The register, verify, forgot and
-reset pages link back to the pop-up with `/?login=1`.
+The clean URLs are rewrites in `vercel.json`. The four public pages are **generated** by `scripts/build-landing.js`
+(shared styles, header, footer links, closing band and login pop-up live there). Do not edit `index.html`, `features.html`,
+`how-it-works.html` or `help.html` by hand: change the script (or, for Help, the content file below) and regenerate with
+`npm run build-landing`. The pages are committed, so Vercel still has no build step, and `npm test` fails if they are out of
+step with their sources. The register, verify, forgot and reset pages link back to the pop-up with `/?login=1`.
+
+The header and footer of every public page link to `/help`, and the organiser app has a **Help** link in its top bar that opens
+`/help` in a new tab.
+
+#### Editing the Help page
+
+The words of the Help page are **data** in `scripts/help-content.js`: sections (`guide` and `faq`), each with items that have an
+`id` (the `#anchor`; do not change one that is already linked), a `title` (the heading or the question), a `body` (HTML) and, for
+guide items, a `summary`. `scripts/build-landing.js` lays them out (search box, contents list, accordions) and writes
+`help.html`. To change the Help page: edit `scripts/help-content.js`, run `npm run build-landing`, then `npm test`.
+`tests/help-site.test.js` checks, among other things, that every anchor resolves, that there are at least 15 questions, that the
+guide quotes the app's real button and message names (a quoted name that no longer exists in `app.html` fails the test, so update
+the guide when you rename a button), and that the page says nothing about plans or tiers, other competition types or contact
+emails. The link to the spectators' help is built from `VIEWER_URL` at the top of `scripts/help-content.js`.
 
 ## Deployment
 
@@ -267,7 +282,7 @@ does. The public results page shows "Neither attended" for such a match.
   `UPDATE_GOLDEN=1 npm test`.
 - `node tests/dev/mock-organiser.js` serves the organiser app (`app.html`) at http://localhost:5393 (or `/app`) with
   in-memory storage and no login, for trying the screens in a browser.
-- `npm run build-landing` regenerates the public pages (`index.html`, `features.html`, `how-it-works.html`).
+- `npm run build-landing` regenerates the public pages (`index.html`, `features.html`, `how-it-works.html`, `help.html`).
 - `node tests/dev/make-sample-view.js 40 8 3` then `node tests/dev/mock-viewer.js` serves the public page for a
   sample Group Boards event at http://localhost:5392/live/testslug12.
 

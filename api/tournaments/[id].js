@@ -5,8 +5,10 @@ const { sanitizeTournamentData, isRouteId } = require('../../tournament-sanitize
 
 // GET /api/tournaments/:id     -> { id, data, updated_at }
 // PUT /api/tournaments/:id     -> body { data, expectedUpdatedAt }, upserts.
-//   Creates the row if it doesn't exist yet (expectedUpdatedAt is ignored on
-//   insert). If it exists, expectedUpdatedAt must match the stored
+//   Creates the row if it doesn't exist yet, but only for a save with no
+//   expectedUpdatedAt (a new event's first save). A save that carries a stamp
+//   for a row that does not exist (deleted elsewhere, or moved to another
+//   organiser) is answered 404 { error: 'Not found.' } and never re-creates it. If it exists, expectedUpdatedAt must match the stored
 //   updated_at or the write is rejected with 409 + the current row, so a
 //   stale client never silently clobbers a newer save.
 //   The success body (200 or 201) is { id, updated_at }, plus `finalized` only when the saved data has one. A save carrying a
@@ -138,6 +140,12 @@ module.exports = async (req, res) => {
       const over = checkEntryLimit(organizer.tier, data, existing && existing.data);
       if (over) {
         res.status(403).json({ code: 'entry_limit', limit: over.limit, error: 'Basic accounts allow up to ' + over.limit + ' entries per event.' });
+        return;
+      }
+
+      if (!existing && expectedUpdatedAt) {
+        // The client had a copy of this event, so it existed: it was deleted (or moved) since. Never bring it back.
+        res.status(404).json({ error: 'Not found.' });
         return;
       }
 

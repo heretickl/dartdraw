@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help for organisers – DartDraw</title>
+<meta name="description" content="Step-by-step guides and answers to common questions for DartDraw organisers: setting up an event, running the day, printing, live results and finishing.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0f2240;--navy-2:#0a1a33;--ink:#142133;--muted:#566578;--line:#dfe6ee;--bg:#f3f6fb;--white:#fff;--gold:#c8941a;--gold-big:#c08a12;--gold-soft:#fbf1d6;--blue:#1769e0;--blue-d:#1257bd}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,"Segoe UI",system-ui,-apple-system,Arial,sans-serif;color:var(--ink);background:#fff;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.skip{position:absolute;left:-999px;top:8px;background:#fff;color:var(--navy);padding:10px 14px;border-radius:8px;z-index:50;font-weight:700}
+.skip:focus{left:8px}
+:focus-visible{outline:3px solid var(--blue);outline-offset:3px;border-radius:6px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+/* header */
+header.top{position:relative;z-index:5;background:transparent}
+.nav{display:flex;align-items:center;gap:36px;height:84px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:800;font-size:26px;letter-spacing:-.02em;color:var(--navy)}
+.mark{width:36px;height:36px;border:3px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-size:17px;font-weight:800;color:var(--gold);background:#fff}
+.nav-links{display:flex;gap:28px;margin-left:8px}
+.nav-links a{text-decoration:none;font-weight:600;font-size:15px;color:#2b3a50;padding:8px 2px;border-bottom:2px solid transparent}
+.nav-links a:hover{color:var(--navy);border-bottom-color:var(--gold)}
+.nav-links a[aria-current="page"]{color:var(--navy);border-bottom-color:var(--gold)}
+.nav .spacer{flex:1}
+.btn{display:inline-flex;align-items:center;gap:10px;border:0;border-radius:10px;background:var(--blue);color:#fff;font:700 16px/1 inherit;font-family:inherit;padding:15px 22px;min-height:48px;cursor:pointer;text-decoration:none;box-shadow:0 6px 16px rgba(23,105,224,.22)}
+.btn:hover{background:var(--blue-d)}
+.btn.sm{padding:12px 20px;min-height:44px;font-size:15px}
+.btn.big{padding:19px 30px;font-size:18px;min-height:58px}
+.btn.ghost{background:transparent;color:var(--navy);box-shadow:none;padding-left:6px;padding-right:6px}
+.btn.ghost:hover{background:transparent;text-decoration:underline}
+.arrow{width:20px;height:20px}
+/* Log in controls are links so they work without JavaScript; these two lines keep the look of the buttons they replaced */
+a.btn[data-login]{line-height:normal}
+.close a.btn[data-login]{font-size:13.333px}
+/* hero */
+.hero{position:relative;background:linear-gradient(180deg,#f2f6fc 0%,#e9f0f9 100%);overflow:hidden}
+.hero:before{content:"";position:absolute;right:-180px;top:-120px;width:900px;height:900px;border-radius:50%;background:repeating-radial-gradient(circle at center,transparent 0 56px,rgba(15,34,64,.045) 57px 58px);pointer-events:none}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,1fr);gap:40px;align-items:center;padding:34px 0 84px;position:relative}
+.eyebrow{font-weight:800;font-size:13.5px;letter-spacing:.16em;color:var(--gold-big);text-transform:uppercase;margin:0 0 22px}
+h1{margin:0;font-size:clamp(40px,5.4vw,68px);line-height:1.03;letter-spacing:-.035em;font-weight:800;color:var(--navy)}
+h1 em{font-style:normal;color:var(--gold-big)}
+.lede{margin:26px 0 34px;font-size:clamp(18px,1.9vw,23px);line-height:1.5;color:#46566a;max-width:520px}
+.cta-row{display:flex;flex-wrap:wrap;align-items:center;gap:22px}
+.tags{display:flex;flex-wrap:wrap;gap:6px 14px;margin:38px 0 0;padding:0;list-style:none;color:#5b6a7d;font-size:17px}
+.tags li+li:before{content:"\2022";margin-right:14px;color:#9aa8ba}
+/* app preview */
+.preview{position:relative;min-height:470px}
+.win{position:absolute;left:0;top:0;width:100%;max-width:560px;height:440px;background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(15,34,64,.18);overflow:hidden;display:grid;grid-template-columns:158px 1fr}
+.side{background:var(--navy);color:#dbe5f3;padding:16px 0}
+.side .logo{display:flex;align-items:center;gap:8px;padding:0 14px 18px;font-weight:800;color:#fff;font-size:17px}
+.side .logo i{width:24px;height:24px;border:2px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:11px;color:var(--gold)}
+.side small{display:block;padding:0 14px 8px;font-size:9px;letter-spacing:.12em;color:#8ea2bf;text-transform:uppercase}
+.side div.it{padding:9px 14px;font-size:12px;border-left:3px solid transparent;color:#cdd9ea}
+.side div.on{background:rgba(255,255,255,.1);border-left-color:var(--gold);color:#fff;font-weight:600}
+.main-pane{padding:16px 18px;background:#fff}
+.main-pane h4{margin:0;font-size:17px;color:var(--navy)}
+.main-pane .s{font-size:11px;color:#7a8798;margin-bottom:10px}
+.tabs{display:flex;gap:14px;font-size:10.5px;color:#6a7788;border-bottom:1px solid var(--line);margin-bottom:10px}
+.tabs span{padding:6px 2px}
+.tabs .on{color:var(--navy);font-weight:700;border-bottom:2px solid var(--gold)}
+.chart{position:absolute;right:-6px;top:132px;width:min(450px,86%);background:#fffdf8;border-radius:12px;box-shadow:0 20px 50px rgba(15,34,64,.22);padding:18px 20px 16px;border:1px solid #efe9da}
+.chart .row1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.chart h5{margin:0;font-size:26px;letter-spacing:-.02em;color:var(--navy);line-height:1.1}
+.chart .sub{font-size:12.5px;color:#46566a;margin-top:2px}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--gold);color:#7a5600;background:#fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.chart .grp{text-align:right;font-weight:800;color:var(--navy);font-size:17px;line-height:1.1;margin-top:8px}
+.chart .grp small{display:block;font-weight:600;font-size:9px;letter-spacing:.1em;color:#7a8798}
+table.grid{width:100%;border-collapse:collapse;margin-top:12px;font-size:11.5px}
+table.grid th{background:#10233e;color:#fff;font-weight:700;padding:7px 4px;border:1px solid #10233e;text-align:center}
+table.grid td{border:1px solid #e1e5ea;padding:7px 4px;text-align:center;background:#fff}
+table.grid td.n{text-align:left;font-weight:700;padding-left:8px}
+table.grid td.x{background:#d9dce1}
+.mo{display:flex;gap:18px;align-items:center;margin-top:12px;font-size:10.5px;color:#46566a;flex-wrap:wrap}
+.mo b{display:block;font-size:9px;letter-spacing:.1em;color:var(--navy);margin-bottom:3px}
+.ph{border:1px dashed #b9c4d3;border-radius:6px;padding:9px 12px;font-size:8.5px;letter-spacing:.08em;color:#8a97a8;text-align:center;background:#fafbfd}
+/* strip */
+.strip{background:#fff;border-bottom:1px solid var(--line)}
+.strip .wrap{display:grid;grid-template-columns:1.1fr repeat(4,1fr);gap:0;align-items:center;padding-top:26px;padding-bottom:26px}
+.strip h2{margin:0;font-size:25px;line-height:1.1;letter-spacing:-.025em;color:var(--navy);padding-right:24px}
+.strip .it{display:flex;align-items:center;gap:14px;font-size:17px;color:#2a3a50;border-left:1px solid var(--line);padding:6px 18px}
+.ico{width:42px;height:42px;flex:none;fill:none;stroke:var(--gold);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.ico.sm{width:30px;height:30px}
+/* steps */
+section.band{padding:64px 0}
+section.alt{background:var(--bg)}
+h2.sec{margin:0 0 34px;font-size:clamp(28px,3.2vw,40px);letter-spacing:-.03em;color:var(--navy);line-height:1.1}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+.step{display:flex;align-items:flex-start;gap:14px;padding:6px 26px 6px 0;margin-right:26px;border-right:1px solid var(--line)}
+.step:last-child{border-right:0;margin-right:0}
+.num{width:42px;height:42px;border-radius:50%;background:#e8f0fb;color:var(--navy);font-weight:800;display:grid;place-items:center;flex:none;font-size:15px}
+.disc{width:66px;height:66px;border-radius:50%;background:var(--gold-soft);display:grid;place-items:center;flex:none}
+.step h3{margin:2px 0 4px;font-size:20px;color:var(--navy)}
+.step p{margin:0;color:var(--muted);font-size:16px}
+/* closing band */
+.close{background:radial-gradient(circle at 50% 120%,#16315d 0,var(--navy-2) 60%);color:#fff;text-align:center;padding:48px 0 34px}
+.close h2{margin:0 0 20px;font-size:clamp(26px,3.4vw,38px);letter-spacing:-.025em}
+.close h2 em{font-style:normal;color:#f0b73a}
+.close .foot{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:30px;color:#c4d0e2;font-size:15px;flex-wrap:wrap}
+.close .foot .brand{color:#fff;font-size:22px}
+.close .foot .mark{background:transparent;color:#f0b73a;border-color:#f0b73a;width:32px;height:32px;font-size:15px}
+.close .foot .sep{width:1px;height:26px;background:#4a5f82}
+.foot-nav{display:flex;justify-content:center;flex-wrap:wrap;gap:0 26px;margin:30px 0 0}
+.foot-nav a{color:#dfe7f3;text-decoration:none;font-weight:600;font-size:15px;padding:12px 2px;border-bottom:2px solid transparent}
+.foot-nav a:hover{color:#fff;border-bottom-color:#f0b73a}
+.foot-nav+.foot{margin-top:14px}
+/* sub-page heroes */
+.phero{background:linear-gradient(180deg,#f2f6fc,#e9f0f9);padding:30px 0 56px;position:relative;overflow:hidden}
+.phero:before{content:"";position:absolute;right:-220px;top:-260px;width:760px;height:760px;border-radius:50%;background:repeating-radial-gradient(circle at center,transparent 0 56px,rgba(15,34,64,.045) 57px 58px)}
+.phero .wrap{position:relative}
+.phero h1{font-size:clamp(36px,4.6vw,58px);max-width:780px}
+.phero .lede{margin:18px 0 0;max-width:640px}
+/* features */
+.fmt{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px 22px;box-shadow:0 2px 0 rgba(15,34,64,.03)}
+.card h3{margin:14px 0 6px;font-size:19px;color:var(--navy);letter-spacing:-.01em}
+.card p{margin:0;color:var(--muted);font-size:15.5px}
+.card ul{margin:10px 0 0;padding:0;list-style:none;color:#32435a;font-size:15px}
+.card li{position:relative;padding-left:20px;margin:7px 0}
+.card li:before{content:"";position:absolute;left:2px;top:.62em;width:7px;height:7px;border-radius:50%;background:var(--gold)}
+.fgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.fcard{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}
+.fcard .disc{width:58px;height:58px}
+.fcard h3{margin:2px 0 6px}
+.mini{display:inline-flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.chip{font-size:12.5px;font-weight:700;color:#7a5600;background:var(--gold-soft);border-radius:99px;padding:4px 10px}
+/* how it works */
+.tl{list-style:none;margin:0;padding:0;position:relative}
+.tl:before{content:"";position:absolute;left:25px;top:10px;bottom:10px;width:2px;background:linear-gradient(var(--gold),#e7d9b0)}
+.tl li{position:relative;display:grid;grid-template-columns:52px 1fr auto;gap:22px;align-items:start;padding:14px 0 26px}
+.tl .num{width:52px;height:52px;background:var(--navy);color:#fff;font-size:18px;box-shadow:0 0 0 6px #fff}
+.tl h3{margin:4px 0 6px;font-size:23px;color:var(--navy);letter-spacing:-.02em}
+.tl p{margin:0;color:var(--muted);font-size:17px;max-width:640px}
+.tl .disc{width:60px;height:60px}
+.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.note{display:flex;gap:16px;align-items:flex-start}
+.note p{margin:0;font-size:16px;color:#32435a}
+.note b{display:block;color:var(--navy);margin-bottom:2px}
+/* login pop-up: a native dialog around the real sign-in page (login.html?embed=1) */
+dialog{border:0;padding:0;background:transparent;max-width:none;max-height:none;overflow:visible}
+dialog::backdrop{background:rgba(10,26,51,.62);backdrop-filter:blur(3px)}
+body:has(dialog[open]){overflow:hidden}
+.dlg{position:relative;background:#fff;border-radius:16px;width:min(400px,calc(100vw - 28px));box-shadow:0 30px 80px rgba(0,0,0,.4);overflow:hidden}
+.dlg .x{position:absolute;right:8px;top:8px;width:44px;height:44px;border:0;background:transparent;border-radius:10px;font-size:26px;color:#5a6879;cursor:pointer;line-height:1;z-index:1}
+.dlg .x:hover{background:#eef2f7}
+.dlg iframe{display:block;width:100%;height:440px;max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);border:0;background:#fff}
+/* responsive */
+@media (max-width:960px){
+  .hero-grid{grid-template-columns:minmax(0,1fr);padding-bottom:56px}
+  .preview{min-height:440px;max-width:560px;margin:10px auto 0;width:100%}
+  .strip .wrap{grid-template-columns:1fr 1fr;gap:18px 0}
+  .strip h2{grid-column:1/-1;padding-bottom:6px}
+  .strip .it{border-left:0;padding-left:0}
+  .steps{grid-template-columns:1fr;gap:20px}
+  .step{border-right:0;margin-right:0;padding-right:0}
+  .fmt{grid-template-columns:1fr 1fr}
+  .fgrid{grid-template-columns:1fr}
+  .notes{grid-template-columns:1fr}
+  .tl li{grid-template-columns:52px 1fr}
+  .tl li .disc{display:none}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .nav{height:68px;gap:16px}
+  .brand{font-size:22px}.mark{width:32px;height:32px}
+  .nav-links{gap:14px;margin-left:0}
+  .nav-links a{font-size:14px}
+  .nav .btn.sm{padding:10px 14px}
+  .win{grid-template-columns:1fr;height:200px}.side{display:none}
+  .chart{position:relative;right:auto;top:auto;width:100%;margin-top:-90px}
+  .preview{min-height:0}
+  .fmt{grid-template-columns:1fr}
+  .fcard{grid-template-columns:1fr}
+  .cta-row .btn.big{width:100%;justify-content:center}
+  .strip .wrap{grid-template-columns:1fr}
+}
+@media (max-width:480px){.nav{height:auto;flex-wrap:wrap;gap:0 12px;padding-top:10px;padding-bottom:2px}.nav-links{order:3;flex:0 0 100%;margin:0;gap:22px}.nav-links a{padding:10px 2px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+[hidden]{display:none!important}
+.phero .hsearch{margin:26px 0 0;max-width:640px}
+.hsearch label{display:block;margin:0 0 8px;font-weight:700;font-size:15px;color:var(--navy)}
+.hsearch input{display:block;width:100%;font:inherit;font-size:18px;line-height:1.3;padding:14px 18px;min-height:54px;border:1.5px solid #bcc9db;border-radius:12px;background:#fff;color:var(--ink);box-shadow:0 4px 14px rgba(15,34,64,.06);-webkit-appearance:none;appearance:none}
+.hsearch input::placeholder{color:#5b6a7f}
+.hsearch input:focus{border-color:var(--blue);outline:3px solid rgba(23,105,224,.28);outline-offset:0}
+.hcount{margin:8px 0 0;min-height:22px;font-size:14.5px;color:var(--muted)}
+section.band.help{padding:36px 0 64px}
+.help-layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:44px;align-items:start}
+.help-toc{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:6px 8px 10px;box-shadow:0 2px 0 rgba(15,34,64,.03)}
+.help-toc summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:8px 10px;font-weight:800;font-size:16px;color:var(--navy);cursor:pointer;list-style:none}
+.help-toc summary::-webkit-details-marker{display:none}
+.help-toc summary:after{content:"\25BE";display:none;font-size:18px;color:var(--gold-big);transition:transform .15s}
+.help-toc[open] summary:after{transform:rotate(180deg)}
+.help-toc .s-mob{display:none}
+.toc-h{margin:8px 10px 2px;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#7a5600}
+.help-toc ol{list-style:none;margin:0;padding:0}
+.help-toc li a{display:block;padding:8px 10px;border-radius:8px;font-size:15px;line-height:1.35;color:#2b3a50;text-decoration:none}
+.help-toc li a:hover{background:#eef3fa;color:var(--navy)}
+.help-main{min-width:0}
+.hgroup{margin:0 0 16px;font-size:clamp(26px,3vw,34px);letter-spacing:-.03em;line-height:1.1;color:var(--navy);scroll-margin-top:18px}
+.hgroup:not(:first-child){margin-top:44px}
+.hintro{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin:0 0 24px;padding:16px 18px;background:#fff;border:1px solid var(--line);border-radius:14px}
+.hintro p{margin:0;flex:1 1 280px;font-size:16px;color:#32435a}
+.hempty{margin:0 0 20px;padding:18px 20px;background:#fff;border:1px dashed #b9c4d3;border-radius:14px;color:#32435a;font-size:16.5px}
+.harticle{margin:0 0 20px;padding:26px 28px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 0 rgba(15,34,64,.03);scroll-margin-top:18px;overflow-wrap:anywhere}
+.hhead{display:flex;align-items:baseline;gap:8px;margin:0 0 4px}
+.harticle h3{margin:0;font-size:clamp(23px,2.5vw,29px);line-height:1.15;letter-spacing:-.02em;color:var(--navy)}
+.hhead .anchor{padding:6px 4px;font-weight:700;color:#8a6410;text-decoration:none}
+.hhead .anchor:hover,.hhead .anchor:focus{color:var(--navy)}
+.harticle .sum{margin:0 0 16px;font-size:16.5px;color:var(--muted)}
+.harticle h4{margin:28px 0 8px;font-size:18.5px;line-height:1.25;color:var(--navy);scroll-margin-top:18px}
+.hbody>h4:first-child{margin-top:4px}
+.harticle p,.harticle li,.harticle dd,.faq-body p,.faq-body li{font-size:16.5px;line-height:1.55;color:#26364b}
+.harticle p,.faq-body p{margin:0 0 12px}
+.harticle ol,.harticle ul,.faq-body ol,.faq-body ul{margin:0 0 14px;padding-left:24px}
+.harticle li,.faq-body li{margin:6px 0}
+.harticle b,.faq-body b{color:var(--navy);font-weight:700}
+.harticle a,.faq-body a{color:var(--blue-d)}
+.callout{margin:14px 0;padding:12px 16px;background:var(--gold-soft);border-left:4px solid var(--gold);border-radius:8px}
+.harticle dl.msgs{margin:0 0 12px}
+.harticle dl.msgs dt{margin:14px 0 0;padding:6px 12px;background:#f1f5fa;border-radius:8px;font-weight:700;color:var(--navy);font-size:16px;line-height:1.4}
+.harticle dl.msgs dd{margin:6px 0 0 12px;font-size:16px}
+.totop{margin:20px 0 0;font-size:14.5px}
+.harticle .totop a,.hgroup-end a{font-weight:600;text-decoration:none;color:var(--blue-d)}
+.harticle:target,details.faq:target{box-shadow:0 0 0 3px var(--gold)}
+details.faq{margin:0 0 10px;background:#fff;border:1px solid var(--line);border-radius:12px;scroll-margin-top:18px;overflow-wrap:anywhere}
+details.faq summary{position:relative;min-height:52px;padding:14px 52px 14px 18px;font-size:17px;font-weight:700;line-height:1.35;color:var(--navy);cursor:pointer;list-style:none}
+details.faq summary::-webkit-details-marker{display:none}
+details.faq summary:after{content:"+";position:absolute;right:18px;top:50%;margin-top:-14px;width:28px;height:28px;border-radius:50%;background:var(--gold-soft);color:#7a5600;font-size:20px;line-height:28px;text-align:center}
+details.faq[open] summary:after{content:"\2013"}
+details.faq[open] summary{border-bottom:1px solid var(--line)}
+.faq-body{padding:14px 18px 6px}
+.hgroup-end{margin:6px 0 0;font-size:14.5px}
+@media (max-width:960px){
+  .help-layout{grid-template-columns:minmax(0,1fr);gap:18px}
+  .help-toc{position:static;max-height:none;padding:2px 6px}
+  .help-toc summary:after{display:inline}
+  .help-toc .s-desk{display:none}
+  .help-toc .s-mob{display:inline}
+}
+@media (max-width:640px){
+  section.band.help{padding:24px 0 48px}
+  .harticle{padding:20px 16px}
+  .hsearch input{font-size:17px}
+  details.faq summary{padding:13px 50px 13px 14px;font-size:16.5px}
+  .faq-body{padding:12px 14px 4px}
+  .harticle p,.harticle li,.harticle dd,.faq-body p,.faq-body li{font-size:16px}
+}
+@media print{
+  header.top,.close,.help-toc,.hsearch,.totop,.hgroup-end,.skip,dialog{display:none!important}
+  .phero{padding:0}.phero:before{display:none}
+}
+</style>
+</head>
+<body id="top">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-users" viewBox="0 0 48 48"><circle cx="24" cy="15" r="6"/><circle cx="11" cy="19" r="4.5"/><circle cx="37" cy="19" r="4.5"/><path d="M13 38c0-7 5-11 11-11s11 4 11 11"/><path d="M3 35c0-5 3-8 8-8M45 35c0-5-3-8-8-8"/></symbol>
+<symbol id="i-trophy" viewBox="0 0 48 48"><path d="M14 8h20v10c0 6-4 10-10 10s-10-4-10-10z"/><path d="M14 11H7c0 6 3 9 8 9M34 11h7c0 6-3 9-8 9"/><path d="M24 28v8M16 41h16M19 36h10"/></symbol>
+<symbol id="i-image" viewBox="0 0 48 48"><rect x="7" y="9" width="34" height="30" rx="3"/><circle cx="17" cy="19" r="3"/><path d="M8 35l10-10 8 8 6-6 9 9"/></symbol>
+<symbol id="i-doc" viewBox="0 0 48 48"><path d="M13 6h16l8 8v28H13z"/><path d="M29 6v8h8M19 24h12M19 30h12M19 36h8"/></symbol>
+<symbol id="i-printer" viewBox="0 0 48 48"><path d="M14 17V7h20v10"/><rect x="7" y="17" width="34" height="17" rx="3"/><rect x="14" y="28" width="20" height="13"/><path d="M33 23h2"/></symbol>
+<symbol id="i-grid" viewBox="0 0 48 48"><rect x="8" y="8" width="13" height="13" rx="2"/><rect x="27" y="8" width="13" height="13" rx="2"/><rect x="8" y="27" width="13" height="13" rx="2"/><rect x="27" y="27" width="13" height="13" rx="2"/></symbol>
+<symbol id="i-target" viewBox="0 0 48 48"><circle cx="24" cy="24" r="16"/><circle cx="24" cy="24" r="9"/><circle cx="24" cy="24" r="2.5"/><path d="M24 4v6M24 38v6M4 24h6M38 24h6"/></symbol>
+<symbol id="i-bracket" viewBox="0 0 48 48"><path d="M6 10h10v8H6zM6 30h10v8H6zM32 20h10v8H32z"/><path d="M16 14h6v10M16 34h6V24M22 24h10"/></symbol>
+<symbol id="i-check" viewBox="0 0 48 48"><rect x="8" y="8" width="32" height="32" rx="4"/><path d="M16 25l6 6 11-13"/></symbol>
+<symbol id="i-clock" viewBox="0 0 48 48"><circle cx="24" cy="24" r="16"/><path d="M24 14v10l7 4"/></symbol>
+<symbol id="i-monitor" viewBox="0 0 48 48"><rect x="6" y="9" width="36" height="25" rx="3"/><path d="M18 41h12M24 34v7"/></symbol>
+<symbol id="i-qr" viewBox="0 0 48 48"><rect x="8" y="8" width="12" height="12" rx="1"/><rect x="28" y="8" width="12" height="12" rx="1"/><rect x="8" y="28" width="12" height="12" rx="1"/><path d="M28 28h5v5M40 28v3M28 40h5M37 36h3v4"/></symbol>
+<symbol id="i-link" viewBox="0 0 48 48"><path d="M21 27a8 8 0 0 0 11 0l6-6a8 8 0 0 0-11-11l-3 3"/><path d="M27 21a8 8 0 0 0-11 0l-6 6a8 8 0 0 0 11 11l3-3"/></symbol>
+<symbol id="i-shield" viewBox="0 0 48 48"><path d="M24 6l15 5v11c0 10-6 17-15 20C15 39 9 32 9 22V11z"/><path d="M17 24l5 5 9-11"/></symbol>
+<symbol id="i-flag" viewBox="0 0 48 48"><path d="M12 42V8M12 10h24l-5 8 5 8H12"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 48 48"><rect x="7" y="10" width="34" height="30" rx="3"/><path d="M7 19h34M16 6v8M32 6v8"/></symbol>
+<symbol id="i-layers" viewBox="0 0 48 48"><path d="M24 7l17 9-17 9-17-9z"/><path d="M7 25l17 9 17-9M7 33l17 9 17-9"/></symbol>
+<symbol id="i-edit" viewBox="0 0 48 48"><path d="M10 38l2-9L32 9l7 7-20 20z"/><path d="M28 13l7 7"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15M13 5l7 7-7 7"/></symbol>
+</defs></svg>
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="top"><div class="wrap nav">
+  <a class="brand" href="/" aria-label="DartDraw home"><span class="mark" aria-hidden="true">D</span>DartDraw</a>
+  <nav class="nav-links" aria-label="Main">
+    <a href="/features">Features</a>
+    <a href="/how-it-works">How it works</a>
+    <a href="/help" aria-current="page">Help</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="btn sm" href="/login.html" data-login>Log in</a>
+</div></header>
+<main id="main">
+
+<section class="phero" aria-labelledby="helpH"><div class="wrap">
+  <p class="eyebrow">Help</p>
+  <h1 id="helpH">Help for organisers</h1>
+  <p class="lede">Short, step-by-step guides for running an event in DartDraw, and quick answers to the questions organisers ask most.</p>
+  <form class="hsearch" id="helpSearch" role="search" hidden>
+    <label for="helpQ">Search the help</label>
+    <input id="helpQ" type="search" placeholder="Try &ldquo;no-show&rdquo;, &ldquo;print&rdquo; or &ldquo;pop-up&rdquo;" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p class="hcount" id="helpCount" aria-live="polite"></p>
+  </form>
+</div></section>
+
+<section class="band alt help" aria-label="Help articles and questions"><div class="wrap help-layout">
+  <nav class="help-toc" aria-label="Help contents">
+    <details id="helpToc" open>
+      <summary><span class="s-desk">Contents</span><span class="s-mob">Jump to a topic</span></summary>
+      <div>
+        <p class="toc-h">Guide</p>
+        <ol>
+          <li data-toc="getting-started"><a href="#getting-started">Getting started</a></li>
+          <li data-toc="creating-an-event"><a href="#creating-an-event">Creating an event (step 1)</a></li>
+          <li data-toc="choosing-a-format"><a href="#choosing-a-format">Choosing a format (step 2)</a></li>
+          <li data-toc="entries-and-check-in"><a href="#entries-and-check-in">Entries, seeds, check-in and no-shows</a></li>
+          <li data-toc="draws-and-printing"><a href="#draws-and-printing">Groups, draws and printing (steps 3 and 4)</a></li>
+          <li data-toc="managing-the-tournament"><a href="#managing-the-tournament">Managing the tournament (step 5)</a></li>
+          <li data-toc="full-page-window"><a href="#full-page-window">Full-page window for a second screen</a></li>
+          <li data-toc="publishing-results"><a href="#publishing-results">Sharing live results</a></li>
+          <li data-toc="finishing-the-event"><a href="#finishing-the-event">Finishing the event</a></li>
+          <li data-toc="troubleshooting"><a href="#troubleshooting">Printing tips and troubleshooting</a></li>
+        </ol>
+        <p class="toc-h">Quick answers</p>
+        <ol>
+          <li data-toc="faq"><a href="#faq">Frequently asked questions (26)</a></li>
+        </ol>
+      </div>
+    </details>
+  </nav>
+  <div class="help-main">
+    <div class="hintro">
+      <p>Following an event as a spectator? The public results site has its own <a href="https://dartdraw-viewer.vercel.app/help" target="_blank" rel="noopener">help page for spectators</a>.</p>
+      <a class="btn sm" href="/login.html" data-login>Log in to DartDraw</a>
+    </div>
+    <p class="hempty" id="helpEmpty" hidden>Nothing matches &ldquo;<span id="helpEmptyQ"></span>&rdquo;. Try fewer or different words, such as &ldquo;score&rdquo;, &ldquo;print&rdquo; or &ldquo;knockout&rdquo;.</p>
+
+    <h2 class="hgroup" id="guide" data-group-head="guide">Guide</h2>
+    <article class="harticle" id="getting-started" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>Getting started</h3><a class="anchor" href="#getting-started" aria-label="Link to this section">#</a></div>
+      <p class="sum">Sign in, learn the seven steps, choose Basic or Advanced setup, and know what the save messages mean.</p>
+      <div class="hbody">
+<h4 id="signing-in">Signing in</h4>
+<p>Your site admin creates your account and sends you a link to choose a password. After that:</p>
+<ol>
+<li>Click <b>Log in</b> at the top of any public page.</li>
+<li>Type your email and password, then click <b>Sign in</b>.</li>
+<li>You land in the organiser app, where all your events live.</li>
+</ol>
+<p>Forgot your password? The surest way is to ask your admin for a reset link. You can also click <b>Forgot password?</b> under the sign-in form and type your email. If a link arrives, follow it. If nothing arrives, ask your admin.</p>
+<p>To change your password while you are signed in, click <b>Change password</b> next to <b>Log out</b> in the left-hand menu (on a phone or a narrow window, tap the step name in the bar at the top, then <b>Change password</b>). Type your <b>Current password</b>, then your <b>New password</b> twice. It must be at least 8 characters. Changing it signs you out on your other devices, but not on the one you are using.</p>
+<p class="callout"><b>Screen size.</b> The organiser app is made for a laptop, desktop or tablet. On a tablet or phone, hold it sideways (landscape). Held upright, DartDraw covers the screen with &ldquo;Please rotate your device to landscape to use DartDraw.&rdquo; Turn the device and your work is still there. A phone on its side works too, with a note that DartDraw works best on a tablet, laptop or desktop: the left-hand menu becomes a bar at the top. Tap the step name there for the steps, your events, <b>Rename</b>, <b>Duplicate</b> and <b>Delete</b> for the open event, and <b>Change password</b>. See <a href="#faq-phone">Can I use my phone?</a></p>
+
+<h4 id="seven-steps">The seven steps</h4>
+<p>The left-hand menu lists seven steps. Work down the list. You cannot skip ahead: step 2 opens once step 1 is saved, and step 3 opens once step 2 is saved.</p>
+<ol>
+<li><b>Event creation</b>: name the event and say how many entries play.</li>
+<li><b>Format &amp; branding</b>: choose the format, legs, boards, logos and rules.</li>
+<li><b>Chart details</b>: names, seeds, organisations and the draw.</li>
+<li><b>Confirm &amp; Print Bracket</b>: check each chart, confirm it and print the blank pack.</li>
+<li><b>Manage Tournament</b>: start the games, enter scores, share live results and finish the event.</li>
+<li><b>Finalize Standings</b>: a read-only look at the final standings.</li>
+<li><b>Print Final Chart</b>: print the pack with every result filled in.</li>
+</ol>
+
+<h4 id="setup-mode">Basic or Advanced setup</h4>
+<p>At the top of step 1, under <b>Setup mode</b>, you choose &ldquo;Basic&rdquo; or &ldquo;Advanced&rdquo;. In this guide they are called Basic setup and Advanced setup.</p>
+<ul>
+<li>&ldquo;Basic&rdquo; is the essentials: format, groups and scores. New events start here.</li>
+<li>&ldquo;Advanced&rdquo; adds scheduling details (level of play, start time and breaks), different best-of-legs for each knockout round, the Plate pool, sponsor logos with a footer line, and your own tie-break order.</li>
+</ul>
+<p>You can switch at any time, on step 1 or with the <b>Switch to Advanced</b> link at the top of step 2. Switching never deletes anything you have already set.</p>
+
+<h4 id="autosave">Saving your work</h4>
+<p>On steps 1 and 2, what you type is saved when you click the button at the bottom of the form (<b>Save event creation &rarr;</b> or <b>Save format &amp; branding &rarr;</b>). After that, every change is saved to your account by itself, a moment after you make it. Names save when you click or tab out of the box.</p>
+<p>The save status sits in the left-hand menu, under your name. On a narrow screen it is in the bar at the top, and in the full-page window it is in the header. It can say:</p>
+<dl class="msgs">
+<dt>Saving&hellip;</dt>
+<dd>Your change is on its way to your account.</dd>
+<dt>Saved</dt>
+<dd>All good. Your change is stored, and any device you sign in on will see it.</dd>
+<dt>Couldn&rsquo;t save &mdash; click to retry</dt>
+<dd>The change did not reach the server, usually because the connection dropped. Check your internet, then click the message to try again. Keep the page open until it says <b>Saved</b>. Until then DartDraw will not open another event or start a new one: it keeps you on this one and says &ldquo;Last change not saved yet&rdquo;. You can choose <b>Leave without saving</b>, but that change is then gone. <b>Log out</b> waits for it the same way, and if you close or reload the page meanwhile, your browser asks you first.</dd>
+<dt>Updated elsewhere &mdash; click to reload</dt>
+<dd>A newer copy of this event was saved in another tab, window or device, so the copy on your screen is out of date. A red banner also appears at the top of the page: &ldquo;Updated elsewhere &mdash; reload to get the latest.&rdquo; Your last change in this window was not saved, and from now on this window saves nothing for this event, so it cannot write over the newer results. Click <b>Reload</b> on the banner (or click the message) to load the latest copy. Then check it and enter your last change again.</dd>
+<dt>Deleted elsewhere &mdash; this event is no longer saved</dt>
+<dd>The event was deleted (or moved to another organiser) in another window or device, so nothing you change here can be saved. Open another event.</dd>
+<dt>Finalizing&hellip;</dt>
+<dd>You accepted the results and DartDraw is closing the event. Wait for it to finish.</dd>
+<dt>This event is finalized &mdash; only an Admin can change it</dt>
+<dd>The event is closed. See <a href="#finishing-the-event">Finishing the event</a>.</dd>
+</dl>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="creating-an-event" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>Creating an event (step 1)</h3><a class="anchor" href="#creating-an-event" aria-label="Link to this section">#</a></div>
+      <p class="sum">Name it, choose Singles or Doubles, set the date and the number of entries.</p>
+      <div class="hbody">
+<p>Click <b>+ New tournament</b> at the top of the left-hand menu. Step 1 is called <b>Event creation</b>. Fill in:</p>
+<ol>
+<li><b>Setup mode</b>: &ldquo;Basic&rdquo; or &ldquo;Advanced&rdquo;. See <a href="#setup-mode">Basic or Advanced setup</a>.</li>
+<li><b>Tournament name</b>: the day or competition, for example Spring Open 2026. It is printed on every sheet.</li>
+<li><b>Event name</b>: this competition inside it, for example Open Singles.</li>
+<li><b>Event category</b>: <b>Open</b>, <b>Women</b> or <b>Youth</b>. It is printed on the charts.</li>
+<li><b>Competition type</b>: <b>Singles</b> or <b>Doubles</b>.</li>
+<li><b>Tournament date</b>: shown on the charts. The public home page also uses it to list upcoming events.</li>
+<li><b>Number of entries</b>: at least 2.</li>
+</ol>
+<p>Click <b>Save event creation &rarr;</b> to move on to step 2.</p>
+
+<h4 id="singles-or-doubles">Singles or Doubles</h4>
+<p>In <b>Singles</b>, one entry is one player.</p>
+<p>In <b>Doubles</b>, one entry is a <b>pair</b> of two named players. The number of entries is the number of pairs, so 24 players make 12 entries. In step 3 each pair gets a <b>Pair name</b> plus boxes for <b>Player 1</b> and <b>Player 2</b>. Charts, results and the public page show the pair name, so choose something both players recognise, such as both surnames together.</p>
+
+<h4 id="boards-and-entries">Boards and the number of entries</h4>
+<p>There is no boards box on step 1. You set the number of boards on step 2, under Scheduling.</p>
+<p>You can change the number of entries later: click <b>Edit</b> on the summary card at the top of a step, change the number and save. Raising it adds blank entries such as &ldquo;Entry 9&rdquo;. Lowering it removes entries from the end of the list, so do that before you type names or draw groups.</p>
+<p>If you see a message that your account allows up to a certain number of entries per event, contact your admin.</p>
+
+<h4 id="your-events">Your saved events</h4>
+<p>Your events are listed under <b>Saved tournaments</b> in the left-hand menu. Click one to open it. Each has three small buttons:</p>
+<ul>
+<li><b>Rename</b> changes the tournament name.</li>
+<li><b>Duplicate</b> makes a copy called &ldquo;&hellip; (copy)&rdquo; with everything in it. The copy is not published, not listed and not finalized, so you can edit it.</li>
+<li><b>Delete</b> removes the event from your account for good. It cannot be undone.</li>
+</ul>
+<p>On step 1, <b>Discard / New tournament</b> throws away the form and starts a fresh event. A finalized event cannot be renamed or deleted by you.</p>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="choosing-a-format" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>Choosing a format (step 2)</h3><a class="anchor" href="#choosing-a-format" aria-label="Link to this section">#</a></div>
+      <p class="sum">Round robin, knockout, round robin then knockout, or Group Boards, plus legs, boards, branding and rules.</p>
+      <div class="hbody">
+<p>Step 2 is <b>Format &amp; branding</b>. It has four sections: <b>Format</b>, <b>Scheduling</b>, <b>Branding &amp; print</b> and <b>Rules</b>. Click a section heading to open or close it. Click <b>Save format &amp; branding &rarr;</b> when you are done.</p>
+
+<h4 id="format-types">The formats</h4>
+<p>Under <b>Competition format</b> pick one:</p>
+<ul>
+<li><b>Round robin</b>: entries play within their groups. Everyone in a group plays everyone else in it once.</li>
+<li><b>Knockout</b>: a direct elimination bracket. Lose and you are out. If the number of entries does not fill the bracket, the app adds byes in round 1 and gives them to the best seeds.</li>
+<li><b>Round robin &rarr; Knockout</b>: a group stage first, then the top finishers go into a bracket.</li>
+<li><b>Group Boards</b>: small knockout groups, each on its own board, then a Finals bracket for the group winners. It is optional and made for big fields. See below.</li>
+</ul>
+
+<h4 id="legs">Best of legs</h4>
+<p>The <b>Best of legs</b> box sets how long a match is. Odd numbers are best. Best of 5 means the first to 3 legs wins. When you enter a result, the winner must have exactly that many legs and the loser fewer. An even number shows a warning, because it can end level.</p>
+
+<h4 id="round-robin-setup">Round robin</h4>
+<p>Choose <b>Maximum entries per group</b> (3 to 6). A blue box under it shows the split DartDraw recommends, for example how many groups and how many matches each group plays. DartDraw balances the groups when it draws them.</p>
+
+<h4 id="rr-ko-setup">Round robin &rarr; Knockout</h4>
+<ul>
+<li><b>Entries per group (advance to knockout)</b>: how many from each group go into the bracket.</li>
+<li><b>How entries are placed into the bracket</b>: <b>Seeded by group standing (recommended)</b> puts group winners ahead of runners-up and keeps entries from the same group apart for as long as possible. <b>Random draw</b> mixes them up.</li>
+<li><b>Plate pool</b> (Advanced setup): tick <b>Also run a Plate pool knockout bracket for entries that don&rsquo;t advance</b>. Leave <b>Plate entries per group</b> empty to send everyone who does not advance to the Plate pool. Type a number to cap it, so anyone ranked below that is out.</li>
+</ul>
+<p>The bracket is not drawn until every group has finished. You draw it in step 5. See <a href="#managing-the-tournament">Managing the tournament</a>.</p>
+
+<h4 id="group-boards">Group Boards (optional)</h4>
+<p>Group Boards suits big fields. Instead of a few big groups you choose a number of small groups, and each group is a little knockout on its own board. Every group ends with a champion, and the champions meet in a <b>Finals</b> bracket. You do not have to use it.</p>
+<ul>
+<li><b>Number of groups</b>: at least 2, at most 128, and each group needs at least 2 players. DartDraw tells you if the numbers do not fit.</li>
+<li><b>Best of legs inside each group</b> can differ from the Finals. The Finals uses <b>Best of legs</b> (or your knockout leg settings in Advanced setup).</li>
+<li>In step 3 you click <b>Draw groups</b>. Seeded players are spread one per group, and the groups can be changed by hand until you confirm them.</li>
+<li>The Finals chart is built as soon as the last group is confirmed, with slots such as &ldquo;Winner of Group 3&rdquo;.</li>
+</ul>
+
+<h4 id="knockout-legs">More legs in later rounds</h4>
+<p>In Advanced setup a knockout has a tick box that raises the legs in later rounds. Tick it and you can set <b>Early rounds</b>, <b>Quarterfinal</b>, <b>Semifinal</b> and <b>Final</b> separately. Every round before the quarterfinal uses <b>Early rounds</b>. The Plate pool has its own, independent settings.</p>
+
+<h4 id="scheduling">Scheduling</h4>
+<p>Click <b>Edit scheduling settings</b>. <b>Number of boards available</b> sets the board choices later on. In Advanced setup you can also set <b>Level of play</b> (Professional, Amateur or Novice), an <b>Anticipated start time</b> and breaks. DartDraw uses these to estimate how long the event takes and to show &ldquo;On schedule&rdquo; or &ldquo;Running behind&rdquo; while you play. These are rough guides. They are never printed.</p>
+
+<h4 id="branding-and-rules">Branding and rules</h4>
+<ul>
+<li><b>Tournament logo</b>: best as a square or near-square PNG. DartDraw resizes it for you.</li>
+<li><b>Sponsor logos</b> and <b>Optional print rules / footer text</b> (Advanced setup): sponsor logos print in the chart footer as a rectangle or a square, whichever you pick for each one.</li>
+<li><b>Walkover, conduct &amp; other rules</b>: free text printed on the rules sheet.</li>
+<li><b>Tie-break order</b> (Advanced setup): move the rules up or down. See <a href="#faq-tie-breaks">How do tie-breaks work?</a></li>
+</ul>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="entries-and-check-in" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>Entries, seeds, check-in and no-shows</h3><a class="anchor" href="#entries-and-check-in" aria-label="Link to this section">#</a></div>
+      <p class="sum">Naming entries, organisations, seeding, check-in, withdrawals, walkovers and matches nobody played.</p>
+      <div class="hbody">
+<h4 id="naming-entries">Naming entries</h4>
+<p>Entries start with placeholder names such as &ldquo;Entry 1&rdquo;. Once groups are drawn, entries without a name of your own are labelled by position, for example &ldquo;Player A1&rdquo; or &ldquo;Pair A1&rdquo;. Type a name in the box and it stays.</p>
+<p>In Doubles, each entry also has <b>Player 1</b> and <b>Player 2</b> boxes. Fill in both, and put what you want people to see on charts and the public page in the pair name.</p>
+
+<h4 id="organisations">Organisations</h4>
+<p>Use the <b>Organisation (optional)</b> box for a club or organisation name. Then tick the box that keeps them apart:</p>
+<ul>
+<li><b>Round robin:</b> the <b>Organisation (optional)</b> box is always there on step 3. Tick <b>Avoid same-organisation clashes</b>. It also reshuffles existing clashes where it can. In Advanced setup the same option is under Rules on step 2.</li>
+<li><b>Knockout and Group Boards:</b> the <b>Organisation (optional)</b> box is hidden at first. It appears once you tick <b>Track organisation (avoid same-organisation matchups in the first round)</b> on step 3.</li>
+</ul>
+<p>It is a best effort. If there is no safe swap anywhere, a clash is left in place.</p>
+
+<h4 id="seeds">Seeds</h4>
+<p>In a <b>Knockout</b>, step 3 shows <b>Participants &amp; Seeding</b>. Seeding is off by default, which means a fresh random draw every time you generate the bracket. Tick <b>Seed this bracket</b>, then use the up and down arrows to put entries in order. <b>Number of seeds</b> (4, 8, 16, 32 or 64) sets how many of the top entries show a seed number on the printed chart. Everyone is still placed using your order. Seeds 1 and 2 can only meet in the final, and the best seeds get any byes.</p>
+<p>In <b>Round robin &rarr; Knockout</b>, seeds come from the group results. Entries show labels like &ldquo;A1&rdquo; (group A, first place). In <b>Group Boards</b>, the same seed list is used and seeds are spread one per group.</p>
+
+<h4 id="check-in">Check-in</h4>
+<p>On step 4 there is a <b>Check-in</b> card. Tick each entry as they arrive, or click <b>Check in all</b>. Use the search box, or tick <b>Only show who hasn&rsquo;t checked in yet</b>.</p>
+<p>Check-in is just a record for you. It never stops you confirming, printing or starting. You get a yellow warning &ldquo;Not everyone is checked in&rdquo; when you start games, generate a bracket or confirm Group Boards groups, and you can carry on. In Group Boards, tick people in on step 4. Then, on step 3, before you click <b>Draw groups</b>, a <b>Withdraw the N not checked in</b> button (N is a number) removes everyone who is not ticked. It only appears once at least one person is ticked, and only before the draw.</p>
+
+<h4 id="withdrawals">Withdrawals</h4>
+<p>In a round robin, click <b>Withdraw</b> next to the entry on step 3. Before the draw it simply removes them. After the draw you can type a replacement name to fill the slot, or leave it blank for a bye. A group whose entries changed is un-confirmed so you can check it again.</p>
+<p>The Knockout list on step 3 has no Withdraw button. If someone is not coming, use <b>Mark no-show&hellip;</b> on their match once the bracket is drawn.</p>
+
+<h4 id="no-shows">No-shows and walkovers</h4>
+<p>In a <b>round robin</b>, once the games have started, click <b>Mark no-show&hellip;</b> on the group&rsquo;s chart and choose the entry. Every match they have not yet played in that group is filled in as a walkover loss (a win by the majority of legs to nil) and tagged <b>WO</b>. Real results you already entered are never overwritten. The same box has an <b>undo</b> link. Entering a real score over a WO box replaces it.</p>
+<p>In a <b>knockout</b> or <b>Group Boards</b> match, click <b>Mark no-show&hellip;</b> under the match and choose who did not show. The other side wins by a walkover and goes through, tagged <b>WO</b>.</p>
+
+<h4 id="neither-showed">Neither showed</h4>
+<p>This is for knockout and Group Boards matches only; a round robin has no such choice. If neither side turns up, choose <b>Neither showed</b> in the same box. Nobody advances and the next opponent gets a bye. If the match is a group&rsquo;s final in Group Boards, that group finishes with no winner and its Finals slot reads &ldquo;Group N: no winner&rdquo;, which becomes a bye. To undo it, open the match and click <b>Reverse it</b>, or just enter a score. On the public page the match reads &ldquo;Neither attended&rdquo;, or NO-SHOW in the bracket Chart view.</p>
+
+<h4 id="adjust-positions">Adjusting positions</h4>
+<p>If a round robin tie needs your decision, click <b>Adjust positions&hellip;</b> on the group in Manage Tournament, type the position you want for each entry and click <b>Save</b>. Manual positions get an asterisk (*) on the chart. <b>Reset all</b> brings back the automatic order.</p>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="draws-and-printing" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>Groups, draws and printing (steps 3 and 4)</h3><a class="anchor" href="#draws-and-printing" aria-label="Link to this section">#</a></div>
+      <p class="sum">Draw and confirm the groups, then print the blank pack: charts, rules sheet, handouts, logos and QR codes.</p>
+      <div class="hbody">
+<h4 id="draw">Drawing the groups</h4>
+<p>In a round robin, step 3 is called <b>Draw &amp; groups</b>. Entries stay as &ldquo;Not drawn&rdquo; until you click <b>Random draw</b>. Click it again to deal everyone out afresh; DartDraw asks first because it discards your manual swaps.</p>
+<ul>
+<li>Switch between <b>Flat list</b> and <b>Grouped view</b>. The flat list has a search box for name or organisation.</li>
+<li><b>Swap with&hellip;</b> opens a list of groups and positions. Pick one. If it is occupied the two entries swap. If it is blank the entry moves there.</li>
+<li>Each group has a board. In the Grouped view you tick <b>Board(s)</b>. Groups on the same board play one after another. Tick more than one board to share a group&rsquo;s matches across them.</li>
+</ul>
+<p>The first match on every chart is 1 v 2. Each chart also lists the match order and suggests a marker for every match, chosen from the other entries in the group.</p>
+
+<h4 id="confirm">Confirming</h4>
+<p>Step 4 is <b>Confirm &amp; Print Bracket</b>. Check each group, then click <b>Confirm this chart</b>, or <b>Confirm all N charts</b>. The confirm box warns you about problems such as a missing entry or two identical names. If you later change who is in a confirmed group, it is un-confirmed for you with the note &ldquo;Un-confirmed automatically&rdquo;. Confirm it again.</p>
+<p>For a Knockout, step 4 has <b>Generate bracket</b> (or <b>Regenerate bracket</b>). Regenerating after results exist wipes them, and asks first.</p>
+
+<h4 id="print-pack">Printing the blank pack</h4>
+<p>Click <b>Print bracket pack</b>. The pack is A4 landscape and can include:</p>
+<ul>
+<li>the rules &amp; format sheet as the first page (tick box on the same screen);</li>
+<li>a master running order, board by board;</li>
+<li>one chart for each confirmed group;</li>
+<li>the knockout bracket, or a projected bracket with labels like A1 before the groups are played;</li>
+<li>a handout for every pair in Doubles: tick <b>Also print a pair handout sheet (roster + fixtures) for each pair</b>;</li>
+<li>in Group Boards, a <b>Players A&ndash;Z</b> sheet, a <b>Boards</b> sheet, one sheet for each group and the Finals.</li>
+</ul>
+<p>Knockout brackets have a <b>Knockout bracket paper size</b> (A4, A3, A2 or A1). A very large bracket is split over several sheets so the writing stays readable.</p>
+<p>Your browser&rsquo;s print window opens. Choose a printer, or choose <b>Save as PDF</b> to make a file. Print the blank pack before you start games; DartDraw suggests it when you start.</p>
+
+<h4 id="logos-and-rules">Logos, sponsors and the rules sheet</h4>
+<p>Your tournament logo goes in every sheet header. Sponsor logos (Advanced setup) print in the footer when <b>Include sponsor footer on printed charts</b> is ticked. The rules sheet is written for you from your settings: the format, scoring, how many go through, tie-break order, plus anything you typed in <b>Walkover, conduct &amp; other rules</b>.</p>
+
+<h4 id="qr-codes">QR codes</h4>
+<p>Only some sheets carry a QR code, with the live address beside it in the header: the round robin group charts, the knockout and Finals bracket sheets, the Group Boards group sheets, and in Group Boards the <b>Boards</b> and <b>Players A&ndash;Z</b> sheets. The rules sheet, the running order and the pair handouts do not have one.</p>
+<p>Each code opens that sheet&rsquo;s own page: a group chart opens that group, a bracket sheet opens the bracket, the Boards sheet opens the Boards tab, and Players A&ndash;Z opens the event. The codes are made in your browser, so printing does not need extra internet.</p>
+<p>They only appear when <b>Publish results</b> is on <em>and</em> the address of the public site is set up (if the Public results card says it is not, tell your admin). Switch publishing on before you print, or the codes will not be there.</p>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="managing-the-tournament" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>Managing the tournament (step 5)</h3><a class="anchor" href="#managing-the-tournament" aria-label="Link to this section">#</a></div>
+      <p class="sum">Start the games, enter scores, run the knockout and Group Boards, and keep a private incident log.</p>
+      <div class="hbody">
+<p>Step 5 is <b>Manage Tournament</b>. This is where you spend match day.</p>
+
+<h4 id="start-games">Start all games</h4>
+<p>In a round robin or Round robin &rarr; Knockout, scores are locked until you click <b>Start all games</b>. All confirmed charts start together; you cannot start them one by one. Before you start, the score boxes are hatched and clicking one says &ldquo;Scores are locked&rdquo;. A knockout has no start button: click a match when it is played.</p>
+<p>The box that opens may say <b>Suggestion: print the pack first</b>. You can choose <b>Go print the pack first</b> or <b>Start without printing</b>. It also names anyone who is not checked in.</p>
+
+<h4 id="enter-scores">Entering scores</h4>
+<p><b>Round robin:</b> click the box where two entries meet. Type each side&rsquo;s legs and click <b>Save score</b>. The winner must have exactly the legs needed for your best-of, and the loser fewer. Positions, points and leg totals update at once in the standings under each chart.</p>
+<p><b>Knockout:</b> click a match, type the legs and click <b>Save score</b>. There are no draws. The winner moves to the next round. If you change who won a match, later matches that depended on it are cleared.</p>
+<p>To correct a score, click it again and save the new result.</p>
+
+<h4 id="standings">Standings</h4>
+<p>The standings table shows <b>MP</b> (matches played), <b>MW</b> (won), <b>ML</b> (lost), <b>LW</b> (legs won), <b>+/-</b> (leg difference) and <b>Pts</b>. A small <b>TB</b> badge shows which tie-break separated two entries. A <b>?</b> means they are still level. See <a href="#faq-tie-breaks">How do tie-breaks work?</a></p>
+
+<h4 id="rr-knockout-draw">Drawing the knockout from a round robin</h4>
+<p>In Round robin &rarr; Knockout, the <b>Knockout stage</b> card has <b>Generate knockout bracket</b>. It stays greyed out, and says &ldquo;The knockout can only be drawn once every group is finished&rdquo;, until every group is complete. If a tie sits on the cut-off line, you also have to settle it first with <b>Adjust positions&hellip;</b>. <b>Regenerate from current standings</b> rebuilds the bracket. If knockout results are already in, they are discarded, so it asks first. The Plate pool bracket is drawn at the same time.</p>
+<p>Click <b>Start round</b> when a round begins if you want DartDraw to compare the clock with its estimates.</p>
+
+<h4 id="group-boards-day">Group Boards</h4>
+<p>Group Boards shows <b>All groups</b> as cards (filter with <b>All</b>, <b>Unfinished</b> and <b>Finished</b>). Click a group to open its bracket and enter results. Each group winner moves into the Finals by itself. When the Finals is built a <b>Finals</b> button appears.</p>
+<p>The <b>Boards</b> card shows, for every board, what is on now and what is next. <b>Call</b> tells players on the public results page to go to their board (<b>Uncall</b> clears it). <b>Enter result</b> and <b>No-show</b> are there too. <b>Finals boards</b> lets you put a Finals match on a feature board.</p>
+
+<h4 id="incident-log">Incident log</h4>
+<p>At the bottom of step 5, <b>+ Log incident</b> records a warning, dispute or other event with the entry, what happened and the action taken. It is for you only. It is never printed and never shown on the public page.</p>
+
+<h4 id="finishing-up">When play is over</h4>
+<p>Use the <b>Accept results &amp; finalize</b> card at the bottom of step 5. See <a href="#finishing-the-event">Finishing the event</a>. To use a second screen while you play, see <a href="#full-page-window">Full-page window for a second screen</a>.</p>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="full-page-window" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>Full-page window for a second screen</h3><a class="anchor" href="#full-page-window" aria-label="Link to this section">#</a></div>
+      <p class="sum">Open Round robin, the Winners bracket or the Plate pool in its own window for a projector or second monitor, and keep scoring.</p>
+      <div class="hbody">
+<h4 id="fpw-what">What it is</h4>
+<p>It is Manage Tournament with everything else taken away. There is no left-hand menu and no top bar. The window has a header with your logo (if you added one), the tournament name, the event name and the bracket name with its status (&ldquo;In progress&rdquo; or &ldquo;Champion: &hellip;&rdquo;), your sponsor logos, the save status (such as <b>Saved</b>) and a <b>Print</b> button. The round robin window shows &ldquo;Round robin&rdquo; and the number of charts instead. Under that is the chart.</p>
+<ul>
+<li>A <b>bracket</b> is scaled to fit your screen, and re-fits if you resize the window.</li>
+<li>The <b>round robin</b> shows one card for every confirmed group, each with its chart and standings. It scrolls.</li>
+</ul>
+<p>It is interactive. You can enter scores right there.</p>
+
+<h4 id="fpw-when">When to use it</h4>
+<p>Use it for a second monitor, a projector or a TV that players look at while you work on your laptop. You can also give the round robin, the Winners bracket and the Plate pool a screen each.</p>
+
+<h4 id="fpw-open">How to open it</h4>
+<p>Go to step 5, <b>Manage Tournament</b>. The buttons are at the top right of the Manage tournament card.</p>
+<ul>
+<li><b>Round robin</b>: <b>Open in new window &#8599;</b></li>
+<li><b>Knockout</b>: <b>Open in new window &#8599;</b>. It appears once the bracket has been generated.</li>
+<li><b>Round robin &rarr; Knockout</b>: three buttons, <b>Round robin &#8599;</b>, <b>Winners bracket &#8599;</b> and, if the event has a Plate pool and its bracket exists, <b>Plate pool &#8599;</b>.</li>
+</ul>
+<p>Group Boards events do not have this window. Use the Boards card instead, and the Boards tab with its TV view on the public page.</p>
+<p>The window opens as a new browser tab or window. Drag it onto the other screen if you need to. For a truly full screen, press <b>F11</b> in most browsers. That is a browser feature, not part of DartDraw.</p>
+
+<h4 id="fpw-popups">If nothing happens</h4>
+<p>DartDraw opens the window through your browser, and browsers can block that. When it is blocked, DartDraw says &ldquo;Your browser blocked the new window &mdash; allow pop-ups for this site, then click the button again.&rdquo; Look for a &ldquo;pop-up blocked&rdquo; icon in the address bar, choose to allow pop-ups for this site, then click the button again. Some browsers block it without telling DartDraw; if nothing opens and no message appears, do the same.</p>
+
+<h4 id="fpw-scores">Entering scores there</h4>
+<p>Click a score box or a match exactly as you would in the main window. In a bracket window, <b>Mark no-show&hellip;</b> works too. Be careful before you score there: read <a href="#fpw-sync">Keeping the windows in step</a> first. A few things only exist in the main window: <b>Start all games</b> (the round robin boxes are locked until you press it there), <b>Mark no-show&hellip;</b> and <b>Adjust positions&hellip;</b> for round robin groups, publishing and finalizing.</p>
+
+<h4 id="fpw-sync">Keeping the windows in step</h4>
+<p>This matters, so read it once.</p>
+<ul>
+<li>Each window loads your saved event when it opens, and saves what you do in it to your account.</li>
+<li><b>The windows do not update each other while you look at them.</b> A score you enter in one does not appear in the other straight away.</li>
+<li>When you switch to a window (click into it, or bring it back on screen), it checks for a newer copy of the event. If there is one, it loads it, stays on the same step and shows &ldquo;Updated with the latest scores&rdquo;. It skips this while a change of yours is still being saved, while a box is open, while you are typing in a box or have typed something not yet saved, and on steps 1 to 3, so check the scores before you enter the next one. Windows in the same browser tell each other when they save, so the window you switch to picks up the other one's score straight away. Otherwise (for example a change made on another device) it checks at most every few seconds.</li>
+<li>If you score in a window that is out of date, that score is <b>not saved</b>. DartDraw refuses it so it cannot write over the newer results, and the red banner &ldquo;Updated elsewhere &mdash; reload to get the latest&rdquo; appears in that window (the full-page window too). Until you reload, that window saves nothing.</li>
+<li>When you see the banner, click <b>Reload</b> <b>before you enter anything else</b>. Then check the scores and enter your last one again.</li>
+<li>So run <b>one window per event at a time</b> for entering scores, and use the other only to look at. Keep the full-page window on <b>one device</b> only. Do not open the same event on a second device or in a second tab and score there as well.</li>
+<li>If you are not sure a window is up to date, press <b>F5</b> in it before you score. In the main window you can also click the event in <b>Saved tournaments</b>.</li>
+<li>The full-page window shows its save status in the header. After you enter a score there, check that it says <b>Saved</b>. If it says &ldquo;Couldn&rsquo;t save &mdash; click to retry&rdquo;, check your connection and click it.</li>
+</ul>
+<p>The simplest habit: score in one window, and use the other for showing.</p>
+
+<h4 id="fpw-print">Printing</h4>
+<p>The <b>Print</b> button in the full-page window prints just what that window shows: the bracket sheet, or the round robin group charts, the same sheets as in the full pack. For the whole pack (rules sheet, running order and every chart), print from the main window, on step 4 (<b>Print bracket pack</b>) or step 7 (<b>Print final chart &mdash; Save high-res A4 PDF</b>).</p>
+
+<h4 id="fpw-empty">When it says something is missing</h4>
+<ul>
+<li>&ldquo;No bracket yet &mdash; generate one in Confirm &amp; Print Bracket, then reopen this window.&rdquo; Generate the bracket in the main window, then open the window again or reload it.</li>
+<li>&ldquo;No confirmed charts yet &mdash; confirm at least one group in Confirm &amp; Print Bracket, then reopen this window.&rdquo; The round robin window needs at least one confirmed group.</li>
+<li>&ldquo;No tournament open.&rdquo; There is no event to show. Close the window and open it again from Manage Tournament.</li>
+</ul>
+
+<h4 id="fpw-finalized">Finalized events</h4>
+<p>A finalized event opens view-only. Score boxes and matches do nothing. If a window that did not know the event was finalized tries to save a change, a notice appears at the top: &ldquo;This event is finalized. Your change was not saved; only an Admin can change it.&rdquo;</p>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="publishing-results" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>Sharing live results</h3><a class="anchor" href="#publishing-results" aria-label="Link to this section">#</a></div>
+      <p class="sum">Publish results, list the event on the public home page, and know what spectators see.</p>
+      <div class="hbody">
+<h4 id="publish">Publishing</h4>
+<p>At the bottom of step 5 is the <b>Public results</b> card.</p>
+<ol>
+<li>Tick <b>Publish results</b>.</li>
+<li>A link appears. Click <b>Copy link</b> to share it, <b>Open &#8599;</b> to look at it, or <b>All events &#8599;</b> for the public home page.</li>
+<li>Untick <b>Publish results</b> any time to take the page offline.</li>
+</ol>
+<p>If the card says the address of the public site is not set up yet, tell your admin.</p>
+
+<h4 id="listing">Listing on the home page</h4>
+<p>The public results site (DartDraw Live) has a home page that lists events. Yours is only on it if you tick <b>List on the public page</b>, under <b>Publish results</b>. It is off by default. The list shows the event and tournament name, the date, the format, the number of entries and, when finished, the winner. Your private link keeps working either way.</p>
+<ul>
+<li>Unticking <b>Publish results</b> also removes the listing, and ticking it again does not bring the listing back.</li>
+<li>A duplicated event starts unpublished and unlisted.</li>
+<li>The home page has three tabs. <b>Live</b> is for events being played, <b>Upcoming</b> for events that have not started, and <b>Results</b> for finalized events.</li>
+</ul>
+
+<h4 id="what-spectators-see">What spectators see</h4>
+<p>Anyone with the link sees the standings, results and bracket, and can look up a player. Group Boards events also have a <b>Boards</b> tab. They see entry names and organisations. They never see your notes, the incident log, the individual names typed into <b>Player 1</b> and <b>Player 2</b>, check-in details, or your logo and sponsors.</p>
+<p>Spectators have their own help page at <a href="https://dartdraw-viewer.vercel.app/help" target="_blank" rel="noopener">the public results site</a>. Send it to anyone who asks how to follow the event.</p>
+
+<h4 id="how-fast">How fast it updates</h4>
+<p>The event page refreshes itself about every 20 seconds and picks up scores shortly after they are saved. Changes to the home page list can take about half a minute to appear.</p>
+
+<h4 id="before-finalizing">Before you finalize</h4>
+<p>Set <b>Publish results</b> and <b>List on the public page</b> the way you want them first. They cannot be changed once the event is finalized.</p>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="finishing-the-event" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>Finishing the event</h3><a class="anchor" href="#finishing-the-event" aria-label="Link to this section">#</a></div>
+      <p class="sum">Review the final standings, print the final chart, then accept the results.</p>
+      <div class="hbody">
+<h4 id="review">Review and print</h4>
+<p>Step 6, <b>Finalize Standings</b>, is a read-only look at the final tables or placings. If you spot a mistake, click <b>Back to manage tournament</b> and correct the score. Step 7, <b>Print Final Chart</b>, prints the pack with every result. Click <b>Print final chart &mdash; Save high-res A4 PDF</b>, and choose <b>Save as PDF</b> in the print window if you want a file.</p>
+<p>If two entries are still level after every tie-break rule, a box called &ldquo;Resolve ties before continuing&rdquo; stops you at steps 6 and 7. Settle the tie, then use <b>Adjust positions&hellip;</b>.</p>
+
+<h4 id="accept">Accepting the results</h4>
+<p>At the bottom of step 5, the <b>Accept results &amp; finalize</b> card says &ldquo;Available once every match is played&rdquo; until the last result is in. Then:</p>
+<ol>
+<li>Click <b>Accept &amp; finalize</b>.</li>
+<li>Read the box &ldquo;Accept results as final?&rdquo; and click <b>Accept &amp; finalize</b> again.</li>
+</ol>
+<p>If something goes wrong, a box says <b>Not finalized</b> and tells you why, for example that the last save did not go through or that the event was changed elsewhere. Fix that and try again.</p>
+
+<h4 id="what-it-locks">What it locks</h4>
+<ul>
+<li>The public page shows <b>Final results</b>, and the event moves to <b>Results</b> on the home page if it is listed.</li>
+<li>Nothing in the event can be edited, renamed or deleted from the organiser app. Controls are greyed out. That includes the publishing and listing settings.</li>
+<li>You can still look through every step, print, copy the public link, open other events and change your password.</li>
+</ul>
+
+<h4 id="reopening">Changing a finalized event</h4>
+<p><b>Only an Admin can reopen or edit a finalized event.</b> Ask your admin. Once it is reopened, reload the event, make your change, and accept the results again.</p>
+<p>Finalized events stay on the home page&rsquo;s Results tab for a limited time, which your admin sets. After that they leave the list. The event stays in your account.</p>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="troubleshooting" data-item data-group="guide" data-kind="guide">
+      <div class="hhead"><h3>Printing tips and troubleshooting</h3><a class="anchor" href="#troubleshooting" aria-label="Link to this section">#</a></div>
+      <p class="sum">Fixes for the things that go wrong most often: printing, pop-ups, locked scores, expired sign-in and clashing windows.</p>
+      <div class="hbody">
+<h4 id="printing-tips">Printing tips</h4>
+<ul>
+<li>Printing uses your browser&rsquo;s print window. To make a PDF, pick <b>Save as PDF</b> as the printer.</li>
+<li>Sheets are A4 landscape, apart from knockout brackets, which follow the <b>Knockout bracket paper size</b> you chose.</li>
+<li>Look at the preview before printing. If the page is cut off, check the paper size and that the scale is on its default setting.</li>
+<li>Print the blank pack <em>before</em> you start the games. You can print again at any time.</li>
+<li>Switch <b>Publish results</b> on before you print if you want QR codes on the group charts and bracket sheets.</li>
+<li>Print the full pack from the main window: <b>Print bracket pack</b> on step 4, <b>Print final chart &mdash; Save high-res A4 PDF</b> on step 7. The <b>Print</b> button in the full-page window prints only the chart that window shows.</li>
+</ul>
+
+<h4 id="fixes">Common problems</h4>
+<dl class="msgs">
+<dt>Nothing opens when I click Open in new window</dt>
+<dd>Your browser blocked the pop-up. DartDraw usually says so: &ldquo;Your browser blocked the new window &mdash; allow pop-ups for this site, then click the button again.&rdquo; Allow pop-ups for this site and click again. See <a href="#full-page-window">Full-page window for a second screen</a>.</dd>
+<dt>&ldquo;Scores are locked&rdquo;</dt>
+<dd>Games have not started. Go to Manage Tournament and click <b>Start all games</b>.</dd>
+<dt>Start all games or Print is greyed out</dt>
+<dd>You have no confirmed chart yet. Confirm at least one in Confirm &amp; Print Bracket.</dd>
+<dt>&ldquo;The knockout can only be drawn once every group is finished&rdquo;</dt>
+<dd>Finish every group first. If entries are level on the cut-off line, settle them with <b>Adjust positions&hellip;</b>.</dd>
+<dt>&ldquo;Resolve ties before continuing&rdquo;</dt>
+<dd>Two or more entries are level after every tie-break rule. Decide the order (a playoff or your decision) and set it with <b>Adjust positions&hellip;</b>.</dd>
+<dt>I was sent back to the sign-in box</dt>
+<dd>Your session ended. Sessions do not last for ever, and they also end if your password was changed or your account was suspended. Sign in again. If a change had not been saved yet, DartDraw keeps it in this browser and, after you sign in again, asks whether to restore it. It can only be restored if the event has not changed in the meantime; otherwise it says so, and you enter the change again.</dd>
+<dt>&ldquo;Updated elsewhere &mdash; click to reload&rdquo;</dt>
+<dd>The same event was changed on another device, tab or window. The red banner at the top says &ldquo;Updated elsewhere &mdash; reload to get the latest&rdquo;. Your last change in this window was not saved, and this window saves nothing more for the event until you reload, so it cannot write over the newer results. Click <b>Reload</b> before you enter anything else, then enter your last change again. To avoid it, work on each event in one window at a time.</dd>
+<dt>&ldquo;Couldn&rsquo;t save &mdash; click to retry&rdquo;</dt>
+<dd>Check your internet connection and click the message. Do not close the page until it says <b>Saved</b>.</dd>
+<dt>The page looks out of date</dt>
+<dd>Press <b>F5</b> to reload. The saved copy is always the truth.</dd>
+<dt>The left-hand menu is missing</dt>
+<dd>Your screen is narrow or short (a phone on its side, for example), so the menu is replaced by a bar at the top. Tap the step name in that bar to choose a step or another event. For more room, use a laptop, desktop or tablet, or widen the window.</dd>
+<dt>&ldquo;Please rotate your device to landscape to use DartDraw.&rdquo;</dt>
+<dd>On a tablet or phone, DartDraw only works held sideways. Turn the device; the message goes by itself and nothing you did is lost.</dd>
+</dl>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    
+
+    <h2 class="hgroup" id="faq" data-group-head="faq">Frequently asked questions</h2>
+    <details class="faq" id="faq-two-events" data-item data-group="faq" data-kind="faq">
+      <summary>Can I run two events at once?</summary>
+      <div class="faq-body"><p>Yes. Each event is separate. Click <b>+ New tournament</b> for the second one, or open it from <b>Saved tournaments</b>. Open the app in a second browser tab if you want to look at both together. Just do not open the <em>same</em> event in two places and score in both. A score entered in a window that is out of date is not saved. If you see &ldquo;Updated elsewhere&rdquo;, click <b>Reload</b> before you enter anything else, then enter your last change again.</p></div>
+    </details>
+    <details class="faq" id="faq-offline" data-item data-group="faq" data-kind="faq">
+      <summary>Can I use DartDraw offline?</summary>
+      <div class="faq-body"><p>No. Your events are saved to your account on the internet, so you need a connection to sign in and to save. If the connection drops, DartDraw shows <b>Couldn&rsquo;t save &mdash; click to retry</b>. Keep the page open, get back online and click the message, and wait for <b>Saved</b> before you open another event (DartDraw keeps you on the event until then). It is a good idea to print the blank pack before play in case the venue wifi is poor.</p></div>
+    </details>
+    <details class="faq" id="faq-how-many-entries" data-item data-group="faq" data-kind="faq">
+      <summary>How many entries can I have?</summary>
+      <div class="faq-body"><p>There is no fixed limit for a round robin. A knockout bracket holds up to 128 slots. For big fields, use Group Boards, which allows up to 128 groups of at least 2 players each. If you see a message that your account allows up to a certain number of entries per event, contact your admin.</p></div>
+    </details>
+    <details class="faq" id="faq-change-after-finalized" data-item data-group="faq" data-kind="faq">
+      <summary>How do I change a score after the event is finalized?</summary>
+      <div class="faq-body"><p>You cannot. Only an Admin can reopen a finalized event, so ask your admin. Once it is reopened, reload the event, fix the score and accept the results again. Before you finalize, you can correct any score by clicking it and saving a new result. See <a href="#finishing-the-event">Finishing the event</a>.</p></div>
+    </details>
+    <details class="faq" id="faq-pair-names" data-item data-group="faq" data-kind="faq">
+      <summary>Can spectators see the names of players in a pair?</summary>
+      <div class="faq-body"><p>They see the <b>pair name</b> you type, and the organisation if you gave one. They do not see what you typed in the <b>Player 1</b> and <b>Player 2</b> boxes. If you want both names to show, put both names in the pair name.</p></div>
+    </details>
+    <details class="faq" id="faq-not-on-home-page" data-item data-group="faq" data-kind="faq">
+      <summary>Why is my event not on the public home page?</summary>
+      <div class="faq-body">
+<p>Go through this list:</p>
+<ol>
+<li>Is <b>Publish results</b> ticked on the Public results card (bottom of step 5)?</li>
+<li>Is <b>List on the public page</b> ticked? It is off by default, and unticking Publish results turns it off.</li>
+<li>Wait about half a minute and refresh the home page.</li>
+<li>Look at the right tab. <b>Live</b> needs play to have started and the event not finalized. <b>Upcoming</b> is for events that have not started and have a date of yesterday or later. <b>Results</b> is for finalized events, and only for a limited time.</li>
+<li>If the card says the address of the public site is not set up, tell your admin.</li>
+</ol>
+<p>A duplicated event starts unpublished and unlisted, so tick both again.</p></div>
+    </details>
+    <details class="faq" id="faq-tie-breaks" data-item data-group="faq" data-kind="faq">
+      <summary>How do tie-breaks work?</summary>
+      <div class="faq-body">
+<p>Entries are ranked by points first. A win is 2 points and a loss 0. Results are entered as finished matches, so there is always a winner.</p>
+<p>When entries have the same points, DartDraw uses your <b>Tie-break order</b>. The default is:</p>
+<ol>
+<li><b>Head-to-head result</b>: whoever won the match between them goes ahead.</li>
+<li><b>Leg difference</b>: legs won minus legs lost over the whole group.</li>
+<li><b>Legs won</b>: the most legs won over the whole group.</li>
+<li><b>Organiser decision / playoff</b>: nothing automatic. It is down to you.</li>
+</ol>
+<p>With three or more entries level, head-to-head, leg difference and legs won use only the matches those entries played against each other. If a rule separates some of them, the entries still level are sorted again by the rules, in order.</p>
+<p>If every rule leaves two entries level, a <b>?</b> badge appears and a warning says they need an organiser decision or a playoff. Settle it, then set the order with <b>Adjust positions&hellip;</b>. Steps 6 and 7, and drawing the knockout when the tie is on the cut-off line, stay locked until you do. In Advanced setup you can reorder the rules under Rules on step 2.</p></div>
+    </details>
+    <details class="faq" id="faq-legs" data-item data-group="faq" data-kind="faq">
+      <summary>What does &ldquo;best of 5&rdquo; mean when I enter a score?</summary>
+      <div class="faq-body"><p>The first to win most of the legs wins the match. In a best of 5 that is 3 legs. The score box accepts only finished results: the winner must have exactly 3, and the loser 0, 1 or 2. In a best of 3 the winner needs 2, and so on.</p></div>
+    </details>
+    <details class="faq" id="faq-byes" data-item data-group="faq" data-kind="faq">
+      <summary>How are byes decided in a knockout?</summary>
+      <div class="faq-body"><p>The bracket size is the next one up from your entries (4, 8, 16, 32, 64 or 128). The empty places are byes in round 1. They go to the best seeds. With seeding off, the draw is random. Entries from the same organisation are kept apart as long as possible when you have turned that option on.</p></div>
+    </details>
+    <details class="faq" id="faq-basic-advanced" data-item data-group="faq" data-kind="faq">
+      <summary>What is the difference between Basic and Advanced setup?</summary>
+      <div class="faq-body"><p>Basic setup shows only the essentials. Advanced setup adds scheduling (level of play, start time, breaks), different best-of-legs for later knockout rounds, the Plate pool, sponsor logos with a footer line, and your own tie-break order. You can switch whenever you like and nothing you set is lost. See <a href="#setup-mode">Basic or Advanced setup</a>.</p></div>
+    </details>
+    <details class="faq" id="faq-plate" data-item data-group="faq" data-kind="faq">
+      <summary>What is a Plate pool?</summary>
+      <div class="faq-body"><p>In Round robin &rarr; Knockout, entries that do not advance can play their own knockout, called the Plate pool, so they still get matches. Turn it on in Advanced setup on step 2. You can limit how many enter with <b>Plate entries per group</b>. See <a href="#rr-ko-setup">Round robin &rarr; Knockout</a>.</p></div>
+    </details>
+    <details class="faq" id="faq-group-boards" data-item data-group="faq" data-kind="faq">
+      <summary>What is Group Boards, and do I have to use it?</summary>
+      <div class="faq-body"><p>No, it is optional. Group Boards splits a big field into small knockout groups. Each group has its own board and ends with a champion, and the champions play a Finals bracket. It suits large events. For a normal-sized field, a round robin or a knockout is usually simpler. See <a href="#group-boards">Group Boards</a>.</p></div>
+    </details>
+    <details class="faq" id="faq-change-format" data-item data-group="faq" data-kind="faq">
+      <summary>Can I change the format after I have started?</summary>
+      <div class="faq-body"><p>Change the format before you start the games. Go back to step 2, make the change and save. Round robin groups adjust to fit. Group Boards cannot be redrawn once scores are in. Once scores are entered it is safest to leave the format alone.</p></div>
+    </details>
+    <details class="faq" id="faq-move-player" data-item data-group="faq" data-kind="faq">
+      <summary>Can I move a player to another group?</summary>
+      <div class="faq-body"><p>Yes, on step 3. In a round robin use <b>Swap with&hellip;</b>. In Group Boards use <b>Move&hellip;</b> before you confirm the groups. A confirmed group whose entries change is un-confirmed for you. Do this before games start. Moving players around after scores are in will confuse the results.</p></div>
+    </details>
+    <details class="faq" id="faq-no-show" data-item data-group="faq" data-kind="faq">
+      <summary>Someone did not turn up. What do I do?</summary>
+      <div class="faq-body"><p>Once play has started, use <b>Mark no-show&hellip;</b>. In a round robin it fills their unplayed matches with walkover losses. In a knockout it gives the opponent a walkover win. If both are missing in a knockout or Group Boards match, choose <b>Neither showed</b> (a round robin does not have that choice). Before play, in a round robin you can <b>Withdraw</b> them. See <a href="#no-shows">No-shows and walkovers</a>.</p></div>
+    </details>
+    <details class="faq" id="faq-admin" data-item data-group="faq" data-kind="faq">
+      <summary>Who is the Admin, and how do I reach them?</summary>
+      <div class="faq-body"><p>The Admin is the person who runs your DartDraw site. They create organiser accounts, can send a password reset link, and are the only person who can reopen a finalized event. Contact them the way you normally would. DartDraw has no built-in way to message them.</p></div>
+    </details>
+    <details class="faq" id="faq-forgot-password" data-item data-group="faq" data-kind="faq">
+      <summary>I forgot my password</summary>
+      <div class="faq-body"><p>Ask your admin for a reset link. You can also click <b>Forgot password?</b> on the sign-in form and type your email; if a link arrives, follow it, and if nothing arrives, ask your admin. Using a reset link signs you out on every device.</p></div>
+    </details>
+    <details class="faq" id="faq-paper-size" data-item data-group="faq" data-kind="faq">
+      <summary>Can I print on A3 or bigger?</summary>
+      <div class="faq-body"><p>Knockout brackets can be printed on A4, A3, A2 or A1. Pick the <b>Knockout bracket paper size</b> on the print screen. Round robin charts and other sheets are A4 landscape.</p></div>
+    </details>
+    <details class="faq" id="faq-update-speed" data-item data-group="faq" data-kind="faq">
+      <summary>How quickly do spectators see new scores?</summary>
+      <div class="faq-body"><p>Their page refreshes itself about every 20 seconds, and picks up scores shortly after you save them. The home page list can take about half a minute to catch up.</p></div>
+    </details>
+    <details class="faq" id="faq-duplicate" data-item data-group="faq" data-kind="faq">
+      <summary>Can I reuse an event for next time?</summary>
+      <div class="faq-body"><p>Yes. Click <b>Duplicate</b> under the event in <b>Saved tournaments</b>. You get a copy with &ldquo;(copy)&rdquo; added to the name. It is open for editing, not published and not listed. The copy keeps the entries, settings and any scores, so change what you need.</p></div>
+    </details>
+    <details class="faq" id="faq-incident-log" data-item data-group="faq" data-kind="faq">
+      <summary>Is the incident log public?</summary>
+      <div class="faq-body"><p>No. It is only for you. It is never printed and never appears on the public results page.</p></div>
+    </details>
+    <details class="faq" id="faq-two-devices" data-item data-group="faq" data-kind="faq">
+      <summary>Can I use the same account on two devices?</summary>
+      <div class="faq-body"><p>Yes. Sign in on both. Your events are the same on each. Just score each event on one device at a time. A score entered on a device that is out of date is not saved. If you see &ldquo;Updated elsewhere &mdash; click to reload&rdquo;, click <b>Reload</b> on the red banner before you enter anything else, then check your latest scores and enter your last change again.</p></div>
+    </details>
+    <details class="faq" id="faq-unconfirmed" data-item data-group="faq" data-kind="faq">
+      <summary>Why did a chart say &ldquo;Un-confirmed automatically&rdquo;?</summary>
+      <div class="faq-body"><p>You changed who is in that group after confirming it, for example by swapping or withdrawing an entry. DartDraw un-confirms it so you check it again. Click <b>Confirm this chart</b> once it is right.</p></div>
+    </details>
+    <details class="faq" id="faq-window-sync" data-item data-group="faq" data-kind="faq">
+      <summary>Does the full-page window update by itself?</summary>
+      <div class="faq-body"><p>Not while you are looking at it. Each window loads the saved event when it opens. When you switch to a window, it checks for a newer copy and loads it, with the note &ldquo;Updated with the latest scores&rdquo; (not on steps 1 to 3, not while one of your changes is still saving or a box is open, and not while you have typed something not yet saved). Windows in the same browser tell each other when they save, so this works straight away; for a change made on another device it checks at most every few seconds. An out-of-date window cannot write over newer scores: its save is refused and it shows &ldquo;Updated elsewhere &mdash; reload to get the latest&rdquo;, but the score you entered there is not saved. Press <b>F5</b> to bring a window up to date, and score in one window at a time. See <a href="#fpw-sync">Keeping the windows in step</a>.</p></div>
+    </details>
+    <details class="faq" id="faq-phone" data-item data-group="faq" data-kind="faq">
+      <summary>Can I use my phone?</summary>
+      <div class="faq-body"><p>Yes, held sideways (landscape), but DartDraw works best on a tablet, laptop or desktop. Held upright, a phone or tablet shows &ldquo;Please rotate your device to landscape to use DartDraw.&rdquo; Turn it and the app is back as you left it. On a phone on its side, a slim note says DartDraw works best on a bigger screen (tap &times; to hide it), and the left-hand menu becomes a bar at the top: tap the step name to change step, open another event, rename, duplicate or delete this one, or change your password. Setting up an event is easier on a bigger screen; a phone is fine for checking and entering scores.</p></div>
+    </details>
+    <details class="faq" id="faq-delete" data-item data-group="faq" data-kind="faq">
+      <summary>Can I delete or rename an event?</summary>
+      <div class="faq-body"><p>Yes, with <b>Rename</b> and <b>Delete</b> under the event in <b>Saved tournaments</b>. Deleting removes it from your account for good. You cannot rename or delete a finalized event. Ask your admin.</p></div>
+    </details>
+    <p class="hgroup-end"><a href="#top">Back to top &uarr;</a></p>
+  </div>
+</div></section>
+
+<script>
+(function(){
+var form=document.getElementById('helpSearch'),input=document.getElementById('helpQ');
+if(!form||!input)return;
+var count=document.getElementById('helpCount'),empty=document.getElementById('helpEmpty'),emptyQ=document.getElementById('helpEmptyQ');
+var items=[].slice.call(document.querySelectorAll('[data-item]'));
+var heads=[].slice.call(document.querySelectorAll('[data-group-head]'));
+var tocItems=[].slice.call(document.querySelectorAll('[data-toc]'));
+var texts=items.map(function(el){return String(el.textContent||'').toLowerCase().replace(/\s+/g,' ')});
+form.hidden=false;
+function terms(q){return String(q||'').toLowerCase().split(/\s+/).filter(Boolean)}
+function apply(){
+  var ts=terms(input.value),shown=0,vis={},perGroup={};
+  items.forEach(function(el,i){
+    var ok=ts.every(function(t){return texts[i].indexOf(t)>=0});
+    el.hidden=!ok;
+    vis[el.getAttribute('id')]=ok;
+    if(ok){shown++;var g=el.getAttribute('data-group');perGroup[g]=(perGroup[g]||0)+1}
+    if(el.getAttribute('data-kind')==='faq'){
+      if(ts.length&&ok&&!el.open){el.open=true;el.__bySearch=true}
+      else if((!ts.length||!ok)&&el.__bySearch){el.open=false;el.__bySearch=false}
+    }
+  });
+  heads.forEach(function(h){h.hidden=!perGroup[h.getAttribute('data-group-head')]});
+  tocItems.forEach(function(li){
+    var id=li.getAttribute('data-toc');
+    li.hidden=!(id in vis?vis[id]:!!perGroup[id]);
+  });
+  if(count)count.textContent=ts.length?(shown+(shown===1?' result':' results')):'';
+  if(empty){empty.hidden=!(ts.length&&!shown);if(emptyQ)emptyQ.textContent=String(input.value).replace(/^\s+|\s+$/g,'')}
+}
+input.addEventListener('input',apply);
+input.addEventListener('keydown',function(e){if(e.key==='Escape'&&input.value){input.value='';apply()}});
+form.addEventListener('submit',function(e){e.preventDefault()});
+function itemOf(el){while(el&&!(el.getAttribute&&el.getAttribute('data-item')!==null))el=el.parentNode;return el}
+function onHash(){
+  var id=String((typeof location!=='undefined'&&location.hash)||'').slice(1);
+  if(!id)return;
+  var el=document.getElementById(id);
+  var it=itemOf(el);
+  if(!it)return;
+  if(it.hidden){input.value='';apply();if(el.scrollIntoView)el.scrollIntoView()}
+  if(it.getAttribute('data-kind')==='faq'&&!it.open)it.open=true;
+}
+window.addEventListener('hashchange',onHash);
+onHash();
+var toc=document.getElementById('helpToc'),mq=window.matchMedia?window.matchMedia('(min-width: 961px)'):null;
+if(toc&&mq){
+  var sum=toc.querySelector('summary');
+  toc.open=mq.matches;
+  if(sum)sum.addEventListener('click',function(e){if(mq.matches)e.preventDefault()});
+  toc.addEventListener('click',function(e){var t=e.target;if(t&&t.tagName==='A'&&!mq.matches)toc.open=false});
+  var sync=function(){if(mq.matches)toc.open=true};
+  if(mq.addEventListener)mq.addEventListener('change',sync);else if(mq.addListener)mq.addListener(sync);
+}
+})();
+</script>
+</main>
+
+<section class="close" aria-labelledby="closeH"><div class="wrap">
+  <h2 id="closeH">Ready to run your <em>next draw?</em></h2>
+  <a class="btn" href="/login.html" data-login>Log in <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+  <nav class="foot-nav" aria-label="Footer">
+    <a href="/features">Features</a>
+    <a href="/how-it-works">How it works</a>
+    <a href="/help">Help</a>
+  </nav>
+  <div class="foot"><a class="brand" href="/"><span class="mark" aria-hidden="true">D</span>DartDraw</a><span class="sep" aria-hidden="true"></span><span>Tournament charts, made simple.</span></div>
+</div></section>
+
+<dialog id="loginDlg" aria-label="Log in to DartDraw">
+  <div class="dlg">
+    <button class="x" type="button" aria-label="Close" data-close>&times;</button>
+    <iframe id="loginFrame" title="Log in to DartDraw" data-src="/login.html?embed=1"></iframe>
+  </div>
+</dialog>
+<script>
+(function(){
+var d=document.getElementById('loginDlg'),f=document.getElementById('loginFrame');
+if(!d||!f)return;
+var ro=null;
+function sizeFrame(){try{var b=f.contentDocument&&f.contentDocument.body;if(b)f.style.height=Math.ceil(b.offsetHeight)+'px'}catch(e){}}
+function focusEmail(){try{var el=f.contentDocument.getElementById('email');if(el)el.focus()}catch(e){}}
+f.addEventListener('load',function(){
+  sizeFrame();
+  try{if(ro)ro.disconnect();if(window.ResizeObserver){ro=new ResizeObserver(sizeFrame);ro.observe(f.contentDocument.body)}}catch(e){}
+  if(d.open)focusEmail();
+});
+function openLogin(){
+  if(d.open)return;
+  if(!f.getAttribute('src'))f.setAttribute('src',f.getAttribute('data-src'));
+  if(d.showModal)d.showModal();else d.setAttribute('open','');
+  focusEmail();
+}
+function closeLogin(){if(d.close)d.close();else d.removeAttribute('open')}
+document.querySelectorAll('[data-login]').forEach(function(b){b.addEventListener('click',function(e){e.preventDefault();openLogin()})});
+d.querySelector('[data-close]').addEventListener('click',closeLogin);
+d.addEventListener('click',function(e){if(e.target===d)closeLogin()});
+/* On close, reload the sign-in page so nothing typed stays in the form. */
+d.addEventListener('close',function(){if(f.getAttribute('src'))f.setAttribute('src',f.getAttribute('data-src'))});
+/* Back or Forward can restore the page from the browser's cache with the pop-up as it was; reload so it starts clean. */
+window.addEventListener('pageshow',function(e){if(e.persisted)location.reload()});
+/* Esc pressed inside the sign-in page arrives as a message from it. */
+window.addEventListener('message',function(e){
+  if(e.origin===location.origin&&e.source===f.contentWindow&&e.data&&e.data.type==='dartdraw-close-login')closeLogin();
+});
+/* /?login=1 or #login opens the pop-up, then the address is tidied. On the landing page wait for the signed-in check. */
+var qp=new URLSearchParams(location.search);
+if(qp.get('login')==='1'||location.hash==='#login'){
+  qp.delete('login');
+  var rest=qp.toString();
+  try{history.replaceState(null,'',location.pathname+(rest?'?'+rest:'')+(location.hash==='#login'?'':location.hash))}catch(e){}
+  (window.__ddSignedIn||Promise.resolve(false)).then(function(signedIn){if(!signedIn)openLogin()});
+}
+})();
+</script>
+</body>
+</html>

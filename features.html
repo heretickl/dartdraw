@@ -104,6 +104,10 @@ h2.sec{margin:0 0 34px;font-size:clamp(28px,3.2vw,40px);letter-spacing:-.03em;co
 .close .foot .brand{color:#fff;font-size:22px}
 .close .foot .mark{background:transparent;color:#f0b73a;border-color:#f0b73a;width:32px;height:32px;font-size:15px}
 .close .foot .sep{width:1px;height:26px;background:#4a5f82}
+.foot-nav{display:flex;justify-content:center;flex-wrap:wrap;gap:0 26px;margin:30px 0 0}
+.foot-nav a{color:#dfe7f3;text-decoration:none;font-weight:600;font-size:15px;padding:12px 2px;border-bottom:2px solid transparent}
+.foot-nav a:hover{color:#fff;border-bottom-color:#f0b73a}
+.foot-nav+.foot{margin-top:14px}
 /* sub-page heroes */
 .phero{background:linear-gradient(180deg,#f2f6fc,#e9f0f9);padding:30px 0 56px;position:relative;overflow:hidden}
 .phero:before{content:"";position:absolute;right:-220px;top:-260px;width:760px;height:760px;border-radius:50%;background:repeating-radial-gradient(circle at center,transparent 0 56px,rgba(15,34,64,.045) 57px 58px)}
@@ -178,7 +182,7 @@ body:has(dialog[open]){overflow:hidden}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
 </head>
-<body>
+<body id="top">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
 <symbol id="i-users" viewBox="0 0 48 48"><circle cx="24" cy="15" r="6"/><circle cx="11" cy="19" r="4.5"/><circle cx="37" cy="19" r="4.5"/><path d="M13 38c0-7 5-11 11-11s11 4 11 11"/><path d="M3 35c0-5 3-8 8-8M45 35c0-5-3-8-8-8"/></symbol>
 <symbol id="i-trophy" viewBox="0 0 48 48"><path d="M14 8h20v10c0 6-4 10-10 10s-10-4-10-10z"/><path d="M14 11H7c0 6 3 9 8 9M34 11h7c0 6-3 9-8 9"/><path d="M24 28v8M16 41h16M19 36h10"/></symbol>
@@ -207,6 +211,7 @@ body:has(dialog[open]){overflow:hidden}
   <nav class="nav-links" aria-label="Main">
     <a href="/features" aria-current="page">Features</a>
     <a href="/how-it-works">How it works</a>
+    <a href="/help">Help</a>
   </nav>
   <span class="spacer"></span>
   <a class="btn sm" href="/login.html" data-login>Log in</a>
@@ -247,6 +252,11 @@ body:has(dialog[open]){overflow:hidden}
 <section class="close" aria-labelledby="closeH"><div class="wrap">
   <h2 id="closeH">Less time on charts. <em>More time on the oche.</em></h2>
   <a class="btn" href="/login.html" data-login>Log in <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+  <nav class="foot-nav" aria-label="Footer">
+    <a href="/features">Features</a>
+    <a href="/how-it-works">How it works</a>
+    <a href="/help">Help</a>
+  </nav>
   <div class="foot"><a class="brand" href="/"><span class="mark" aria-hidden="true">D</span>DartDraw</a><span class="sep" aria-hidden="true"></span><span>Tournament charts, made simple.</span></div>
 </div></section>
 

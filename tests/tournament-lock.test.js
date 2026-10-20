@@ -277,3 +277,20 @@ test('saves without finalized are unchanged: the data is written as sent and the
   assert.equal(writtenData().finalized, false);
   assert.equal('finalized' in falsy.body, false);
 });
+
+test('a save that carries a stamp for a row that no longer exists (deleted or moved elsewhere) is 404 and never re-creates it', async () => {
+  seed('t1', { name: 'X' });
+  delete store.t1;                                         // deleted by another window
+  const res = await call('PUT', 't1', { data: { name: 'from a window that still had it' }, expectedUpdatedAt: UPDATED });
+  assert.equal(res.statusCode, 404);
+  assert.deepEqual(res.body, { error: 'Not found.' });
+  assert.equal(issued(/^\s*INSERT/i).length, 0);
+  assert.equal(store.t1, undefined);
+});
+
+test('a new event’s first save (no stamp) is still created', async () => {
+  seed('t1', { name: 'X' }); delete store.t1;
+  const res = await call('PUT', 'tnew', { data: { name: 'New' }, expectedUpdatedAt: null });
+  assert.equal(res.statusCode, 201);
+  assert.equal(issued(/^\s*INSERT/i).length, 1);
+});

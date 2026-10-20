@@ -6,7 +6,8 @@
   "rewrites": [
     { "source": "/app", "destination": "/app.html" },
     { "source": "/features", "destination": "/features.html" },
-    { "source": "/how-it-works", "destination": "/how-it-works.html" }
+    { "source": "/how-it-works", "destination": "/how-it-works.html" },
+    { "source": "/help", "destination": "/help.html" }
   ],
   "headers": [
     { "source": "/verify.html", "headers": [

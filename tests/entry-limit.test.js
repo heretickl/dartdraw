@@ -44,7 +44,7 @@ function put(id, data) {
   res.status = (c) => { res.statusCode = c; return res; };
   res.json = (o) => { res.body = o; return res; };
   res.end = () => res;
-  return handler({ method: 'PUT', query: { id }, body: { data, expectedUpdatedAt: UPDATED } }, res).then(() => res);
+  return handler({ method: 'PUT', query: { id }, body: { data, expectedUpdatedAt: store[id] ? UPDATED : null } }, res).then(() => res);
 }
 const writes = () => calls.filter((c) => /^\s*(UPDATE|INSERT)/i.test(c.text)).length;
 const tier = (t) => { organizer = { id: 'org1', tier: t }; };

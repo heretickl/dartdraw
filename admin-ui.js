@@ -435,12 +435,20 @@ async function adminOpenEvent(id){
   if(!isAdminUser()) return false;
   var row = adminFindEvent(id), owner = row && row.owner;
   var foreign = !(owner && adminIsMe(owner.id));   // an event whose owner is not known counts as someone else's
+  var hadForeign = foreignOpenIds.has(id), prevForeign = foreignOpenIds.get(id), prevEditing = adminEditing;
   if(foreign){
     foreignOpenIds.set(id, { ownerId: owner ? owner.id : null, ownerName: owner ? adminOwnerLabel(owner) : '' });
     adminEditing = { id: id, ownerId: owner ? owner.id : null, ownerName: owner ? adminOwnerLabel(owner) : '' };
   } else foreignOpenIds.delete(id);
   var ok = false;
-  try{ ok = await openTournament(id); }catch(e){ ok = false; }
+  try{ ok = await openTournament(id, function(){ adminOpenEvent(id); }); }catch(e){ ok = false; }
+  if(!ok && typeof lastOpenBlocked!=='undefined' && lastOpenBlocked){
+    /* Refused because a change to the open event is still waiting (its own message is showing, with Leave without
+       saving, which comes back here): nothing changes meanwhile, so the previous foreign marks are put back. */
+    if(hadForeign) foreignOpenIds.set(id, prevForeign); else foreignOpenIds.delete(id);
+    adminEditing = prevEditing;
+    return false;
+  }
   if(!ok){
     foreignOpenIds.delete(id);
     adminEditing = null;

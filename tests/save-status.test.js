@@ -17,7 +17,7 @@ function statusEl() {
 function setup() {
   Object.keys(ORIG).forEach((n) => { app[n] = ORIG[n]; });
   const t = f('blankTournament')(); useState(app, t); t.id = 't_ss1';
-  run(app, 'lockedIds.clear(); tournamentsCache = {}; dbUpdatedAtCache = {}; saveTimer = null; saveInFlight = false; savePendingId = null; finalizing = false; lastSaveStatus = ""');
+  run(app, 'lockedIds.clear(); staleIds.clear(); staleCurrent = {}; pendingSaves.clear(); sentCopies.clear(); keepaliveSave = null; staleReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; saveTimer = null; saveInFlight = false; savePendingId = null; finalizing = false; lastSaveStatus = ""');
   app.render = () => {}; app.renderSavedList = () => {};
   return t;
 }
@@ -61,15 +61,16 @@ test('a server error, a network error and a 403 that is not a lock all show Coul
   }
 });
 
-test('a 409 conflict still shows Updated elsewhere and keeps the server’s stamp', async () => {
+test('a 409 conflict still shows Updated elsewhere, and does not adopt the server’s stamp (this window’s copy is still the old one)', async () => {
   const t = setup(); const el = statusEl();
-  const current = JSON.parse(JSON.stringify(t));
+  const current = JSON.parse(JSON.stringify(t)); current.otherWindowScore = 1;   // the other window's change
   app.apiFetch = () => Promise.resolve({ ok: false, status: 409, json: async () => ({ error: 'Tournament changed elsewhere.', current: { id: 't_ss1', data: current, updated_at: 'NEWER' } }) });
   const ok = await f('flushSaveOnce')();
   assert.equal(ok, false);
   assert.equal(f('lastSaveStatus'), 'error');
   assert.equal(el.textContent, 'Updated elsewhere — click to reload');
-  assert.equal(run(app, 'dbUpdatedAtCache["t_ss1"]'), 'NEWER');
+  assert.equal(run(app, 'dbUpdatedAtCache["t_ss1"]'), undefined);
+  assert.equal(run(app, 'staleIds.has("t_ss1")'), true);
 });
 
 test('a successful save shows Saved', async () => {
