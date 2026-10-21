@@ -165,7 +165,7 @@ test('the guide covers the topics organisers need, each as an anchored article',
     'getting-started': ['Forgot password?', 'Change password', 'Event creation', 'Format & branding', 'Chart details', 'Confirm & Print Bracket', 'Manage Tournament', 'Finalize Standings', 'Print Final Chart', 'Basic setup', 'Advanced setup', 'Saved', 'Updated elsewhere', 'Couldn’t save'],
     'creating-an-event': ['Singles', 'Doubles', 'Teams', 'pair', 'Team name', 'Number of entries', 'Tournament date'],
     'choosing-a-format': ['Round robin', 'Knockout', 'Knockout type', 'Single bracket', 'Group Boards, then finals', 'not offered with the round robin formats', 'Plate pool', 'Best of legs', 'Optional'.toLowerCase()],
-    'entries-and-check-in': ['Check-in', 'Withdraw', 'Mark no-show', 'Neither showed', 'Organisation', 'Seed'],
+    'entries-and-check-in': ['Check-in', 'Withdraw', 'Mark no-show', 'Neither showed', 'Organisation', 'Seed', 'whether or not one of the tick boxes is on', 'keeping entries from the same group apart comes first', 'about a second of work at most'],
     'draws-and-printing': ['Random draw', 'Print bracket pack', 'rules', 'sponsor', 'QR'],
     'managing-the-tournament': ['Start all games', 'Save score', 'Boards', 'incident'],
     'full-page-window': ['Open in new window', 'F11', 'pop-up'],
@@ -226,6 +226,10 @@ test('the Help page says nothing about plans or tiers, Triples, rosters, rubbers
   assert.doesNotMatch(t, /\b(plans?|tiers?|pricing|subscription|upgrade|upgraded|free trial)\b/i);
   assert.doesNotMatch(t, /\bPro\b/);
   assert.doesNotMatch(t, /\bTriples?\b/i);
+  assert.doesNotMatch(t, /when you have turned that option on/, 'organisations are separated whenever one is filled in');
+  assert.match(t, /A bracket holds at most 128 entries/);
+  assert.match(t, /holds at most 128 \(a group is one knockout bracket\)/, 'Group Boards: the per-group limit');
+  assert.match(t, /up to 128 groups of 2 to 128 players each/);
   assert.doesNotMatch(t, /\b(rosters?|rubbers?|handouts?)\b|Players per team|Player 1|Player 2/i);
   assert.doesNotMatch(t, /DartConnect/i);
   assert.doesNotMatch(markup(help).replace(/<link[^>]*>/g, ''), /mailto:|@/);

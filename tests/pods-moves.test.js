@@ -58,3 +58,24 @@ test('a group may not drop below 2 players, and moving to the same group is refu
   assert.equal(f('podsMovePlayer')(t, a.entryIds[0], a.id).ok, false);
   assert.equal(f('podsSwapPlayers')(t, a.entryIds[0], a.entryIds[1]).ok, false);
 });
+
+test('a group holds at most 128 players: moving into a full group is refused before anything changes', () => {
+  const t = drawn(256, 2);
+  const a = t.pods[0], b = t.pods[1];
+  assert.equal(a.entryIds.length, 128); assert.equal(b.entryIds.length, 128);
+  const before = JSON.stringify([a.entryIds, b.entryIds, a.bracket, b.bracket]);
+  const r = f('podsMovePlayer')(t, a.entryIds[0], b.id);
+  assert.equal(r.ok, false);
+  assert.equal(r.message, 'A group can hold at most 128 players.');
+  assert.equal(JSON.stringify([a.entryIds, b.entryIds, a.bracket, b.bracket]), before, 'nothing changed');
+  // a swap keeps both sizes, so it is still allowed between two full groups
+  const x = a.entryIds[0], y = b.entryIds[0];
+  assert.equal(f('podsSwapPlayers')(t, x, y).ok, true);
+  assert.ok(b.entryIds.includes(x) && a.entryIds.includes(y));
+  assert.equal(a.bracket.size, 128); assert.equal(b.bracket.size, 128);
+  // with one place free again, the move goes through
+  const t2 = drawn(255, 2);
+  const small = t2.pods.find((p) => p.entryIds.length === 127), big = t2.pods.find((p) => p.entryIds.length === 128);
+  assert.equal(f('podsMovePlayer')(t2, big.entryIds[0], small.id).ok, true);
+  assert.equal(small.entryIds.length, 128); assert.equal(small.bracket.size, 128);
+});

@@ -268,6 +268,37 @@ like any other leg score, so standings, brackets, finalizing and the public page
 
 Spec: `docs/superpowers/specs/2026-10-20-teams-segments-design.md`.
 
+## Knockout draw (generateBracket)
+
+Every knockout bracket (pure knockout, the knockout after a round robin, the Plate pool, Group Boards groups) is
+placed by `generateBracket` in `app.html`:
+
+- **Seeds and byes.** Standard seeding; byes go to the best seeds. After a round robin, group winners are seeded
+  ahead of runners-up, and so on.
+- **Clash pairs.** Entries from the same round robin group, and entries with the same organisation (whenever an
+  organisation is filled in, whatever the tick boxes say), are kept apart as long as possible. Same group comes first:
+  a final step (`improveGroupSeparation`) runs only when some group is short of its last possible stage, and may move a
+  same-organisation pair earlier if that keeps a group apart, never making the worst-first separation of all pairs
+  worse. It works out each swap's group shortfall from the same-group pairs alone first and builds the full histogram
+  only for swaps that can be chosen (the same choice as a full scan, much faster with whole clubs), so it normally
+  finishes well inside its cap; a group can still be left short where every fix would make some other pair worse.
+- **Limits.** A bracket holds at most 128 entries. The draws refuse a bigger one with a message (`BRACKET_MAX_ENTRIES`),
+  `generateBracket` throws, Group Boards refuses groups over 128 (`podsValidateCount`; `podsMovePlayer` and
+  `podsPlaceLate` refuse a full group before changing anything, `PODS_GROUP_MAX`), and the print pack prints a
+  one-line note instead of the projected bracket (saying what to change; with the Plate pool on and the main bracket
+  too big, that the Plate is not projected either). The swap search and the final step have fixed work caps (`SEARCH_WORK_CAP` 8M,
+  `IMPROVE_WORK_CAP` 6M; every trial swap and each pass counts, so the cap bounds the time): a 128-entry draw takes
+  about 1 to 1.5 s at most on a laptop, whatever the clubs. The cap is not only for odd cases: with organisations
+  filled in it is reached in many ordinary inter-club events from about 30 entries in one or two clubs, and in almost
+  every one from 64 entries (also in a few big events with no clubs, with no loss in separation there). Below the cap
+  the result is the same as without it; at the cap the search stops and keeps the best arrangement it has seen, so a
+  big club event can be slightly less well spread than an unlimited search would give. `BRACKET_DRAW_STATS` says
+  whether the last draw reached a cap (for the tests; never saved).
+- **Projected bracket.** Before the round robin, the print pack runs the same engine on placeholder entries ("A1",
+  "B2", …), so the projected sheet shows the real placement, except that organisations are not known then.
+- Tests: `tests/bracket-engine.test.js` (integrity, speed, the earlier engines in `tests/lib/bracket-reference.js` and
+  `tests/lib/bracket-round6.js` as references) and `tests/projected-bracket.test.js`.
+
 ## Group Boards format
 
 For big fields, choose **Knockout**, then **Group Boards, then finals**, at Format & branding (it is a Knockout option, stored

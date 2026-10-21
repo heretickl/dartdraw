@@ -1427,11 +1427,48 @@ function bracketFromSlots(slots, size){
    seed 1 and seed 2 meet only in the Final: they always land in slots
    whose earliest-possible-meeting round is the last one. */
 function earliestMeetingRound(slotA, slotB){
+  /* The same value as halving both round-1 match numbers until they agree, in one step: the bit length of their XOR. */
+  if(slotA>=0 && slotB>=0){ const x = (slotA>>1) ^ (slotB>>1); return x===0 ? 0 : 32 - Math.clz32(x); }
   let mA = Math.floor(slotA/2), mB = Math.floor(slotB/2), r = 0;
   while(Math.floor(mA/Math.pow(2,r)) !== Math.floor(mB/Math.pow(2,r))) r++;
   return r;
 }
-function generateBracket(orderedEntries, label){
+/* opts.improve===false: skip the round 6 group-separation improvement (tests compare with the earlier search). */
+/* slot x slot -> earliest meeting round, for a bracket of `size` round-1 slots (cached: the same for every draw of that size). */
+const MEET_TABLES = {};
+/* The largest bracket there is (nearestBracket's biggest size): more entries can not be placed, so every draw refuses them. */
+const BRACKET_MAX_ENTRIES = 128;
+function tooManyForBracketMessage(n, what){
+  return n+' entries would go into '+what+', but the largest bracket holds '+BRACKET_MAX_ENTRIES+'.';
+}
+/* What to change when the main bracket or the Plate pool of a round robin would be too big. With one entry per group
+   going through already, only fewer groups helps. */
+function tooManyMainHint(t){
+  return (parseInt(t.format.qualifiersPerGroup) || 1) <= 1
+    ? 'Use fewer groups (only each group winner goes through already).'
+    : 'Lower "Entries per group (advance to knockout)" in Format & branding.';
+}
+const TOO_MANY_PLATE_HINT = 'Set or lower "Plate entries per group" in Format & branding, or turn the Plate pool off.';
+/* Hard caps on the work of one draw's two searches. Every trial swap counts (even one thrown out at once), so the cap
+   bounds the time: a 128-entry draw takes about a second at most on a laptop. The result stays deterministic (no
+   clock). With organisations in big events (from about 30 entries in one or two clubs) the first search often stops
+   at its cap and keeps the best arrangement it has seen, so the draw can be slightly less well spread than an
+   unlimited search would give; the same-group step after it rarely needs its cap. */
+const SEARCH_WORK_CAP = 8000000, IMPROVE_WORK_CAP = 6000000;
+function meetTable(size){
+  if(!MEET_TABLES[size]){
+    const t = [];
+    for(let i=0;i<size;i++){ const row = new Array(size); for(let j=0;j<size;j++) row[j] = i===j ? 0 : earliestMeetingRound(i, j); t.push(row); }
+    MEET_TABLES[size] = t;
+  }
+  return MEET_TABLES[size];
+}
+/* Whether the last draw's searches stopped at their work cap (read by the tests; never saved). */
+const BRACKET_DRAW_STATS = { searchCapped:false, improveCapped:false };
+function generateBracket(orderedEntries, label, opts){
+  BRACKET_DRAW_STATS.searchCapped = false; BRACKET_DRAW_STATS.improveCapped = false;
+  /* A backstop: the draws refuse with a message before this (more entries were silently left out before round 7). */
+  if(orderedEntries.length > BRACKET_MAX_ENTRIES) throw new Error(tooManyForBracketMessage(orderedEntries.length, 'one bracket'));
   const n = orderedEntries.length;
   const size = nearestBracket(Math.max(n,2)).size;
   const totalRounds = Math.log2(size);
@@ -1462,8 +1499,10 @@ function generateBracket(orderedEntries, label){
     const pool = {
       top1: topSeeds.filter(s=>s<=rank1Count).sort((a,b)=>a-b),
       bot1: bottomSeeds.filter(s=>s<=rank1Count).sort((a,b)=>a-b),
-      top2: topSeeds.filter(s=>s>rank1Count).sort((a,b)=>a-b),
-      bot2: bottomSeeds.filter(s=>s>rank1Count).sort((a,b)=>a-b)
+      /* Only seed numbers that hold an entry (<= n): a higher one is a bye slot. Handing one out (an odd number of
+         groups, e.g. 3 or 7 groups of 2) left the entry's old seed in place too, so it was listed twice and a bye lost. */
+      top2: topSeeds.filter(s=>s>rank1Count && s<=n).sort((a,b)=>a-b),
+      bot2: bottomSeeds.filter(s=>s>rank1Count && s<=n).sort((a,b)=>a-b)
     };
     const assigned = {};
     pairedGroupIds.forEach((g,idx)=>{
@@ -1490,7 +1529,7 @@ function generateBracket(orderedEntries, label){
      which seed numbers are bye recipients here, before any swaps, and
      restrict every swap to stay within that same bye/real-match cohort. */
   const seedOfEntryId = {};
-  orderedEntries.forEach((e,i)=>{ seedOfEntryId[e.entryId] = i+1; });
+  Object.keys(bySeed).forEach(k=>{ seedOfEntryId[bySeed[k].entryId] = +k; });   // the seeds as finally assigned (after the halving above)
   const originalByeSeed = {};
   for(let i=0;i<slots.length;i+=2){
     if(slots[i] && !slots[i+1]) originalByeSeed[slotOrder[i]] = true;
@@ -1536,9 +1575,6 @@ function generateBracket(orderedEntries, label){
     }
   }
   if(clashPairs.length){
-    const slotOf = id => slots.findIndex(s=> s && s.entryId===id);
-    const pairSeparation = ([a,b]) => earliestMeetingRound(slotOf(a), slotOf(b));
-    const worstSeparation = () => clashPairs.reduce((w,p)=> Math.min(w, pairSeparation(p)), Infinity);
     /* Greedy local search: repeatedly take whichever clash pair is
        currently worst-separated and try every alternative slot for its
        second entry, keeping the swap only if it pushes THIS pair later
@@ -1548,37 +1584,98 @@ function generateBracket(orderedEntries, label){
        it isn't the current worst). Repeat full passes until nothing
        improves or the bound is hit — best-effort, same as before, it
        just aims for the latest possible round instead of merely
-       not-immediate. */
-    let pass = 0;
+       not-immediate.
+       Incremental (round 6): the same decisions in the same order as the earlier version (which recomputed every
+       pair for every trial swap and took minutes for 64 entries), but each pair's separation is kept up to date and a
+       trial swap only recomputes the pairs of the two entries it moves; the worst separation comes from a count of pairs
+       per round. tests/bracket-engine.test.js checks the result is identical to the earlier version. */
+    const pos = {};                                     // entryId -> slot
+    slots.forEach((s,i)=>{ if(s) pos[s.entryId] = i; });
+    const meet = meetTable(slots.length);
+    const pairsOf = {};                                 // entryId -> indices of its clash pairs
+    clashPairs.forEach(([a,b],pi)=>{ (pairsOf[a] = pairsOf[a]||[]).push(pi); (pairsOf[b] = pairsOf[b]||[]).push(pi); });
+    const sep = clashPairs.map(([a,b])=> meet[pos[a]][pos[b]]);
+    const cnt = new Array(totalRounds+1).fill(0);       // pairs per separation round
+    sep.forEach(s=>{ cnt[s]++; });
+    const slotCohort = slots.map(cohortOf);             // each slot's bye/real/empty cohort, kept in step with the swaps
+    const stamp = new Array(clashPairs.length).fill(-1);
+    let stampNo = 0;
+    /* The pairs touched by moving entries x and y (each pair once). */
+    const touched = (x, y)=>{
+      stampNo++;
+      const out = [];
+      [x, y].forEach(e=>{ if(e) (pairsOf[e.entryId]||[]).forEach(pi=>{ if(stamp[pi]!==stampNo){ stamp[pi] = stampNo; out.push(pi); } }); });
+      return out;
+    };
+    const sepAfter = (pi, x, y, xTo, yTo)=>{
+      const [a,b] = clashPairs[pi];
+      const pa = (x && a===x.entryId) ? xTo : (y && a===y.entryId) ? yTo : pos[a];
+      const pb = (x && b===x.entryId) ? xTo : (y && b===y.entryId) ? yTo : pos[b];
+      return meet[pa][pb];
+    };
+    /* A hard cap on the work (every trial counts, and each pass costs its length). A pass keeps any gain for the moved
+       pair as long as the single worst round does not drop, so other pairs can get worse; with organisations (whole
+       clubs) the passes can then go round in circles for minutes (64 entries in one club: over 2 minutes; 60 group
+       winners all in one club: 11 s before trials thrown out by the same-rank check were counted). Below the cap every
+       decision is the same as before (tests/bracket-engine.test.js checks it against the round 6 engine). At the cap
+       the search stops and keeps the best arrangement it has seen (separations of all clash pairs, worst first),
+       never a worse one. */
+    const floor = ()=>{ for(let r=0;r<cnt.length;r++) if(cnt[r]>0) return r; return Infinity; };
+    let pass = 0, work = 0;
+    let bestSeen = slots.slice(), bestCnt = cnt.slice();
+    const histBetter = (a, b)=>{ for(let r=0;r<a.length;r++) if(a[r]!==b[r]) return a[r]<b[r]; return false; };
     const maxPasses = clashPairs.length * 2 + 4;
     let improvedThisPass = true;
-    while(improvedThisPass && pass < maxPasses){
+    while(improvedThisPass && pass < maxPasses && work <= SEARCH_WORK_CAP){
       pass++;
       improvedThisPass = false;
-      const order = clashPairs.slice().sort((p,q)=> pairSeparation(p)-pairSeparation(q));
-      for(const pair of order){
-        const oldSep = pairSeparation(pair);
+      const order = clashPairs.map((p,pi)=> pi).sort((p,q)=> sep[p]-sep[q]);
+      work += order.length;                   // the pass itself costs work, even when every trial below is cheap
+      for(const pi of order){
+        const pair = clashPairs[pi];
+        const oldSep = sep[pi];
         if(oldSep >= totalRounds-1) continue; // already final-only — can't do better
-        const globalFloor = worstSeparation();
-        const fromSlot = slotOf(pair[1]);
+        if(work > SEARCH_WORK_CAP) break;     // a hard cap on the work, so no draw can stall the page
+        const globalFloor = floor();
+        const fromSlot = pos[pair[1]];
+        const X = slots[fromSlot], cohortX = slotCohort[fromSlot];
         let bestJ = -1, bestPairSep = oldSep;
         for(let j=0;j<slots.length;j++){
+          work++;                               // every trial counts, so the cap bounds the time (same-rank lists reject most trials cheaply)
           if(j===fromSlot) continue;
-          if(cohortOf(slots[j]) !== cohortOf(slots[fromSlot])) continue; // never trade a bye to/from a worse/better seed
-          const tmp = slots[fromSlot]; slots[fromSlot]=slots[j]; slots[j]=tmp;
+          if(slotCohort[j] !== cohortX) continue; // never trade a bye to/from a worse/better seed
+          const Y = slots[j];
+          /* This pair's own separation after the trial move, first: most trial slots fail here, cheaply. */
+          const newPairSep = meet[j][(Y && Y.entryId===pair[0]) ? fromSlot : pos[pair[0]]];
+          if(!(newPairSep > bestPairSep)) continue;
+          slots[fromSlot]=Y; slots[j]=X;
           const fromMatchStart = fromSlot - (fromSlot%2), jMatchStart = j - (j%2);
           const rankClash = matchHasRankClash(fromMatchStart) || matchHasRankClash(jMatchStart);
-          const newPairSep = pairSeparation(pair);
-          const newFloor = worstSeparation();
-          slots[j]=slots[fromSlot]; slots[fromSlot]=tmp;
-          if(!rankClash && newPairSep > bestPairSep && newFloor >= globalFloor){ bestPairSep = newPairSep; bestJ = j; }
+          slots[j]=Y; slots[fromSlot]=X;
+          if(rankClash) continue;
+          const tp = touched(X, Y);
+          const newSeps = tp.map(p=> sepAfter(p, X, Y, j, fromSlot));
+          work += tp.length;
+          tp.forEach((p,k)=>{ cnt[sep[p]]--; cnt[newSeps[k]]++; });
+          const newFloor = floor();
+          tp.forEach((p,k)=>{ cnt[newSeps[k]]--; cnt[sep[p]]++; });
+          if(newFloor >= globalFloor){ bestPairSep = newPairSep; bestJ = j; }
         }
         if(bestJ>=0){
-          const tmp = slots[fromSlot]; slots[fromSlot]=slots[bestJ]; slots[bestJ]=tmp;
+          const Y = slots[bestJ];
+          const tp = touched(X, Y);
+          const newSeps = tp.map(p=> sepAfter(p, X, Y, bestJ, fromSlot));
+          tp.forEach((p,k)=>{ cnt[sep[p]]--; cnt[newSeps[k]]++; sep[p] = newSeps[k]; });
+          slots[fromSlot]=Y; slots[bestJ]=X;
+          pos[X.entryId] = bestJ; if(Y) pos[Y.entryId] = fromSlot;
+          const c = slotCohort[fromSlot]; slotCohort[fromSlot] = slotCohort[bestJ]; slotCohort[bestJ] = c;
           improvedThisPass = true;
+          if(histBetter(cnt, bestCnt)){ bestSeen = slots.slice(); bestCnt = cnt.slice(); }
         }
       }
     }
+    if(work > SEARCH_WORK_CAP) BRACKET_DRAW_STATS.searchCapped = true;
+    if(work > SEARCH_WORK_CAP && histBetter(bestCnt, cnt)){ for(let i=0;i<slots.length;i++) slots[i] = bestSeen[i]; }
   }
 
   /* Clean up any round-1 same-position clash pure seeding itself left
@@ -1609,6 +1706,107 @@ function generateBracket(orderedEntries, label){
       }
       slots[victimSlot] = candidate; slots[j] = victim;
       break;
+    }
+  }
+
+  /* Round 6: the last possible stage for same-group entries. A group with k entries in this bracket can at best have
+     its entries in k different sub-brackets of size/2^ceil(log2 k) slots, so its closest pair meets no earlier than
+     round totalRounds-ceil(log2 k) (k=2: the final). The search above moves one entry at a time and can stop short of
+     that (uneven groups, 3+ qualifiers). Only when some group is short, try swapping any two entries of the same
+     bye/real cohort (byes stay with the same seeds), keeping a swap only if it brings the groups closer to the rule
+     without making any clash pair (group or organisation) worse in the min-first order, and without adding a
+     same-position round-1 meeting. Where the rule is already met nothing changes (tests/bracket-engine.test.js). */
+  if(!(opts && opts.improve===false) && clashPairs.length) improveGroupSeparation();
+  function improveGroupSeparation(){
+    const size = slots.length;
+    const pos = {};
+    slots.forEach((s,i)=>{ if(s) pos[s.entryId] = i; });
+    const groupOf = {}, members = {};
+    orderedEntries.forEach(e=>{ if(e.groupId!=null){ groupOf[e.entryId] = e.groupId; (members[e.groupId] = members[e.groupId]||[]).push(e.entryId); } });
+    const ideal = {};
+    Object.keys(members).forEach(g=>{ const k = members[g].length; ideal[g] = k<2 ? 0 : totalRounds - Math.ceil(Math.log2(k)); });
+    const pairsOf = {};
+    clashPairs.forEach(([a,b],pi)=>{ (pairsOf[a] = pairsOf[a]||[]).push(pi); (pairsOf[b] = pairsOf[b]||[]).push(pi); });
+    const pairIdeal = clashPairs.map(([a,b])=> (groupOf[a]!=null && groupOf[a]===groupOf[b]) ? ideal[groupOf[a]] : null);
+    /* Each entry's same-group pairs only (at most k-1 of them, as the pair, the other entry and the pair's last
+       possible stage): enough to work out a swap's new shortfall cheaply. */
+    const groupPairsOf = {};
+    clashPairs.forEach(([a,b],pi)=>{ if(pairIdeal[pi]!=null){ (groupPairsOf[a] = groupPairsOf[a]||[]).push({ pi, o:b, ideal:pairIdeal[pi] }); (groupPairsOf[b] = groupPairsOf[b]||[]).push({ pi, o:a, ideal:pairIdeal[pi] }); } });
+    const NO_PAIRS = [];
+    const meet = meetTable(size);
+    const sep = clashPairs.map(([a,b])=> meet[pos[a]][pos[b]]);
+    const shortOf = (pi, s)=> pairIdeal[pi]==null ? 0 : Math.max(0, pairIdeal[pi] - s);
+    const cnt = new Array(totalRounds+1).fill(0);
+    let short = 0;
+    const curShort = sep.map((s,pi)=> shortOf(pi, s));
+    sep.forEach((s,pi)=>{ cnt[s]++; short += curShort[pi]; });
+    // min-first order: fewer pairs at the lowest round where the two differ is better (1), worse (-1), same (0)
+    const histCmp = (a, b)=>{ for(let r=0;r<a.length;r++) if(a[r]!==b[r]) return a[r]<b[r] ? 1 : -1; return 0; };
+    const clashesIn = (m)=> matchHasRankClash(m) ? 1 : 0;
+    const stamp = new Array(clashPairs.length).fill(-1);
+    let stampNo = 0;
+    let work = 0;
+    for(let iter=0; iter<200 && short>0 && work<=IMPROVE_WORK_CAP; iter++){
+      /* Step 1, cheap: every same-cohort swap that adds no same-position round-1 meeting and leaves no more shortfall
+         than now, with its new shortfall worked out from the same-group pairs alone (each entry has at most k-1 of
+         them; other pairs have no shortfall). With whole clubs an entry has a clash pair with nearly everyone, so the
+         full histogram (step 2) is the costly part, and it is only built where it can matter. */
+      const cands = [];
+      for(let i=0;i<size && work<=IMPROVE_WORK_CAP;i++){
+        if(!slots[i]) continue;
+        const ci = cohortOf(slots[i]);
+        for(let j=i+1;j<size;j++){
+          if(!slots[j] || cohortOf(slots[j])!==ci) continue;
+          const A = slots[i], B = slots[j];
+          if(!pairsOf[A.entryId] && !pairsOf[B.entryId]) continue;
+          const gA = groupPairsOf[A.entryId]||NO_PAIRS, gB = groupPairsOf[B.entryId]||NO_PAIRS;
+          work += 1 + gA.length + gB.length;
+          let s2 = short;
+          const mJ = meet[j], mI = meet[i], idB = B.entryId, idA = A.entryId;
+          for(let n=0;n<gA.length;n++){ const g = gA[n]; if(g.o===idB) continue; const ns = mJ[pos[g.o]]; s2 += (g.ideal>ns ? g.ideal-ns : 0) - curShort[g.pi]; }
+          for(let n=0;n<gB.length;n++){ const g = gB[n]; if(g.o===idA) continue; const ns = mI[pos[g.o]]; s2 += (g.ideal>ns ? g.ideal-ns : 0) - curShort[g.pi]; }
+          if(s2 > short) continue;
+          const mi = i-(i%2), mj = j-(j%2);
+          const before = clashesIn(mi) + (mj!==mi ? clashesIn(mj) : 0);
+          slots[i] = B; slots[j] = A;
+          const after = clashesIn(mi) + (mj!==mi ? clashesIn(mj) : 0);
+          slots[i] = A; slots[j] = B;
+          if(after > before) continue;
+          cands.push({ i, j, s2 });
+        }
+      }
+      /* Step 2: the lowest shortfall first (so the same group really comes first); within one shortfall the best
+         histogram, the earliest swap on a tie. A swap is kept only if it is never worse for any clash pair (min
+         first), and, when it does not lower the shortfall, strictly better. The first shortfall level with a kept
+         swap wins: exactly the swap a full scan of every candidate would choose. */
+      cands.sort((x,y)=> x.s2 - y.s2);                       // stable: scan order within a level
+      let best = null;
+      for(let k=0; k<cands.length && !best && work<=IMPROVE_WORK_CAP; ){
+        const level = cands[k].s2;
+        for(; k<cands.length && cands[k].s2===level && work<=IMPROVE_WORK_CAP; k++){
+          const { i, j } = cands[k];
+          const A = slots[i], B = slots[j];
+          stampNo++;
+          const tp = [];
+          [A, B].forEach(e=> (pairsOf[e.entryId]||[]).forEach(pi=>{ if(stamp[pi]!==stampNo){ stamp[pi] = stampNo; tp.push(pi); } }));
+          work += tp.length;
+          pos[A.entryId] = j; pos[B.entryId] = i;
+          const newSeps = tp.map(pi=> meet[pos[clashPairs[pi][0]]][pos[clashPairs[pi][1]]]);
+          pos[A.entryId] = i; pos[B.entryId] = j;
+          const c2 = cnt.slice();
+          tp.forEach((pi,n)=>{ c2[sep[pi]]--; c2[newSeps[n]]++; });
+          const h = histCmp(c2, cnt);
+          if(h < 0) continue;                                   // never worse for any clash pair, min first
+          if(level===short && !(h > 0)) continue;
+          if(!best || histCmp(c2, best.cnt) > 0) best = { i, j, short:level, cnt:c2, tp, newSeps };
+        }
+      }
+      if(work > IMPROVE_WORK_CAP) BRACKET_DRAW_STATS.improveCapped = true;
+      if(!best) break;
+      const A = slots[best.i], B = slots[best.j];
+      slots[best.i] = B; slots[best.j] = A; pos[A.entryId] = best.j; pos[B.entryId] = best.i;
+      best.tp.forEach((pi,k)=>{ sep[pi] = best.newSeps[k]; curShort[pi] = shortOf(pi, sep[pi]); });
+      cnt.splice(0, cnt.length, ...best.cnt); short = best.short;
     }
   }
 
@@ -1722,27 +1920,26 @@ function collectNonQualifiers(t){
    played, we already know which group+position lands in which bracket slot.
    These mirror collectQualifiers/collectNonQualifiers's rank-then-group walk,
    but on group *composition* (entryIds.length) rather than live standings,
-   producing placeholder labels like "A1" (Group A, 1st place) instead of
-   entry names — used only for the pre-round-robin projected bracket sheet. */
-function projectedQualifierLabels(t){
+   producing placeholder entries ({entryId, org:'', groupId, rank, seedLabel:"A1"})
+   that are run through the REAL generateBracket, so the pre-round-robin projected
+   sheet shows exactly the placement the real draw will make (same-group entries
+   kept apart until as late as possible, byes to the group winners). Organisations
+   are not known yet, so organisation separation can make the real draw differ. */
+function projectedRankedEntries(t, filterFn){
   const perGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
+  const maxRank = Math.max(...t.groups.map(g=>g.entryIds.length), 0);
   const out = [];
-  for(let r=0;r<perGroup;r++){
-    t.groups.forEach(g=>{ if(g.entryIds.length>r) out.push(g.label+(r+1)); });
+  for(let r=0;r<maxRank;r++){
+    if(!filterFn(r, perGroup)) continue;
+    t.groups.forEach(g=>{ if(g.entryIds.length>r) out.push({ entryId:'proj_'+g.id+'_'+(r+1), org:'', groupId:g.id, rank:r+1, seedLabel:g.label+(r+1) }); });
   }
   return out;
 }
-function projectedNonQualifierLabels(t){
-  const perGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
+function projectedQualifierEntries(t){ return projectedRankedEntries(t, (r,perGroup)=> r<perGroup); }
+function projectedNonQualifierEntries(t){
   const plateSize = parseInt(t.format.plateQualifiersPerGroup);
   const hasPlateCap = !isNaN(plateSize) && plateSize>=1;
-  const maxRank = Math.max(...t.groups.map(g=>g.entryIds.length), 0);
-  const out = [];
-  for(let r=perGroup;r<maxRank;r++){
-    if(hasPlateCap && r>=perGroup+plateSize) continue;
-    t.groups.forEach(g=>{ if(g.entryIds.length>r) out.push(g.label+(r+1)); });
-  }
-  return out;
+  return projectedRankedEntries(t, (r,perGroup)=> r>=perGroup && (!hasPlateCap || r<perGroup+plateSize));
 }
 function shuffleArray(arr){
   const a = arr.slice();
@@ -1756,9 +1953,9 @@ function bracketHasScores(bracket){ return bracket.rounds.some(r=>r.some(m=>m.aL
    which of state.knockout / state.knockoutLosers to update). */
 /* A bracket-slot's connector lines are determined purely by its own match
    index within its round: even indices are the "top" of their next-round
-   pair, odd indices the "bottom" — see projectedBracketColumnsHTML's header
-   comment for why this lines up exactly with the following round's slots
-   regardless of round size. `hasNext` is false only for the Final. */
+   pair, odd indices the "bottom": match mi of a round feeds match
+   floor(mi/2) of the next, so the pairs always line up with the following
+   round's slots regardless of round size. `hasNext` is false only for the Final. */
 function bracketSlotClasses(mi, hasNext){
   if(!hasNext) return '';
   return ' has-next'+(mi%2===0?' pair-top':' pair-bottom');
@@ -2156,53 +2353,65 @@ function knockoutBracketSheetHTML(bracket, opts){
     return sheetShellHTML(scaledArtHTML(pageInfo, plan.scale), pageInfo.label, pi+1, plan.pages.length);
   }).join('');
 }
-/* Placeholder bracket printed before the round robin is confirmed, seeded
-   mode only (see projectedQualifierLabels/projectedNonQualifierLabels — the
-   slot placement is deterministic ahead of results). Round 1 shows group
-   position labels like "A1" instead of names; every later round is TBD,
-   same as a freshly-generated real bracket. */
-function projectedBracketColumnsHTML(labels, size){
-  const slotOrder = seedSlotOrder(size);
-  const bySeed = {}; labels.forEach((lab,i)=> bySeed[i+1] = lab);
-  const slots = slotOrder.map(seed=> bySeed[seed] || null);
-  const totalRounds = Math.log2(size);
+/* Placeholder bracket printed before the round robin is played, seeded mode
+   only (random placement is unknown until the draw, so nothing is projected
+   then; see runPrintPack). The placeholder entries (projectedQualifierEntries /
+   projectedNonQualifierEntries) go through the real generateBracket, so the
+   slots are the ones the real draw will use. Each side shows its group position
+   label like "A1"; a bye winner is shown moved on, as in a freshly drawn bracket;
+   every other later slot is blank (TBD). */
+function projectedBracketColumnsHTML(bracket){
+  const size = bracket.size, totalRounds = bracket.rounds.length;
+  const lab = (id)=> id ? (bracket.seedLabels[id] || '') : '';
   let html = '<div class="bracket-cols">';
-  for(let ri=0; ri<totalRounds; ri++){
-    const count = size / Math.pow(2, ri+1);
+  bracket.rounds.forEach((round, ri)=>{
     const fromEnd = totalRounds-ri;
     const title = fromEnd===1?'Final':fromEnd===2?'Semifinal':fromEnd===3?'Quarterfinal':'Round of '+(size/Math.pow(2,ri));
     const hasNext = ri<totalRounds-1;
     html += '<div class="bracket-col"><div class="bracket-col-title">'+title+'</div>'+
-      Array.from({length:count}).map((_,mi)=>{
-        const aLab = ri===0 ? slots[mi*2] : null, bLab = ri===0 ? slots[mi*2+1] : null;
-        const isBye = ri===0 && (!!aLab !== !!bLab);
-        const aTxt = ri===0 && aLab ? escapeHtml(aLab) : '';
-        const bTxt = ri===0 && bLab ? escapeHtml(bLab) : '';
+      round.map((m,mi)=>{
+        const isBye = ri===0 && m.bye;
         return '<div class="bracket-slot'+bracketSlotClasses(mi,hasNext)+'">'+
           '<div class="bracket-match">'+
-            '<div class="bracket-side"><span>'+aTxt+'</span></div>'+
-            '<div class="bracket-side"><span>'+bTxt+'</span></div>'+
+            '<div class="bracket-side"><span>'+escapeHtml(lab(m.aEntryId))+'</span></div>'+
+            '<div class="bracket-side"><span>'+escapeHtml(lab(m.bEntryId))+'</span></div>'+
             (isBye?'<div class="bracket-bye-tag">BYE</div>':'')+
           '</div>'+
           bracketConnectMidHTML(mi,hasNext)+
         '</div>';
       }).join('')+
     '</div>';
-  }
+  });
   html += '</div>';
   return html;
 }
-function projectedBracketSheetHTML(labels, title){
+/* In place of a projected bracket that can not exist (more than BRACKET_MAX_ENTRIES): one line saying so. */
+function projectedTooBigSheetHTML(title, message, hint){
   const t = state;
-  const size = nearestBracket(Math.max(labels.length,2)).size;
+  return '<div class="print-sheet">'+
+    '<div class="sheet-top">'+ mainLogoBoxHTML()+
+      '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
+      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Projected Knockout Placement</div></div>'+
+      '<div class="group-label"><strong>'+escapeHtml(title.toUpperCase())+'</strong><span>not projected</span></div>'+
+    '</div>'+
+    '<p class="projected-too-big" style="margin-top:24px;font-size:14px">'+escapeHtml(message)+' '+escapeHtml(hint)+' Do this before the knockout is drawn.</p>'+
+    '<div class="footer"><small></small><div class="footer-right">'+DD_CREDIT_HTML+'</div></div>'+
+  '</div>';
+}
+/* `entries`: placeholder entries from projectedQualifierEntries / projectedNonQualifierEntries. */
+function projectedBracketSheetHTML(entries, title){
+  const t = state;
+  const bracket = generateBracket(entries, title);
+  const size = bracket.size;
   return '<div class="print-sheet">'+
     '<div class="sheet-top">'+ mainLogoBoxHTML()+
       '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
       '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Projected Knockout Placement</div></div>'+
       '<div class="group-label"><strong>'+escapeHtml(title.toUpperCase())+'</strong><span>'+size+'-entry bracket</span></div>'+
     '</div>'+
-    '<div style="flex:1;display:flex;align-items:center;margin-top:16px">'+projectedBracketColumnsHTML(labels, size)+'</div>'+
-    '<div class="footer"><small>Labels show group + projected finishing position (e.g. A1 = Group A, 1st place) — seeded automatically once the round robin is confirmed. The actual bracket with real names is generated in Manage Tournament after results are entered.</small>'+
+    '<div style="flex:1;display:flex;align-items:center;margin-top:16px">'+projectedBracketColumnsHTML(bracket)+'</div>'+
+    '<div class="footer"><small>Labels show group + projected finishing position (e.g. A1 = Group A, 1st place) — seeded automatically once the round robin is confirmed. The actual bracket with real names is generated in Manage Tournament after results are entered.'+
+      (t.entriesList.some(e=> !e.withdrawn && e.org) ? ' <b>Some entries have an organisation: the real draw also keeps entries from the same organisation apart, so the actual bracket will probably differ from this sheet.</b>' : '')+'</small>'+
     '<div class="footer-right">'+
       (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+imgSrc(s.src)+'"></div>').join('')+'</div>' : '')+
       DD_CREDIT_HTML+
@@ -5953,6 +6162,11 @@ function stage4Knockout(){
 }
 function regenerateKnockoutBracket(){
   const seeded = !!state.format.seedingEnabled;
+  ensureSeedOrder(state);
+  if(state.seedOrder.length > BRACKET_MAX_ENTRIES){
+    openModal({title:'Too many entries for one bracket', body: tooManyForBracketMessage(state.seedOrder.length, 'this knockout')+' Use Group Boards (Knockout type) for a field this big, or lower the number of entries.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
+    return;
+  }
   const doIt = ()=>{
     ensureSeedOrder(state);
     // Unseeded: a fresh random draw every time, rather than reusing
@@ -6077,6 +6291,16 @@ function generateKnockoutFromRR(){
   if(knockoutDrawBlock(t)) return;   // the bracket is only ever drawn once every group is finished
   const qualifiers = collectQualifiers(t);
   if(qualifiers.length<2){ openModal({title:'Not enough entries', body:'At least 2 entries need to advance — check group standings and the entries-per-group setting in Format & branding.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
+  /* Nothing is drawn (not even the main bracket) when a bracket would be too big: say what to change. */
+  const plateList = t.format.losersPool ? collectNonQualifiers(t) : [];
+  if(qualifiers.length > BRACKET_MAX_ENTRIES || plateList.length > BRACKET_MAX_ENTRIES){
+    const main = qualifiers.length > BRACKET_MAX_ENTRIES;
+    openModal({title:'Too many entries for one bracket', body: main
+      ? tooManyForBracketMessage(qualifiers.length, 'the main bracket')+' '+tooManyMainHint(t)
+      : tooManyForBracketMessage(plateList.length, 'the Plate pool')+' '+TOO_MANY_PLATE_HINT,
+      confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
+    return;
+  }
   let ordered = t.format.advanceMode==='random' ? shuffleArray(qualifiers) : qualifiers;
   t.knockout = generateBracket(ordered, 'Main bracket');
   t.knockoutLosers = null;
@@ -6656,11 +6880,20 @@ function runPrintPack(confirmed){
     html += knockoutBracketSheetHTML(state.knockout);
     if(state.knockoutLosers) html += knockoutBracketSheetHTML(state.knockoutLosers);
   } else if(state.format.formatType==='rrknockout' && state.format.advanceMode==='seeded'){
-    const qualLabels = projectedQualifierLabels(state);
-    if(qualLabels.length>=2) html += projectedBracketSheetHTML(qualLabels, 'Main bracket (projected)');
-    if(state.format.losersPool){
-      const nonQualLabels = projectedNonQualifierLabels(state);
-      if(nonQualLabels.length>=2) html += projectedBracketSheetHTML(nonQualLabels, "Plate pool (projected)");
+    /* Only shapes a real draw can make: 2 to 128 entries (the largest bracket), and a Plate pool only when there is a
+       main bracket (the real draw makes neither with fewer than 2 qualifiers). */
+    const drawable = (list)=> list.length>=2 && list.length<=BRACKET_MAX_ENTRIES;
+    const qualEntries = projectedQualifierEntries(state);
+    if(drawable(qualEntries)){
+      html += projectedBracketSheetHTML(qualEntries, 'Main bracket (projected)');
+      if(state.format.losersPool){
+        const nonQualEntries = projectedNonQualifierEntries(state);
+        if(drawable(nonQualEntries)) html += projectedBracketSheetHTML(nonQualEntries, "Plate pool (projected)");
+        else if(nonQualEntries.length > BRACKET_MAX_ENTRIES) html += projectedTooBigSheetHTML('Plate pool (projected)', tooManyForBracketMessage(nonQualEntries.length, 'the Plate pool'), TOO_MANY_PLATE_HINT);
+      }
+    } else if(qualEntries.length > BRACKET_MAX_ENTRIES){
+      html += projectedTooBigSheetHTML('Main bracket (projected)', tooManyForBracketMessage(qualEntries.length, 'the main bracket')
+        + (state.format.losersPool ? ' The Plate pool is not projected either: the real draw makes neither bracket until this is fixed.' : ''), tooManyMainHint(state));
     }
   }
   if(state.printSettings.lineupSheetEnabled) html += teamLineupSheetsHTML() + knockoutLineupSheetsHTML();

@@ -4,6 +4,9 @@
    (bracketChampion) at call time. Organisers and spectators see these as "Groups"; the internal name is
    "pods" so they never clash with state.groups (round robin). */
 var PODS_MAX = 128;
+/* A group is one knockout bracket, and the largest bracket holds 128. */
+var PODS_GROUP_MAX = 128;
+var PODS_GROUP_FULL_MESSAGE = 'A group can hold at most 128 players.';
 
 function podsList(t){ if(!t.pods) t.pods = []; return t.pods; }
 
@@ -21,6 +24,7 @@ function podsValidateCount(n, p){
   if(p < 2) return { ok:false, message:'Choose at least 2 groups.' };
   if(p > PODS_MAX) return { ok:false, message:'Choose at most '+PODS_MAX+' groups.' };
   if(n < p*2) return { ok:false, message:'Each group needs at least 2 players. '+n+' players can fill at most '+Math.floor(n/2)+' groups.' };
+  if(Math.ceil(n/p) > PODS_GROUP_MAX) return { ok:false, message:PODS_GROUP_FULL_MESSAGE+' '+n+' players need at least '+Math.ceil(n/PODS_GROUP_MAX)+' groups.' };
   return { ok:true, message:'' };
 }
 /* pOverride: check a number typed on screen instead of the saved one. */
@@ -184,6 +188,7 @@ function podsMovePlayer(t, entryId, toPodId){
   if(!from || !to || from === to) return { ok:false, message:'Pick a different group.' };
   if(!podsCanEdit(from) || !podsCanEdit(to)) return { ok:false, message:'Both groups must be unconfirmed with no scores.' };
   if(from.entryIds.length <= 2) return { ok:false, message:'A group needs at least 2 players.' };
+  if(to.entryIds.length >= PODS_GROUP_MAX) return { ok:false, message:PODS_GROUP_FULL_MESSAGE };   // checked before anything changes
   from.entryIds = from.entryIds.filter(function(id){ return id !== entryId; });
   to.entryIds.push(entryId);
   podsBuildBracket(t, from); podsBuildBracket(t, to);
@@ -438,6 +443,7 @@ function podsPlaceLate(t, entryId, toPodId){
   if(!pod) return { ok:false, message:'Pick a group.' };
   if(podsUnplaced(t).indexOf(entryId) === -1) return { ok:false, message:'That player is already in a group.' };
   if(!podsCanEdit(pod)) return { ok:false, message:'That group is confirmed or already has scores.' };
+  if(pod.entryIds.length >= PODS_GROUP_MAX) return { ok:false, message:PODS_GROUP_FULL_MESSAGE };   // checked before anything changes
   pod.entryIds.push(entryId);
   podsBuildBracket(t, pod);
   return { ok:true, message:'' };

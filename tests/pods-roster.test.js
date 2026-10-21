@@ -94,3 +94,14 @@ test('placing a late player from the screen, and removing gone players from the 
   f('podsRemoveGoneClick')();
   assert.ok(!t.pods[0].entryIds.includes(gone));
 });
+
+test('a late player can not be placed into a group that already has 128 players (nothing changes)', () => {
+  const t = drawn(256, 2);
+  addLate(t, 'late1');
+  const before = JSON.stringify(t.pods);
+  const r = f('podsPlaceLate')(t, 'late1', t.pods[0].id);
+  assert.equal(r.ok, false);
+  assert.equal(r.message, 'A group can hold at most 128 players.');
+  assert.equal(JSON.stringify(t.pods), before);
+  assert.deepEqual(plain(f('podsUnplaced')(t)), ['late1']);
+});

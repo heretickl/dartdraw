@@ -148,7 +148,7 @@ const sections = [
 <h4 id="group-boards">Group Boards, then finals (a Knockout option)</h4>
 <p>Choose <b>Knockout</b>, then <b>Group Boards, then finals</b>. It suits big fields and anyone who wants a group champion before the finals. Instead of one big bracket you choose a number of small groups, and each group is a little knockout on its own board. Every group ends with a champion, and the champions meet in a <b>Finals</b> bracket. You do not have to use it, and it is not offered with the round robin formats.</p>
 <ul>
-<li><b>Number of groups</b>: at least 2, at most 128, and each group needs at least 2 players. DartDraw tells you if the numbers do not fit.</li>
+<li><b>Number of groups</b>: at least 2, at most 128. Each group needs at least 2 players and holds at most 128 (a group is one knockout bracket). DartDraw tells you if the numbers do not fit. Moving a player or placing a late entry into a group that already has 128 players is refused; swap two players instead.</li>
 <li><b>Best of legs inside each group</b> can differ from the Finals. The Finals uses <b>Best of legs</b> (or your knockout leg settings in Advanced setup).</li>
 <li>In step 3 you click <b>Draw groups</b>. Seeded players are spread one per group, and the groups can be changed by hand until you confirm them.</li>
 <li>The Finals chart is built as soon as the last group is confirmed, with slots such as &ldquo;Winner of Group 3&rdquo;.</li>
@@ -227,6 +227,7 @@ const sections = [
 <li><b>Knockout and Group Boards:</b> the <b>Organisation (optional)</b> box is hidden at first. It appears once you tick <b>Track organisation (avoid same-organisation matchups in the first round)</b> on step 3.</li>
 </ul>
 <p>It is a best effort. If there is no safe swap anywhere, a clash is left in place.</p>
+<p>In every knockout bracket (a knockout, the knockout after a round robin, the Plate pool and Group Boards groups), entries whose organisation is filled in are kept apart as long as possible, whether or not one of the tick boxes is on. When the bracket comes from a round robin, keeping entries from the same group apart comes first, and the same organisation second. Each draw is given about a second of work at most, so in a big bracket (from about 30 entries) with many entries from one or two organisations, the result is the best DartDraw found in that time: entries are still spread out, but a little less evenly than a much longer search could manage, and now and then a pair meets a round earlier than it might. So the projected bracket printed before the round robin can differ from the real draw when organisations are filled in.</p>
 
 <h4 id="seeds">Seeds</h4>
 <p>In a <b>Knockout</b>, step 3 shows <b>Participants &amp; Seeding</b>. Seeding is off by default, which means a fresh random draw every time you generate the bracket. Tick <b>Seed this bracket</b>, then use the up and down arrows to put entries in order. <b>Number of seeds</b> (4, 8, 16, 32 or 64) sets how many of the top entries show a seed number on the printed chart. Everyone is still placed using your order. Seeds 1 and 2 can only meet in the final, and the best seeds get any byes.</p>
@@ -510,7 +511,7 @@ const sections = [
       {
         id: 'faq-how-many-entries',
         title: 'How many entries can I have?',
-        body: `<p>There is no fixed limit for a round robin. A knockout bracket holds up to 128 slots. For big fields, use Group Boards, which allows up to 128 groups of at least 2 players each. If you see a message that your account allows up to a certain number of entries per event, contact your admin.</p>`
+        body: `<p>There is no fixed limit for a round robin. A knockout bracket holds up to 128 slots. For big fields, use Group Boards, which allows up to 128 groups of 2 to 128 players each. If you see a message that your account allows up to a certain number of entries per event, contact your admin.</p>`
       },
       {
         id: 'faq-change-after-finalized',
@@ -564,7 +565,7 @@ const sections = [
       {
         id: 'faq-byes',
         title: 'How are byes decided in a knockout?',
-        body: `<p>The bracket size is the next one up from your entries (4, 8, 16, 32, 64 or 128). The empty places are byes in round 1. They go to the best seeds. With seeding off, the draw is random. Entries from the same organisation are kept apart as long as possible when you have turned that option on.</p>`
+        body: `<p>The bracket size is the next one up from your entries (4, 8, 16, 32, 64 or 128). The empty places are byes in round 1. They go to the best seeds. With seeding off, the draw is random. Entries from the same organisation are kept apart as long as possible whenever an organisation is filled in. After a round robin, entries from the same group come first, then the same organisation. Each draw takes about a second at most, so a big bracket with many entries from one organisation is spread as well as DartDraw manages in that time, which can be slightly less even than possible. A bracket holds at most 128 entries: DartDraw refuses a bigger one and says which setting to change.</p>`
       },
       {
         id: 'faq-basic-advanced',
