@@ -76,15 +76,23 @@ test('the pages link to each other with clean URLs', () => {
   });
 });
 
-test('copy: no plan, tier or team wording, no contact email, Singles and Doubles, Group Boards described', () => {
+test('copy: no plan or tier wording, no contact email, no rosters or rubbers, Singles, Doubles and Teams, Group Boards described', () => {
   PAGES.forEach((p) => {
     const h = markup(read(p));
-    assert.doesNotMatch(h, /\bTeams?\b/i, p);
+    assert.doesNotMatch(h, /\bTriples?\b|\b(rosters?|rubbers?|handouts?)\b|both players named/i, p);
     assert.doesNotMatch(h, /\bBasic (plan|mode|tier)\b|\bPro (plan|mode|tier)\b|>\s*Pro\s*<|>\s*Basic\s*<|\bpricing\b|\bsubscription\b/i, p);
     assert.doesNotMatch(h, /mailto:|[\w.+-]+@[\w-]+\.[a-z]{2,}/i, p + ' shows an email address');
   });
-  assert.match(markup(read('index.html')), /<ul class="tags"[^>]*><li>Singles<\/li><li>Doubles<\/li><\/ul>/);
+  assert.match(markup(read('index.html')), /<ul class="tags"[^>]*><li>Singles<\/li><li>Doubles<\/li><li>Teams<\/li><\/ul>/);
   const features = markup(read('features.html'));
+  assert.match(features, /<h3>Singles, doubles and teams<\/h3>/);
+  // three formats; Group Boards is described as a Knockout option
+  const fmt = (features.match(/<div class="fmt">([\s\S]*?)<\/div>\s*<\/div><\/section>/) || [])[1] || '';
+  assert.deepEqual([...fmt.matchAll(/<h3>([^<]+)<\/h3>/g)].map((m) => m[1]), ['Round robin', 'Knockout', 'Round robin &rarr; Knockout']);
+  assert.match(fmt, /<h3>Knockout<\/h3><p>[^<]*Or Group Boards first/);
+  assert.match(features, /Choose Knockout, then Group Boards/);
+  assert.match(features, /segments[\s\S]*total legs each team won/);
+  assert.match(markup(read('how-it-works.html')), /choose the category and Singles, Doubles or Teams/);
   assert.match(features, /Group Boards/);
   assert.match(features, /<span class="chip">Optional<\/span>/);
   // the app's own wording for the two ways of setting up an event

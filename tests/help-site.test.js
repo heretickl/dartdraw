@@ -154,6 +154,7 @@ test('the FAQ is a list of <details> accordions, each with a <summary> and an an
   assert.ok(titles.some((t) => /offline/.test(t)));
   assert.ok(titles.some((t) => /after the event is finalized/.test(t)));
   assert.ok(titles.some((t) => /names of players in a pair/.test(t)));
+  assert.ok(titles.some((t) => /result of a team match/.test(t)));
   assert.ok(titles.some((t) => /not on the public home page/.test(t)));
   assert.ok(titles.some((t) => /tie-breaks/.test(t)));
 });
@@ -162,13 +163,14 @@ test('the FAQ is a list of <details> accordions, each with a <summary> and an an
 test('the guide covers the topics organisers need, each as an anchored article', () => {
   const need = {
     'getting-started': ['Forgot password?', 'Change password', 'Event creation', 'Format & branding', 'Chart details', 'Confirm & Print Bracket', 'Manage Tournament', 'Finalize Standings', 'Print Final Chart', 'Basic setup', 'Advanced setup', 'Saved', 'Updated elsewhere', 'Couldn’t save'],
-    'creating-an-event': ['Singles', 'Doubles', 'pair', 'Number of entries', 'Tournament date'],
-    'choosing-a-format': ['Round robin', 'Knockout', 'Group Boards', 'Plate pool', 'Best of legs', 'Optional'.toLowerCase()],
+    'creating-an-event': ['Singles', 'Doubles', 'Teams', 'pair', 'Team name', 'Number of entries', 'Tournament date'],
+    'choosing-a-format': ['Round robin', 'Knockout', 'Knockout type', 'Single bracket', 'Group Boards, then finals', 'not offered with the round robin formats', 'Plate pool', 'Best of legs', 'Optional'.toLowerCase()],
     'entries-and-check-in': ['Check-in', 'Withdraw', 'Mark no-show', 'Neither showed', 'Organisation', 'Seed'],
     'draws-and-printing': ['Random draw', 'Print bracket pack', 'rules', 'sponsor', 'QR'],
     'managing-the-tournament': ['Start all games', 'Save score', 'Boards', 'incident'],
     'full-page-window': ['Open in new window', 'F11', 'pop-up'],
-    'publishing-results': ['Publish results', 'List on the public page', 'every 20 seconds', 'Player 1'],
+    'publishing-results': ['Publish results', 'List on the public page', 'every 20 seconds', 'entry names'],
+    'teams': ['segment', 'Team match segments (played in order)', '+ Add segment', 'Singles', 'Doubles', 'Trios', 'Foursome', '301', '1001', 'A tie-breaker might be needed', 'Save score', 'at most 10 legs', '9, or 10 in a stage that uses the tie-breaker', 'draw', 'refused', 'never changes what you typed', 'Use a tie-breaker in round robin matches', 'Use a tie-breaker in knockout matches', 'locked', 'at most 8', 'Save format & branding', 'lineup', 'TOTAL POINTS', 'TIE-BREAKER', 'Basic and Advanced', 'one board', 'Start round', 'called to its board', 'never off', 'drawn result', 'deciding leg', 'must be odd', 'competition type (step 1) of a Teams event', 'when it is used', 'large space for the captain'],
     'finishing-the-event': ['Accept & finalize', 'Final results', 'Only an Admin can reopen'],
     'troubleshooting': ['Save as PDF', 'pop-up', 'Updated elsewhere']
   };
@@ -218,13 +220,13 @@ test('the guide links to the spectators’ help page on the public results site 
 });
 
 // ---------- what may not be said ----------
-test('the Help page says nothing about plans or tiers, other competition types, contact emails or real names', () => {
+test('the Help page says nothing about plans or tiers, Triples, rosters, rubbers, team handouts, contact emails or real names', () => {
   const t = text(help);
   assert.doesNotMatch(t, /\bBasic (plan|mode|tier|account)\b|\bPro (plan|mode|tier|account)\b/i);
   assert.doesNotMatch(t, /\b(plans?|tiers?|pricing|subscription|upgrade|upgraded|free trial)\b/i);
   assert.doesNotMatch(t, /\bPro\b/);
-  assert.doesNotMatch(t, /\bTeams?\b/i);
   assert.doesNotMatch(t, /\bTriples?\b/i);
+  assert.doesNotMatch(t, /\b(rosters?|rubbers?|handouts?)\b|Players per team|Player 1|Player 2/i);
   assert.doesNotMatch(t, /DartConnect/i);
   assert.doesNotMatch(markup(help).replace(/<link[^>]*>/g, ''), /mailto:|@/);
   assert.doesNotMatch(t, /[\w.+-]+\s?@\s?[\w-]+\.[a-z]{2,}/i);
@@ -258,6 +260,9 @@ test('the buttons, labels and messages the guide quotes still exist in app.html 
     'Withdraw', 'Swap with…', 'Mark no-show…', 'Neither showed', 'Reverse it', 'Adjust positions…', 'Reset all', 'Un-confirmed automatically',
     'Flat list', 'Grouped view', 'Confirm this chart', 'Generate bracket', 'Regenerate bracket', 'Print bracket pack',
     'Include the rules & format sheet as the first page of the pack', 'Include sponsor footer on printed charts',
+    'Team match segments (played in order)', '+ Add segment', 'A tie-breaker might be needed', 'A team can win at most ', 'Use a tie-breaker in round robin matches', 'Use a tie-breaker in knockout matches', 'Games have started, so the segments are locked', 'Games have started, so the format of this Teams event can', 'play one more deciding leg and include it in the totals', 'Use an odd best of', 'Start round',
+    'Knockout type', 'Single bracket', 'Group Boards, then finals', 'This is a knockout match — it can\'t end level', 'Level totals are a draw (1 point each).',
+    'Also print a lineup/scorecard sheet for each fixture, for captains to fill in on the day', 'TOTAL POINTS', 'Team name', 'Pair name',
     'Knockout bracket paper size', 'Players A–Z', 'Draw groups', 'Move…', 'Winner of Group', 'no winner',
     'Start all games', 'Go print the pack first', 'Start without printing', 'Scores are locked', 'Save score', 'Generate knockout bracket', 'Regenerate from current standings', 'Start round',
     'The knockout can only be drawn once every group is finished', 'Resolve ties before continuing', 'Call', 'Uncall', 'Enter result', 'Finals boards', '+ Log incident',
@@ -500,7 +505,7 @@ const podsUi = read('pods-ui.js'), bpUi = read('boardplan-ui.js');
 
 test('QR codes: only the sheets the guide names carry one, and the guide says the rest do not (and that the public address must be set)', () => {
   [fnBody(app, 'chartSheetHTML'), fnBody(app, 'knockoutBracketSheetHTML'), fnBody(bpUi, 'bpSheetShell')].forEach((b) => assert.match(b, /printQrBlockHTML\(/));
-  ['rulesSheetHTML', 'runningOrderSheetHTML', 'teamHandoutSheetHTML'].forEach((n) => assert.doesNotMatch(fnBody(app, n), /printQrBlockHTML\(|qrSvg\(/, n + ' has no QR code'));
+  ['rulesSheetHTML', 'runningOrderSheetHTML', 'lineupCardHTML'].forEach((n) => assert.doesNotMatch(fnBody(app, n), /printQrBlockHTML\(|qrSvg\(/, n + ' has no QR code'));
   assert.match(fnBody(app, 'liveResultsUrl'), /currentOrganizer\.viewerUrl/, 'the public address matters too');
   const t = articleText('draws-and-printing');
   assert.match(t, /Only some sheets carry a QR code/);

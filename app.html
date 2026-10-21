@@ -112,6 +112,7 @@ input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;fle
 .options{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .choice{border:1px solid #cad5e0;border-radius:8px;padding:11px 12px;cursor:pointer}
 .choice.selected{border:2px solid var(--blue);background:#f2f7ff;padding:10px 11px}
+.choice.disabled{cursor:not-allowed;opacity:.6}
 .choice strong{display:block;font-size:13px}
 .choice small{color:var(--muted);display:block;margin-top:3px;line-height:1.35}
 .recommend{font-size:11px;color:#466177;background:#edf4f9;border-radius:7px;padding:10px 11px;line-height:1.5;margin-top:10px}
@@ -306,21 +307,35 @@ body.mko-popout #stageArea{height:100vh;display:flex;flex-direction:column}
 .lineup-topline{display:flex;align-items:center;gap:8px;margin:8px 0 10px}
 .lineup-teamname{flex:1;border:1px solid #ccc;border-radius:6px;padding:8px 10px 6px;font-size:12px;font-weight:700;position:relative}
 .lineup-teamname .tag{position:absolute;top:-7px;left:8px;background:#e7ecf1;font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:3px;color:#666}
-.lineup-seg{margin-bottom:5px;display:flex;flex-direction:column;flex:1}
+.lineup-seg{margin-bottom:5px;display:flex;flex-direction:column;flex:none;overflow:hidden}
 .lineup-seg-head{display:flex;background:#141414;color:#fff;border-radius:5px 5px 0 0;overflow:hidden;flex-shrink:0}
 .lineup-seg-title{flex:1;padding:4px 9px;font-weight:800;font-size:10px;text-transform:uppercase;display:flex;align-items:baseline;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lineup-seg-title small{font-weight:600;font-size:7.5px;opacity:.75;text-transform:none}
 .lineup-seg-pts{width:48px;text-align:center;padding:4px 0;font-size:7.5px;font-weight:800;text-transform:uppercase;border-left:1px solid #333;flex-shrink:0}
-.lineup-seg-body{display:flex;flex:1}
+.lineup-seg-body{display:flex;flex:1;min-height:0}
 .lineup-seg-lines{flex:1;border:1px solid #ccc;border-top:none;padding:3px 9px;min-width:0;display:flex;flex-direction:column}
 .lineup-seg-pts-box{width:48px;border:1px solid #ccc;border-top:none;border-left:none;flex-shrink:0}
-.lineup-line{display:flex;align-items:baseline;gap:5px;font-size:8px;color:#aaa;border-bottom:1px solid #e4e7ea;padding:3px 0;flex:1}
+.lineup-line{display:flex;align-items:baseline;gap:5px;font-size:8px;color:#aaa;border-bottom:1px solid #e4e7ea;padding:3px 0;flex:1;min-height:0}
 .lineup-line:last-child{border-bottom:none}
 .lineup-line b{font-weight:800;color:#333}
 .lineup-total .lineup-seg-head{background:#000}
 .lineup-total .lineup-seg-lines{border-bottom:1px solid #ccc}
-.lineup-sig{font-size:7.5px;color:#8a97a5;margin-top:5px;border-top:1px solid #e4e7ea;padding-top:3px}
+/* TOTAL POINTS: a compact fixed block, the last one, after the tie-breaker. */
+.lineup-seg.lineup-total{height:64px;flex:none}
+/* The signature area takes all the height left: a large blank space above the signing line. */
+.lineup-sig{flex:1 1 auto;display:flex;flex-direction:column;min-height:98px;margin-top:4px;font-size:7.5px;color:#8a97a5}
+.lineup-sig-space{flex:1 1 auto;min-height:84px}
+.lineup-sig-line{border-top:1px solid #9aa5b1;padding-top:3px}
 .lineup-card .logo-placeholder{width:44px !important;height:44px !important;font-size:7px}
+/* Many name lines (up to 8 segments plus a tie-breaker, 4 lines each for a foursome): tighter lines so one A4 page still holds them. */
+.lineup-card.dense .lineup-seg{margin-bottom:3px}
+.lineup-card.dense .lineup-line{padding:1px 0;font-size:7px}
+.lineup-card.dense .lineup-seg-title{padding:3px 9px}
+/* Teams segment editor rows: one line each; a fixed label column so the tie-breaker row lines up with the others. */
+.team-seg-row{display:flex;align-items:center;gap:8px;padding:8px 12px;flex-wrap:wrap}
+.team-seg-num{font-size:11px;font-weight:800;color:#8a97a5;width:74px;flex-shrink:0}
+.team-seg-btn{padding:4px 8px}
+@media (pointer: coarse){ .team-seg-btn{min-width:40px;min-height:40px} }
 /* Full-page window header tools: its own save status (no sidebar there) and Print */
 .popout-tools{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .popout-save-status{margin:0;font-size:12px;color:var(--muted);min-height:0}
@@ -568,6 +583,8 @@ function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9)+Da
 /* ---------- Default / current state ---------- */
 let state = null;
 let currentStage = 1;
+/* Teams: unsaved edits to the segments on Format & branding (see teamDraft). Dropped when step 2 is left without Save. */
+let teamSegDraft = null;
 let popoutMode = false;
 let popoutSection = 'knockout';
 
@@ -593,8 +610,9 @@ function blankTournament(){
          (today's behaviour); a number caps how many below the qualifiers advance to the
          Plate, with anyone ranked below that eliminated outright (no bracket). */
       plateQualifiersPerGroup:null,
-      /* Team events (Doubles/Triples/Teams) */
-      teamSize:4, teamMatchFormat:'foursome', mixedRubbers: defaultRubbers(4),
+      /* Teams: a team match is a list of segments, played in order, plus an optional tie-breaker segment
+         (see teamSegmentsOf / teamTieBreakerFor). One setup per event: every round uses the same segments. */
+      teamSegments: defaultTeamSegments(), teamTieBreaker: defaultTeamTieBreaker(),
       /* Applies to any unit: avoid grouping/seeding entries from the same org together */
       orgSplit:false,
       /* Group Boards (formatType:'podknockout'): how many small knockout groups, and their best-of
@@ -631,7 +649,7 @@ function blankTournament(){
        than a pure estimate. */
     rrFinishedAt: null,
     activeGroupId: null,
-    printSettings: { sponsorFooterEnabled:true, teamHandoutEnabled:false, rulesSheetEnabled:true, lineupSheetEnabled:false, koPaperSize:'A4', playersSheetEnabled:true, boardsSheetEnabled:true },
+    printSettings: { sponsorFooterEnabled:true, rulesSheetEnabled:true, lineupSheetEnabled:false, koPaperSize:'A4', playersSheetEnabled:true, boardsSheetEnabled:true },
     tieBreakOrder: ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'],
     /* Disciplinary / incident log (Day-of-the-event) — organiser-only record, not printed. */
     incidents: []
@@ -639,44 +657,201 @@ function blankTournament(){
 }
 
 function unitWordFor(unit){ return { Singles:'Player', Doubles:'Pair', Triples:'Triple', Teams:'Team' }[unit] || 'Entry'; }
-/* Default rubber composition for a "Singles + Doubles mix" team encounter.
-   Design decision: one singles rubber per player on the team, plus a single
-   closing doubles rubber. Rationale:
-     - every named player on the roster gets a game (fairness, and it matches
-       how club/association team nights are usually run),
-     - the doubles goes last so it acts as the decider,
-     - teamSize + 1 is ODD for the common even team sizes (4 -> 5 rubbers,
-       first to 3), so an encounter can't be drawn,
-     - if the organiser wants something else entirely (e.g. 2 doubles + 3
-       singles) the rubber list is fully editable in Format & branding.
-   For an odd team size the count would be even and draws become possible,
-   which the round robin already handles (1 point each). */
-/* Rubber "type" -> number of named players a side fields for that segment,
-   matching real club lineup sheets (e.g. KELAB PJ's) which mix singles,
-   doubles, triples and a foursome/quad within one encounter. */
-const RUBBER_PLAYER_COUNT = { singles:1, doubles:2, triples:3, foursome:4 };
-function defaultRubbers(teamSize){
-  const n = Math.max(2, parseInt(teamSize)||4);
-  const out = [];
-  for(let i=0;i<n;i++) out.push({ name:'Singles '+(i+1), type:'singles', startingScore:501, legs:3 });
-  out.push({ name:'Doubles', type:'doubles', startingScore:501, legs:3 });
-  return out;
+/* ---------- Teams: a team match is made of segments ----------
+   An entry of any competition type is just its name (no roster: an older event's stored `players` lists are kept in
+   the data but never shown or used). A Teams match is a list of segments played in order on one board, each with its
+   own type, starting score and best-of legs. The organiser records ONE plain result per match: the total legs each
+   team won across all its segments. That total goes into the same legs fields every other match uses, so standings,
+   brackets, the public page and finalizing need nothing special. Data:
+     format.teamSegments   = [{type:'singles'|'doubles'|'trios'|'foursome', startingScore, legs}]   (1 to 8 of them)
+     format.teamTieBreaker = {type, startingScore, legs, inRoundRobin, inKnockout}
+   The tie-breaker is one more segment, chosen per stage: inRoundRobin for round robin matches, inKnockout for knockout
+   matches (the Plate pool, Group Boards groups and finals included). In a stage that uses it, a level total cannot be
+   saved: the tie-breaker is played and its legs counted. In a stage without it, a level total is a draw in a round
+   robin, and refused in a knockout (a knockout needs a winner). "stage" below is 'rr' or 'ko'.
+   "Trios" is the name for three players (an older event's 'triples' segment is migrated to 'trios'). */
+const TEAM_SEGMENT_TYPES = [['singles','Singles'],['doubles','Doubles'],['trios','Trios'],['foursome','Foursome']];
+const TEAM_SEGMENT_PLAYERS = { singles:1, doubles:2, trios:3, foursome:4 };
+const TEAM_STARTING_SCORES = [301,501,701,1001];
+const TEAM_MAX_SEGMENTS = 8;   // so the lineup sheet always fits one A4 page
+const EVEN_LEGS_WARNING = 'Even numbers can end in a tie — an odd number is recommended.';
+function defaultTeamSegments(){
+  return [
+    { type:'foursome', startingScore:1001, legs:1 },
+    { type:'singles', startingScore:501, legs:3 },
+    { type:'doubles', startingScore:501, legs:3 },
+    { type:'singles', startingScore:501, legs:3 },
+    { type:'doubles', startingScore:501, legs:3 }
+  ];
 }
-/* How many named players make up one "entry" for the current competition unit.
-   Singles is 1 (no roster — the entry name IS the player). Doubles/Triples are
-   fixed at 2/3. Teams is organiser-configurable (format.teamSize, default 4). */
-function teamSizeFor(t){
-  const unit = t.eventCreation.competitionUnit;
-  if(unit==='Doubles') return 2;
-  if(unit==='Triples') return 3;
-  if(unit==='Teams') return Math.max(2, parseInt(t.format.teamSize)||4);
-  return 1;
+function defaultTeamTieBreaker(){ return { type:'foursome', startingScore:1001, legs:1, inRoundRobin:true, inKnockout:true }; }
+function isTeamsEvent(t){ return !!(t && t.eventCreation && t.eventCreation.competitionUnit==='Teams'); }
+function isPlainObj(v){ return !!v && typeof v==='object' && !Array.isArray(v); }
+function segmentTypeKey(v){ v = v==='triples' ? 'trios' : v; return TEAM_SEGMENT_PLAYERS[v] ? v : 'singles'; }
+function segmentTypeLabel(v){ const k = segmentTypeKey(v); return TEAM_SEGMENT_TYPES.find(x=>x[0]===k)[1]; }
+function segmentLegs(s){ const n = parseInt(s && s.legs); return n>=1 ? Math.min(n, 99) : 3; }
+function segmentStart(s){ const n = parseInt(s && s.startingScore); return n>=1 ? Math.min(n, 10000) : 501; }
+/* A clean copy of one segment (never the stored object), whatever the stored data holds. */
+function cleanSegment(s){ return { type: segmentTypeKey(s && s.type), startingScore: segmentStart(s), legs: segmentLegs(s) }; }
+function teamSegmentsOf(t){
+  const list = (t && t.format && Array.isArray(t.format.teamSegments)) ? t.format.teamSegments.filter(isPlainObj) : [];
+  return (list.length ? list : defaultTeamSegments()).map(cleanSegment);
 }
-function isTeamUnit(t){ return teamSizeFor(t) > 1; }
-function isTeamMixed(t){ return t.eventCreation.competitionUnit==='Teams' && t.format.teamMatchFormat==='mixed'; }
+/* The tie-breaker definition with its two stage ticks (an object saved before the ticks existed had one `enabled`). */
+function cleanTieBreaker(tb){
+  if(!isPlainObj(tb)) return Object.assign(defaultTeamTieBreaker(), { inRoundRobin:false, inKnockout:false });
+  const legacy = !('inRoundRobin' in tb) && !('inKnockout' in tb);
+  const on = (k)=> legacy ? tb.enabled===true : tb[k]===true;
+  return Object.assign(cleanSegment(tb), { inRoundRobin:on('inRoundRobin'), inKnockout:on('inKnockout') });
+}
+function teamTieBreakerDef(t){ return cleanTieBreaker(t && t.format && t.format.teamTieBreaker); }
+/* Which stages an event's format has: a round robin, a knockout (Group Boards is a knockout), or both. */
+function formatHasStage(t, stage){
+  const ft = t && t.format && t.format.formatType;
+  return stage==='rr' ? (ft==='roundrobin' || ft==='rrknockout') : (ft==='knockout' || ft==='podknockout' || ft==='rrknockout');
+}
+/* The tie-breaker segment for a stage's matches, or null when that stage does not use one. */
+function teamTieBreakerFor(t, stage){
+  const tb = teamTieBreakerDef(t);
+  const on = stage==='rr' ? tb.inRoundRobin : tb.inKnockout;
+  return (on && formatHasStage(t, stage)) ? cleanSegment(tb) : null;
+}
+/* The most legs one side can win in a segment: a majority of its best-of. */
+function segmentMaxLegs(s){ return Math.floor(segmentLegs(s)/2)+1; }
+/* The most legs one team can win in a match of that stage: every main segment, plus the tie-breaker when the stage uses it. */
+function teamMatchCap(t, stage){
+  const tb = teamTieBreakerFor(t, stage);
+  return teamSegmentsOf(t).reduce((sum,s)=> sum+segmentMaxLegs(s), 0) + (tb ? segmentMaxLegs(tb) : 0);
+}
+/* A walkover: the winner is given every main segment (no tie-breaker is needed when one side does not play). */
+function teamWalkoverLegs(t){ return teamSegmentsOf(t).reduce((sum,s)=> sum+segmentMaxLegs(s), 0); }
+/* Every leg a match of that stage can take, the tie-breaker's included when the stage uses it: the time estimate. */
+function teamMatchTotalLegs(t, stage){
+  const tb = teamTieBreakerFor(t, stage);
+  return teamSegmentsOf(t).reduce((sum,s)=> sum+segmentLegs(s), 0) + (tb ? segmentLegs(tb) : 0);
+}
+function segmentDescription(s){ return segmentTypeLabel(s.type)+' ('+segmentStart(s)+', best of '+segmentLegs(s)+')'; }
+/* "5 segments + tie-breaker": the short description used in sheet headers and summaries. With a stage it describes
+   that stage's matches; without one, the whole event ("+ tie-breaker (knockout)" when only one of two stages uses it). */
+function teamMatchShortLabel(t, stage){
+  const n = teamSegmentsOf(t).length;
+  const base = n+' segment'+(n===1?'':'s');
+  if(stage) return base+(teamTieBreakerFor(t, stage)?' + tie-breaker':'');
+  const stages = ['rr','ko'].filter(s=> formatHasStage(t, s));
+  const using = stages.filter(s=> teamTieBreakerFor(t, s));
+  if(!using.length) return base;
+  if(using.length===stages.length) return base+' + tie-breaker';
+  return base+' + tie-breaker ('+(using[0]==='rr'?'round robin':'knockout')+')';
+}
+/* Segment label on the lineup sheet: "<Type> <n>", numbered per type (Singles 1, Doubles 1, Singles 2, ...). */
+function teamSegmentLabels(segs){
+  const seen = {};
+  return segs.map(s=>{ const k = segmentTypeKey(s.type); seen[k] = (seen[k]||0)+1; return segmentTypeLabel(k)+' '+seen[k]; });
+}
+/* The note under the two result boxes of a Teams match of that stage. */
+function teamResultHintHTML(t, stage){
+  const n = teamSegmentsOf(t).length, tb = teamTieBreakerFor(t, stage), cap = teamMatchCap(t, stage);
+  const level = tb ? 'The totals can\'t be level: if they are level after the main segments, play the tie-breaker and include its legs.'
+    : stage==='rr' ? 'Level totals are a draw (1 point each).'
+    : 'Knockout matches can\'t end level.';
+  return '<p style="font-size:11px;color:#8a97a5">Enter the total legs each team won across all '+n+' segment'+(n===1?'':'s')+(tb?', including the tie-breaker if it was played':'')+'. A team can win at most '+cap+' legs. '+level+'</p>';
+}
+/* The attributes of a Teams result box: whole numbers of 0 or more; a total above the cap is NOT changed to the cap
+   (the organiser would save a number nobody typed) but refused with a message on Save (teamResultError). */
+function teamResultBoxAttr(cap){
+  return 'min="0" max="'+cap+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.max(parseInt(this.value)||0,0)"';
+}
+/* The result already stored for a match, as {a,b}, only when both sides hold a real number (a blank or missing leg
+   count, e.g. in an older record, is not a result: then null, and the typed totals get every check). */
+function teamStoredResult(a, b){
+  const num = v=> v!=='' && v!=null && !isNaN(parseInt(v));
+  return (num(a) && num(b)) ? { a:parseInt(a), b:parseInt(b) } : null;
+}
+/* Checks one Teams result (the two box values as typed) for a match of that stage. `stored` ({a,b}, from
+   teamStoredResult) is the result already saved for this match: saving it again unchanged is always allowed, even if
+   the cap is lower now (an older event's result). Returns the message to show, or null when it can be saved. */
+function teamResultError(t, va, vb, stage, stored){
+  const la = parseInt(va), lb = parseInt(vb);
+  if(va===''||vb===''||isNaN(la)||isNaN(lb)||la<0||lb<0) return 'Enter the total legs each team won (0 or more).';
+  if(stored && la===stored.a && lb===stored.b) return null;
+  const cap = teamMatchCap(t, stage);
+  if(la>cap || lb>cap) return 'A team can win at most '+cap+' legs in this match ('+teamMatchShortLabel(t, stage)+'). Check the totals.';
+  if(la===0 && lb===0) return 'Enter the legs each team won: both totals can\'t be 0.';
+  if(la===lb){
+    if(teamTieBreakerFor(t, stage)) return 'The totals can\'t be level: this '+(stage==='rr'?'round robin':'knockout')+' match uses the tie-breaker. Play it and include its legs in the totals.';
+    if(stage!=='rr'){
+      /* A level total is always at most cap-1, so one more deciding leg always fits within the cap. */
+      return 'This is a knockout match — it can\'t end level. One team must have more legs: '+
+        (teamTieBreakerTickChange(t, 'ko').canTurnOn ? 'tick "Use a tie-breaker in knockout matches" in Format & branding to play the tie-breaker, or play one more deciding leg and include it in the totals.'
+          : 'play one more deciding leg and include it in the totals.');
+    }
+  }
+  return null;
+}
+/* Has a stage of the event begun? Round robin: a group started or holding a score. Knockout (the Plate pool, Group
+   Boards groups and the Finals included): a round started (Start round), a match called to a board, or any result
+   (legs, a winner other than a bye, a walkover, "neither showed"). */
+function teamStageStarted(t, stage){
+  if(stage==='rr') return (t.groups||[]).some(g=> g.gameStarted || (g.scores && Object.keys(g.scores).length));
+  const begun = b=> !!(b && b.rounds && ((b.roundStartedAt||[]).some(Boolean) ||
+    b.rounds.some(r=> r.some(m=> m.called || m.aLegs!=null || m.bLegs!=null || m.void || m.wo || (m.winnerId && !m.bye)))));
+  return [t.knockout, t.knockoutLosers].some(begun) || (t.pods||[]).some(p=> begun(p.bracket));
+}
+/* The segments are locked once either stage has begun, like a group's lineup: every match of the event is played with
+   the same segments. */
+function teamSegmentsLocked(t){ return teamStageStarted(t, 'rr') || teamStageStarted(t, 'ko'); }
+/* A round robin result stored level (a draw): the round robin tie-breaker can't be switched on any more. */
+function teamRoundRobinHasLevel(t){
+  return (t.groups||[]).some(g=> Object.keys(g.scores||{}).some(k=>{ const s = g.scores[k]; const r = s && teamStoredResult(s.legs1, s.legs2); return !!(r && r.a===r.b); }));
+}
+/* What may be done with a stage's tie-breaker tick: before that stage has begun, anything. After: switching it OFF
+   never (results were saved with it), switching it ON for the knockout always (no stored knockout result is level and
+   the cap only rises), and for the round robin only while no level (drawn) result is stored. */
+function teamTieBreakerTickChange(t, stage){
+  if(!formatHasStage(t, stage)) return { locked:true, canTurnOn:false, canTurnOff:false };
+  if(!teamStageStarted(t, stage)) return { locked:false, canTurnOn:true, canTurnOff:true };
+  const on = stage==='rr' ? teamTieBreakerDef(t).inRoundRobin : teamTieBreakerDef(t).inKnockout;
+  const canTurnOn = !on && (stage==='ko' || !teamRoundRobinHasLevel(t));
+  return { locked:true, canTurnOn:canTurnOn, canTurnOff:false };
+}
+/* The tie-breaker's own type, starting score and best of can change only while no begun stage uses it. */
+function teamTieBreakerDefEditable(t){
+  return !teamTieBreakerStages(t).some(s=> teamStageStarted(t, s) && teamTieBreakerFor(t, s));
+}
+/* An older Teams event used either one "foursome" match (format.bestOfLegs) or a list of rubbers
+   (format.mixedRubbers, one of them possibly flagged as the tie-breaker). Both become segments, once, the first time
+   the event is opened; the old fields stay in the data untouched. A legacy tie-breaker rubber is used in both stages.
+   A Teams event with neither (no stored team setup at all) and any other event just get the defaults. Never runs
+   again once format.teamSegments exists; a tie-breaker saved with one `enabled` tick gets the two stage ticks. */
+function migrateTeamSegments(t){
+  const f = t.format;
+  if(Array.isArray(f.teamSegments) && f.teamSegments.length){
+    f.teamTieBreaker = cleanTieBreaker(f.teamTieBreaker);
+    return;
+  }
+  const off = cleanTieBreaker(null);
+  const both = (s)=> Object.assign(cleanSegment(s), { inRoundRobin:true, inKnockout:true });
+  const legacyLegs = (r)=> (r && r.legs!==undefined) ? r.legs : (parseInt(f.bestOfLegs)||3);
+  const rubbers = Array.isArray(f.mixedRubbers) ? f.mixedRubbers.filter(isPlainObj) : [];
+  /* Very old events never stored a team format: they played the foursome. */
+  const foursome = f.teamMatchFormat==='foursome' || (f.teamMatchFormat===undefined && f.qualifiersPerGroup===undefined);
+  if(!isTeamsEvent(t) || !(foursome || (f.teamMatchFormat==='mixed' && rubbers.length))){
+    f.teamSegments = defaultTeamSegments(); f.teamTieBreaker = defaultTeamTieBreaker(); return;
+  }
+  if(f.teamMatchFormat==='mixed'){
+    const tbIdx = rubbers.findIndex(r=> r.isTieBreaker===true);
+    let main = rubbers.filter((r,i)=> i!==tbIdx);
+    let tb = tbIdx>=0 ? rubbers[tbIdx] : null;
+    if(!main.length){ main = [tb]; tb = null; }   // a lone rubber flagged tie-breaker is the match itself
+    f.teamSegments = main.map(r=> cleanSegment({ type:r.type, startingScore:r.startingScore, legs:legacyLegs(r) }));
+    f.teamTieBreaker = tb ? both({ type:tb.type, startingScore:tb.startingScore, legs:legacyLegs(tb) }) : off;
+  } else {
+    f.teamSegments = [ cleanSegment({ type:'foursome', startingScore:501, legs:parseInt(f.bestOfLegs)||5 }) ];
+    f.teamTieBreaker = off;
+  }
+}
 function ensureEntries(t){
   const n = Math.max(2, parseInt(t.eventCreation.entries)||0);
-  const size = teamSizeFor(t);
   /* Withdrawn entries are kept in the list for history but don't count toward
      the entry total — otherwise withdrawing + replacing an entry would silently
      delete a real entry off the end of the list. */
@@ -685,7 +860,7 @@ function ensureEntries(t){
   const lim = entryLimit();
   const fillTo = (lim!==null && n>lim) ? Math.max(lim, active.length) : n;
   while(active.length < fillTo){
-    const e = { id: uid('e'), name: 'Entry '+(active.length+1), autoName:true, org:'', players: size>1 ? Array(size).fill('') : [], checkedIn:false, noShow:false };
+    const e = { id: uid('e'), name: 'Entry '+(active.length+1), autoName:true, org:'', checkedIn:false, noShow:false };
     t.entriesList.push(e); active.push(e);
   }
   if(active.length > n){
@@ -694,13 +869,9 @@ function ensureEntries(t){
     if(t.seedOrder) t.seedOrder = t.seedOrder.filter(id=> !drop.has(id));
     (t.groups||[]).forEach(g=>{ g.entryIds = g.entryIds.filter(id=> !drop.has(id)); });
   }
+  /* An older event's `players` lists are left exactly as stored: no roster is shown or used any more. */
   t.entriesList.forEach(e=>{
     if(e.org===undefined) e.org='';
-    if(!e.players) e.players=[];
-    if(size>1){
-      while(e.players.length<size) e.players.push('');
-      if(e.players.length>size) e.players.length = size;
-    } else if(e.players.length){ e.players = []; }
     if(e.checkedIn===undefined) e.checkedIn=false;
     if(e.noShow===undefined) e.noShow=false;
   });
@@ -830,17 +1001,13 @@ function minutesPerLegFor(t){
   return t.eventCreation.eventType==='Women' ? base*1.2 : base;
 }
 function roundUpTo5(mins){ return Math.ceil(mins/5)*5; }
-/* One match's duration. Knockout is always a plain race (even for Teams — Team
-   knockout matches are never broken into rubbers). Round-robin Teams+mixed sums
-   each rubber's own legs, since an encounter there is several rubbers played in
-   sequence on one board; foursome (and every other unit) is one race to bestOfLegs. */
+/* One match's duration: one race to the best-of legs. A Teams match (in every format and round, since every round
+   uses the same segments) is its segments played in sequence on one board, so it sums every segment's legs, the
+   tie-breaker's included when it is ticked; opts.legs does not apply to it. */
 function matchDurationMinutes(t, opts){
   opts = opts || {};
   const mpl = minutesPerLegFor(t);
-  if(!opts.isKnockout && t.eventCreation.competitionUnit==='Teams' && t.format.teamMatchFormat==='mixed'){
-    const total = (t.format.mixedRubbers||[]).reduce((sum,r)=> sum + mpl*(parseInt(r.legs)||3), 0);
-    return roundUpTo5(total);
-  }
+  if(isTeamsEvent(t)) return roundUpTo5(mpl * teamMatchTotalLegs(t, opts.isKnockout ? 'ko' : 'rr'));
   const legs = opts.legs!=null ? opts.legs : t.format.bestOfLegs;
   return roundUpTo5(mpl * (parseInt(legs)||5));
 }
@@ -1603,7 +1770,7 @@ function bracketColumnsHTML(bracket, t, opts){
   opts = opts||{};
   const interactive = !!opts.interactive;
   const bracketKey = opts.bracketKey || (bracket===t.knockoutLosers ? 'knockoutLosers' : 'knockout');
-  const legsCfg = (t.format.knockoutLegs||{})[bracketKey==='knockoutLosers'?'plate':'main'];
+  const legsCfg = isTeamsEvent(t) ? null : (t.format.knockoutLegs||{})[bracketKey==='knockoutLosers'?'plate':'main'];   // Teams: the segments set the legs
   const totalRounds = bracket.rounds.length;
   return '<div class="bracket-cols">'+
     bracket.rounds.map((round, ri)=>{
@@ -1639,24 +1806,33 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m.aEntryId || !m.bEntryId || m.bye) return;
   const aName = bracketEntryName(state, m.aEntryId), bName = bracketEntryName(state, m.bEntryId);
+  const teams = isTeamsEvent(state);
   const bestOf = legsForKnockoutRound(state, bracketKey, bracket.rounds.length, roundIdx);
-  const majority = Math.floor(bestOf/2)+1;
-  const clampAttr = 'min="0" max="'+majority+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.min(Math.max(parseInt(this.value)||0,0),'+majority+')"';
+  const majority = teams ? teamMatchCap(state, 'ko') : Math.floor(bestOf/2)+1;
+  /* Teams: nothing typed is changed to the cap; a total above it is refused with a message on Save. */
+  const clampAttr = teams ? teamResultBoxAttr(majority) : 'min="0" max="'+majority+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.min(Math.max(parseInt(this.value)||0,0),'+majority+')"';
   openModal({
     title: escapeHtml(aName)+' v '+escapeHtml(bName),
-    bodyHTML: (m.void ? '<div class="confirm-box" style="margin:0 0 10px"><b>Neither '+(state.eventCreation.competitionUnit==='Doubles'?'pair':'player')+' attended</b>This match was marked as not played. Enter a score to play it instead, or <button type="button" class="btn secondary" style="padding:3px 9px;font-size:11px" onclick="closeModal();reverseKnockoutVoid(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+');">Reverse it</button></div>' : '')+
+    bodyHTML: (m.void ? '<div class="confirm-box" style="margin:0 0 10px"><b>Neither '+(teams?'team':state.eventCreation.competitionUnit==='Doubles'?'pair':'player')+' attended</b>This match was marked as not played. Enter a score to play it instead, or <button type="button" class="btn secondary" style="padding:3px 9px;font-size:11px" onclick="closeModal();reverseKnockoutVoid(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+');">Reverse it</button></div>' : '')+
       '<p style="margin:-4px 0 10px;font-size:11px;color:var(--muted)">Match '+escapeHtml(koMatchTag(bracket, state, roundIdx, matchIdx))+' · '+escapeHtml(koRoundName(bracket, roundIdx))+'</p>'+
       '<div class="grid2"><div class="field"><label>'+escapeHtml(aName)+' legs</label><input id="scA" type="number" '+clampAttr+' value="'+escText(m.aLegs!=null?m.aLegs:0)+'"></div>'+
       '<div class="field"><label>'+escapeHtml(bName)+' legs</label><input id="scB" type="number" '+clampAttr+' value="'+escText(m.bLegs!=null?m.bLegs:0)+'"></div></div>'+
-      '<p style="font-size:11px;color:#8a97a5">Best of '+bestOf+' legs — a side can score at most '+majority+'. Knockout matches can\'t end in a draw.</p>',
+      (teams ? teamResultHintHTML(state, 'ko')
+        : '<p style="font-size:11px;color:#8a97a5">Best of '+bestOf+' legs — a side can score at most '+majority+'. Knockout matches can\'t end in a draw.</p>'),
     confirmLabel:'Save score', confirmClass:'primary',
     onConfirm:()=>{
       const va = document.getElementById('scA').value, vb = document.getElementById('scB').value;
       const la = parseInt(va), lb = parseInt(vb);
-      if(va===''||vb===''||isNaN(la)||isNaN(lb)||la<0||lb<0) return { error:'Enter a leg count for both sides (0 or more).' };
-      const winnerIsA = la>lb, winnerLegs = Math.max(la,lb), loserLegs = Math.min(la,lb);
-      if(winnerLegs===loserLegs) return { error:'This is a knockout match — it can\'t end in a draw. One side must win.' };
-      if(winnerLegs!==majority || loserLegs>=majority) return { error:'Not a valid finished result for best of '+bestOf+' legs — the winner must have exactly '+majority+' legs, and the loser fewer.' };
+      if(teams){
+        const bad = teamResultError(state, va, vb, 'ko', teamStoredResult(m.aLegs, m.bLegs));
+        if(bad) return { error: bad };
+      } else {
+        if(va===''||vb===''||isNaN(la)||isNaN(lb)||la<0||lb<0) return { error:'Enter a leg count for both sides (0 or more).' };
+        const winnerLegs = Math.max(la,lb), loserLegs = Math.min(la,lb);
+        if(winnerLegs===loserLegs) return { error:'This is a knockout match — it can\'t end in a draw. One side must win.' };
+        if(winnerLegs!==majority || loserLegs>=majority) return { error:'Not a valid finished result for best of '+bestOf+' legs — the winner must have exactly '+majority+' legs, and the loser fewer.' };
+      }
+      const winnerIsA = la>lb;
       const wasVoid = !!m.void;
       const apply = ()=>{ m.aLegs = la; m.bLegs = lb; m.winnerId = winnerIsA ? m.aEntryId : m.bEntryId; m.wo = false; delete m.void; };
       const podHit = podByKey(state, bracketKey);
@@ -1674,12 +1850,17 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
    the normal propagateByes() pass, same as an auto-advanced bye — but tagged
    "WO" rather than "BYE" so it's clear a match was actually forfeited.
    Re-entering a real score afterwards (koMatchScoreModal) clears the tag. */
+/* The winner's legs in a knockout walkover: the majority of the round's best-of, or for Teams every main segment. */
+function koWalkoverLegs(t, bracketKey, totalRounds, roundIdx){
+  if(isTeamsEvent(t)) return teamWalkoverLegs(t);
+  return Math.floor(legsForKnockoutRound(t, bracketKey, totalRounds, roundIdx)/2)+1;
+}
 function markKnockoutNoShow(bracketKey, roundIdx, matchIdx, side){
   const bracket = bracketByKey(state, bracketKey);
   if(!bracket) return;
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m || !m.aEntryId || !m.bEntryId || m.winnerId || m.bye || m.void) return;
-  const majority = Math.floor(legsForKnockoutRound(state, bracketKey, bracket.rounds.length, roundIdx)/2)+1;
+  const majority = koWalkoverLegs(state, bracketKey, bracket.rounds.length, roundIdx);
   const loserId = side==='a' ? m.aEntryId : m.bEntryId;
   const winnerId = side==='a' ? m.bEntryId : m.aEntryId;
   const apply = ()=>{ m.aLegs = side==='a' ? 0 : majority; m.bLegs = side==='a' ? majority : 0; m.winnerId = winnerId; m.wo = true; };
@@ -1729,7 +1910,7 @@ function openKoNoShowPicker(bracketKey, roundIdx, matchIdx){
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m || !m.aEntryId || !m.bEntryId || m.winnerId || m.void) return;
   const aName = bracketEntryName(state, m.aEntryId), bName = bracketEntryName(state, m.bEntryId);
-  const majority = Math.floor(legsForKnockoutRound(state, bracketKey, bracket.rounds.length, roundIdx)/2)+1;
+  const majority = koWalkoverLegs(state, bracketKey, bracket.rounds.length, roundIdx);
   const rows =
     '<div class="picker-row" onclick="markKnockoutNoShow(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+',\'a\');closeModal();">'+escapeHtml(aName)+'</div>'+
     '<div class="picker-row" onclick="markKnockoutNoShow(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+',\'b\');closeModal();">'+escapeHtml(bName)+'</div>'+
@@ -1905,8 +2086,11 @@ function knockoutBracketSheetHTML(bracket, opts){
   const isPodSheet = !!(opts && opts.podLegs);
   const variableLegs = !isPodSheet && legsCfg && legsCfg.variable;
   const sheetBestOf = isPodSheet ? (parseInt(t.format.podLegs)||parseInt(t.format.bestOfLegs)||5) : t.format.bestOfLegs;
-  const legsSub = variableLegs ? '' : ' · Best of '+escText(sheetBestOf)+' Legs';
-  const legsFooter = variableLegs
+  const teams = isTeamsEvent(t);
+  const legsSub = teams ? ' · '+escText(teamMatchShortLabel(t, 'ko')) : variableLegs ? '' : ' · Best of '+escText(sheetBestOf)+' Legs';
+  const legsFooter = teams
+    ? 'Each match: '+escText(teamMatchShortLabel(t, 'ko'))+'. Write each team\'s total legs — no draws, the team with more legs wins.'
+    : variableLegs
     ? 'Legs per match increase by knockout stage — see each round\'s heading above.'
     : 'Best of '+escText(sheetBestOf)+' legs per match — no draws, the winner needs '+(Math.floor((parseInt(sheetBestOf)||5)/2)+1)+' legs.';
   const paperKey = t.printSettings.koPaperSize || 'A4';
@@ -3129,6 +3313,7 @@ function goStage(n){
   if(n>2 && !state.format.saved){ return; }
   if(n>3 && !state.entriesList.length){ return; }
   if(n>=6 && blockForUnresolvedTies()) return;
+  if(n!==2) teamSegDraft = null;   // leaving Format & branding without Save drops unsaved segment edits
   currentStage = n;
   render();
 }
@@ -3176,6 +3361,7 @@ function newTournament(){
   startNewTournament();
 }
 function startNewTournament(){
+  teamSegDraft = null;
   adminState.view = null; adminEditing = null;
   state = blankTournament();
   currentStage = 1;
@@ -3441,7 +3627,6 @@ function loadTournamentRow(id, row){
       const usedBoards = (state.groups||[]).reduce((all,g)=> all.concat(g.boards), []);
       state.eventCreation.boards = Math.max(4, ...usedBoards, 0);
     }
-    if(state.printSettings.teamHandoutEnabled===undefined) state.printSettings.teamHandoutEnabled = false;
     if(state.printSettings.rulesSheetEnabled===undefined) state.printSettings.rulesSheetEnabled = true;
     if(state.printSettings.lineupSheetEnabled===undefined) state.printSettings.lineupSheetEnabled = false;
     if(state.printSettings.koPaperSize===undefined) state.printSettings.koPaperSize = 'A4';
@@ -3455,23 +3640,17 @@ function loadTournamentRow(id, row){
     if(state.format.podCount===undefined) state.format.podCount = 8;
     if(state.format.podLegs===undefined) state.format.podLegs = null;
     if(state.format.plateQualifiersPerGroup===undefined) state.format.plateQualifiersPerGroup = null;
+    /* Teams: an older event's foursome / rubber setup becomes segments (once; the old fields are kept as they are).
+       Before the backfill below, which tells it whether the event predates the stored team format. */
+    migrateTeamSegments(state);
+    teamSegDraft = null;   // a fresh copy of the event: no unsaved segment edits carry over
     if(state.format.qualifiersPerGroup===undefined){
       state.format.qualifiersPerGroup = 2; state.format.advanceMode = 'seeded'; state.format.losersPool = false;
-      state.format.teamSize = state.format.teamSize || 4; state.format.teamMatchFormat = state.format.teamMatchFormat || 'foursome';
-      state.format.mixedRubbers = state.format.mixedRubbers || [ {name:'Singles 1',type:'singles'}, {name:'Singles 2',type:'singles'}, {name:'Doubles',type:'doubles'} ];
       state.format.orgSplit = false;
     }
-    /* Backfill per-rubber starting score/legs for tournaments saved before that concept
-       existed — default legs to this tournament's existing bestOfLegs so behaviour is
-       unchanged (every rubber previously played to the one tournament-wide setting). */
-    (state.format.mixedRubbers||[]).forEach(r=>{
-      if(r.startingScore===undefined) r.startingScore = 501;
-      if(r.legs===undefined) r.legs = parseInt(state.format.bestOfLegs)||3;
-      if(r.isTieBreaker===undefined) r.isTieBreaker = false;
-    });
     /* Tournaments saved before Basic/Advanced setup existed default to Advanced,
        so nothing they already configured (scheduling, knockout-legs, Plate,
-       custom rubber lineups, etc.) suddenly disappears. New tournaments start
+       team setups, etc.) suddenly disappears. New tournaments start
        Basic instead (blankTournament()). */
     if(state.eventCreation.advancedMode===undefined) state.eventCreation.advancedMode = true;
     /* Backfill scheduling fields for tournaments saved before this feature existed. */
@@ -3487,7 +3666,7 @@ function loadTournamentRow(id, row){
     [state.knockout, state.knockoutLosers].forEach(b=>{
       if(b && !b.roundStartedAt) b.roundStartedAt = b.rounds.map(()=>null);
     });
-    ensureEntries(state); // adds org/players fields to entries saved before this feature existed
+    ensureEntries(state); // adds the org / check-in fields to entries saved before those existed
     currentStage = computeStageFor(state);
     adminState.view = null;   // opening an event leaves the Admin screens
     render();
@@ -3676,7 +3855,7 @@ function renderSavedList(){
   if(state){
     wsCard.style.display='block';
     document.getElementById('cwName').textContent = state.eventCreation.tournamentName || 'Untitled tournament';
-    document.getElementById('cwSub').textContent = (state.eventCreation.competitionUnit||'') + ' · ' + ({knockout:'Knockout', rrknockout:'Round Robin → Knockout', podknockout:'Group Boards'}[state.format.formatType]||'Round Robin') + (state.eventCreation.advancedMode ? ' · Advanced' : '');
+    document.getElementById('cwSub').textContent = (state.eventCreation.competitionUnit||'') + ' · ' + ({knockout:'Knockout', rrknockout:'Round Robin → Knockout', podknockout:'Knockout · Group Boards'}[state.format.formatType]||'Round Robin') + (state.eventCreation.advancedMode ? ' · Advanced' : '');
   } else { wsCard.style.display='none'; }
   ['navstep1','navstep2','navstep3','navstep4','navstep5','navstep6','navstep7'].forEach((id,i)=>{
     const el = document.getElementById(id);
@@ -3699,6 +3878,7 @@ function render(){
   finally{ renderStaleBanner(); renderCompactBar(); }
 }
 function renderPage(){
+  if(currentStage!==2 || popoutMode) teamSegDraft = null;   // the segment draft lives only while step 2 is on screen
   document.body.classList.toggle('finalized', isLocked(state));
   document.body.classList.toggle('admin-mode', adminViewActive());
   if(popoutMode){ renderPopoutManage(); return; }
@@ -3857,10 +4037,9 @@ function fitPopoutChart(){
 window.addEventListener('resize', ()=>{ if(popoutMode){ if(staleOpen()) renderStaleBanner(); fitPopoutChart(); } });
 
 /* ---------- Stage 1: Event Creation ---------- */
-/* Competition types offered for a new event: Singles and Doubles only, for now. Teams and Triples
-   are hidden, not removed: an existing event that already uses one keeps it (as an extra option, so saving
-   stage 1 never silently changes its type) and all the team code, printing and viewer support stay. */
-const OFFERED_UNITS = ['Singles','Doubles'];
+/* Competition types offered for a new event: Singles, Doubles and Teams. Triples is hidden, not removed: an existing
+   Triples event keeps it (as an extra option, so saving stage 1 never silently changes its type). */
+const OFFERED_UNITS = ['Singles','Doubles','Teams'];
 function unitOptionsHTML(current){
   const opts = OFFERED_UNITS.map(o=>'<option value="'+o+'"'+(current===o?' selected':'')+'>'+o+'</option>');
   if(current && OFFERED_UNITS.indexOf(current)<0)
@@ -3870,7 +4049,7 @@ function unitOptionsHTML(current){
 function stage1(){
   const e = state.eventCreation;
   return '<div class="card">'+
-    '<h2>Create your event</h2><p class="intro">For singles or doubles events.</p>'+
+    '<h2>Create your event</h2><p class="intro">For singles, doubles or teams events.</p>'+
     '<div class="field"><label>Setup mode</label><div class="options">'+
       '<div class="choice'+(!e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(false)"><strong>Basic</strong><small>Just the essentials — format, groups, scores</small></div>'+
       '<div class="choice'+(e.advancedMode?' selected':'')+'" onclick="setAdvancedMode(true)"><strong>Advanced</strong><small>Scheduling, knockout leg progression, Plate pool, sponsor logos, and more</small></div>'+
@@ -3879,7 +4058,9 @@ function stage1(){
     '<div class="field"><label>Event name</label><input id="f_ename" type="text" value="'+escapeHtml(e.eventName)+'" placeholder="e.g. Open Singles"></div>'+
     '<div class="grid2">'+
       '<div class="field"><label>Event category</label><select id="f_etype">'+ ['Open','Women','Youth'].map(o=>'<option'+(e.eventType===o?' selected':'')+'>'+o+'</option>').join('') +'</select></div>'+
-      '<div class="field"><label>Competition type</label><select id="f_unit">'+ unitOptionsHTML(e.competitionUnit) +'</select></div>'+
+      (teamsFormatLocked(state)
+        ? '<div class="field"><label>Competition type</label><select id="f_unit" disabled>'+ unitOptionsHTML(e.competitionUnit) +'</select><div class="hint">Games have started, so a Teams event stays Teams.</div></div>'
+        : '<div class="field"><label>Competition type</label><select id="f_unit">'+ unitOptionsHTML(e.competitionUnit) +'</select></div>')+
     '</div>'+
     '<div class="grid2">'+
       '<div class="field"><label>Tournament date</label><input id="f_date" type="date" value="'+escapeHtml(e.date)+'"></div>'+
@@ -3900,7 +4081,7 @@ function saveStage1(){
   e.tournamentName = document.getElementById('f_tname').value.trim() || 'Untitled tournament';
   e.eventName = document.getElementById('f_ename').value.trim() || 'Untitled event';
   e.eventType = document.getElementById('f_etype').value;
-  e.competitionUnit = document.getElementById('f_unit').value;
+  if(!teamsFormatLocked(state)) e.competitionUnit = document.getElementById('f_unit').value;   // a started Teams event stays Teams (its results are team totals)
   e.date = document.getElementById('f_date').value;
   e.entries = requested;
   e.saved = true;
@@ -3989,23 +4170,29 @@ function stage2(){
   const bracket = nearestBracket(n);
   const unit = state.eventCreation.competitionUnit;
   const advanced = !!state.eventCreation.advancedMode;
+  /* Three formats. Group Boards is a kind of Knockout (formatType 'podknockout', so stored events, the viewer, QR codes
+     and printing are unchanged): the Knockout card is selected for both, and a sub-choice picks the bracket shape. It is
+     never offered under the two round robin formats. */
+  const isKo = f.formatType==='knockout' || f.formatType==='podknockout';
+  /* Teams only: once games have started the cards are shown but cannot be clicked. */
+  const fmtLocked = teamsFormatLocked(state);
+  const card = (sel, click)=> '<div class="choice'+(sel?' selected':'')+(fmtLocked?' disabled" aria-disabled="true"':'" onclick="'+click+'"')+'>';
   const formatPickerHTML =
     '<div class="field"><label>Competition format</label><div class="options">'+
-      '<div class="choice'+(f.formatType==='roundrobin'?' selected':'')+'" onclick="setFormatType(\'roundrobin\')"><strong>Round robin</strong><small>Play within assigned groups</small></div>'+
-      '<div class="choice'+(f.formatType==='knockout'?' selected':'')+'" onclick="setFormatType(\'knockout\')"><strong>Knockout</strong><small>Direct elimination bracket</small></div>'+
-      '<div class="choice'+(f.formatType==='rrknockout'?' selected':'')+'" onclick="setFormatType(\'rrknockout\')"><strong>Round robin → Knockout</strong><small>Group stage, then top finishers go to a bracket</small></div>'+
-      '<div class="choice'+(f.formatType==='podknockout'?' selected':'')+'" onclick="setFormatType(\'podknockout\')"><strong>Group Boards</strong><small>Small knockout groups on their own boards, winners go to a Finals bracket</small></div>'+
-    '</div></div>';
-  const bestOfLegsFieldHTML =
+      card(f.formatType==='roundrobin', 'setFormatType(\'roundrobin\')')+'<strong>Round robin</strong><small>Play within assigned groups</small></div>'+
+      card(isKo, 'chooseKnockoutFormat()')+'<strong>Knockout</strong><small>Direct elimination: one bracket, or Group Boards then finals</small></div>'+
+      card(f.formatType==='rrknockout', 'setFormatType(\'rrknockout\')')+'<strong>Round robin → Knockout</strong><small>Group stage, then top finishers go to a bracket</small></div>'+
+    '</div>'+(fmtLocked ? '<div class="hint">Games have started, so the format of this Teams event can\'t change.</div>' : '')+'</div>'+
+    (isKo ? '<div class="field"><label>Knockout type</label><div class="options">'+
+      card(f.formatType==='knockout', 'setFormatType(\'knockout\')')+'<strong>Single bracket</strong><small>One elimination bracket, with byes added for you</small></div>'+
+      card(f.formatType==='podknockout', 'setFormatType(\'podknockout\')')+'<strong>Group Boards, then finals</strong><small>Small knockout groups on their own boards; every group champion goes to a Finals bracket</small></div>'+
+    '</div></div>' : '');
+  /* Teams: each segment sets its own legs, so there is no event-wide Best of legs and no knockout leg progression. */
+  const teams = unit==='Teams';
+  const bestOfLegsFieldHTML = teams ? '' :
     '<div class="field"><label>Best of legs (odd numbers preferred)</label><input id="f_bestof" type="number" min="1" step="2" value="'+escText(f.bestOfLegs)+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>';
-  const teamSectionHTML = isTeamUnit(state) ? (
-    (advanced && unit==='Teams' ? '<div class="field" style="margin-top:12px"><label>Team format</label><div class="options">'+
-      '<div class="choice'+(f.teamMatchFormat==='foursome'?' selected':'')+'" onclick="setTeamMatchFormat(\'foursome\')"><strong>Foursome</strong><small>Each encounter is one match, full team vs full team</small></div>'+
-      '<div class="choice'+(f.teamMatchFormat==='mixed'?' selected':'')+'" onclick="setTeamMatchFormat(\'mixed\')"><strong>Rubber lineup (custom)</strong><small>A mix of singles/doubles/foursome rubbers, in any order — decided by rubbers won</small></div>'+
-    '</div></div>' : '')+
-    (unit==='Teams' ? '<div class="field"><label>Players per team</label><input id="f_teamsize" type="number" min="2" value="'+escText(f.teamSize)+'"></div>' : '')+
-    (advanced && unit==='Teams' && f.teamMatchFormat==='mixed' ? rubberEditor() : '')
-  ) : '';
+  const koLegsHTML = (key, label)=> (advanced && !teams) ? knockoutLegsFieldsHTML(key, f.knockoutLegs[key], label) : '';
+  const teamSectionHTML = teams ? teamSegmentsEditorHTML() : '';
   let formatSectionHTML;
   if(f.formatType==='podknockout'){
     formatSectionHTML = formatPickerHTML + podsFormatFieldsHTML() + teamSectionHTML;
@@ -4028,14 +4215,14 @@ function stage2(){
             '<option value="random"'+(f.advanceMode==='random'?' selected':'')+'>Random draw</option>'+
           '</select></div>'+
         '</div>'+
-        (advanced ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)') : '')+
+        koLegsHTML('main', 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)')+
       '</div>'+
       (advanced ?
         '<div class="form-section"><div class="form-section-title">Plate pool</div>'+
           '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a Plate pool knockout bracket for entries that don\'t advance</label></div>'+
           '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate entries per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate pool is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+escText(f.plateQualifiersPerGroup||'')+'"></div>'+
           '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group entries across the bracket where the numbers allow it. Leave Plate entries blank to send everyone who doesn\'t advance to the main bracket into the Plate pool (today\'s default); set a number to cap the Plate pool too, e.g. top 2 → winner bracket, next 2 → Plate pool, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'+
-          knockoutLegsFieldsHTML('plate', f.knockoutLegs.plate, 'Plate pool: also increase legs by stage (independent of the winner bracket above)')+
+          koLegsHTML('plate', 'Plate pool: also increase legs by stage (independent of the winner bracket above)')+
         '</div>'
         : '')+
       teamSectionHTML;
@@ -4052,7 +4239,7 @@ function stage2(){
         recommendGroupsSummaryHTML(rec, n)
         : '<div class="recommend"><b>Nearest bracket:</b> '+escText(bracket.size)+'-entry bracket for '+escText(n)+' entries — '+escText(bracket.byes)+' bye'+(bracket.byes===1?'':'s')+' required in round 1.</div>'
       )+
-      (advanced && f.formatType==='knockout' ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)') : '')+
+      (f.formatType==='knockout' ? koLegsHTML('main', 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)') : '')+
       teamSectionHTML;
   }
   const brandingSectionHTML =
@@ -4126,7 +4313,7 @@ function moveTieBreak(i, dir){
 }
 function warnBestOf(el){
   const v = parseInt(el.value)||0;
-  document.getElementById('bestOfHint').textContent = (v%2===0 && v>0) ? 'Even numbers can end in a tie — an odd number is recommended.' : '';
+  document.getElementById('bestOfHint').textContent = (v%2===0 && v>0) ? EVEN_LEGS_WARNING : '';
 }
 /* Break fields, gated by format type — round robin gets one, knockout gets
    one, and round-robin->knockout additionally gets a transition break. */
@@ -4162,8 +4349,9 @@ function stage2FormatDraft(){
     formatType: f.formatType,
     bestOfLegs: val('f_bestof', f.bestOfLegs),
     qualifiersPerGroup: val('f_qualifiers', f.qualifiersPerGroup),
-    teamMatchFormat: f.teamMatchFormat,
-    mixedRubbers: f.mixedRubbers,
+    podCount: val('f_podcount', f.podCount), podLegs: val('f_podlegs', f.podLegs),   // Group Boards: the estimate needs them
+    teamSegments: (teamSegDraft && teamSegDraft.id===state.id) ? teamSegDraft.segments : f.teamSegments,
+    teamTieBreaker: (teamSegDraft && teamSegDraft.id===state.id) ? teamSegDraft.tieBreaker : f.teamTieBreaker,
     levelOfPlay: val('f_level', f.levelOfPlay),
     anticipatedStartTime: val('f_starttime', f.anticipatedStartTime),
     breaks: {
@@ -4200,7 +4388,8 @@ function stage2FormatDraft(){
 function schedulingModalDraft(){
   const val = (id, fallback)=>{ const el=document.getElementById(id); return el ? el.value : fallback; };
   const eDraft = Object.assign({}, state.eventCreation, { boards: val('f_boards', state.eventCreation.boards) });
-  return { eventCreation: eDraft, format: stage2FormatDraft() };
+  /* The entries and the drawn Group Boards groups too: the Group Boards estimate counts them (without them it failed). */
+  return { eventCreation: eDraft, format: stage2FormatDraft(), entriesList: state.entriesList, pods: state.pods };
 }
 function schedulingModalTimingHTML(){
   const est = estimateTotalMinutes(schedulingModalDraft());
@@ -4236,7 +4425,7 @@ function schedulingSummaryHTML(){
 function schedulingContextHTML(){
   const e = state.eventCreation, f = state.format;
   const n = e.entries;
-  const parts = ['<b>'+escText(n)+'</b> entr'+(n===1?'y':'ies'), 'best of <b>'+escText(f.bestOfLegs)+'</b> legs'];
+  const parts = ['<b>'+escText(n)+'</b> entr'+(n===1?'y':'ies'), isTeamsEvent(state) ? '<b>'+escText(teamMatchShortLabel(state))+'</b> per match' : 'best of <b>'+escText(f.bestOfLegs)+'</b> legs'];
   if(f.formatType==='knockout'){
     const bracket = nearestBracket(n);
     parts.splice(1, 0, '<b>'+escText(bracket.size)+'</b>-entry bracket ('+escText(bracket.byes)+' bye'+(bracket.byes===1?'':'s')+')');
@@ -4300,14 +4489,17 @@ function saveSchedulingModal(){
   persist();
   render();
 }
-function setFormatType(v){ state.format.formatType = v; render(); }
+/* A Teams event's format is fixed once games have started (its tie-breaker ticks and segments depend on the stages). */
+function teamsFormatLocked(t){ return isTeamsEvent(t) && teamSegmentsLocked(t); }
+function setFormatType(v){ if(teamsFormatLocked(state)) return; state.format.formatType = v; render(); }
+/* The Knockout card: a single bracket, unless Group Boards (a knockout too) is already chosen. */
+function chooseKnockoutFormat(){ if(state.format.formatType!=='knockout' && state.format.formatType!=='podknockout') setFormatType('knockout'); }
 /* Per-tournament Basic/Advanced toggle -- only gates which fields are shown
    on this page (Format & Branding); it never resets or discards data, so
    switching back and forth is always safe. Callable both from Event
    Creation's own chooser and from the quick-switch link on Format &
    Branding itself. */
 function setAdvancedMode(v){ state.eventCreation.advancedMode = v; render(); }
-function setTeamMatchFormat(v){ state.format.teamMatchFormat = v; render(); }
 /* WDF-style "legs increase closer to the final" fields for one bracket
    ('main' = winner bracket, 'plate' = losers' pool) — fully independent of
    each other. When off, 'main' just uses the tournament's flat bestOfLegs
@@ -4336,47 +4528,202 @@ function toggleKnockoutLegsVariable(key){
   state.format.knockoutLegs[key].variable = !state.format.knockoutLegs[key].variable;
   render();
 }
-function rubberEditor(){
-  const rubbers = state.format.mixedRubbers;
-  /* Triples is no longer offered for new rubbers (Doubles stays — a doubles
-     rubber is a normal part of a Team event's lineup), but a rubber already
-     saved as Triples (e.g. a tournament created before this change) still
-     shows and keeps working correctly — its own type is added to that row's
-     options so the dropdown never silently mismatches what's actually
-     stored. */
-  const baseTypeOptions = [['singles','Singles'],['doubles','Doubles'],['foursome','Foursome (quad)']];
-  const typeLabels = {singles:'Singles', doubles:'Doubles', triples:'Triples', foursome:'Foursome (quad)'};
-  return '<div class="field"><label>Rubbers played per encounter (in order)</label>'+
-    '<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">'+
-      rubbers.map((r,i)=>{
-        const typeOptions = baseTypeOptions.some(([v])=>v===r.type) ? baseTypeOptions : baseTypeOptions.concat([[r.type, typeLabels[r.type]||r.type]]);
-        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;flex-wrap:wrap;'+(i?'border-top:1px solid var(--line)':'')+(r.isTieBreaker?';background:#fdf8ea':'')+'">'+
-          '<span style="font-size:11px;font-weight:800;color:#8a97a5;width:16px">'+(i+1)+'</span>'+
-          '<input type="text" style="flex:1;min-width:110px" value="'+escapeHtml(r.name)+'" onchange="setRubberName('+i+',this.value)" placeholder="e.g. Singles 1">'+
-          '<select style="width:auto" onchange="setRubberType('+i+',this.value)">'+typeOptions.map(([v,label])=>'<option value="'+escText(v)+'"'+(r.type===v?' selected':'')+'>'+escText(label)+'</option>').join('')+'</select>'+
-          '<input type="number" style="width:70px" min="1" value="'+escText(r.startingScore||501)+'" title="Starting score" onchange="setRubberStartingScore('+i+',this.value)">'+
-          '<span style="font-size:11px;color:var(--muted)">x</span>'+
-          '<input type="number" style="width:50px" min="1" value="'+escText(r.legs||3)+'" title="Legs" onchange="setRubberLegs('+i+',this.value)">'+
-          '<span style="font-size:11px;color:var(--muted)">leg'+((r.legs||3)===1?'':'s')+'</span>'+
-          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);white-space:nowrap"><input type="checkbox" style="width:auto;height:auto" '+(r.isTieBreaker?'checked':'')+' onchange="setRubberTieBreaker('+i+',this.checked)">Tie-breaker</label>'+
-          '<button class="btn ghost" style="padding:4px 8px" '+(i===0?'disabled':'')+' onclick="moveRubber('+i+',-1)">↑</button>'+
-          '<button class="btn ghost" style="padding:4px 8px" '+(i===rubbers.length-1?'disabled':'')+' onclick="moveRubber('+i+',1)">↓</button>'+
-          '<button class="btn danger" style="padding:4px 8px" '+(rubbers.length<=1?'disabled':'')+' onclick="removeRubber('+i+')">✕</button>'+
-        '</div>';
-      }).join('')+
-    '</div>'+
-    '<div class="buttonrow" style="margin-top:8px"><button type="button" class="btn ghost" onclick="addRubber()">+ Add rubber</button></div>'+
-    '<div class="hint">A team encounter is won by whichever side wins the most rubbers. Each rubber is scored as its own best-of-legs match, using its own starting score and leg count (e.g. 501 x 3 legs, or 1001 x 1 leg for a foursome) — these print on the lineup sheet and the scoring modal. A rubber ticked "Tie-breaker" is only meant to be played if the encounter is otherwise level; leave it as "not played" if it wasn\'t needed.</div>'+
+/* ---------- Teams: the segment editor (Format & branding, Basic and Advanced) ----------
+   One row per segment, in playing order: type, starting score, best-of legs, move up/down and remove (at least one
+   stays, at most TEAM_MAX_SEGMENTS). One tie-breaker segment, with a tick per stage of the format (round robin,
+   knockout, or both). Every edit goes into a DRAFT (teamSegDraft) that is copied into the event only by Save format &
+   branding, like every other field on the page; leaving step 2 without saving drops it. Adding, removing, moving and
+   the ticks redraw only the editor, so other typed-but-unsaved fields on the page stay as they are. Once games have
+   started (teamSegmentsLocked) the segments are shown read-only. */
+function teamDraft(){
+  if(!teamSegDraft || teamSegDraft.id!==state.id) teamSegDraft = { id:state.id, segments:teamSegmentsOf(state), tieBreaker:teamTieBreakerDef(state) };
+  return teamSegDraft;
+}
+/* The event as it would be with the draft saved: what the cap and the time estimate on step 2 are worked out from. */
+function teamDraftEvent(){
+  const d = teamDraft();
+  return { eventCreation: state.eventCreation, format: Object.assign({}, state.format, { teamSegments:d.segments, teamTieBreaker:d.tieBreaker }) };
+}
+function segmentTypeOptionsHTML(cur){
+  return TEAM_SEGMENT_TYPES.map(([v,label])=>'<option value="'+v+'"'+(segmentTypeKey(cur)===v?' selected':'')+'>'+label+'</option>').join('');
+}
+function segmentStartOptionsHTML(cur){
+  const n = segmentStart({startingScore:cur});
+  const list = TEAM_STARTING_SCORES.indexOf(n)<0 ? TEAM_STARTING_SCORES.concat([n]) : TEAM_STARTING_SCORES;   // an older event's own score stays selectable
+  return list.map(v=>'<option value="'+v+'"'+(v===n?' selected':'')+'>'+v+'</option>').join('');
+}
+function segmentRowHTML(seg, key, idx, count){
+  const legs = segmentLegs(seg);
+  const isTb = key==='tb';
+  const arg = isTb ? '\'tb\'' : String(idx);
+  const name = isTb ? 'Tie-breaker' : 'Segment '+(idx+1);
+  return '<div class="team-seg-row" style="'+(idx>0||isTb?'border-top:1px solid var(--line);':'')+(isTb?'background:#fdf8ea':'')+'">'+
+    '<span class="team-seg-num">'+(isTb?'Tie-breaker':(idx+1))+'</span>'+
+    '<select style="width:auto" aria-label="'+name+' type" onchange="setTeamSegmentField('+arg+',\'type\',this.value)">'+segmentTypeOptionsHTML(seg.type)+'</select>'+
+    '<select style="width:auto" aria-label="'+name+' starting score" onchange="setTeamSegmentField('+arg+',\'startingScore\',this.value)">'+segmentStartOptionsHTML(seg.startingScore)+'</select>'+
+    '<span style="font-size:11px;color:var(--muted)">best of</span>'+
+    '<input type="number" style="width:64px" min="1" max="99" step="2" value="'+legs+'" aria-label="'+name+' legs (best of)" oninput="setTeamSegmentField('+arg+',\'legs\',this.value)">'+
+    '<span style="font-size:11px;color:var(--muted)">legs</span>'+
+    (isTb ? '' :
+      '<button type="button" class="btn ghost team-seg-btn" '+(idx===0?'disabled':'')+' onclick="moveTeamSegment('+idx+',-1)" aria-label="Move segment '+(idx+1)+' up">↑</button>'+
+      '<button type="button" class="btn ghost team-seg-btn" '+(idx===count-1?'disabled':'')+' onclick="moveTeamSegment('+idx+',1)" aria-label="Move segment '+(idx+1)+' down">↓</button>'+
+      '<button type="button" class="btn danger team-seg-btn" '+(count<=1?'disabled':'')+' onclick="removeTeamSegment('+idx+')" aria-label="Remove segment '+(idx+1)+'">✕</button>')+
+    '<span class="hint" id="segHint_'+(isTb?'tb':idx)+'" style="margin:0;flex-basis:100%"'+(legs%2===0?'':' hidden')+'>'+((legs%2===0)?EVEN_LEGS_WARNING:'')+'</span>'+
   '</div>';
 }
-function addRubber(){ state.format.mixedRubbers.push({name:'Rubber '+(state.format.mixedRubbers.length+1), type:'singles', startingScore:501, legs:3}); render(); }
-function removeRubber(i){ if(state.format.mixedRubbers.length>1){ state.format.mixedRubbers.splice(i,1); render(); } }
-function setRubberName(i,v){ state.format.mixedRubbers[i].name = v; }
-function setRubberType(i,v){ state.format.mixedRubbers[i].type = v; render(); }
-function setRubberStartingScore(i,v){ state.format.mixedRubbers[i].startingScore = Math.max(1, parseInt(v)||501); render(); }
-function setRubberLegs(i,v){ state.format.mixedRubbers[i].legs = Math.max(1, parseInt(v)||3); render(); }
-function setRubberTieBreaker(i,v){ state.format.mixedRubbers[i].isTieBreaker = v; render(); }
-function moveRubber(i,dir){ const arr=state.format.mixedRubbers; const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; render(); }
+/* The tick boxes that apply to the format: round robin, knockout (Group Boards included), or both. */
+function teamTieBreakerStages(t){ return ['rr','ko'].filter(s=> formatHasStage(t, s)); }
+function teamTieBreakerStageLabel(t, stage){
+  return stage==='rr' ? 'Use a tie-breaker in round robin matches'
+    : 'Use a tie-breaker in knockout matches'+(t.format.formatType==='podknockout'?' (the groups and the finals)':t.format.formatType==='rrknockout' && t.format.losersPool?' (the Plate pool too)':'');
+}
+function teamSegmentsSummaryHTML(ev){
+  const stages = teamTieBreakerStages(ev);
+  const caps = stages.map(s=> teamMatchCap(ev, s));
+  const capText = (stages.length===2 && caps[0]!==caps[1])
+    ? '<b>'+caps[0]+'</b> legs in a round robin match and <b>'+caps[1]+'</b> in a knockout match'
+    : '<b>'+caps[0]+'</b> legs in a match';
+  const tb = stages.some(s=> teamTieBreakerFor(ev, s));
+  return 'A team can win at most '+capText+'. Enter each result as the total legs each team won across all its segments'+(tb?', the tie-breaker\'s included when it was played':'')+'.';
+}
+function teamSegmentsEditorHTML(){ return '<div id="teamSegEditor">'+teamSegmentsEditorInnerHTML()+'</div>'; }
+function teamSegmentsEditorInnerHTML(){
+  const locked = teamSegmentsLocked(state);
+  const d = teamDraft(), ev = teamDraftEvent(), segs = d.segments;
+  const full = segs.length>=TEAM_MAX_SEGMENTS;
+  const segsHTML = locked
+    ? '<ol style="margin:4px 0 6px;padding-left:20px;font-size:12px;line-height:1.7">'+teamSegmentsOf(state).map(s=>'<li>'+escText(segmentDescription(s))+'</li>').join('')+'</ol>'+
+      '<div class="hint">Games have started, so the segments are locked: every match of the event is played with the same ones.</div>'
+    : '<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">'+
+        segs.map((s,i)=> segmentRowHTML(s, 'main', i, segs.length)).join('')+
+      '</div>'+
+      '<div class="buttonrow" style="margin-top:8px;align-items:center"><button type="button" class="btn ghost" '+(full?'disabled ':'')+'onclick="addTeamSegment()">+ Add segment</button>'+
+        '<span class="hint" style="margin:0">Up to '+TEAM_MAX_SEGMENTS+' segments, so the lineup sheet fits on one page.</span></div>';
+  return '<div class="field" style="margin-top:12px"><label>Team match segments (played in order)</label>'+segsHTML+
+    teamTieBreakerControlsHTML(d, ev)+
+    '<div class="recommend" id="teamSegSummary">'+teamSegmentsSummaryHTML(ev)+'</div>'+
+  '</div>';
+}
+/* The tie-breaker part of the editor. Each stage's tick follows teamTieBreakerTickChange (worked out from the SAVED
+   event): free before that stage has begun; after, only switching it on where allowed, otherwise shown as text. The
+   tie-breaker's own settings are editable only while no begun stage uses it (teamTieBreakerDefEditable). */
+function teamTieBreakerControlsHTML(d, ev){
+  const stages = teamTieBreakerStages(ev);
+  const key = (s)=> s==='rr' ? 'inRoundRobin' : 'inKnockout';
+  const on = (s)=> d.tieBreaker[key(s)]===true;
+  const where = (s)=> s==='rr' ? 'Round robin matches' : 'Knockout matches';
+  const ticks = stages.map(s=>{
+    const ch = teamTieBreakerTickChange(state, s);
+    if(!ch.locked || ch.canTurnOn){
+      return '<div class="toggle-row" style="margin:4px 0"><input type="checkbox" id="f_team_tb_'+s+'" '+(on(s)?'checked':'')+' onchange="setTeamTieBreakerStage(\''+s+'\',this.checked)"> <label for="f_team_tb_'+s+'">'+teamTieBreakerStageLabel(ev, s)+'</label>'+
+        (ch.locked ? ' <span class="hint" style="margin:0">(this stage has begun: it can be switched on, and once saved it stays on)</span>' : '')+'</div>';
+    }
+    const tb = teamTieBreakerFor(state, s);
+    return '<div class="hint" style="margin:4px 0;font-size:12px;color:var(--ink)">'+where(s)+': '+(tb ? 'tie-breaker '+escText(segmentDescription(tb)) : 'no tie-breaker')+
+      ' <span style="color:var(--muted)">('+(tb ? 'this stage has begun with it, so it stays on' : 'a drawn result is already saved, so it can\'t be switched on: level matches stay draws')+')</span></div>';
+  }).join('');
+  const anyOn = stages.some(on);
+  const defEditable = teamTieBreakerDefEditable(state);
+  const defHTML = !anyOn ? '' : defEditable
+    ? '<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:6px">'+segmentRowHTML(d.tieBreaker, 'tb', 0, 1)+'</div>'
+    : '<div class="hint" style="margin:4px 0;font-size:12px;color:var(--ink)">Tie-breaker: '+escText(segmentDescription(cleanSegment(d.tieBreaker)))+' <span style="color:var(--muted)">(locked: matches were played with it)</span></div>';
+  return '<div class="field" style="margin:10px 0 0"><label>A tie-breaker might be needed</label>'+ticks+defHTML+'</div>'+
+    '<div class="hint">The tie-breaker is one more segment at the end, played only when the total legs are level after the main segments. Where it is used, a level total can\'t be saved: play it and count its legs.'+
+      (formatHasStage(ev,'rr') ? ' Without it, a level round robin match is a draw.' : '')+
+      (formatHasStage(ev,'ko') ? ' A knockout match always needs a winner.' : '')+' Every best of must be an odd number.</div>';
+}
+function redrawTeamSegEditor(){
+  const el = document.getElementById('teamSegEditor');
+  if(el) el.innerHTML = teamSegmentsEditorInnerHTML();
+  updateStage2Timing();
+}
+function addTeamSegment(){
+  if(teamSegmentsLocked(state)) return;
+  const segs = teamDraft().segments;
+  if(segs.length<TEAM_MAX_SEGMENTS){ segs.push({ type:'singles', startingScore:501, legs:3 }); redrawTeamSegEditor(); }
+}
+function removeTeamSegment(i){
+  if(teamSegmentsLocked(state)) return;
+  const segs = teamDraft().segments;
+  if(segs.length>1 && i>=0 && i<segs.length){ segs.splice(i,1); redrawTeamSegEditor(); }
+}
+function moveTeamSegment(i, dir){
+  if(teamSegmentsLocked(state)) return;
+  const segs = teamDraft().segments; const j = i+dir;
+  if(i<0 || j<0 || i>=segs.length || j>=segs.length) return;
+  [segs[i],segs[j]] = [segs[j],segs[i]]; redrawTeamSegEditor();
+}
+/* stage: 'rr' or 'ko'. Before the stage has begun, either way; after, only where it may be switched on. */
+function setTeamTieBreakerStage(stage, v){
+  const ch = teamTieBreakerTickChange(state, stage);
+  if(ch.locked && !ch.canTurnOn) return;
+  teamDraft().tieBreaker[stage==='rr' ? 'inRoundRobin' : 'inKnockout'] = !!v;
+  redrawTeamSegEditor();
+}
+/* key: a segment's index, or 'tb' for the tie-breaker. field: 'type' | 'startingScore' | 'legs'. */
+function setTeamSegmentField(key, field, value){
+  if(key==='tb' ? !teamTieBreakerDefEditable(state) : teamSegmentsLocked(state)) return;
+  const d = teamDraft();
+  const seg = key==='tb' ? d.tieBreaker : d.segments[key];
+  if(!seg) return;
+  if(field==='type') seg.type = segmentTypeKey(value);
+  else if(field==='startingScore') seg.startingScore = segmentStart({startingScore:value});
+  else if(field==='legs'){
+    const n = parseInt(value);
+    if(!(n>=1)) return;   // an empty or half-typed box changes nothing yet
+    seg.legs = Math.min(n, 99);
+    const hint = document.getElementById('segHint_'+key);
+    if(hint){ hint.textContent = seg.legs%2===0 ? EVEN_LEGS_WARNING : ''; hint.hidden = !hint.textContent; }
+  }
+  const sum = document.getElementById('teamSegSummary');
+  if(sum) sum.innerHTML = teamSegmentsSummaryHTML(teamDraftEvent());
+  updateStage2Timing();
+}
+/* The tie-breaker the draft would give the event: what may change now (see teamTieBreakerTickChange and
+   teamTieBreakerDefEditable) comes from the draft, the rest stays as saved. */
+function teamDraftTieBreakerToApply(d){
+  const stored = teamTieBreakerDef(state), draft = cleanTieBreaker(d.tieBreaker);
+  let next;
+  if(!teamSegmentsLocked(state)) next = draft;
+  else {
+    next = Object.assign({}, stored);
+    [['rr','inRoundRobin'],['ko','inKnockout']].forEach(([s,k])=>{
+      const ch = teamTieBreakerTickChange(state, s);
+      if(!ch.locked) next[k] = draft[k];
+      else if(ch.canTurnOn && draft[k]) next[k] = true;   // only what the organiser ticked: an unrelated Save never switches one on
+    });
+    if(teamTieBreakerDefEditable(state)){ next.type = draft.type; next.startingScore = draft.startingScore; next.legs = draft.legs; }
+  }
+  /* A tick for a stage the format does not have is not shown, so it is stored OFF: switching the format later then
+     shows it unticked (the organiser chooses), instead of bringing in a tie-breaker nobody saw. Never switches one ON. */
+  [['rr','inRoundRobin'],['ko','inKnockout']].forEach(([s,k])=>{ if(!formatHasStage(state, s)) next[k] = false; });
+  return next;
+}
+/* Save format & branding refuses an even best of (it can end level): every main segment while they can still change,
+   and the tie-breaker when a stage would use it and its settings can still change (a tie-breaker that begun matches
+   were played with is locked, like the segments, and must never block Save). Returns the message, or null. */
+function teamDraftOddLegsError(){
+  const d = teamSegDraft;
+  if(!d || d.id!==state.id || !isTeamsEvent(state)) return null;
+  if(!teamSegmentsLocked(state)){
+    const i = d.segments.findIndex(s=> segmentLegs(s)%2===0);
+    if(i>=0) return 'Segment '+(i+1)+' is best of '+segmentLegs(d.segments[i])+'. Every segment needs an odd best of (1, 3, 5…), so it can\'t end level. Change it, then save.';
+  }
+  const tb = teamDraftTieBreakerToApply(d);
+  const used = teamTieBreakerStages(state).some(s=> s==='rr' ? tb.inRoundRobin : tb.inKnockout);
+  if(used && teamTieBreakerDefEditable(state) && segmentLegs(tb)%2===0) return 'The tie-breaker is best of '+segmentLegs(tb)+'. It needs an odd best of (1, 3, 5…), so it can\'t end level and always settles the match. Change it, then save.';
+  return null;
+}
+/* Save format & branding: the draft becomes the event's segments (only while games have not started) and tie-breaker
+   (what may still change; see teamDraftTieBreakerToApply). */
+function applyTeamSegmentsDraft(){
+  const d = teamSegDraft;
+  teamSegDraft = null;
+  if(!d || d.id!==state.id || !isTeamsEvent(state)) return;
+  const tb = teamDraftTieBreakerToApply(d);
+  if(!teamSegmentsLocked(state)) state.format.teamSegments = d.segments.map(cleanSegment);   // an older event with more than the limit keeps them all
+  state.format.teamTieBreaker = tb;
+}
 /* Finds the bounding box of the actual visible logo content inside an image,
    so a logo file with lots of baked-in transparent (or flat-color) padding
    around a small centered mark doesn't get treated as if the mark filled the
@@ -4497,6 +4844,9 @@ function setSponsorShape(i, shape){ state.format.sponsors[i].shape = shape; pers
 function saveStage2(){
   const f = state.format;
   const advanced = !!state.eventCreation.advancedMode;
+  /* Teams: an even best of can end level; nothing is saved until it is odd. */
+  const oddLegs = teamDraftOddLegsError();
+  if(oddLegs){ openModal({title:'Use an odd best of', body:oddLegs, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
   // Every read below is guarded with if(el) — Format, Branding & Print and
   // Rules are collapsible sections (collapsed by default), so their fields
   // simply don't exist in the DOM at all while collapsed. Reading .value
@@ -4525,10 +4875,7 @@ function saveStage2(){
     }
   }
   if(f.formatType==='podknockout') podsReadFormat(f);
-  if(isTeamUnit(state) && state.eventCreation.competitionUnit==='Teams'){
-    const sizeEl = document.getElementById('f_teamsize');
-    if(sizeEl) f.teamSize = Math.max(2, parseInt(sizeEl.value)||4);
-  }
+  applyTeamSegmentsDraft();   // Teams: the segment edits are applied now, with the other fields
   // Org-split, level of play, anticipated start time only exist in Advanced mode.
   const orgSplitEl = document.getElementById('f_orgsplit');
   if(orgSplitEl) f.orgSplit = orgSplitEl.checked;
@@ -4550,16 +4897,16 @@ function saveStage2(){
       if(el) cfg.flatLegs = Math.max(1, parseInt(el.value)||5);
     }
   };
-  if(advanced && (f.formatType==='knockout' || f.formatType==='rrknockout' || f.formatType==='podknockout')) readKnockoutLegs('main');
+  if(advanced && !isTeamsEvent(state) && (f.formatType==='knockout' || f.formatType==='rrknockout' || f.formatType==='podknockout')) readKnockoutLegs('main');
   if(f.formatType==='podknockout' && !podsValidate(state).ok){
     persist();
     openModal({title:'Check the number of groups', body:podsValidate(state).message, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
     render();
     return;
   }
-  if(advanced && f.formatType==='rrknockout') readKnockoutLegs('plate');
+  if(advanced && !isTeamsEvent(state) && f.formatType==='rrknockout') readKnockoutLegs('plate');
   f.saved = true;
-  ensureEntries(state); // resync roster length if teamSize changed
+  ensureEntries(state);
   /* Groups don't exist until the organiser explicitly runs Random draw on
      Stage 3 (see confirmShuffleGroups/shuffleGroups) — entries sit
      ungrouped in the flat list until then. Once a draw has happened,
@@ -4573,8 +4920,10 @@ function saveStage2(){
 function formatSummaryCard(){
   const f = state.format;
   return '<div class="summary-card"><div class="summary-grid">'+
-    '<div><label>Format</label><strong>'+({knockout:'Knockout', rrknockout:'Round Robin → Knockout', podknockout:'Group Boards'}[f.formatType]||'Round Robin')+'</strong></div>'+
-    '<div><label>Best of</label><strong>'+(f.knockoutLegs.main.variable?'Varies by stage':escText(f.bestOfLegs)+' legs')+'</strong></div>'+
+    '<div><label>Format</label><strong>'+({knockout:'Knockout', rrknockout:'Round Robin → Knockout', podknockout:'Knockout · Group Boards'}[f.formatType]||'Round Robin')+'</strong></div>'+
+    (isTeamsEvent(state)
+      ? '<div><label>Team match</label><strong>'+escText(teamMatchShortLabel(state))+'</strong></div>'
+      : '<div><label>Best of</label><strong>'+(f.knockoutLegs.main.variable?'Varies by stage':escText(f.bestOfLegs)+' legs')+'</strong></div>')+
     (f.formatType==='podknockout'
       ? '<div><label>Groups</label><strong>'+escText(f.podCount)+'</strong></div>'
       : '<div><label>Max/group</label><strong>'+(f.formatType!=='knockout'?escText(f.maxPerGroup):'—')+'</strong></div>')+
@@ -4655,23 +5004,19 @@ function stage3Knockout(opts){
     '<div class="form-section"><div class="form-section-title">Seeding</div>'+seedingHTML+'</div>'+
   '</div>'+(opts && opts.noControls ? '' : printControls());
 }
-/* Shared entry-editing fields (name, optional org, optional team roster) used
-   by both the round-robin entries panel and the knockout seeding list. */
+/* Shared entry-editing fields (name, optional org) used by both the round-robin
+   entries panel and the knockout seeding list. An entry is just its name: no roster. */
 function entryFieldsHTML(ent, showOrg){
   if(showOrg===undefined) showOrg = true;
-  const team = isTeamUnit(state);
+  const unit = state.eventCreation.competitionUnit;
   return '<div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:160px">'+
     '<div style="display:flex;gap:6px;align-items:center">'+
-      '<input type="text" style="flex:1" value="'+escapeHtml(ent.name)+'" onchange="renameEntry(\''+escJs(ent.id)+'\',this.value)" placeholder="'+(team?(state.eventCreation.competitionUnit==='Doubles'?'Pair name':'Team name'):'Name')+'">'+
+      '<input type="text" style="flex:1" value="'+escapeHtml(ent.name)+'" onchange="renameEntry(\''+escJs(ent.id)+'\',this.value)" placeholder="'+(unit==='Doubles'?'Pair name':(unit==='Teams'||unit==='Triples')?'Team name':'Name')+'">'+
       (showOrg ? '<input type="text" style="flex:1;max-width:150px" value="'+escapeHtml(ent.org||'')+'" onchange="setEntryOrg(\''+escJs(ent.id)+'\',this.value)" placeholder="Organisation (optional)">' : '')+
     '</div>'+
-    (team ? '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-      ent.players.map((p,pi)=>'<input type="text" style="flex:1;min-width:110px;height:28px;font-size:11px" value="'+escapeHtml(p)+'" onchange="setEntryPlayer(\''+escJs(ent.id)+'\','+pi+',this.value)" placeholder="Player '+(pi+1)+'">').join('')+
-    '</div>' : '')+
   '</div>';
 }
 function setEntryOrg(id, val){ const ent = state.entriesList.find(e=>e.id===id); if(ent){ ent.org = val.trim(); persist(); render(); } }
-function setEntryPlayer(id, idx, val){ const ent = state.entriesList.find(e=>e.id===id); if(ent){ ent.players[idx] = val.trim(); persist(); } }
 /* Seed order for knockout format: an explicit array of entry ids kept on the
    tournament so the organiser's manual reordering survives across renders.
    Initialised from current entriesList order, re-synced (append new /
@@ -5164,7 +5509,7 @@ function setScore(g,a,b,legsA,legsB){
    the chart can show "WO" instead of a normal leg score; entering a real
    score over one later (via promptScore) replaces the object outright and
    clears the tag automatically. */
-function majorityLegs(){ return Math.floor((parseInt(state.format.bestOfLegs)||5)/2)+1; }
+function majorityLegs(){ return isTeamsEvent(state) ? teamWalkoverLegs(state) : Math.floor((parseInt(state.format.bestOfLegs)||5)/2)+1; }
 function markGroupNoShow(groupId, entryId){
   const g = state.groups.find(x=>x.id===groupId);
   const ent = state.entriesList.find(e=>e.id===entryId);
@@ -5309,7 +5654,7 @@ function chartSheetHTML(g, forPrint){
     '<div class="sheet-top"'+printQrHeaderAttr(qrBlock)+'>'+
       mainLogoBoxHTML()+
       '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
-      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Round Robin Stage · Best of '+escText(t.format.bestOfLegs)+' Legs · '+escapeHtml(t.eventCreation.date||'')+'</div></div>'+
+      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Round Robin Stage · '+(isTeamsEvent(t) ? escText(teamMatchShortLabel(t, 'rr')) : 'Best of '+escText(t.format.bestOfLegs)+' Legs')+' · '+escapeHtml(t.eventCreation.date||'')+'</div></div>'+
       '<div class="group-label"><strong>GROUP '+escText(g.label)+'</strong><span>'+groupBoardLabel(g)+'</span></div>'+qrBlock+
     '</div>'+
     '<div class="chart" style="grid-template-columns:'+colTemplate+'">'+rows+'</div>'+
@@ -5351,6 +5696,7 @@ function runningOrderSheetHTML(confirmed){
    to be posted or handed out so players/scorers aren't asking mid-event. */
 function formatDescriptionLines(t){
   const f = t.format, unit = t.eventCreation.competitionUnit;
+  if(unit==='Teams') return teamsFormatDescriptionLines(t);
   const lines = [];
   const bestOf = parseInt(f.bestOfLegs)||5, majority = Math.floor(bestOf/2)+1;
   if(f.formatType==='roundrobin'){
@@ -5366,12 +5712,12 @@ function formatDescriptionLines(t){
     }
   } else if(f.formatType==='podknockout'){
     const podBestOf = parseInt(f.podLegs)||bestOf;
-    lines.push('Format: Group Boards — players are drawn into '+f.podCount+' groups. Each group is a small knockout on its own board, and every group winner goes through to a Finals bracket.');
+    lines.push('Format: Knockout, Group Boards then finals — players are drawn into '+f.podCount+' groups. Each group is a small knockout on its own board, and every group winner goes through to a Finals bracket.');
     lines.push('Group matches are best of '+podBestOf+' legs (first to '+(Math.floor(podBestOf/2)+1)+'). Finals matches are best of '+bestOf+' legs (first to '+majority+') unless legs increase by stage. Knockout matches cannot end in a draw.');
   } else if(f.formatType==='rrknockout'){
     lines.push('Format: Round robin group stage, followed by a knockout bracket.');
     lines.push('Group stage scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of '+bestOf+' legs (first to '+majority+').');
-    lines.push('Advancing to the knockout: top '+f.qualifiersPerGroup+' entr'+(f.qualifiersPerGroup==1?'y':'ies')+' from each group, '+(f.advanceMode==='seeded'?'seeded by group finishing position':'drawn at random')+'.'+(f.losersPool ? ' Entries who don\'t advance go into a separate Plate pool knockout bracket' + (f.plateQualifiersPerGroup ? ' (next '+f.plateQualifiersPerGroup+' entr'+(f.plateQualifiersPerGroup==1?'y':'ies')+' per group; anyone ranked below that is eliminated)' : ' (everyone who doesn\'t advance to the main bracket)') + '.' : ''));
+    lines.push(rrAdvanceLine(f));
     if(f.qualifiersPerGroup>1) lines.push('Two entries advancing from the same group are kept apart in the first knockout round where possible, so they don\'t immediately face a rematch of their round robin group.');
     if(f.knockoutLegs.main.variable){
       const k = f.knockoutLegs.main;
@@ -5388,18 +5734,45 @@ function formatDescriptionLines(t){
       }
     }
   }
-  if(isTeamUnit(t)){
-    const size = teamSizeFor(t);
-    lines.push(unit==='Doubles' ? 'Each entry is a pair of '+size+' named players.' : unit+' size: '+size+' named player'+(size===1?'':'s')+' per entry.');
-    if(unit==='Teams'){
-      if(f.teamMatchFormat==='mixed'){
-        const comp = (f.mixedRubbers||[]).map((r,i)=>(i+1)+') '+r.name+' ('+r.type+', '+(r.startingScore||501)+' x '+(r.legs||3)+' leg'+((r.legs||3)===1?'':'s')+(r.isTieBreaker?', tie-breaker only':'')+')').join(', ');
-        lines.push('Team match format: rubber-based. Each encounter is decided by rubbers won, played in order: '+comp+'.');
-      } else {
-        lines.push('Team match format: Foursome — each encounter between two teams is played as one match, full team vs full team.');
-      }
-    }
+  if(unit==='Doubles') lines.push('Each entry is a pair of 2 players.');
+  else if(unit==='Triples') lines.push('Each entry is a team of 3 players.');
+  if(f.orgSplit) lines.push('Entries from the same organisation are kept apart where possible, both in round robin groups and in the first knockout round.');
+  return lines;
+}
+function rrAdvanceLine(f){
+  return 'Advancing to the knockout: top '+f.qualifiersPerGroup+' entr'+(f.qualifiersPerGroup==1?'y':'ies')+' from each group, '+(f.advanceMode==='seeded'?'seeded by group finishing position':'drawn at random')+'.'+(f.losersPool ? ' Entries who don\'t advance go into a separate Plate pool knockout bracket' + (f.plateQualifiersPerGroup ? ' (next '+f.plateQualifiersPerGroup+' entr'+(f.plateQualifiersPerGroup==1?'y':'ies')+' per group; anyone ranked below that is eliminated)' : ' (everyone who doesn\'t advance to the main bracket)') + '.' : '');
+}
+/* The rules sheet for a Teams event: the same format lines, with every "best of" replaced by the segments, which are
+   the same in every round. */
+function teamsFormatDescriptionLines(t){
+  const f = t.format, lines = [];
+  const segs = teamSegmentsOf(t);
+  const rrTb = teamTieBreakerFor(t, 'rr'), koTb = teamTieBreakerFor(t, 'ko');
+  const total = 'Every match is decided by the total legs each team wins across its segments';
+  /* Round robin: a level total is a draw, unless the round robin uses the tie-breaker (then there are no draws). */
+  const rrScoring = rrTb ? 'Win = 2 points, Loss = 0 points. '+total+'; level totals go to the tie-breaker, so there are no draws.'
+    : 'Win = 2 points, Draw = 1 point, Loss = 0 points. '+total+'; level totals are a draw.';
+  const koLevel = koTb ? 'cannot end level: level totals go to the tie-breaker' : 'cannot end level';
+  if(f.formatType==='knockout'){
+    lines.push('Format: Knockout — single elimination. Lose once and you’re out (except any bye rounds).');
+    lines.push(total+'. Knockout matches '+koLevel+'.');
+  } else if(f.formatType==='podknockout'){
+    lines.push('Format: Knockout, Group Boards then finals — teams are drawn into '+f.podCount+' groups. Each group is a small knockout on its own board, and every group winner goes through to a Finals bracket.');
+    lines.push(total+', in the groups and the Finals alike. Knockout matches '+koLevel+'.');
+  } else if(f.formatType==='rrknockout'){
+    lines.push('Format: Round robin group stage, followed by a knockout bracket.');
+    lines.push('Group stage scoring: '+rrScoring);
+    lines.push(rrAdvanceLine(f));
+    if(f.qualifiersPerGroup>1) lines.push('Two entries advancing from the same group are kept apart in the first knockout round where possible, so they don\'t immediately face a rematch of their round robin group.');
+    lines.push('Knockout stage matches'+(f.losersPool?' (and the Plate pool)':'')+' use the same segments and '+koLevel+'.');
+  } else {
+    lines.push('Format: Round robin — every entry in a group plays every other entry in that group once.');
+    lines.push('Scoring: '+rrScoring);
   }
+  const tb = rrTb || koTb;
+  const where = (f.formatType==='rrknockout' && !(rrTb && koTb)) ? (rrTb ? ' in round robin matches' : ' in knockout matches') : '';
+  lines.push('Each match has '+segs.length+' segment'+(segs.length===1?'':'s')+': '+segs.map(segmentDescription).join(', ')+'.'+
+    (tb ? ' Tie-breaker'+where+' if the totals are level: '+segmentDescription(tb)+'.' : '')+' The team with more total legs wins.');
   if(f.orgSplit) lines.push('Entries from the same organisation are kept apart where possible, both in round robin groups and in the first knockout round.');
   return lines;
 }
@@ -5446,7 +5819,7 @@ function lockedScoreClick(groupId){
 function promptScore(groupId, aId, bId, aName, bName){
   const g = state.groups.find(x=>x.id===groupId);
   if(!g.gameStarted){ lockedScoreClick(groupId); return; }
-  if(isTeamMixed(state)){ promptScoreMixed(groupId, aId, bId, aName, bName); return; }
+  if(isTeamsEvent(state)){ promptScoreTeams(g, aId, bId, aName, bName); return; }
   const sc = getScore(g,aId,bId);
   const firstIsA = aId<bId;
   let curA=0, curB=0;
@@ -5478,67 +5851,30 @@ function promptScore(groupId, aId, bId, aName, bName){
     }
   });
 }
-/* Team "Singles + Doubles mix" scoring (format.teamMatchFormat==='mixed').
-   Design decision: rather than a single leg score, a team encounter is a
-   fixed sequence of rubbers (configured in Format & branding, default from
-   defaultRubbers()) and the organiser records only the WINNER of each rubber
-   — no leg-by-leg detail, since club team nights are normally scored that
-   way on paper already. Rubbers won is then fed into the exact same
-   legsFor/legsAgainst/points machinery normal round robin already uses
-   (setScore stores rubber-win-counts in place of leg counts), so
-   computeStandings needed no changes at all. The per-rubber winners are kept
-   separately (g.rubberScores) purely so the result can be reviewed/edited
-   again later — they don't otherwise feed standings. */
-function rubberLabelHTML(r){
-  const legs = r.legs||3, startingScore = r.startingScore||501;
-  const sub = (r.isTieBreaker?'Tie-breaker · ':'')+startingScore+' x '+legs+' leg'+(legs===1?'':'s')+(r.type?' · '+r.type:'');
-  return escapeHtml(r.name)+' <span style="color:#8a97a5;text-transform:none;font-weight:400">('+escapeHtml(sub)+')</span>';
-}
-function promptScoreMixed(groupId, aId, bId, aName, bName){
-  const g = state.groups.find(x=>x.id===groupId);
-  const rubbers = state.format.mixedRubbers||[];
-  const curWinners = getRubberScore(g,aId,bId) || [];
-  const rowsHTML = rubbers.map((r,i)=>{
-    const cur = curWinners[i]||'';
-    return '<div class="field"><label>'+rubberLabelHTML(r)+'</label>'+
-      '<select id="rub_'+i+'"><option value="">— not played —</option>'+
-      '<option value="A" '+(cur==='A'?'selected':'')+'>'+escapeHtml(aName)+' win</option>'+
-      '<option value="B" '+(cur==='B'?'selected':'')+'>'+escapeHtml(bName)+' win</option></select></div>';
-  }).join('');
+/* Teams, round robin: one plain result, the total legs each team won across all its segments. Capped at the most a team
+   can win (teamMatchCap); level totals are allowed here (a draw, 1 point each), as they are not in a knockout. */
+function promptScoreTeams(g, aId, bId, aName, bName){
+  const sc = getScore(g,aId,bId);
+  const firstIsA = aId<bId;
+  let curA=0, curB=0;
+  if(sc){ curA = firstIsA? sc.legs1 : sc.legs2; curB = firstIsA? sc.legs2 : sc.legs1; if(curA===''||curA==null) curA=0; if(curB===''||curB==null) curB=0; }
+  const cap = teamMatchCap(state, 'rr');
+  const clampAttr = teamResultBoxAttr(cap);
   openModal({
     title: escapeHtml(aName)+' v '+escapeHtml(bName),
-    bodyHTML: '<p style="font-size:11px;color:#8a97a5;margin-top:0">Team encounter decided by rubbers — record the winner of each rubber below. The side winning the most rubbers wins the encounter. A tie-breaker rubber only needs a result if the rest ends level.</p>'+rowsHTML,
-    confirmLabel:'Save result', confirmClass:'primary',
+    bodyHTML: '<div class="grid2"><div class="field"><label>'+escapeHtml(aName)+' legs</label><input id="scA" type="number" '+clampAttr+' value="'+escText(curA)+'"></div>'+
+      '<div class="field"><label>'+escapeHtml(bName)+' legs</label><input id="scB" type="number" '+clampAttr+' value="'+escText(curB)+'"></div></div>'+
+      teamResultHintHTML(state, 'rr'),
+    confirmLabel:'Save score', confirmClass:'primary',
     onConfirm:()=>{
-      const winners = rubbers.map((r,i)=> document.getElementById('rub_'+i).value);
-      const missingRequired = rubbers.some((r,i)=> !r.isTieBreaker && !winners[i]);
-      if(missingRequired) return { error:'Record a winner for every rubber (tie-breakers are the only ones that can stay "not played").' };
-      const mainA = rubbers.filter((r,i)=>!r.isTieBreaker && winners[i]==='A').length;
-      const mainB = rubbers.filter((r,i)=>!r.isTieBreaker && winners[i]==='B').length;
-      const hasTieBreaker = rubbers.some(r=>r.isTieBreaker);
-      if(mainA===mainB && hasTieBreaker){
-        const tbMissing = rubbers.some((r,i)=> r.isTieBreaker && !winners[i]);
-        if(tbMissing) return { error:'This encounter is level without the tie-breaker — record its result too.' };
-      }
-      const aWins = winners.filter(w=>w==='A').length, bWins = winners.filter(w=>w==='B').length;
-      if(aWins===bWins) return { error:'This encounter can\'t end level with the current rubber count — reconfigure the rubbers in Format & branding so the total is odd, or re-check the results entered.' };
-      setScore(g, aId, bId, aWins, bWins);
-      setRubberScore(g, aId, bId, winners);
-      persist(); render();
+      const va = document.getElementById('scA').value, vb = document.getElementById('scB').value;
+      const bad = teamResultError(state, va, vb, 'rr', sc ? teamStoredResult(firstIsA ? sc.legs1 : sc.legs2, firstIsA ? sc.legs2 : sc.legs1) : null);   // the raw stored values, not the boxes' 0s
+      if(bad) return { error: bad };
+      setScore(g, aId, bId, parseInt(va), parseInt(vb));
+      persist();
+      render();
     }
   });
-}
-function getRubberScore(g,a,b){
-  if(!g.rubberScores) return null;
-  const rec = g.rubberScores[scoreKey(a,b)];
-  if(!rec) return null;
-  const firstIsA = a<b;
-  return firstIsA ? rec.slice() : rec.map(w=> w==='A'?'B':(w==='B'?'A':w));
-}
-function setRubberScore(g,a,b,winnersForAB){
-  if(!g.rubberScores) g.rubberScores = {};
-  const firstIsA = a<b;
-  g.rubberScores[scoreKey(a,b)] = firstIsA ? winnersForAB.slice() : winnersForAB.map(w=> w==='A'?'B':(w==='B'?'A':w));
 }
 
 /* ---------- Stage 4: Confirm & Print Bracket ---------- */
@@ -5577,7 +5913,6 @@ function stage4(){
       '<div><label>Sponsor footer</label><strong>'+(state.printSettings.sponsorFooterEnabled?'Enabled':'Disabled')+'</strong></div>'+
     '</div>'+
     '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(state.printSettings.sponsorFooterEnabled?'checked':'')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">Include sponsor footer on printed charts</label></div>'+
-    teamHandoutToggleHTML()+
     lineupSheetToggleHTML()+
     rulesSheetToggleHTML()+
     '<div class="hint" style="margin-bottom:6px">A master running order sheet (board-by-board match list) is generated automatically as the first page of the pack.</div>'+
@@ -5592,21 +5927,14 @@ function stage4(){
   return html;
 }
 function toggleSponsorFooter(v){ state.printSettings.sponsorFooterEnabled = v; persist(); render(); }
-function toggleTeamHandout(v){ state.printSettings.teamHandoutEnabled = v; persist(); render(); }
-/* Only offered for Triples/Teams — Singles has no roster to describe, and Doubles events don't use handouts (a pair is just two named players). */
-function teamHandoutOffered(t){ return isTeamUnit(t) && t.eventCreation.competitionUnit!=='Doubles'; }
-function teamHandoutToggleHTML(){
-  if(!teamHandoutOffered(state)) return '';
-  return '<div class="toggle-row"><input type="checkbox" id="handoutToggle" '+(state.printSettings.teamHandoutEnabled?'checked':'')+' onchange="toggleTeamHandout(this.checked)"> <label for="handoutToggle">Also print a team handout sheet (roster + fixtures) for each '+unitWordFor(state.eventCreation.competitionUnit).toLowerCase()+'</label></div>';
-}
 function toggleRulesSheet(v){ state.printSettings.rulesSheetEnabled = v; persist(); render(); }
 function rulesSheetToggleHTML(){
   return '<div class="toggle-row"><input type="checkbox" id="rulesToggle" '+(state.printSettings.rulesSheetEnabled?'checked':'')+' onchange="toggleRulesSheet(this.checked)"> <label for="rulesToggle">Include the rules &amp; format sheet as the first page of the pack</label></div>';
 }
 function toggleLineupSheet(v){ state.printSettings.lineupSheetEnabled = v; persist(); render(); }
-/* Only offered for the rubber-based team format — Foursome has no per-rubber lineup to print. */
+/* Offered for every Teams event: one lineup sheet per fixture, built from the segments. */
 function lineupSheetToggleHTML(){
-  if(!isTeamMixed(state)) return '';
+  if(!isTeamsEvent(state)) return '';
   return '<div class="toggle-row"><input type="checkbox" id="lineupToggle" '+(state.printSettings.lineupSheetEnabled?'checked':'')+' onchange="toggleLineupSheet(this.checked)"> <label for="lineupToggle">Also print a lineup/scorecard sheet for each fixture, for captains to fill in on the day</label></div>';
 }
 /* ---------- Stage 4 (Knockout format): generate + confirm + print bracket ---------- */
@@ -5619,7 +5947,7 @@ function stage4Knockout(){
       '<button class="btn primary" onclick="regenerateKnockoutBracket()">'+(state.knockout?'Regenerate bracket':'Generate bracket')+'</button>'+
       (state.knockout?'<button class="btn secondary" onclick="doFinalPrint()">Print bracket pack</button>':'')+
       (state.knockout?'<button class="btn primary" onclick="goStage(5)">Continue to manage tournament →</button>':'')+
-    '</div></div>';
+    '</div>'+lineupSheetToggleHTML()+'</div>';
   if(state.knockout) html += '<div class="card"><div class="mko-artboard-scroll">'+mirroredChartHTML(state.knockout, state, {interactive:false})+'</div></div>';
   return html;
 }
@@ -5927,7 +6255,7 @@ function listToggleHTML(){
 function publicResultsCardHTML(){
   const url = publicResultsUrl();
   return '<div class="card"><h2>Public results</h2>'+
-    '<p class="intro">Share a read-only page that shows live standings and the bracket. Anyone with the link can see entry names, scores and standings. Notes, the incident log, rosters and check-in details are never shared.</p>'+
+    '<p class="intro">Share a read-only page that shows live standings and the bracket. Anyone with the link can see entry names, scores and standings. Notes, the incident log and check-in details are never shared.</p>'+
     '<div class="toggle-row"><input type="checkbox" id="publishToggle" '+(state.published?'checked':'')+' onchange="setPublished(this.checked)"> <label for="publishToggle">Publish results</label></div>'+
     listToggleHTML()+
     (state.published && url ?
@@ -6152,7 +6480,6 @@ function stage7(){
       '<div><label>Sponsor footer</label><strong>'+(state.printSettings.sponsorFooterEnabled?'Enabled':'Disabled')+'</strong></div>'+
     '</div>'+
     '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(state.printSettings.sponsorFooterEnabled?'checked':'')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">Include sponsor footer on printed charts</label></div>'+
-    teamHandoutToggleHTML()+
     lineupSheetToggleHTML()+
     rulesSheetToggleHTML()+
     (state.knockout ? koPaperSizeSelectHTML() : '')+
@@ -6169,7 +6496,6 @@ function stage7Knockout(){
   return '<div class="card">'+
     '<h2>Print final chart</h2><p class="intro">Export the bracket with results filled in, as a high-resolution A4 landscape PDF.</p>'+
     '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(state.printSettings.sponsorFooterEnabled?'checked':'')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">Include sponsor footer on printed charts</label></div>'+
-    teamHandoutToggleHTML()+
     lineupSheetToggleHTML()+
     rulesSheetToggleHTML()+
     (state.knockout ? koPaperSizeSelectHTML() : '')+
@@ -6208,54 +6534,53 @@ function startAllGames(afterStart){
     }
   });
 }
-/* ---------- Team event handout sheets (one per team/pair/triple) ---------- */
-/* Design decision: one page per active entry, showing its roster and its
-   full fixture list (round robin opponents and/or knockout-round opponents,
-   whichever apply to this tournament's format) so a captain can be handed
-   just their team's sheet rather than the whole pack. Follows the same
-   .print-sheet / .ro-table visual language as the running-order sheet for
-   consistency. */
-/* ---------- Team lineup / scorecard sheets (rubber-based team encounters) ----------
-   Reference: a real club lineup sheet (e.g. KELAB PJ's) — Group/Board/Fixture/Game No.
-   header boxes, a logo + team name row, then one dark bar per rubber (its name, its own
-   starting-score x legs, and a Points box) with blank numbered lines for the captain to
-   write in players on the day, a Total Points bar, and a signature line. One printed page
-   holds both sides of a fixture side by side (left/right), same as the reference. Only
-   offered for the rubber-based team format ("mixed") — Foursome has no per-rubber lineup
-   to hand out. Player names are deliberately left blank (not pre-filled from the roster):
-   lineup order for a rubber-based encounter is usually decided on the day. */
+/* ---------- Team lineup / scorecard sheets (Teams events) ----------
+   Reference: a real club lineup sheet — Group/Board/Fixture/Game No. header boxes, a logo + team name row, then one
+   dark bar per segment (its label, "<start> x <N> Leg(s)" and a Points box) with blank numbered lines for the captain
+   to write in players on the day (as many as the segment type needs), a Total Points bar, the tie-breaker bar when the
+   event has one, and a signature line. One printed page holds both sides of a fixture side by side (left/right).
+   Offered for every Teams event (lineupSheetToggleHTML). Player names are always blank: there is no roster. */
 function teamLineupSheetsHTML(){
-  if(!isTeamMixed(state)) return '';
+  if(!isTeamsEvent(state)) return '';
   const t = state;
   let html = '';
   t.groups.forEach(g=>{
     groupMatches(g).forEach((m,i)=>{
       const a = t.entriesList.find(e=>e.id===m[0]), b = t.entriesList.find(e=>e.id===m[1]);
       if(!a || !b) return;
-      html += lineupSheetHTML(a, b, { groupLabel:g.label, board:matchBoardFor(g,i), gameNo:i+1 });
+      html += lineupSheetHTML(a, b, { groupLabel:g.label, board:matchBoardFor(g,i), gameNo:i+1, stage:'rr' });
     });
   });
   return html;
 }
-/* Knockout equivalent of teamLineupSheetsHTML — one lineup sheet per
-   knockout fixture that currently has both sides known. Only Round 1 has
-   concrete opponents the moment the bracket is generated; later rounds'
-   sheets become available as the organiser reprints the pack once earlier
-   rounds resolve, exactly like the bracket sheet itself. "Group"/"Board"
-   are repurposed for knockout: bracket name and round name, since matches
-   here aren't tied to a group or a fixed board. */
+/* The brackets whose fixtures get a lineup sheet: the knockout and the Plate pool, or in Group Boards each group's
+   bracket and then the Finals. */
+function lineupBrackets(t){
+  if(t.format.formatType==='podknockout'){
+    const out = podsList(t).map(p=>({ bracket:p.bracket, label:'Group '+p.label, board:p }));
+    if(podsFinals(t)) out.push({ bracket:podsFinals(t), label:podsFinals(t).label||'Finals' });
+    return out;
+  }
+  return [t.knockout, t.knockoutLosers].filter(Boolean).map(b=>({ bracket:b, label:b.label }));
+}
+/* Knockout equivalent of teamLineupSheetsHTML — one lineup sheet per knockout fixture that currently has both sides
+   known. Only Round 1 has concrete opponents the moment the bracket is generated; later rounds' sheets become available
+   as the organiser reprints the pack once earlier rounds resolve, exactly like the bracket sheet itself. "Group"/"Board"
+   are repurposed for knockout: bracket name and round name (a Group Boards group keeps its own board). */
 function knockoutLineupSheetsHTML(){
-  if(!isTeamMixed(state)) return '';
+  if(!isTeamsEvent(state)) return '';
   const t = state;
   let html = '';
-  [t.knockout, t.knockoutLosers].forEach(bracket=>{
-    if(!bracket) return;
+  lineupBrackets(t).forEach(x=>{
+    const bracket = x.bracket;
+    if(!bracket || !bracket.rounds) return;
     bracket.rounds.forEach((round, ri)=>{
       round.forEach((m, mi)=>{
         if(!m.aEntryId || !m.bEntryId || m.bye) return;
         const a = t.entriesList.find(e=>e.id===m.aEntryId), b = t.entriesList.find(e=>e.id===m.bEntryId);
         if(!a || !b) return;
-        html += lineupSheetHTML(a, b, { groupLabel: bracket.label, board: koRoundName(bracket,ri), gameNo: mi+1 });
+        const board = x.board ? podBoardLabel(x.board) : koRoundName(bracket,ri);
+        html += lineupSheetHTML(a, b, { groupLabel: x.label, board: board, gameNo: mi+1, stage:'ko' });
       });
     });
   });
@@ -6264,67 +6589,46 @@ function knockoutLineupSheetsHTML(){
 function lineupSheetHTML(entryA, entryB, meta){
   return '<div class="print-sheet lineup-sheet">'+ lineupCardHTML(entryA, entryB, meta) + lineupCardHTML(entryB, entryA, meta) + '</div>';
 }
+/* Lineup card layout (owner-approved): every segment has a FIXED height (a Singles segment half of the others), the
+   tie-breaker comes before the TOTAL POINTS block, TOTAL POINTS is a compact fixed block, and all the space left goes
+   to a flexible Captain/Manager signature area (at least LINEUP_SIG_MIN px of blank signing space). The segment
+   height H is worked out for the screen preview's card (the smallest box the sheet is drawn in; the A4 print box,
+   190mm x 277mm, is taller), shrinking for long lists so 8 segments plus a tie-breaker still fit one page. */
+const LINEUP_CARD_H = 948;    // usable card height in the 700px-wide preview sheet (990px tall, 20px padding)
+const LINEUP_FIXED_H = 232;   // the header boxes, the team-name row, TOTAL POINTS, the signature label and the credit, with gaps
+const LINEUP_SIG_MIN = 84;    // the blank signing space: about 6 times the old signature line
+const LINEUP_SEG_MAX = 120;   // a full-size segment
+const LINEUP_GAP = 5;         // the space under each segment
+function lineupSegmentHeight(list){
+  const units = list.reduce((n,s)=> n+(segmentTypeKey(s.type)==='singles' ? 0.5 : 1), 0);
+  const room = LINEUP_CARD_H - LINEUP_FIXED_H - LINEUP_SIG_MIN - LINEUP_GAP*list.length;
+  return Math.max(40, Math.min(LINEUP_SEG_MAX, Math.floor(room/Math.max(units, 1))));
+}
+function lineupSegmentHTML(seg, label, h){
+  const key = segmentTypeKey(seg.type);
+  const n = TEAM_SEGMENT_PLAYERS[key]||1;
+  const legs = segmentLegs(seg);
+  const lines = Array.from({length:n}).map((_,i)=> '<div class="lineup-line"><b>'+(i+1)+'</b><span>&nbsp;</span></div>').join('');
+  const sub = segmentStart(seg)+' x '+legs+' Leg'+(legs===1?'':'s');
+  const height = key==='singles' ? Math.round(h/2) : h;
+  return '<div class="lineup-seg lineup-seg-'+key+'" style="height:'+height+'px"><div class="lineup-seg-head"><div class="lineup-seg-title">'+escapeHtml(label.toUpperCase())+' <small>'+escapeHtml(sub)+'</small></div><div class="lineup-seg-pts">Points</div></div>'+
+    '<div class="lineup-seg-body"><div class="lineup-seg-lines">'+lines+'</div><div class="lineup-seg-pts-box"></div></div></div>';
+}
 function lineupCardHTML(entry, opponent, meta){
-  const rubbers = state.format.mixedRubbers||[];
-  const segsHTML = rubbers.map(r=>{
-    const n = RUBBER_PLAYER_COUNT[r.type]||1;
-    const lines = Array.from({length:n}).map((_,i)=> '<div class="lineup-line"><b>'+(i+1)+'</b><span>&nbsp;</span></div>').join('');
-    const label = r.isTieBreaker ? 'TIE-BREAKER' : escapeHtml((r.name||'Rubber').toUpperCase());
-    const sub = (r.startingScore||501)+' x '+(r.legs||3)+' Leg'+((r.legs||3)===1?'':'s');
-    return '<div class="lineup-seg"><div class="lineup-seg-head"><div class="lineup-seg-title">'+label+' <small>'+escapeHtml(sub)+'</small></div><div class="lineup-seg-pts">Points</div></div>'+
-      '<div class="lineup-seg-body"><div class="lineup-seg-lines">'+lines+'</div><div class="lineup-seg-pts-box"></div></div></div>';
-  }).join('');
+  const segs = teamSegmentsOf(state), tb = teamTieBreakerFor(state, meta.stage==='rr' ? 'rr' : 'ko');
+  const labels = teamSegmentLabels(segs);
+  const all = segs.concat(tb ? [tb] : []);
+  const h = lineupSegmentHeight(all);
+  const segsHTML = segs.map((s,i)=> lineupSegmentHTML(s, labels[i], h)).join('');
   const headBoxes = [['Group', meta.groupLabel], ['Board', meta.board], ['Fixture', 'vs '+opponent.name], ['Game No.', meta.gameNo]];
-  return '<div class="lineup-card">'+
+  return '<div class="lineup-card'+(h<96?' dense':'')+'">'+
     '<div class="lineup-head-row">'+ headBoxes.map(([lbl,val])=>'<div class="lineup-head-box"><div class="bar">'+lbl+'</div><div class="box">'+escapeHtml(String(val==null?'':val))+'</div></div>').join('') +'</div>'+
     '<div class="lineup-topline">'+mainLogoBoxHTML()+'<div class="lineup-teamname"><span class="tag">Team Name</span>'+escapeHtml(entry.name)+'</div></div>'+
     segsHTML+
-    '<div class="lineup-seg lineup-total"><div class="lineup-seg-head"><div class="lineup-seg-title">TOTAL POINTS</div><div class="lineup-seg-pts"></div></div><div class="lineup-seg-body"><div class="lineup-seg-lines" style="min-height:14px"></div><div class="lineup-seg-pts-box"></div></div></div>'+
-    '<div class="lineup-sig">Captain/Manager Signature</div>'+
+    (tb ? lineupSegmentHTML(tb, 'Tie-breaker', h) : '')+
+    '<div class="lineup-seg lineup-total"><div class="lineup-seg-head"><div class="lineup-seg-title">TOTAL POINTS</div><div class="lineup-seg-pts"></div></div><div class="lineup-seg-body"><div class="lineup-seg-lines"></div><div class="lineup-seg-pts-box"></div></div></div>'+
+    '<div class="lineup-sig"><div class="lineup-sig-space"></div><div class="lineup-sig-line">Captain/Manager Signature</div></div>'+
     '<div style="margin-top:3px">'+DD_CREDIT_HTML+'</div>'+
-  '</div>';
-}
-function teamHandoutSheetsHTML(){
-  return state.entriesList.filter(e=>!e.withdrawn).map(e=> teamHandoutSheetHTML(e)).join('');
-}
-function teamHandoutSheetHTML(e){
-  const t = state;
-  const rosterHTML = (e.players && e.players.length) ?
-    '<div style="margin:16px 0 4px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">Roster</div>'+
-    '<div style="display:flex;flex-wrap:wrap;gap:8px">'+e.players.map((p,i)=>'<div style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:12px">'+(p?escapeHtml(p):'Player '+(i+1)+' (TBC)')+'</div>').join('')+'</div></div>' : '';
-  let rows = '';
-  const g = t.groups.find(gr=> gr.entryIds.includes(e.id));
-  if(g){
-    const opponents = g.entryIds.filter(id=>id!==e.id).map(id=>t.entriesList.find(x=>x.id===id)).filter(Boolean);
-    rows += opponents.map(opp=> '<div class="ro-row"><div>Group '+escText(g.label)+'</div><div class="ro-board">'+groupBoardLabel(g)+'</div><div class="ro-matches">Round robin vs '+escapeHtml(opp.name)+'</div></div>').join('');
-  }
-  [ {b:t.knockout, l:t.knockout&&t.knockout.label}, {b:t.knockoutLosers, l:t.knockoutLosers&&t.knockoutLosers.label} ].forEach(x=>{
-    if(!x.b) return;
-    x.b.rounds.forEach((round,ri)=>{
-      round.forEach(m=>{
-        if(m.aEntryId!==e.id && m.bEntryId!==e.id) return;
-        const oppId = m.aEntryId===e.id ? m.bEntryId : m.aEntryId;
-        const oppName = oppId ? bracketEntryName(t,oppId) : (m.bye ? 'BYE' : 'TBD (winner of earlier match)');
-        rows += '<div class="ro-row"><div>'+escapeHtml(x.l)+'</div><div class="ro-board">'+koRoundName(x.b,ri)+'</div><div class="ro-matches">vs '+escapeHtml(oppName)+'</div></div>';
-      });
-    });
-  });
-  if(!rows) rows = '<div class="ro-row"><div style="grid-column:1/-1;color:var(--muted)">No fixtures generated yet.</div></div>';
-  return '<div class="print-sheet ro-sheet">'+
-    '<div class="sheet-top">'+ mainLogoBoxHTML()+
-      '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(e.name)+'</div>'+
-      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · Team handout'+(e.org?' · '+escapeHtml(e.org):'')+'</div></div>'+
-      '<div class="group-label"><strong>TEAM HANDOUT</strong><span>'+escapeHtml(e.name)+'</span></div>'+
-    '</div>'+
-    rosterHTML+
-    '<div class="ro-title">Fixtures</div>'+
-    '<div class="ro-table"><div class="ro-row ro-hdr"><div>Stage</div><div>Board/Round</div><div>Opponent</div></div>'+rows+'</div>'+
-    '<div class="footer"><small>'+'Hand this sheet to the team captain — full roster and fixture list.'+'</small>'+
-    '<div class="footer-right">'+
-      (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+imgSrc(s.src)+'"></div>').join('')+'</div>' : '')+
-      DD_CREDIT_HTML+
-    '</div>'+
-    '</div>'+
   '</div>';
 }
 function doFinalPrint(){
@@ -6359,7 +6663,6 @@ function runPrintPack(confirmed){
       if(nonQualLabels.length>=2) html += projectedBracketSheetHTML(nonQualLabels, "Plate pool (projected)");
     }
   }
-  if(state.printSettings.teamHandoutEnabled && teamHandoutOffered(state)) html += teamHandoutSheetsHTML();
   if(state.printSettings.lineupSheetEnabled) html += teamLineupSheetsHTML() + knockoutLineupSheetsHTML();
   mount.innerHTML = html;
   setTimeout(()=>{ window.print(); }, 60);

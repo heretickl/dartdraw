@@ -81,7 +81,7 @@ const sections = [
       {
         id: 'creating-an-event',
         title: 'Creating an event (step 1)',
-        summary: 'Name it, choose Singles or Doubles, set the date and the number of entries.',
+        summary: 'Name it, choose Singles, Doubles or Teams, set the date and the number of entries.',
         body: `
 <p>Click <b>+ New tournament</b> at the top of the left-hand menu. Step 1 is called <b>Event creation</b>. Fill in:</p>
 <ol>
@@ -89,15 +89,16 @@ const sections = [
 <li><b>Tournament name</b>: the day or competition, for example Spring Open 2026. It is printed on every sheet.</li>
 <li><b>Event name</b>: this competition inside it, for example Open Singles.</li>
 <li><b>Event category</b>: <b>Open</b>, <b>Women</b> or <b>Youth</b>. It is printed on the charts.</li>
-<li><b>Competition type</b>: <b>Singles</b> or <b>Doubles</b>.</li>
+<li><b>Competition type</b>: <b>Singles</b>, <b>Doubles</b> or <b>Teams</b>.</li>
 <li><b>Tournament date</b>: shown on the charts. The public home page also uses it to list upcoming events.</li>
 <li><b>Number of entries</b>: at least 2.</li>
 </ol>
 <p>Click <b>Save event creation &rarr;</b> to move on to step 2.</p>
 
-<h4 id="singles-or-doubles">Singles or Doubles</h4>
+<h4 id="singles-or-doubles">Singles, Doubles or Teams</h4>
 <p>In <b>Singles</b>, one entry is one player.</p>
-<p>In <b>Doubles</b>, one entry is a <b>pair</b> of two named players. The number of entries is the number of pairs, so 24 players make 12 entries. In step 3 each pair gets a <b>Pair name</b> plus boxes for <b>Player 1</b> and <b>Player 2</b>. Charts, results and the public page show the pair name, so choose something both players recognise, such as both surnames together.</p>
+<p>In <b>Doubles</b>, one entry is a <b>pair</b> of two players. The number of entries is the number of pairs, so 24 players make 12 entries. In step 3 each pair has one box, the <b>Pair name</b>. Charts, results and the public page show the pair name, so choose something both players recognise, such as both surnames together.</p>
+<p>In <b>Teams</b>, one entry is a <b>team</b>, and in step 3 it has one box, the <b>Team name</b>. There is no list of players to fill in: captains write their line-up on the day. A team match is made of segments that you set on step 2. See <a href="#teams">Teams events</a>.</p>
 
 <h4 id="boards-and-entries">Boards and the number of entries</h4>
 <p>There is no boards box on step 1. You set the number of boards on step 2, under Scheduling.</p>
@@ -117,21 +118,21 @@ const sections = [
       {
         id: 'choosing-a-format',
         title: 'Choosing a format (step 2)',
-        summary: 'Round robin, knockout, round robin then knockout, or Group Boards, plus legs, boards, branding and rules.',
+        summary: 'Round robin, knockout (one bracket, or Group Boards then finals) or round robin then knockout, plus legs, boards, branding and rules.',
         body: `
 <p>Step 2 is <b>Format &amp; branding</b>. It has four sections: <b>Format</b>, <b>Scheduling</b>, <b>Branding &amp; print</b> and <b>Rules</b>. Click a section heading to open or close it. Click <b>Save format &amp; branding &rarr;</b> when you are done.</p>
 
 <h4 id="format-types">The formats</h4>
-<p>Under <b>Competition format</b> pick one:</p>
+<p>Under <b>Competition format</b> pick one of three:</p>
 <ul>
 <li><b>Round robin</b>: entries play within their groups. Everyone in a group plays everyone else in it once.</li>
-<li><b>Knockout</b>: a direct elimination bracket. Lose and you are out. If the number of entries does not fill the bracket, the app adds byes in round 1 and gives them to the best seeds.</li>
+<li><b>Knockout</b>: direct elimination. Lose and you are out. Under <b>Knockout type</b> choose <b>Single bracket</b> (the usual choice: one bracket, and if the number of entries does not fill it, the app adds byes in round 1 and gives them to the best seeds) or <b>Group Boards, then finals</b> (small knockout groups first, each on its own board, so every group has a champion before the finals; see below).</li>
 <li><b>Round robin &rarr; Knockout</b>: a group stage first, then the top finishers go into a bracket.</li>
-<li><b>Group Boards</b>: small knockout groups, each on its own board, then a Finals bracket for the group winners. It is optional and made for big fields. See below.</li>
 </ul>
 
 <h4 id="legs">Best of legs</h4>
 <p>The <b>Best of legs</b> box sets how long a match is. Odd numbers are best. Best of 5 means the first to 3 legs wins. When you enter a result, the winner must have exactly that many legs and the loser fewer. An even number shows a warning, because it can end level.</p>
+<p>A Teams event has no <b>Best of legs</b> box: each segment of a team match has its own. See <a href="#teams">Teams events</a>.</p>
 
 <h4 id="round-robin-setup">Round robin</h4>
 <p>Choose <b>Maximum entries per group</b> (3 to 6). A blue box under it shows the split DartDraw recommends, for example how many groups and how many matches each group plays. DartDraw balances the groups when it draws them.</p>
@@ -144,8 +145,8 @@ const sections = [
 </ul>
 <p>The bracket is not drawn until every group has finished. You draw it in step 5. See <a href="#managing-the-tournament">Managing the tournament</a>.</p>
 
-<h4 id="group-boards">Group Boards (optional)</h4>
-<p>Group Boards suits big fields. Instead of a few big groups you choose a number of small groups, and each group is a little knockout on its own board. Every group ends with a champion, and the champions meet in a <b>Finals</b> bracket. You do not have to use it.</p>
+<h4 id="group-boards">Group Boards, then finals (a Knockout option)</h4>
+<p>Choose <b>Knockout</b>, then <b>Group Boards, then finals</b>. It suits big fields and anyone who wants a group champion before the finals. Instead of one big bracket you choose a number of small groups, and each group is a little knockout on its own board. Every group ends with a champion, and the champions meet in a <b>Finals</b> bracket. You do not have to use it, and it is not offered with the round robin formats.</p>
 <ul>
 <li><b>Number of groups</b>: at least 2, at most 128, and each group needs at least 2 players. DartDraw tells you if the numbers do not fit.</li>
 <li><b>Best of legs inside each group</b> can differ from the Finals. The Finals uses <b>Best of legs</b> (or your knockout leg settings in Advanced setup).</li>
@@ -154,7 +155,7 @@ const sections = [
 </ul>
 
 <h4 id="knockout-legs">More legs in later rounds</h4>
-<p>In Advanced setup a knockout has a tick box that raises the legs in later rounds. Tick it and you can set <b>Early rounds</b>, <b>Quarterfinal</b>, <b>Semifinal</b> and <b>Final</b> separately. Every round before the quarterfinal uses <b>Early rounds</b>. The Plate pool has its own, independent settings.</p>
+<p>In Advanced setup a knockout has a tick box that raises the legs in later rounds (not in a Teams event, where every round uses the same segments). Tick it and you can set <b>Early rounds</b>, <b>Quarterfinal</b>, <b>Semifinal</b> and <b>Final</b> separately. Every round before the quarterfinal uses <b>Early rounds</b>. The Plate pool has its own, independent settings.</p>
 
 <h4 id="scheduling">Scheduling</h4>
 <p>Click <b>Edit scheduling settings</b>. <b>Number of boards available</b> sets the board choices later on. In Advanced setup you can also set <b>Level of play</b> (Professional, Amateur or Novice), an <b>Anticipated start time</b> and breaks. DartDraw uses these to estimate how long the event takes and to show &ldquo;On schedule&rdquo; or &ldquo;Running behind&rdquo; while you play. These are rough guides. They are never printed.</p>
@@ -169,13 +170,55 @@ const sections = [
 `
       },
       {
+        id: 'teams',
+        title: 'Teams events',
+        summary: 'Set up a team match as segments, add a tie-breaker, enter one result per match and print lineup sheets.',
+        body: `
+<p>In a Teams event every match between two teams is made of <b>segments</b>, played one after another: for example a foursome, then singles and doubles games. You set the segments once, on step 2, and every match in the event uses them, in the groups, every knockout round, the Plate pool and Group Boards alike. A team is just its name. DartDraw keeps no list of players.</p>
+
+<h4 id="team-segments">Setting up the segments</h4>
+<p>Open the <b>Format</b> section of step 2. Under <b>Team match segments (played in order)</b> each row is one segment, with:</p>
+<ul>
+<li>a type: <b>Singles</b>, <b>Doubles</b>, <b>Trios</b> or <b>Foursome</b>;</li>
+<li>a starting score: <b>301</b>, <b>501</b>, <b>701</b> or <b>1001</b>;</li>
+<li>a <b>best of</b> number of legs. It must be odd (1, 3, 5&hellip;): an even number shows a warning, and <b>Save format &amp; branding &rarr;</b> refuses it, because it could end level. The same goes for the tie-breaker when it is used.</li>
+</ul>
+<p>Click <b>+ Add segment</b> for another row. Use the arrows to move a segment up or down, and <b>&#10005;</b> to remove one. There is always at least one, and at most 8, so the lineup sheet fits on one page. The editor is there in Basic and Advanced setup. A Teams event has no <b>Best of legs</b> box and no extra legs for later rounds, because each segment sets its own.</p>
+<p>Like every other setting on step 2, your changes count only when you click <b>Save format &amp; branding &rarr;</b>. Leave the step without saving and the segments stay as they were. Once games have started (after <b>Start all games</b> or <b>Start round</b>, once a match is called to its board, or once any result is in), the segments are locked and shown read-only, and the format and the competition type (step 1) of a Teams event can&rsquo;t change any more, because every match of the event must be played the same way.</p>
+<p>A new Teams event starts with five segments: Foursome 1001, best of 1; Singles 501, best of 3; Doubles 501, best of 3; Singles 501, best of 3; Doubles 501, best of 3. Change them to suit your league.</p>
+
+<h4 id="team-tie-breaker">The tie-breaker</h4>
+<p>Under <b>A tie-breaker might be needed</b> you choose where a tie-breaker is used: <b>Use a tie-breaker in round robin matches</b>, <b>Use a tie-breaker in knockout matches</b>, or both. Only the ticks that fit your format are shown: a round robin has the first, a knockout (Group Boards included) the second, and Round robin &rarr; Knockout both. When one is ticked, a <b>Tie-breaker</b> row appears at the end with its own type, starting score and best of. It is played only when the two teams have won the same number of legs after the main segments. A new event has both ticked, with a Foursome 1001, best of 1.</p>
+<p>Each tick is locked once its own stage has begun, not before: in Round robin &rarr; Knockout you can still choose the knockout tie-breaker while the groups are being played. Even after a stage has begun you can switch its tie-breaker <b>on</b> (never off again): the knockout one at any time, and the round robin one as long as no drawn result is saved. The tie-breaker&rsquo;s type, starting score and best of can change while no stage that has begun uses it.</p>
+
+<h4 id="teams-results">Entering a team result</h4>
+<p>You enter one result for the whole match, not one for each segment. Click the match as usual and type, in each box, the <b>total legs that team won across all the segments</b>, adding the tie-breaker&rsquo;s legs if it was played. Then click <b>Save score</b>. Standings, leg difference and the bracket all use those totals.</p>
+<p>For example, with the five default segments, a team that wins the foursome (1 leg), one singles 2&ndash;1 and loses the other three segments 1&ndash;2 has 1 + 2 + 1 + 1 + 1 = 6 legs, and the other team has 0 + 1 + 2 + 2 + 2 = 7.</p>
+
+<h4 id="teams-cap">The most a team can win</h4>
+<p>In each segment a team can win at most the legs it needs to take it: 1 in a best of 1, 2 in a best of 3, 3 in a best of 5. Added up over the segments, that is the most a team can have in one match. With the five default segments it is 9, or 10 in a stage that uses the tie-breaker. The result box says &ldquo;A team can win at most 10 legs.&rdquo; and refuses a bigger number with a message: it never changes what you typed. A result saved earlier can always be saved again unchanged.</p>
+
+<h4 id="teams-level">When the totals are level</h4>
+<ul>
+<li><b>Where the tie-breaker is used</b>, a level total can&rsquo;t be saved: play the tie-breaker and include its legs in the totals.</li>
+<li><b>A round robin without the tie-breaker</b> (also the group stage of Round robin &rarr; Knockout): a level total is allowed. It is a draw, 1 point each.</li>
+<li><b>A knockout without the tie-breaker</b> (Group Boards included): a level total is still refused (&ldquo;This is a knockout match &mdash; it can&rsquo;t end level.&rdquo;), because a knockout needs a winner. The message suggests ticking <b>Use a tie-breaker in knockout matches</b> (possible at any time), or playing one more deciding leg and including it in the totals. One more leg always fits: a level total is always below the most a team can win.</li>
+</ul>
+<p>A no-show works as in any event: <b>Mark no-show&hellip;</b> gives the other team every main segment, which is 9&ndash;0 with the defaults.</p>
+
+<h4 id="lineup-sheet">The lineup sheet</h4>
+<p>On step 4 or step 7, tick <b>Also print a lineup/scorecard sheet for each fixture, for captains to fill in on the day</b>. The pack then gets one page for each fixture whose teams are known, with both teams side by side. Each side has a dark bar for every segment, such as <b>Singles 1</b>, with its starting score and legs and a Points box, numbered lines for the players&rsquo; names (one for singles, two for doubles, three for trios, four for a foursome), the <b>TIE-BREAKER</b> bar when that fixture uses one, then a compact <b>TOTAL POINTS</b> box for everything including the tie-breaker, and the rest of the page as a large space for the captain&rsquo;s signature. Singles bars are half the height of the others. In a knockout, print again as rounds finish to get the next fixtures&rsquo; sheets.</p>
+<p>The lineup sheet shows the <b>TIE-BREAKER</b> bar only for fixtures of a stage that uses it. The rules &amp; format sheet lists the segments and says where the tie-breaker is used, and the time estimate counts every leg of every segment, the tie-breaker&rsquo;s too in a stage that uses it. Each team match is one fixture on one board: its segments are played one after another and are never scheduled apart.</p>
+`
+      },
+      {
         id: 'entries-and-check-in',
         title: 'Entries, seeds, check-in and no-shows',
         summary: 'Naming entries, organisations, seeding, check-in, withdrawals, walkovers and matches nobody played.',
         body: `
 <h4 id="naming-entries">Naming entries</h4>
 <p>Entries start with placeholder names such as &ldquo;Entry 1&rdquo;. Once groups are drawn, entries without a name of your own are labelled by position, for example &ldquo;Player A1&rdquo; or &ldquo;Pair A1&rdquo;. Type a name in the box and it stays.</p>
-<p>In Doubles, each entry also has <b>Player 1</b> and <b>Player 2</b> boxes. Fill in both, and put what you want people to see on charts and the public page in the pair name.</p>
+<p>A pair or a team is just its name: there are no boxes for the players in it. Put what you want people to see on charts and the public page in that name, for example both surnames for a pair.</p>
 
 <h4 id="organisations">Organisations</h4>
 <p>Use the <b>Organisation (optional)</b> box for a club or organisation name. Then tick the box that keeps them apart:</p>
@@ -233,7 +276,8 @@ const sections = [
 <li>a master running order, board by board;</li>
 <li>one chart for each confirmed group;</li>
 <li>the knockout bracket, or a projected bracket with labels like A1 before the groups are played;</li>
-<li>in Group Boards, a <b>Players A&ndash;Z</b> sheet, a <b>Boards</b> sheet, one sheet for each group and the Finals.</li>
+<li>in Group Boards, a <b>Players A&ndash;Z</b> sheet, a <b>Boards</b> sheet, one sheet for each group and the Finals;</li>
+<li>in a Teams event, a lineup sheet for each fixture if you tick the box for it. See <a href="#lineup-sheet">The lineup sheet</a>.</li>
 </ul>
 <p>Knockout brackets have a <b>Knockout bracket paper size</b> (A4, A3, A2 or A1). A very large bracket is split over several sheets so the writing stays readable.</p>
 <p>Your browser&rsquo;s print window opens. Choose a printer, or choose <b>Save as PDF</b> to make a file. Print the blank pack before you start games; DartDraw suggests it when you start.</p>
@@ -261,6 +305,7 @@ const sections = [
 <h4 id="enter-scores">Entering scores</h4>
 <p><b>Round robin:</b> click the box where two entries meet. Type each side&rsquo;s legs and click <b>Save score</b>. The winner must have exactly the legs needed for your best-of, and the loser fewer. Positions, points and leg totals update at once in the standings under each chart.</p>
 <p><b>Knockout:</b> click a match, type the legs and click <b>Save score</b>. There are no draws. The winner moves to the next round. If you change who won a match, later matches that depended on it are cleared.</p>
+<p><b>Teams:</b> type the total legs each team won across the whole match. See <a href="#teams-results">Entering a team result</a>.</p>
 <p>To correct a score, click it again and save the new result.</p>
 
 <h4 id="standings">Standings</h4>
@@ -364,7 +409,7 @@ const sections = [
 </ul>
 
 <h4 id="what-spectators-see">What spectators see</h4>
-<p>Anyone with the link sees the standings, results and bracket, and can look up a player. Group Boards events also have a <b>Boards</b> tab. They see entry names and organisations. They never see your notes, the incident log, the individual names typed into <b>Player 1</b> and <b>Player 2</b>, check-in details, or your logo and sponsors.</p>
+<p>Anyone with the link sees the standings, results and bracket, and can look up a player. Group Boards events also have a <b>Boards</b> tab. They see entry names (a pair&rsquo;s or a team&rsquo;s name) and organisations. They never see your notes, the incident log, check-in details, or your logo and sponsors.</p>
 <p>Spectators have their own help page at <a href="${VIEWER_HELP_URL}" target="_blank" rel="noopener">the public results site</a>. Send it to anyone who asks how to follow the event.</p>
 
 <h4 id="how-fast">How fast it updates</h4>
@@ -475,7 +520,7 @@ const sections = [
       {
         id: 'faq-pair-names',
         title: 'Can spectators see the names of players in a pair?',
-        body: `<p>They see the <b>pair name</b> you type, and the organisation if you gave one. They do not see what you typed in the <b>Player 1</b> and <b>Player 2</b> boxes. If you want both names to show, put both names in the pair name.</p>`
+        body: `<p>They see the <b>pair name</b> you type, and the organisation if you gave one. There are no separate boxes for the two players, so if you want both names to show, put both in the pair name, such as both surnames together. A team is shown by its team name in the same way.</p>`
       },
       {
         id: 'faq-not-on-home-page',
@@ -495,7 +540,7 @@ const sections = [
         id: 'faq-tie-breaks',
         title: 'How do tie-breaks work?',
         body: `
-<p>Entries are ranked by points first. A win is 2 points and a loss 0. Results are entered as finished matches, so there is always a winner.</p>
+<p>Entries are ranked by points first. A win is 2 points, a draw 1 and a loss 0. Results are entered as finished matches, so there is always a winner, except in a Teams round robin without a tie-breaker, where a level total is a draw.</p>
 <p>When entries have the same points, DartDraw uses your <b>Tie-break order</b>. The default is:</p>
 <ol>
 <li><b>Head-to-head result</b>: whoever won the match between them goes ahead.</li>
@@ -510,6 +555,11 @@ const sections = [
         id: 'faq-legs',
         title: 'What does &ldquo;best of 5&rdquo; mean when I enter a score?',
         body: `<p>The first to win most of the legs wins the match. In a best of 5 that is 3 legs. The score box accepts only finished results: the winner must have exactly 3, and the loser 0, 1 or 2. In a best of 3 the winner needs 2, and so on.</p>`
+      },
+      {
+        id: 'faq-team-result',
+        title: 'How do I enter the result of a team match?',
+        body: `<p>As one result: the total legs each team won across all the segments, including the tie-breaker if it was played. A team cannot have more than the most it could win (9 with the default segments, 10 where the tie-breaker is used). Where the tie-breaker is used, the totals can&rsquo;t be level. Without it, level totals are a draw in a round robin, and are refused in a knockout. See <a href="#teams-results">Entering a team result</a>.</p>`
       },
       {
         id: 'faq-byes',
@@ -529,7 +579,7 @@ const sections = [
       {
         id: 'faq-group-boards',
         title: 'What is Group Boards, and do I have to use it?',
-        body: `<p>No, it is optional. Group Boards splits a big field into small knockout groups. Each group has its own board and ends with a champion, and the champions play a Finals bracket. It suits large events. For a normal-sized field, a round robin or a knockout is usually simpler. See <a href="#group-boards">Group Boards</a>.</p>`
+        body: `<p>No, it is optional. It is a kind of Knockout: choose <b>Knockout</b>, then <b>Group Boards, then finals</b>. It splits a big field into small knockout groups. Each group has its own board and ends with a champion, and the champions play a Finals bracket. It suits large events. For a normal-sized field, a round robin or a knockout is usually simpler. See <a href="#group-boards">Group Boards</a>.</p>`
       },
       {
         id: 'faq-change-format',

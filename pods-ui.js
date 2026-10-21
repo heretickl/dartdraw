@@ -3,17 +3,32 @@
    round-robin state.groups. Needs globals from app.html (state, persist, render, openModal, escapeHtml,
    nearestBracket, knockoutLegsFieldsHTML, ...). Only called while rendering or on a click. */
 
+/* What a Group Boards entry is called: players, or pairs / teams in a Doubles or Teams event (unitWordFor in app.html). */
+function podsNoun(n){
+  var w = (typeof unitWordFor === 'function' && state && state.eventCreation) ? unitWordFor(state.eventCreation.competitionUnit).toLowerCase() : 'player';
+  if(w === 'entry') w = 'player';
+  return n === 1 ? w : w + 's';
+}
+function podsNounCap(){ var w = podsNoun(2); return w.charAt(0).toUpperCase() + w.slice(1); }
+
 /* ---------- Stage 2: format settings ---------- */
 function podsSummaryHTML(n, p){
   var v = podsValidateCount(n, p);
-  if(!p) return '<b>Choose how many groups.</b> Players are dealt into this many small knockouts, and each group winner goes through to the Finals.';
+  if(!p) return '<b>Choose how many groups.</b> '+podsNounCap()+' are dealt into this many small knockouts, and each group winner goes through to the Finals.';
   if(!v.ok) return '<b style="color:#c0392b">'+escapeHtml(v.message)+'</b>';
   var sizes = podSizes(n, p), min = sizes[sizes.length-1], max = sizes[0], fin = nearestBracket(p);
-  return '<b>'+p+' groups of '+(min===max ? min : min+' to '+max)+' players.</b> Finals: '+(fin.size===8 ? 'an ' : 'a ')+escText(fin.size)+'-slot chart for '+p+' group winners'+
+  return '<b>'+p+' groups of '+(min===max ? min : min+' to '+max)+' '+podsNoun(2)+'.</b> Finals: '+(fin.size===8 ? 'an ' : 'a ')+escText(fin.size)+'-slot chart for '+p+' group winners'+
     (fin.byes ? ' ('+fin.byes+' bye'+(fin.byes===1?'':'s')+' for the strongest groups)' : '')+'.';
 }
 function podsFormatFieldsHTML(){
   var f = state.format, n = podsPlayerCount(state), p = parseInt(f.podCount) || 0, advanced = !!state.eventCreation.advancedMode;
+  /* Teams: the segments (below) set every match's legs, in the groups and the Finals alike. */
+  if(isTeamsEvent(state)){
+    return '<div class="grid2">'+
+        '<div class="field"><label>Number of groups</label><input id="f_podcount" type="number" min="2" max="'+PODS_MAX+'" value="'+(p || '')+'" oninput="podsPreviewSettings()"></div><div></div>'+
+      '</div>'+
+      '<div class="recommend" id="podsSummary">'+podsSummaryHTML(n, p)+'</div>';
+  }
   return '<div class="grid2">'+
       '<div class="field"><label>Best of legs (the Finals, and groups unless set below)</label><input id="f_bestof" type="number" min="1" step="2" value="'+escText(f.bestOfLegs)+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>'+
       '<div class="field"><label>Number of groups</label><input id="f_podcount" type="number" min="2" max="'+PODS_MAX+'" value="'+(p || '')+'" oninput="podsPreviewSettings()"></div>'+
@@ -51,7 +66,7 @@ function podsCardsHTML(pods){
       }).join('');
       return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><strong>Group '+escapeHtml(p.label)+'</strong>'+
-          '<span class="hint" style="margin:0">'+p.entryIds.length+' players</span></div>'+
+          '<span class="hint" style="margin:0">'+p.entryIds.length+' '+podsNoun(p.entryIds.length)+'</span></div>'+
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px"><label style="margin:0">Board'+(p.boards.length === 1 ? '' : 's')+'</label>'+
           '<input type="text" style="width:90px;height:28px;font-size:12px" value="'+escText(p.boards.join(', '))+'" onchange="setPodBoards(\''+escJs(p.id)+'\',this.value)"></div>'+
         rows+'</div>';
@@ -81,7 +96,7 @@ function podsCountWarningHTML(){
 }
 function podsPlaceModal(entryId){
   var name = (state.entriesList.find(function(e){ return e.id === entryId; }) || {}).name || '';
-  var opts = podsList(state).filter(podsCanEdit).map(function(p){ return '<option value="'+escText(p.id)+'">Group '+escapeHtml(p.label)+' ('+p.entryIds.length+' players)</option>'; }).join('');
+  var opts = podsList(state).filter(podsCanEdit).map(function(p){ return '<option value="'+escText(p.id)+'">Group '+escapeHtml(p.label)+' ('+p.entryIds.length+' '+podsNoun(p.entryIds.length)+')</option>'; }).join('');
   openModal({
     title:'Place '+escapeHtml(name),
     bodyHTML: opts ? '<div class="field"><label>Into group</label><select id="plTo">'+opts+'</select></div>'
@@ -145,7 +160,7 @@ function podsStage3(){
   var html = stage3Knockout({ noControls:true, intro:'Draw the groups below.' });   // the Participants & Seeding panel, same as the knockout format
   html += '<div class="card"><h2>Groups</h2><p class="intro">'+
     (pods.length ? 'Check the draw below. Use Move… to move or swap a player before you confirm the groups.'
-                 : 'Deals every player into '+(parseInt(t.format.podCount) || 0)+' groups, one board each. Seeded players are spread across the groups, one per group.')+'</p>'+
+                 : 'Deals every '+podsNoun(1)+' into '+(parseInt(t.format.podCount) || 0)+' groups, one board each. Seeded players are spread across the groups, one per group.')+'</p>'+
     (!v.ok ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>Check the number of groups</b>'+escapeHtml(v.message)+' <span style="text-decoration:underline;cursor:pointer" onclick="goStage(2)">Change it in Format &amp; branding</span></div>' : '')+
     (pods.length ? podsCountWarningHTML() + podsRosterWarningHTML() : podsCheckInBoxHTML())+
     '<div class="buttonrow"><button class="btn '+(pods.length ? 'secondary' : 'primary')+'" '+(v.ok && !scored ? '' : 'disabled ')+'onclick="podsDrawClick()">'+(pods.length ? 'Redraw groups' : 'Draw groups')+'</button>'+
@@ -199,7 +214,7 @@ function podsMoveModal(entryId){
   if(!from) return;
   var name = (state.entriesList.find(function(e){ return e.id === entryId; }) || {}).name || '';
   var opts = podsList(state).filter(function(p){ return p.id !== from.id && podsCanEdit(p); }).map(function(p){
-    return '<option value="'+escText(p.id)+'">Group '+escapeHtml(p.label)+' ('+p.entryIds.length+' players)</option>';
+    return '<option value="'+escText(p.id)+'">Group '+escapeHtml(p.label)+' ('+p.entryIds.length+' '+podsNoun(p.entryIds.length)+')</option>';
   }).join('');
   openModal({
     title:'Move '+escapeHtml(name),
@@ -233,8 +248,9 @@ function podsStage4(){
       '<div><label>Finals</label><strong>'+(podsFinals(t) ? escText(podsFinals(t).size)+'-slot chart built' : 'Not built yet')+'</strong></div></div>'+
     '<div class="buttonrow"><button class="btn primary" '+(prog.confirmed === prog.total ? 'disabled ' : '')+'onclick="podsConfirmAllClick()">Confirm all groups</button>'+
       (podsFinals(t) ? '<button class="btn secondary" onclick="doFinalPrint()">Print bracket pack</button><button class="btn primary" onclick="goStage(5)">Continue to manage tournament →</button>' : '')+'</div>'+
+    lineupSheetToggleHTML()+
     '<div class="printlist">'+pods.map(function(p){
-      return '<div><span>Group '+escapeHtml(p.label)+' — '+p.entryIds.length+' players · '+podBoardLabel(p)+'</span><span>'+
+      return '<div><span>Group '+escapeHtml(p.label)+' — '+p.entryIds.length+' '+podsNoun(p.entryIds.length)+' · '+podBoardLabel(p)+'</span><span>'+
         (p.confirmed
           ? '<b style="color:#1d8a4a">Confirmed</b> <a href="javascript:void(0)" style="font-size:11px" onclick="podsUnconfirmClick(\''+escJs(p.id)+'\')">Unconfirm</a>'
           : '<b style="color:#c0392b">Not confirmed</b> <a href="javascript:void(0)" style="font-size:11px" onclick="podsConfirmClick(\''+escJs(p.id)+'\')">Confirm</a>')+'</span></div>';
@@ -340,7 +356,7 @@ function podsStage7(){
     '<div class="summary-grid" style="margin-bottom:12px"><div><label>Group sheets</label><strong>'+pods.length+'</strong></div>'+
       '<div><label>Finals</label><strong>'+(built ? 'Included' : 'Not built yet')+'</strong></div></div>'+
     '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(t.printSettings.sponsorFooterEnabled ? 'checked' : '')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">Include sponsor footer on printed charts</label></div>'+
-    rulesSheetToggleHTML()+playersSheetToggleHTML()+boardsSheetToggleHTML()+(built ? koPaperSizeSelectHTML() : '')+
+    rulesSheetToggleHTML()+playersSheetToggleHTML()+boardsSheetToggleHTML()+lineupSheetToggleHTML()+(built ? koPaperSizeSelectHTML() : '')+
     '<div class="buttonrow"><button class="btn secondary" onclick="goStage(6)">Back to standings</button>'+
       '<button class="btn '+(pods.length ? 'primary' : 'secondary')+'" '+(pods.length ? '' : 'disabled ')+'onclick="doFinalPrint()">Print final chart — Save high-res A4 PDF</button></div></div>';
 }
@@ -354,6 +370,7 @@ function podsPrintClick(){
   if(t.printSettings.boardsSheetEnabled !== false) html += bpBoardsSheetHTML(t);
   pods.forEach(function(p){ html += knockoutBracketSheetHTML(p.bracket, { podLegs:true, stage:'Group '+p.label+' · '+podBoardLabel(p), qrPath:'bracket/group-'+encodeURIComponent(p.label) }); });
   if(podsFinals(t)) html += knockoutBracketSheetHTML(podsFinals(t), { qrPath:'bracket/finals' });
+  if(t.printSettings.lineupSheetEnabled) html += knockoutLineupSheetsHTML();   // Teams only: '' otherwise
   document.getElementById('printSheets').innerHTML = html;
   setTimeout(function(){ window.print(); }, 60);
 }

@@ -133,7 +133,7 @@ function scoreAll(app, t, drawTie) {
   });
 }
 // kind: rr | rrtie (unresolved tie) | rrko (round robin + knockout with a Plate pool) | ko (knockout with seeds) | pods (Group Boards with
-// finals and a board plan) | teams (mixed rubbers) | doubles
+// finals and a board plan) | teams (segments + tie-breaker, with an older roster left in the data) | doubles
 const KINDS = ['rr', 'rrtie', 'rrko', 'ko', 'pods', 'teams', 'doubles'];
 function build(kind) {
   const app = freshApp();
@@ -153,7 +153,13 @@ function build(kind) {
     t.entriesList = Array.from({ length: n }, (_, i) => ({ id: 'e' + i, name: 'Player ' + (i + 1), org: '', players: [], withdrawn: false }));
     t.eventCreation.entries = n; t.eventCreation.boards = 6;
     decorate(t);
-    if (kind === 'teams') { t.eventCreation.competitionUnit = 'Teams'; t.format.teamMatchFormat = 'mixed'; t.format.teamSize = 2; t.entriesList.forEach((e, k) => { e.players = ['A' + k, 'B' + k]; e.captain = 'C'; }); }
+    if (kind === 'teams') {   // segments with every type and a tie-breaker; an older event's roster and rubber fields are still in the data
+      t.eventCreation.competitionUnit = 'Teams'; t.format.teamMatchFormat = 'mixed'; t.format.teamSize = 2;
+      t.format.teamSegments = [{ type: 'foursome', startingScore: 1001, legs: 1 }, { type: 'singles', startingScore: 501, legs: 3 }, { type: 'doubles', startingScore: 301, legs: 3 }, { type: 'trios', startingScore: 701, legs: 5 }];
+      t.format.teamTieBreaker = { type: 'foursome', startingScore: 1001, legs: 1, inRoundRobin: true, inKnockout: false };
+      t.format.mixedRubbers = [{ name: 'R1', type: 'triples', startingScore: 501, legs: 3, isTieBreaker: false }];
+      t.entriesList.forEach((e, k) => { e.players = ['A' + k, 'B' + k]; e.captain = 'C'; });
+    }
     if (kind === 'doubles') { t.eventCreation.competitionUnit = 'Doubles'; }
     t.format.formatType = kind === 'ko' ? 'knockout' : kind === 'rr' || kind === 'rrtie' ? 'roundrobin' : 'rrknockout';
     t.format.losersPool = true; t.format.knockoutLegs.main.variable = true;
@@ -288,7 +294,6 @@ function callAll(app, tTemplate, kind, opts) {
     g.entryIds.forEach((a) => g.entryIds.forEach((b) => {
       if (a === b) return;
       tryCall('promptScore@' + gi + ' ', () => { const t = fresh(); const ea = t.entriesList.find((e) => e.id === a), eb = t.entriesList.find((e) => e.id === b); app.__a = [g.id, a, b, ea.name, eb.name]; return exec('promptScore.apply(null, __a)'); });
-      tryCall('promptScoreMixed@' + gi + ' ', () => { const t = fresh(); const ea = t.entriesList.find((e) => e.id === a), eb = t.entriesList.find((e) => e.id === b); app.__a = [g.id, a, b, ea.name, eb.name]; return exec('typeof promptScoreMixed==="function" ? promptScoreMixed.apply(null, __a) : ""'); });
     }));
     ['openNoShowPicker', 'openSwapPicker', 'openPositionOverridePicker', 'openConfirmChartModal', 'openExpandedPreview', 'confirmGroupClick'].forEach((fn) => tryCall(fn + '@g' + gi + ' ', () => { fresh(); app.__a = [g.id]; return exec('typeof ' + fn + '==="function" ? ' + fn + '.apply(null, __a) : ""'); }));
   });

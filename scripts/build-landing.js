@@ -334,7 +334,7 @@ const landing = `
       <a class="btn big" href="/login.html" data-login>Log in to get started ${arrow}</a>
       <a class="btn ghost big" href="/features">Explore the features</a>
     </div>
-    <ul class="tags" aria-label="Competition types"><li>Singles</li><li>Doubles</li></ul>
+    <ul class="tags" aria-label="Competition types"><li>Singles</li><li>Doubles</li><li>Teams</li></ul>
   </div>
   <div class="preview" aria-hidden="true">
     <div class="win">
@@ -391,7 +391,7 @@ const features = `
   <h2 class="sec" id="fmtH">Three ways to run an event</h2>
   <div class="fmt">
     <div class="card">${ic('users')}<h3>Round robin</h3><p>Everyone plays within their group, with live standings as scores go in.</p></div>
-    <div class="card">${ic('bracket')}<h3>Knockout</h3><p>A straight elimination bracket, with byes added for you.</p></div>
+    <div class="card">${ic('bracket')}<h3>Knockout</h3><p>A straight elimination bracket, with byes added for you. Or Group Boards first: small knockout groups, then a finals bracket.</p></div>
     <div class="card">${ic('layers')}<h3>Round robin &rarr; Knockout</h3><p>Group stage first, then the top finishers go through to a bracket. Entries that don&rsquo;t advance can play a Plate pool.</p></div>
   </div>
 </div></section>
@@ -399,11 +399,11 @@ const features = `
 <section class="band alt" aria-labelledby="moreH"><div class="wrap">
   <h2 class="sec" id="moreH">Built around how a tournament day really runs</h2>
   <div class="fgrid">
-    <div class="card fcard"><span class="disc">${ic('target', 'sm')}</span><div><h3>A champion for every group &mdash; Group Boards</h3><p>Want a group champion before the finals? Group Boards splits the field into small knockout groups, each on its own boards. Every group crowns a champion, and the champions meet in a Finals bracket.</p><div class="mini"><span class="chip">Optional</span></div></div></div>
+    <div class="card fcard"><span class="disc">${ic('target', 'sm')}</span><div><h3>A champion for every group &mdash; Group Boards</h3><p>Want a group champion before the finals? Choose Knockout, then Group Boards: the field is split into small knockout groups, each on its own boards. Every group crowns a champion, and the champions meet in a Finals bracket.</p><div class="mini"><span class="chip">Optional</span></div></div></div>
     <div class="card fcard"><span class="disc">${ic('shield', 'sm')}</span><div><h3>Fair draws, built for you</h3><ul><li>Groups are built and balanced automatically</li><li>Keep entries from the same organisation apart, in a group or in the first knockout round</li><li>Seeded or random placement into the bracket, with board numbers for each group</li></ul></div></div>
     <div class="card fcard"><span class="disc">${ic('check', 'sm')}</span><div><h3>Scoring that does the sums</h3><ul><li>Enter scores straight onto the chart; standings update as you go</li><li>Tie-breaks by head-to-head, leg difference, legs won, then your decision &mdash; and DartDraw flags any tie that needs one</li><li>No-shows, walkovers, withdrawals and check-in</li></ul></div></div>
     <div class="card fcard"><span class="disc">${ic('target', 'sm')}</span><div><h3>Legs your way</h3><p>Set best-of legs for the whole event, or vary them by knockout round: early rounds, quarter-finals, semi-finals and the final.</p></div></div>
-    <div class="card fcard"><span class="disc">${ic('users', 'sm')}</span><div><h3>Singles and doubles</h3><p>Run singles, or doubles with both players named on each pair. Charts, results and the live page show the pair.</p></div></div>
+    <div class="card fcard"><span class="disc">${ic('users', 'sm')}</span><div><h3>Singles, doubles and teams</h3><p>Run singles, doubles or team events. A pair or a team is simply its name on the charts, results and live page. A team match is made of segments (singles, doubles, trios or a foursome, with an optional tie-breaker), and you enter one result: the total legs each team won.</p></div></div>
     <div class="card fcard"><span class="disc">${ic('printer', 'sm')}</span><div><h3>Your branding, ready to print</h3><ul><li>Your logo, sponsor logos and a rules or footer line</li><li>An A4 pack of blank charts before the day, and the final chart with every result afterwards</li><li>A QR code on each printed sheet that opens its live page</li></ul></div></div>
     <div class="card fcard"><span class="disc">${ic('qr', 'sm')}</span><div><h3>Live results for everyone</h3><ul><li>Share one link: players see their group, their next match and the bracket, and can follow friends</li><li>The page refreshes by itself, and shows &ldquo;Final results&rdquo; when it&rsquo;s done</li><li>Events can also appear on a public home page</li></ul></div></div>
     <div class="card fcard"><span class="disc">${ic('clock', 'sm')}</span><div><h3>Tools for the day</h3><ul><li>Estimated start times, breaks and a board plan</li><li>Open the round robin and the knockout in separate windows for several screens</li><li>A private incident log, and accepted results lock the final standings</li></ul></div></div>
@@ -421,8 +421,8 @@ const how = `
 
 <section class="band" aria-label="The seven steps"><div class="wrap">
   <ol class="tl">
-    <li><span class="num">1</span><div><h3>Create your event</h3><p>Name it, choose the category and Singles or Doubles, set the date and the number of entries.</p></div><span class="disc">${ic('edit', 'sm')}</span></li>
-    <li><span class="num">2</span><div><h3>Choose format and branding</h3><p>Pick the format and best-of legs, including Group Boards if you want a champion for every group before the finals. Add your logo, sponsors and footer. Basic setup keeps things simple; Advanced adds scheduling, per-round legs and the Plate pool.</p></div><span class="disc">${ic('layers', 'sm')}</span></li>
+    <li><span class="num">1</span><div><h3>Create your event</h3><p>Name it, choose the category and Singles, Doubles or Teams, set the date and the number of entries.</p></div><span class="disc">${ic('edit', 'sm')}</span></li>
+    <li><span class="num">2</span><div><h3>Choose format and branding</h3><p>Pick the format and best-of legs, including a knockout with Group Boards if you want a champion for every group before the finals. Add your logo, sponsors and footer. Basic setup keeps things simple; Advanced adds scheduling, per-round legs and the Plate pool.</p></div><span class="disc">${ic('layers', 'sm')}</span></li>
     <li><span class="num">3</span><div><h3>Build your charts</h3><p>Add your entries. DartDraw builds balanced groups and gives each its boards, and you can adjust anything by hand.</p></div><span class="disc">${ic('grid', 'sm')}</span></li>
     <li><span class="num">4</span><div><h3>Confirm and print</h3><p>Check each chart, confirm it, and print the blank A4 pack, QR codes included.</p></div><span class="disc">${ic('printer', 'sm')}</span></li>
     <li><span class="num">5</span><div><h3>Run the day</h3><p>Start the games, enter scores and watch standings update. When the groups are done, the knockout is drawn. Share the live link so players can follow along.</p></div><span class="disc">${ic('target', 'sm')}</span></li>

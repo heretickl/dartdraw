@@ -13,7 +13,8 @@
    - lists stored under the key boards (group and pod board numbers) keep only numbers.
    - the well-known number fields (entries, boards, best-of legs, group sizes, seeds, qualifiers, the knockout legs) that hold
      a string which is not a number are replaced by a sane default. Real numbers and numeric strings are left alone.
-   - the start time and break times must look like a time (HH:MM), otherwise they are emptied. */
+   - the start time and break times must look like a time (HH:MM), otherwise they are emptied.
+   - the Teams segments (format.teamSegments, format.teamTieBreaker) keep only a known type and whole numbers (cleanTeamSegments). */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.TournamentSanitize = factory();
@@ -50,6 +51,40 @@
     if (isPlain(obj) && typeof obj[key] === 'string' && obj[key] !== '' && !TIME_RE.test(obj[key])) obj[key] = '';
   }
 
+  // Teams segments: format.teamSegments = [{type, startingScore, legs}],
+  // format.teamTieBreaker = {type, startingScore, legs, inRoundRobin, inKnockout} (the tie-breaker is chosen per stage).
+  // The type is one of the four segment types (an older 'triples' is 'trios'; anything else becomes 'singles'), the numbers are
+  // whole numbers (starting score 1 to 10000, else 501 (above 10000 becomes 10000); legs 1 to 99, else 3) and the two ticks are
+  // true or false. A tie-breaker saved with one `enabled` tick (before the per-stage ticks) gets that value for both stages.
+  // Other keys are dropped, and at most 50 segments are kept. The same rules as the app's cleanSegment / cleanTieBreaker.
+  // A list that is not a list, or holds no segment, is removed (the app fills in the defaults); so is a tie-breaker that is not an object.
+  var SEGMENT_TYPES = ['singles', 'doubles', 'trios', 'foursome'];
+  function cleanSegment(s) {
+    var type = s.type === 'triples' ? 'trios' : s.type;
+    var start = parseInt(s.startingScore, 10), legs = parseInt(s.legs, 10);
+    return {
+      type: SEGMENT_TYPES.indexOf(type) !== -1 ? type : 'singles',
+      startingScore: start >= 1 ? Math.min(start, 10000) : 501,
+      legs: legs >= 1 ? Math.min(legs, 99) : 3
+    };
+  }
+  function cleanTeamSegments(f) {
+    if ('teamSegments' in f) {
+      var list = Array.isArray(f.teamSegments) ? f.teamSegments.filter(isPlain).slice(0, 50).map(cleanSegment) : [];
+      if (list.length) f.teamSegments = list; else delete f.teamSegments;
+    }
+    if ('teamTieBreaker' in f) {
+      var raw = f.teamTieBreaker;
+      if (isPlain(raw)) {
+        var tb = cleanSegment(raw);
+        var legacy = !('inRoundRobin' in raw) && !('inKnockout' in raw);
+        tb.inRoundRobin = legacy ? raw.enabled === true : raw.inRoundRobin === true;
+        tb.inKnockout = legacy ? raw.enabled === true : raw.inKnockout === true;
+        f.teamTieBreaker = tb;
+      } else delete f.teamTieBreaker;
+    }
+  }
+
   function walk(node, depth) {
     if (depth > MAX_DEPTH) return;
     if (Array.isArray(node)) {
@@ -84,6 +119,7 @@
       fixNumbers(f, FORMAT_NUMBERS);
       if (isPlain(f.knockoutLegs)) { fixNumbers(f.knockoutLegs.main, KO_LEG_NUMBERS); fixNumbers(f.knockoutLegs.plate, KO_LEG_NUMBERS); }
       if (Array.isArray(f.mixedRubbers)) f.mixedRubbers.forEach(function (r) { fixNumbers(r, [['startingScore', 501], ['legs', 3]]); });
+      cleanTeamSegments(f);
       if (isPlain(f.breaks)) Object.keys(f.breaks).forEach(function (k) { fixNumbers(f.breaks[k], [['minutes', 30]]); fixTime(f.breaks[k], 'time'); });
       fixTime(f, 'anticipatedStartTime');
     }

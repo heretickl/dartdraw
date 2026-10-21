@@ -214,8 +214,8 @@ them, run `npm run sync-viewer` to copy them into `viewer/`, and commit both.
 
 `viewer/api/public/[slug].js` answers GET only, for published tournaments only,
 with an allow-listed copy of the data — entry names, scores, standings and
-brackets. Notes, the incident log, rosters, check-in details, logos and
-sponsors are never included. To share more, add the field in
+brackets. Notes, the incident log, check-in details, the Teams segment setup,
+any player lists stored by older events, logos and sponsors are never included. To share more, add the field in
 `viewer/api/_lib/publicView.js`. An unpublished or unknown code returns 404.
 
 ### Public home page
@@ -228,9 +228,50 @@ The viewer's bare address (for example `https://dartdraw-viewer.vercel.app/`) is
 - **Retention.** How long a finalized event stays under Results (1 to 90 days, default 14) and how long an unfinished event stays under Live now (1 to 168 hours, default 48) are set by the Admin in the Admin tab, Settings. To let the public site read them, run `viewer/sql/settings.sql` once in the Neon SQL Editor (after `migrations/2026-10-14-admin.sql`, which creates the `site_settings` table). It creates the `public_settings` view, which exposes only those two values, and grants it to `viewer_ro`. Until that is run, or if the view is missing or holds a bad value, the public site uses the defaults (14 days, 48 hours); out-of-range numbers are clamped. The built-in defaults and ranges live in `viewer/api/_lib/listConfig.js`.
 - **How it is served.** `GET /api/events` reads the `public_tournaments` view and the `public_settings` view through the read-only role and is cached for 30 seconds, so an unlisted or unpublished event disappears within about half a minute. The page itself is `viewer/home.js` and `viewer/home.css`, in the viewer project.
 
+## Teams events
+
+New events can be **Singles**, **Doubles** or **Teams** (an existing Triples event keeps its type). No competition
+type has a roster: an entry is just its name. Older events' stored `players` lists are kept in the data, untouched,
+but never shown or used.
+
+A Teams match is a list of **segments**, set once per event on Format & branding (Basic and Advanced setup) and
+used by every round and format: `format.teamSegments = [{type, startingScore, legs}]`, with `type` one of
+`singles`, `doubles`, `trios`, `foursome` and `startingScore` 301 / 501 / 701 / 1001, plus an optional tie-breaker
+segment chosen per stage, `format.teamTieBreaker = {type, startingScore, legs, inRoundRobin, inKnockout}` (Group Boards
+and the Plate pool are knockout), played only when the totals are level.
+The organiser enters **one result per match**: the total legs each team won across all its segments. It is stored
+like any other leg score, so standings, brackets, finalizing and the public page need nothing special.
+
+- **Cap.** A team's total is at most the sum, over the main segments, of `floor(bestOf/2)+1`, plus the tie-breaker's
+  when that match's stage uses it (9 with the defaults, 10 with the tie-breaker). A total above it is refused, never
+  changed to the cap; a stored result can always be saved again unchanged. A walkover gives the winner every main segment.
+- **Level totals** can't be saved in a stage that uses the tie-breaker. Without it they are a draw in a round robin
+  (1 point each) and still refused in a knockout.
+- **Editing.** At most 8 segments (the lineup sheet fits one A4 page). Edits are a draft applied only by Save format &
+  branding, which refuses an even best of for a segment, and for the tie-breaker while a stage would use it and its
+  settings can still change.
+- **Locks.** A stage begins with Start all games or a score (round robin), or with Start round, a match called to
+  its board, or any result, walkover or "neither showed" (knockout, Plate pool, Group Boards groups and Finals; byes
+  don't count). Once either stage has begun, the segments are locked, and so are a Teams event's format cards,
+  Knockout type and competition type (step 1). Each stage's tie-breaker tick locks only when that stage begins; after
+  that it is never switched off, the knockout one can always be switched on, and the round robin one while no drawn
+  result is stored. The tie-breaker's own settings (shared by both stages) lock once a begun stage uses it. A tick for
+  a stage the format lacks is stored off.
+- Teams has no event-wide **Best of legs** and no knockout leg progression; the time estimate sums every segment's
+  legs (the tie-breaker's too when ticked).
+- An older Teams event is migrated once on load (`migrateTeamSegments` in `app.html`): rubbers become segments
+  (`triples` becomes `trios`, the rubber flagged tie-breaker becomes the tie-breaker); a foursome event becomes one
+  Foursome segment with its best-of. The old fields stay in the data. `tournament-sanitize.js` cleans both new fields.
+- The lineup/scorecard sheet (Teams only) prints one page per fixture from the segments: fixed-height segment bars
+  (Singles half height), the tie-breaker bar when that fixture's stage uses it, then a compact TOTAL POINTS block, and
+  the rest of the page as a Captain/Manager signature area; 8 segments plus a tie-breaker still fit one A4 page.
+
+Spec: `docs/superpowers/specs/2026-10-20-teams-segments-design.md`.
+
 ## Group Boards format
 
-For big fields, choose **Group Boards** at Format & branding. Players are dealt into a chosen number of
+For big fields, choose **Knockout**, then **Group Boards, then finals**, at Format & branding (it is a Knockout option, stored
+as `formatType: 'podknockout'`, and never offered with the round robin formats). Players are dealt into a chosen number of
 **groups** (for example 64 groups for 540 players). Each group is a small knockout on its own board, and every
 group winner goes through to a **Finals** bracket whose chart exists, with "Winner of Group N" slots, before any
 group finishes. Seeds are spread one per group, club-mates are kept apart where possible, and players can be
@@ -290,7 +331,7 @@ does. The public results page shows "Neither attended" for such a match.
 
 - Round robin, knockout, and round robin → knockout tournament formats
 - Winner pool / plate pool with configurable qualifier and plate cutoffs
-- Team events with configurable rubber lineups (singles, doubles, triples, custom)
+- Singles, Doubles and Teams events; a Teams match is a list of segments (singles, doubles, trios, foursome) with an optional tie-breaker, scored as total legs
 - Check-in tracking and no-show / walkover handling
 - Disciplinary / incident log
-- Printable draw sheets, chart sheets, team handouts, rules sheets, and lineup/scorecard sheets
+- Printable draw sheets, chart sheets, rules sheets, and lineup/scorecard sheets for Teams

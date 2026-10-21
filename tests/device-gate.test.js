@@ -211,11 +211,11 @@ test('a blocked pop-up says so instead of doing nothing', () => {
   } finally { app.window = WIN; app.openModal = OM; }
 });
 
-test('copy: step 1 no longer claims no login or internet is needed, and Teams lineups are not advertised for new events', () => {
+test('copy: step 1 no longer claims no login or internet is needed, names the three competition types, and no rubber lineups are advertised', () => {
   const s1 = f('stage1');
   const t = f('blankTournament')(); useState(app, t);
   const html = s1();
-  assert.match(html, /For singles or doubles events\./);
+  assert.match(html, /For singles, doubles or teams events\./);
   assert.doesNotMatch(html, /No login|internet connection/i);
   assert.doesNotMatch(src, /custom team (rubber )?lineups/);
 });
