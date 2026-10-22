@@ -343,3 +343,83 @@ test('L6: the compact menu has Change password, and Rename / Duplicate / Delete 
   assert.doesNotMatch(h2, /Change password|compactEventAction/);
   run(app, 'currentOrganizer = null');
 });
+
+// ---------- round 5: phones decide by the window's shape, tablets by the device ----------
+test('phones: a misreported orientation is ignored, the window’s shape decides', () => {
+  const WIN = app.window;
+  const mq = { '(pointer: coarse)': true, '(hover: none)': true };
+  try {
+    // a phone held upright whose browser says "landscape-primary"
+    app.window = { matchMedia: (q) => ({ matches: q === '(orientation: portrait)' ? true : !!mq[q] }), innerWidth: 375, innerHeight: 812, screen: { width: 375, height: 812, orientation: { type: 'landscape-primary', angle: 0 } } };
+    let i = f('readDeviceGateInputs')();
+    assert.equal(i.devicePortrait, false, 'what the browser claims');
+    assert.equal(i.viewportPortrait, true);
+    assert.equal(gate(i), 'rotate-phone');
+    // a phone on its side whose browser says "portrait-primary": no rotate notice, just the banner
+    app.window = { matchMedia: (q) => ({ matches: q === '(orientation: portrait)' ? false : !!mq[q] }), innerWidth: 812, innerHeight: 375, screen: { width: 375, height: 812, orientation: { type: 'portrait-primary', angle: 0 } } };
+    i = f('readDeviceGateInputs')();
+    assert.equal(gate(i), 'phone-banner');
+    // old iOS phone (only window.orientation, saying upright) on its side: the shape wins
+    app.window = { matchMedia: (q) => ({ matches: !!mq[q] }), innerWidth: 812, innerHeight: 375, orientation: 0, screen: { width: 375, height: 812 } };
+    assert.equal(gate(f('readDeviceGateInputs')()), 'phone-banner');
+    // no size known: matchMedia('(orientation: portrait)') decides
+    app.window = { matchMedia: (q) => ({ matches: q === '(orientation: portrait)' ? true : !!mq[q] }), innerWidth: 0, innerHeight: 0, screen: { width: 390, height: 844 } };
+    assert.equal(gate(f('readDeviceGateInputs')()), 'rotate-phone');
+  } finally { app.window = WIN; }
+});
+
+test('tablets: the device decides, so a split or Slide Over window on a tablet held sideways is never trapped; a real upright tablet is', () => {
+  const WIN = app.window;
+  const mq = { '(pointer: coarse)': true, '(hover: none)': true };
+  try {
+    app.window = { matchMedia: (q) => ({ matches: q === '(orientation: portrait)' ? true : !!mq[q] }), innerWidth: 400, innerHeight: 1024, screen: { width: 1366, height: 1024, orientation: { type: 'landscape-primary' } } };
+    assert.equal(gate(f('readDeviceGateInputs')()), 'none', 'portrait-shaped split window, landscape device');
+    app.window = { matchMedia: (q) => ({ matches: q === '(orientation: portrait)' ? true : !!mq[q] }), innerWidth: 1024, innerHeight: 1366, screen: { width: 1024, height: 1366, orientation: { type: 'portrait-primary' } } };
+    assert.equal(gate(f('readDeviceGateInputs')()), 'rotate-tablet');
+    // and the pure function, given both answers
+    assert.equal(gate({ coarse: true, hoverNone: true, shortSide: 768, devicePortrait: false, viewportPortrait: true }), 'none');
+    assert.equal(gate({ coarse: true, hoverNone: true, shortSide: 768, devicePortrait: true, viewportPortrait: false }), 'rotate-tablet');
+    assert.equal(gate({ coarse: true, hoverNone: true, shortSide: 390, devicePortrait: false, viewportPortrait: true }), 'rotate-phone');
+    assert.equal(gate({ coarse: true, hoverNone: true, shortSide: 390, devicePortrait: true, viewportPortrait: false }), 'phone-banner');
+  } finally { app.window = WIN; }
+});
+
+test('laptops and desktops with a touch screen are never gated, whatever any orientation says', () => {
+  const WIN = app.window;
+  try {
+    for (const [coarse, hoverNone] of [[false, false], [false, true], [true, false]]) {
+      const mq = { '(pointer: coarse)': coarse, '(hover: none)': hoverNone, '(orientation: portrait)': true };
+      app.window = { matchMedia: (q) => ({ matches: !!mq[q] }), innerWidth: 500, innerHeight: 900, screen: { width: 500, height: 900, orientation: { type: 'portrait-primary' } } };
+      assert.equal(gate(f('readDeviceGateInputs')()), 'none', coarse + '/' + hoverNone);
+    }
+  } finally { app.window = WIN; }
+});
+
+test('a phone on its side with the keyboard up (a very short window) is still on its side, a square window is not upright', () => {
+  const WIN = app.window;
+  const read = (innerWidth, innerHeight, screenW, screenH, orient) => {
+    const mq = { '(pointer: coarse)': true, '(hover: none)': true, '(orientation: portrait)': innerHeight > innerWidth };
+    app.window = { matchMedia: (q) => ({ matches: !!mq[q] }), innerWidth, innerHeight, screen: { width: screenW, height: screenH, orientation: { type: orient } } };
+    return gate(f('readDeviceGateInputs')());
+  };
+  try {
+    assert.equal(read(800, 150, 390, 844, 'landscape-primary'), 'phone-banner');   // keyboard up, phone on its side
+    assert.equal(read(800, 150, 390, 844, 'portrait-primary'), 'phone-banner');    // even if the browser misreports it
+    assert.equal(read(500, 500, 390, 844, 'landscape-primary'), 'phone-banner');   // square: not taller than wide
+    assert.equal(read(390, 844, 390, 844, 'landscape-primary'), 'rotate-phone');   // upright, misreported
+  } finally { app.window = WIN; }
+});
+
+test('the phone / tablet line is a screen short side of exactly 600: 599 is a phone (window shape), 600 is a tablet (device orientation)', () => {
+  const WIN = app.window;
+  const read = (shortSide, innerWidth, innerHeight, orient) => {
+    const mq = { '(pointer: coarse)': true, '(hover: none)': true, '(orientation: portrait)': innerHeight > innerWidth };
+    app.window = { matchMedia: (q) => ({ matches: !!mq[q] }), innerWidth, innerHeight, screen: { width: shortSide, height: 1000, orientation: { type: orient } } };
+    return gate(f('readDeviceGateInputs')());
+  };
+  try {
+    // a tall window while the device reports landscape: a phone is told to rotate, a tablet (split screen) is left alone
+    assert.equal(read(599, 400, 900, 'landscape-primary'), 'rotate-phone');
+    assert.equal(read(600, 400, 900, 'landscape-primary'), 'none');
+  } finally { app.window = WIN; }
+});

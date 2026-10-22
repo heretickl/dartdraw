@@ -4044,11 +4044,21 @@ document.addEventListener('keydown', e=>{
    goes away by itself on rotation. A phone on its side gets the app plus a slim banner, which can be dismissed for the
    session; a tablet on its side gets no message. Full-page windows (?popout=1) never show the banner.
    A "phone" is a device whose short side is under 600 CSS px (the screen, not the window). No user-agent sniffing. */
+/* Upright or sideways is decided differently for phones and tablets:
+   - a PHONE (short side under 600) is judged by the window's shape: viewportPortrait. Some browsers and emulators
+     misreport screen.orientation on phones, so it is not used for them. Trade-off: an Android phone in split screen
+     can show a tall narrow window while on its side (that gets the rotate notice) and a wide short one while upright
+     (that does not); rotating the phone fixes the first and the second is accepted.
+   - a TABLET can show the app in a tall narrow window while the device is on its side (iPad Slide Over / Split View,
+     Android split screen), so it uses the device's own orientation: devicePortrait.
+   Callers that only know one answer may pass just "portrait". */
 function deviceGateState(o){
   o = o || {};
   if(!(o.coarse && o.hoverNone)) return 'none';
   const phone = typeof o.shortSide==='number' && o.shortSide>0 && o.shortSide<600;
-  if(o.portrait) return phone ? 'rotate-phone' : 'rotate-tablet';
+  const pick = (v)=> typeof v==='boolean' ? v : !!o.portrait;
+  const portrait = phone ? pick(o.viewportPortrait) : pick(o.devicePortrait);
+  if(portrait) return phone ? 'rotate-phone' : 'rotate-tablet';
   if(phone && !o.popout) return 'phone-banner';
   return 'none';
 }
@@ -4063,7 +4073,8 @@ function dismissPhoneBanner(){
   try{ window.sessionStorage.setItem(PHONE_BANNER_KEY, '1'); }catch(e){}
   applyDeviceGate();
 }
-/* Upright or sideways is the DEVICE's orientation, not the window's shape: an iPad in Slide Over or Split View, or an
+/* For TABLETS, upright or sideways is the DEVICE's orientation, not the window's shape (phones use the window's shape,
+   see deviceGateState): an iPad in Slide Over or Split View, or an
    Android tablet in split screen, has a tall narrow window while the device itself is on its side, and rotating could
    never fix that. screen.orientation.type first (iOS 16.4+, Android), then the old window.orientation (0/180 = upright
    on iOS, where it is the only one), and the window's shape only when neither exists. */
@@ -4077,6 +4088,12 @@ function devicePortrait(w, h){
   if(typeof o==='number') return o===0 || o===180;
   return h > w;
 }
+/* The window's own shape: taller than wide (matchMedia('(orientation: portrait)') when the size is not known). */
+function viewportPortrait(w, h){
+  if(w>0 && h>0) return h > w;
+  try{ if(window.matchMedia) return !!window.matchMedia('(orientation: portrait)').matches; }catch(e){}
+  return false;
+}
 /* A phone: a touch device whose screen's short side is under 600 CSS px. Used for the gate and for the compact layout. */
 function isPhoneDevice(o){ return !!(o && o.coarse && o.hoverNone && typeof o.shortSide==='number' && o.shortSide>0 && o.shortSide<600); }
 function readDeviceGateInputs(){
@@ -4086,7 +4103,9 @@ function readDeviceGateInputs(){
   const short = Math.min(Number(sc.width)||0, Number(sc.height)||0) || Math.min(w, h);
   let popout = false;
   try{ popout = new URLSearchParams(String(location.search||'')).get('popout')==='1'; }catch(e){}
-  return { coarse: mm('(pointer: coarse)'), hoverNone: mm('(hover: none)'), shortSide: short, portrait: devicePortrait(w, h), popout };
+  const inputs = { coarse: mm('(pointer: coarse)'), hoverNone: mm('(hover: none)'), shortSide: short, devicePortrait: devicePortrait(w, h), viewportPortrait: viewportPortrait(w, h), popout };
+  inputs.portrait = (short>0 && short<600) ? inputs.viewportPortrait : inputs.devicePortrait;   // the answer the gate uses
+  return inputs;
 }
 /* The app behind the rotate notice is made inert (no Tab, no taps, hidden from screen readers) and focus moves into
    the notice; both are undone when it goes. */
