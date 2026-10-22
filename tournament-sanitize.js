@@ -14,7 +14,8 @@
    - the well-known number fields (entries, boards, best-of legs, group sizes, seeds, qualifiers, the knockout legs) that hold
      a string which is not a number are replaced by a sane default. Real numbers and numeric strings are left alone.
    - the start time and break times must look like a time (HH:MM), otherwise they are emptied.
-   - the Teams segments (format.teamSegments, format.teamTieBreaker) keep only a known type and whole numbers (cleanTeamSegments). */
+   - the Teams segments (format.teamSegments, format.teamTieBreaker) keep only a known type and whole numbers (cleanTeamSegments).
+   - the print settings of the knockout bracket sheets and the printed knockout lineup sheets keep only known values (cleanPrinting). */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.TournamentSanitize = factory();
@@ -85,6 +86,32 @@
     }
   }
 
+  // Printing: printSettings.koPaperSize is one of the four paper sizes (else A4); printSettings.koPaperChoice (the answer of
+  // the paper dialog) is { mode: 'shrink' | 'split', paper, rec } with paper sizes, else removed; lineupPrinted (which
+  // knockout lineup sheets were printed) maps "<knockout | knockoutLosers | pod:id>:<round>-<match>" to "<id>|<id>",
+  // anything else in it is dropped (at most 2000 entries).
+  var PAPER_KEYS = ['A4', 'A3', 'A2', 'A1'];
+  var LINEUP_KEY_RE = /^(knockout|knockoutLosers|pod:[A-Za-z0-9_.|-]{1,80}):\d{1,3}-\d{1,4}$/;
+  function cleanPrinting(data) {
+    var ps = data.printSettings;
+    if (isPlain(ps)) {
+      if ('koPaperSize' in ps && PAPER_KEYS.indexOf(ps.koPaperSize) === -1) ps.koPaperSize = 'A4';
+      if ('koPaperChoice' in ps) {
+        var c = ps.koPaperChoice;
+        if (isPlain(c) && (c.mode === 'shrink' || c.mode === 'split') && PAPER_KEYS.indexOf(c.paper) !== -1 && PAPER_KEYS.indexOf(c.rec) !== -1) ps.koPaperChoice = { mode: c.mode, paper: c.paper, rec: c.rec };
+        else delete ps.koPaperChoice;
+      }
+    }
+    if ('lineupPrinted' in data) {
+      var lp = data.lineupPrinted, out = {}, n = 0;
+      if (isPlain(lp)) Object.keys(lp).forEach(function (k) {
+        var v = lp[k];
+        if (n < 2000 && LINEUP_KEY_RE.test(k) && typeof v === 'string' && v.length <= 200) { out[k] = cleanId(v); n++; }
+      });
+      data.lineupPrinted = out;
+    }
+  }
+
   function walk(node, depth) {
     if (depth > MAX_DEPTH) return;
     if (Array.isArray(node)) {
@@ -124,6 +151,7 @@
       fixTime(f, 'anticipatedStartTime');
     }
     fixNumbers(data.eventCreation, EVENT_NUMBERS);
+    cleanPrinting(data);
     if ('publicSlug' in data && data.publicSlug != null && !(typeof data.publicSlug === 'string' && SLUG_RE.test(data.publicSlug))) delete data.publicSlug;
     walk(data, 0);
     return data;

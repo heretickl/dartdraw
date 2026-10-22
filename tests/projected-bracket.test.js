@@ -22,6 +22,8 @@ function event(n, maxPerGroup, qualifiers, opts) {
   t.groups.forEach((g) => { g.confirmed = true; });
   return t;
 }
+// The name boxes of a printed two-sided bracket sheet: round, match, slot and the text shown.
+const boxes = (sheet) => [...sheet.matchAll(/data-r="(\d+)" data-m="(\d+)" data-s="([ab])" style="[^"]*"><span class="kb-nm"[^>]*>([^<]*)/g)].map((m) => ({ r: +m[1], m: +m[2], s: m[3], text: m[4] }));
 // Round-1 pairings of a bracket, by seed label ('-' for a bye slot), in slot order.
 const pairs = (b) => Array.from(b.rounds[0], (m) => [m.aEntryId ? b.seedLabels[m.aEntryId] : '-', m.bEntryId ? b.seedLabels[m.bEntryId] : '-'].join(' v '));
 function playAll(t) {
@@ -58,10 +60,10 @@ test('16 entries, 4 groups x 2: the projected sheet is the real draw, A1 v D2 | 
   const DOC = app.document; app.document = { getElementById: () => mount };
   try { f('runPrintPack')(u.groups); } finally { app.document = DOC; }
   const sheet = mount.innerHTML.slice(mount.innerHTML.indexOf('MAIN BRACKET (PROJECTED)'));
-  const col0 = sheet.split('<div class="bracket-col">')[1];
-  const sides = [...col0.matchAll(/<div class="bracket-side"><span>([^<]*)<\/span><\/div>/g)].map((m) => m[1]);
-  const printed = []; for (let i = 0; i < sides.length; i += 2) printed.push(sides[i] + ' v ' + sides[i + 1]);
+  const r0 = boxes(sheet).filter((b) => b.r === 0).sort((a, b) => a.m - b.m || a.s.localeCompare(b.s));
+  const printed = []; for (let i = 0; i < r0.length; i += 2) printed.push(r0[i].text + ' v ' + r0[i + 1].text);
   assert.deepEqual(printed, ['A1 v D2', 'C1 v B2', 'B1 v C2', 'D1 v A2']);
+  assert.match(mount.innerHTML, /data-kb="two-sided" data-paper="A4"[^>]*data-label="MAIN BRACKET \(PROJECTED\)"/, 'the projected bracket is two-sided, like the real one');
 });
 
 test('8 groups x 2 (32 entries): projected = real, and every group pair meets only in the final', () => {
@@ -97,7 +99,7 @@ test('the old plain layout is gone: the projected sheet never pairs a group\'s q
   const html = f('projectedBracketSheetHTML')(f('projectedQualifierEntries')(t), 'Main bracket (projected)');
   assert.doesNotMatch(html, /<span>A1<\/span><\/div><div class="bracket-side"><span>D2<\/span>[\s\S]*?<span>D1<\/span><\/div><div class="bracket-side"><span>A2<\/span>[\s\S]*?<span>B1<\/span>/, 'not A1 v D2 | D1 v A2 | B1 v C2 | C1 v B2');
   assert.match(html, /Projected Knockout Placement/);
-  assert.match(html, /8-entry bracket/);
+  assert.match(html, /8-slot draw · 8 qualifiers/);
   // random placement is unknown until the draw: nothing is projected then
   t.format.advanceMode = 'random';
   const mount = { innerHTML: '' };
@@ -107,21 +109,25 @@ test('the old plain layout is gone: the projected sheet never pairs a group\'s q
 });
 
 /* ---------- round 6: what the printed projected sheets show ---------- */
+/* Prints the pack; a bracket too big for the paper opens the paper dialog, answered with its default (the recommended size). */
 function pack(t) {
   const mount = { innerHTML: '' };
-  const DOC = app.document; app.document = { getElementById: () => mount };
-  try { f('runPrintPack')(t.groups); } finally { app.document = DOC; }
+  const DOC = app.document, MODAL = app.openModal; app.document = { getElementById: () => mount };
+  app.openModal = (m) => { if (m.onConfirm) m.onConfirm(); };
+  try { f('runPrintPack')(t.groups); } finally { app.document = DOC; app.openModal = MODAL; }
   return mount.innerHTML;
 }
-const columns = (sheet) => sheet.split('<div class="bracket-col">').slice(1).map((c) => [...c.matchAll(/<div class="bracket-side"><span>([^<]*)<\/span><\/div>/g)].map((m) => m[1]));
 test('byes: the sheet shows the BYE tag and the bye winner already moved on, as in a fresh draw', () => {
   const t = event(20, 4, 2);                                       // 5 groups x 2 = 10 entries in a 16-slot bracket: 6 byes
   const sheet = f('projectedBracketSheetHTML')(f('projectedQualifierEntries')(t), 'Main bracket (projected)');
-  assert.equal((sheet.match(/<div class="bracket-bye-tag">BYE<\/div>/g) || []).length, 6);
-  const cols = columns(sheet);
-  const byeLabels = []; for (let i = 0; i < cols[0].length; i += 2) { if (!cols[0][i] || !cols[0][i + 1]) byeLabels.push(cols[0][i] || cols[0][i + 1]); }
+  assert.equal((sheet.match(/class="kb-ink kb-bye"/g) || []).length, 6);
+  const b = f('generateBracket')(f('projectedQualifierEntries')(t), 'Main bracket (projected)');
+  const byeLabels = b.rounds[0].filter((m) => m.bye).map((m) => b.seedLabels[m.aEntryId || m.bEntryId]);
   assert.equal(byeLabels.length, 6);
-  byeLabels.forEach((l) => assert.ok(cols[1].includes(l), l + ' is shown in the next round'));
+  const printed = boxes(sheet);
+  // byes are collapsed: no first-round box for them, the qualifier starts in round 2
+  assert.equal(printed.filter((x) => x.r === 0).length, 4, 'only the 2 real first-round matches use the first column');
+  byeLabels.forEach((l) => { assert.ok(printed.some((x) => x.r === 1 && x.text === l), l + ' is shown in the next round'); assert.ok(!printed.some((x) => x.r === 0 && x.text === l)); });
   assert.ok(byeLabels.every((l) => /1$/.test(l) || l === 'A2'), 'byes go to the group winners first: ' + byeLabels.join());
 });
 test('the footer warns clearly when any entry has an organisation, and only then', () => {
@@ -138,7 +144,8 @@ test('the printed pack: the Plate pool sheet with the Plate pool on, none withou
   const html = pack(t);
   assert.match(html, /MAIN BRACKET \(PROJECTED\)/); assert.match(html, /PLATE POOL \(PROJECTED\)/);
   const plateSheet = html.slice(html.indexOf('PLATE POOL (PROJECTED)'));
-  assert.deepEqual(columns(plateSheet)[0].filter(Boolean).sort(), ['A3', 'A4', 'B3', 'B4', 'C3', 'C4', 'D3', 'D4']);
+  assert.deepEqual(boxes(plateSheet).filter((x) => x.r === 0).map((x) => x.text).sort(), ['A3', 'A4', 'B3', 'B4', 'C3', 'C4', 'D3', 'D4']);
+  assert.match(plateSheet, />P1-1</, 'Plate pool match numbers carry the P');
   // 1 group, 1 qualifier: the real draw makes no knockout at all, so no Plate pool is projected either
   const one = event(4, 4, 1, { plate: true });
   const h1 = pack(one);
@@ -155,11 +162,11 @@ test('the printed pack: the Plate pool sheet with the Plate pool on, none withou
   // exactly 128 (64 groups of 2, top 2) is projected; 130 (65 groups) is not
   const edge = event(128, 2, 2);
   assert.equal(f('projectedQualifierEntries')(edge).length, 128);
-  assert.match(pack(edge), /MAIN BRACKET \(PROJECTED\)<\/strong><span>128-entry bracket/);
+  assert.match(pack(edge), /data-label="MAIN BRACKET \(PROJECTED\)"[\s\S]*128-slot draw · 128 qualifiers/);
   assert.match(pack(event(130, 2, 2)), /130 entries would go into the main bracket, but the largest bracket holds 128\./);
   // a Plate pool over 128 (22 groups of 8, top 2, the rest in the Plate): the main bracket is projected, the Plate gets the line
   const ph = pack(event(176, 8, 2, { plate: true }));
-  assert.match(ph, /MAIN BRACKET \(PROJECTED\)<\/strong><span>64-entry bracket/);
+  assert.match(ph, /data-label="MAIN BRACKET \(PROJECTED\)"[\s\S]*64-slot draw · 44 qualifiers/);
   assert.match(ph, /PLATE POOL \(PROJECTED\)<\/strong><span>not projected<\/span>/);
   assert.match(ph, /132 entries would go into the Plate pool, but the largest bracket holds 128\./);
   assert.match(ph, /Set or lower (&quot;|")Plate entries per group(&quot;|") in Format &amp; branding, or turn the Plate pool off\. Do this before the knockout is drawn\./);

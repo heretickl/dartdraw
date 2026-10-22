@@ -40,7 +40,7 @@ function loadApp(extraFiles) {
     location: anything(), fetch: async () => ({}),
   };
   vm.createContext(ctx);
-  const files = ['render.js'].concat(['tournament-sanitize.js', 'pods.js', 'pods-ui.js', 'admin-ui.js', 'qr.js', 'boardplan.js', 'boardplan-ui.js'].filter((f) => fs.existsSync(path.join(ROOT, f)))).concat(extraFiles || []);
+  const files = ['render.js'].concat(['bracket-print.js', 'tournament-sanitize.js', 'pods.js', 'pods-ui.js', 'admin-ui.js', 'qr.js', 'boardplan.js', 'boardplan-ui.js'].filter((f) => fs.existsSync(path.join(ROOT, f)))).concat(extraFiles || []);
   files.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f }));
   scripts.forEach((s, i) => vm.runInContext(s, ctx, { filename: 'app.html#' + i }));
   return ctx;

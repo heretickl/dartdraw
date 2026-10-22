@@ -299,6 +299,57 @@ placed by `generateBracket` in `app.html`:
 - Tests: `tests/bracket-engine.test.js` (integrity, speed, the earlier engines in `tests/lib/bracket-reference.js` and
   `tests/lib/bracket-round6.js` as references) and `tests/projected-bracket.test.js`.
 
+## Printed brackets (bracket-print.js)
+
+Every knockout bracket except Group Boards (the main bracket, the Plate pool and the projected bracket printed before the
+round robin, for Singles, Doubles and Teams) prints as **one two-sided sheet at one scale**. `bracket-print.js` is the
+layout engine (`KBP`, loaded by `app.html` after `render.js` and by `tests/lib/load-app.js`); `app.html` builds the model
+from the bracket (`KBP.fromBracket`) and the sheet chrome (`knockoutBracketSheetHTML`, `projectedBracketSheetHTML`).
+The public viewer does not use it.
+
+- **Geometry.** Laid out in millimetres at the legibility floor (7 pt names, 4.8 mm boxes, 1.6 mm inside a match, 3.0 mm
+  between matches), then printed at one uniform scale `s = min(fit width, fit height, 2)`; `s >= 1` is legible. Every other
+  text (match numbers, BYE, seeds, round labels, Final and Champion labels, title block, footer, the code's caption) stays at
+  4.6 pt or more on a legible sheet: labels shrink to fit down to that, round names shorten ("R128", "QF"), and wider labels
+  are centred over their box. Left and right halves run to the Final in the centre (finalists stacked, the gold Champion
+  box under them, the title block above, sponsors and the QR code below, a 7 mm footer). Byes are collapsed (the entry
+  starts in round 2 with a BYE tag); match numbers sit on the bracket joints and seeds outside the boxes. Box width comes
+  from the widest name at bold weight; names over 24 characters are cut with a footnote (also in the Champion box) and
+  printed in full in the footer; names wrap onto two lines when the sheet is short of width but not of height. The
+  results cell is at least 4.2 x 4.8 mm and widens on spare width. `KBP.verify` checks a layout (overlaps, gap floors,
+  items off the sheet, clipped text, the name and secondary-text floors).
+- **Print font.** Barlow Semi Condensed (Copyright 2017 The Barlow Project Authors, SIL Open Font License 1.1; licence
+  text in `docs/third-party/Barlow-OFL.txt`), Latin subset, weights 500 and 700, embedded in `app.html` as base64
+  woff2 (about 61 KB) and used only on these sheets. Printing waits until both weights are loaded (`KBP.whenReady`:
+  loads, waits, checks again). In a browser text is measured with a canvas in the names' own font stack, so a face that
+  could not load is measured as the fallback that prints; in the test vm (no canvas) with the font's advance widths stored
+  in `bracket-print.js` (within about 1 %).
+- **Paper rule.** Recommended paper = the smallest of A4, A3, A2, A1 on which every two-sided bracket of the event is
+  legible (`KBP.recommend`, worked out over all of them, so the pack and a bracket's full-page window share one answer).
+  When a bracket being printed is not legible on the chosen size (`printSettings.koPaperSize`), printing (`runPrintPack`,
+  `popoutPrint`) goes through `koPaperGate`, which opens a dialog: use the recommended size (this changes the event's
+  saved paper size), split over N A4 sheets, or keep the size and shrink the chart to fit one sheet. When no size holds it
+  at 7 pt (even A1 must shrink), the dialog says so and offers only Split and Shrink. Split (`KBP.splitPlan`): the outer
+  rounds of each half in sections (L1, L2 ... left, R1 ... right, top to bottom) plus a Finals sheet, all at one scale; each
+  section exit names its Finals match ("to Finals 5-1") and each first Finals box names its source ("L1 · 4-1"), with +
+  marks where winners leave and enter. The answer is stored as
+  `printSettings.koPaperChoice = {mode:'shrink'|'split', paper, rec}` and asked again when it no longer fits: another paper
+  size (`setKoPaperSize` clears it), a different recommended size, or no split possible. The print stages show the fit
+  check, a note for a shrunk or split chart, and a soft suggestion when names would print between 7 and 8 pt
+  (`koPaperPanelHTML`; never printed).
+- **Teams.** No markers on Teams round robin charts. In the knockout, `lineupReadyMatches` lists the matches whose two
+  teams are known; Manage Tournament (and the full-page window's **Lineup sheets**) prints one or all ready sheets, and
+  the printed state is kept in `lineupPrinted` (`"<bracket key>:<round>-<match>" -> "<teamA id>|<teamB id>"`). An
+  empty lineup sheet (1 to 10 copies) is on the print stages and in Manage Tournament.
+- **Other sheets.** The running order is one column per board (up to 8 on a sheet, groups in playing order, a tick box
+  per match, a full column continues on the next sheet, a group is never split). The Group Boards Finals sheet keeps its
+  layout and prints "Winner of" over "Group N" (`gbPlaceholderHTML`).
+- `tournament-sanitize.js` cleans `koPaperSize`, `koPaperChoice` and `lineupPrinted`.
+- Tests: `tests/printed-brackets.test.js`. The 67-entry simulation (`node scripts/sim/run-simulation.js`) prints every
+  format before and after play and audits the pages in a headless browser (`docs/design/simulation/`).
+
+Spec: `docs/superpowers/specs/2026-10-22-printed-brackets-design.md`.
+
 ## Group Boards format
 
 For big fields, choose **Knockout**, then **Group Boards, then finals**, at Format & branding (it is a Knockout option, stored

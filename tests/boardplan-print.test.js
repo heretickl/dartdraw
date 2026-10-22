@@ -147,7 +147,8 @@ test('a round-robin group sheet and a knockout chart sheet carry the QR code in 
   ko.knockout = f('generateBracket')(ko.entriesList.map((e) => ({ entryId: e.id, org: '' })), 'Bracket');
   publish(ko, 'https://dartdraw-viewer.vercel.app');
   const kHtml = f('knockoutBracketSheetHTML')(ko.knockout);
-  assert.match(kHtml, /<div class="sheet-top" style="grid-template-columns:[^"]*auto auto">/);
+  // the two-sided bracket sheet carries it under the Champion, in the centre column (with the sponsors)
+  assert.match(kHtml, /<div class="kb-ink kb-zone"[^>]*><div class="kb-qr"/);
   assert.match(kHtml, /aria-label="QR code for the live results link"/);
   ko.published = false;
   assert.doesNotMatch(f('knockoutBracketSheetHTML')(ko.knockout), /QR code/);

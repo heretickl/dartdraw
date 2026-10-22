@@ -268,6 +268,8 @@ test('the buttons, labels and messages the guide quotes still exist in app.html 
     'Knockout type', 'Single bracket', 'Group Boards, then finals', 'This is a knockout match — it can\'t end level', 'Level totals are a draw (1 point each).',
     'Also print a lineup/scorecard sheet for each fixture, for captains to fill in on the day', 'TOTAL POINTS', 'Team name', 'Pair name',
     'Knockout bracket paper size', 'Players A–Z', 'Draw groups', 'Move…', 'Winner of Group', 'no winner',
+    'Print all ready lineup sheets', 'Print lineup', 'Print again', 'Print empty lineup sheet', 'Lineup sheets', '>Printed<', ' (recommended)', 'Split over ', ' A4 sheets', 'Keep ',
+    'The names may be too small to read when printed. Recommended: ', '8 pt or more is easier to read.',
     'Start all games', 'Go print the pack first', 'Start without printing', 'Scores are locked', 'Save score', 'Generate knockout bracket', 'Regenerate from current standings', 'Start round',
     'The knockout can only be drawn once every group is finished', 'Resolve ties before continuing', 'Call', 'Uncall', 'Enter result', 'Finals boards', '+ Log incident',
     'Open in new window ↗', 'Round robin ↗', 'Winners bracket ↗', 'Plate pool ↗',

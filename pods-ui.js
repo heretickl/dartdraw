@@ -327,6 +327,7 @@ function podsStage5(){
       '<div class="mko-artboard-scroll">'+mirroredChartHTML(selPod.bracket, t, {interactive:selPod.confirmed, bracketKey:podBracketKey(selPod)})+'</div>';
   }
   html += '</div>';
+  html += lineupReadyCardHTML();   // Teams: the knockout lineup sheets that are ready, and the empty sheet
   html += bpPanelHTML();
   html += publicResultsCardHTML();
   html += incidentLogCardHTML();
@@ -363,7 +364,11 @@ function podsStage7(){
 function podsPrintClick(){
   var t = state, pods = podsList(t);
   if(!pods.length){ openModal({ title:'No groups yet', body:'Draw the groups first.', confirmLabel:'OK', confirmClass:'primary', onConfirm:function(){} }); return; }
-  if(!(typeof isLocked === 'function' && isLocked(t))){ t.printedPack = true; persist(); }   // printing a finalized event changes nothing
+  if(!(typeof isLocked === 'function' && isLocked(t))){   // printing a finalized event changes nothing
+    t.printedPack = true;
+    if(t.printSettings.lineupSheetEnabled) markLineupsPrinted(lineupReadyMatches(t, true));   // the pack prints every ready knockout lineup sheet
+    persist();
+  }
   var html = '';
   if(t.printSettings.rulesSheetEnabled) html += rulesSheetHTML();
   if(t.printSettings.playersSheetEnabled !== false) html += bpPlayersSheetsHTML(t);

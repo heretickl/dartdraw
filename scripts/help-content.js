@@ -209,6 +209,9 @@ const sections = [
 <h4 id="lineup-sheet">The lineup sheet</h4>
 <p>On step 4 or step 7, tick <b>Also print a lineup/scorecard sheet for each fixture, for captains to fill in on the day</b>. The pack then gets one page for each fixture whose teams are known, with both teams side by side. Each side has a dark bar for every segment, such as <b>Singles 1</b>, with its starting score and legs and a Points box, numbered lines for the players&rsquo; names (one for singles, two for doubles, three for trios, four for a foursome), the <b>TIE-BREAKER</b> bar when that fixture uses one, then a compact <b>TOTAL POINTS</b> box for everything including the tie-breaker, and the rest of the page as a large space for the captain&rsquo;s signature. Singles bars are half the height of the others. In a knockout, print again as rounds finish to get the next fixtures&rsquo; sheets.</p>
 <p>The lineup sheet shows the <b>TIE-BREAKER</b> bar only for fixtures of a stage that uses it. The rules &amp; format sheet lists the segments and says where the tie-breaker is used, and the time estimate counts every leg of every segment, the tie-breaker&rsquo;s too in a stage that uses it. Each team match is one fixture on one board: its segments are played one after another and are never scheduled apart.</p>
+<h4 id="ready-lineups">Knockout lineup sheets as the rounds go on</h4>
+<p>In the knockout, a match&rsquo;s lineup sheet is ready as soon as both of its teams are known: the first round when the bracket is drawn, a later match the moment both of its teams have won through. On step 5 (<b>Manage Tournament</b>) the <b>Lineup sheets</b> card lists every match that is ready and not yet played. Click <b>Print lineup</b> on one match, or <b>Print all ready lineup sheets</b> to print every ready sheet you have not printed yet. DartDraw remembers which sheets were printed (a sheet counts as printed for the two teams it was printed with) and marks them <b>Printed</b>; <b>Print again</b> reprints one. The full-page window of the bracket has the same list behind its <b>Lineup sheets</b> button. Round robin fixtures keep their sheets in the pack.</p>
+<p>For a fixture added on the day or a spoiled sheet, <b>Print empty lineup sheet</b> prints a blank one: the event&rsquo;s name and logo, the segments and the tie-breaker bar as set up, <b>TOTAL POINTS</b> and the signature space, with the Group, Board, Fixture, Game No. and team name boxes left empty. Pick 1 to 10 copies beside the button. It is on the print steps (4 and 7) and in Manage Tournament, and works before anything is drawn.</p>
 `
       },
       {
@@ -264,7 +267,7 @@ const sections = [
 <li><b>Swap with&hellip;</b> opens a list of groups and positions. Pick one. If it is occupied the two entries swap. If it is blank the entry moves there.</li>
 <li>Each group has a board. In the Grouped view you tick <b>Board(s)</b>. Groups on the same board play one after another. Tick more than one board to share a group&rsquo;s matches across them.</li>
 </ul>
-<p>The first match on every chart is 1 v 2. Each chart also lists the match order and suggests a marker for every match, chosen from the other entries in the group.</p>
+<p>The first match on every chart is 1 v 2. Each chart also lists the match order and suggests a marker for every match, chosen from the other entries in the group. A Teams event has no markers: each team scores its own match on the lineup sheet.</p>
 
 <h4 id="confirm">Confirming</h4>
 <p>Step 4 is <b>Confirm &amp; Print Bracket</b>. Check each group, then click <b>Confirm this chart</b>, or <b>Confirm all N charts</b>. The confirm box warns you about problems such as a missing entry or two identical names. If you later change who is in a confirmed group, it is un-confirmed for you with the note &ldquo;Un-confirmed automatically&rdquo;. Confirm it again.</p>
@@ -274,20 +277,30 @@ const sections = [
 <p>Click <b>Print bracket pack</b>. The pack is A4 landscape and can include:</p>
 <ul>
 <li>the rules &amp; format sheet as the first page (tick box on the same screen);</li>
-<li>a master running order, board by board;</li>
+<li>a master running order: one column per board (up to 8 on a sheet), each board&rsquo;s groups in the order they play, and each group&rsquo;s matches with a tick box. A board with more groups than fit continues on the next sheet; a group is never split;</li>
 <li>one chart for each confirmed group;</li>
 <li>the knockout bracket, or a projected bracket with labels like A1 before the groups are played;</li>
 <li>in Group Boards, a <b>Players A&ndash;Z</b> sheet, a <b>Boards</b> sheet, one sheet for each group and the Finals;</li>
 <li>in a Teams event, a lineup sheet for each fixture if you tick the box for it. See <a href="#lineup-sheet">The lineup sheet</a>.</li>
 </ul>
-<p>Knockout brackets have a <b>Knockout bracket paper size</b> (A4, A3, A2 or A1). A very large bracket is split over several sheets so the writing stays readable.</p>
+<h4 id="bracket-sheets">Knockout bracket sheets and paper size</h4>
+<p>Every knockout bracket (the main bracket, the Plate pool and the projected bracket) prints as one two-sided chart on one sheet: the left half and the right half run towards the Final in the middle, with the title above it and the Champion box below. An entry with a first-round bye starts in round 2 with a small BYE tag. Names up to 24 characters print in full; a longer name is cut with a small number, and the full name is printed at the foot of the sheet. Group Boards keeps its own chart.</p>
+<p>Pick the <b>Knockout bracket paper size</b> (A4, A3, A2 or A1) on step 4 or step 7. Under it, a fit check shows how big the names print on each size. Names are readable from 7 pt. When they would print between 7 and 8 pt, a note suggests the size that gives 8 pt or more, with a button to switch the event to it; it never stops you printing.</p>
+<p>When a bracket is too big to print readably on the size you chose, printing first asks what to do:</p>
+<ul>
+<li><b>Use A3 (recommended)</b> (or whichever size it needs): the event&rsquo;s saved paper size changes to that size and the bracket prints on one sheet of it. Set the printer to the same size.</li>
+<li><b>Split over N A4 sheets</b>, where the bracket can be split: the outer rounds of each half are printed as sections on A4 sheets (L1, L2 &hellip; for the left half and R1, R2 &hellip; for the right, numbered top to bottom), then a Finals sheet for the last rounds, all at the same readable scale. Each section shows where its winners go (&ldquo;to Finals 5-1&rdquo;), and each first box on the Finals sheet shows where its entry comes from (&ldquo;L1 &middot; 4-1&rdquo; is the winner of match 4-1 on section L1). Small + marks show where winners leave a section and enter the Finals sheet.</li>
+<li><b>Keep A4</b> (your size): the whole chart is shrunk to fit one sheet, keeping its shape. The names may be too small to read when printed, so a note on the print screen says so and offers the recommended size. The note is never printed.</li>
+</ul>
+<p>If no paper size up to A1 holds the bracket at 7 pt, the box says that even A1 needs to shrink it and offers only the split and the shrink.</p>
+<p>Your answer is remembered for the event. You are asked again when it no longer fits: when you pick a different paper size, or after another draw that needs a different size.</p>
 <p>Your browser&rsquo;s print window opens. Choose a printer, or choose <b>Save as PDF</b> to make a file. Print the blank pack before you start games; DartDraw suggests it when you start.</p>
 
 <h4 id="logos-and-rules">Logos, sponsors and the rules sheet</h4>
 <p>Your tournament logo goes in every sheet header. Sponsor logos (Advanced setup) print in the footer when <b>Include sponsor footer on printed charts</b> is ticked. The rules sheet is written for you from your settings: the format, scoring, how many go through, tie-break order, plus anything you typed in <b>Walkover, conduct &amp; other rules</b>.</p>
 
 <h4 id="qr-codes">QR codes</h4>
-<p>Only some sheets carry a QR code, with the live address beside it in the header: the round robin group charts, the knockout and Finals bracket sheets, the Group Boards group sheets, and in Group Boards the <b>Boards</b> and <b>Players A&ndash;Z</b> sheets. The rules sheet and the running order do not have one.</p>
+<p>Only some sheets carry a QR code, with the live address beside it: the round robin group charts, the knockout and Finals bracket sheets, the Group Boards group sheets, and in Group Boards the <b>Boards</b> and <b>Players A&ndash;Z</b> sheets. It is in the header, except on a two-sided knockout bracket, where it sits below the Champion box. The rules sheet and the running order do not have one.</p>
 <p>Each code opens that sheet&rsquo;s own page: a group chart opens that group, a bracket sheet opens the bracket, the Boards sheet opens the Boards tab, and Players A&ndash;Z opens the event. The codes are made in your browser, so printing does not need extra internet.</p>
 <p>They only appear when <b>Publish results</b> is on <em>and</em> the address of the public site is set up (if the Public results card says it is not, tell your admin). Switch publishing on before you print, or the codes will not be there.</p>
 `
@@ -374,7 +387,7 @@ const sections = [
 <p>The simplest habit: score in one window, and use the other for showing.</p>
 
 <h4 id="fpw-print">Printing</h4>
-<p>The <b>Print</b> button in the full-page window prints just what that window shows: the bracket sheet, or the round robin group charts, the same sheets as in the full pack. For the whole pack (rules sheet, running order and every chart), print from the main window, on step 4 (<b>Print bracket pack</b>) or step 7 (<b>Print final chart &mdash; Save high-res A4 PDF</b>).</p>
+<p>The <b>Print</b> button in the full-page window prints just what that window shows: the bracket sheet, or the round robin group charts, the same sheets as in the full pack, with the same paper check (see <a href="#bracket-sheets">Knockout bracket sheets and paper size</a>). In a Teams event the bracket window also has a <b>Lineup sheets</b> button for the knockout lineup sheets that are ready and the empty sheet. For the whole pack (rules sheet, running order and every chart), print from the main window, on step 4 (<b>Print bracket pack</b>) or step 7 (<b>Print final chart &mdash; Save high-res A4 PDF</b>).</p>
 
 <h4 id="fpw-empty">When it says something is missing</h4>
 <ul>
@@ -457,7 +470,7 @@ const sections = [
 <h4 id="printing-tips">Printing tips</h4>
 <ul>
 <li>Printing uses your browser&rsquo;s print window. To make a PDF, pick <b>Save as PDF</b> as the printer.</li>
-<li>Sheets are A4 landscape, apart from knockout brackets, which follow the <b>Knockout bracket paper size</b> you chose.</li>
+<li>Sheets are A4 landscape, apart from knockout brackets, which follow the <b>Knockout bracket paper size</b> you chose (or are split over A4 sheets, if you chose that). Set the printer to the same paper size, or the bracket is shrunk again by the printer.</li>
 <li>Look at the preview before printing. If the page is cut off, check the paper size and that the scale is on its default setting.</li>
 <li>Print the blank pack <em>before</em> you start the games. You can print again at any time.</li>
 <li>Switch <b>Publish results</b> on before you print if you want QR codes on the group charts and bracket sheets.</li>
@@ -610,7 +623,7 @@ const sections = [
       {
         id: 'faq-paper-size',
         title: 'Can I print on A3 or bigger?',
-        body: `<p>Knockout brackets can be printed on A4, A3, A2 or A1. Pick the <b>Knockout bracket paper size</b> on the print screen. Round robin charts and other sheets are A4 landscape.</p>`
+        body: `<p>Knockout brackets can be printed on A4, A3, A2 or A1. Pick the <b>Knockout bracket paper size</b> on the print screen; the fit check under it shows how big the names print on each size. If a bracket is too big for the size you chose, DartDraw asks whether to use the size it recommends, split the bracket over A4 sheets, or keep your size and shrink it. Round robin charts and other sheets are A4 landscape. See <a href="#bracket-sheets">Knockout bracket sheets and paper size</a>.</p>`
       },
       {
         id: 'faq-update-speed',
