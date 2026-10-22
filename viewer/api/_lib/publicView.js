@@ -81,6 +81,23 @@ function validFinalizedAt(data) {
   return typeof at === 'string' && at.length > 0 && at.length <= 40 && isFinite(Date.parse(at)) ? at : null;
 }
 
+// What the page header needs to describe a Teams match, and nothing else about the segments (no types, scores, legs or
+// rosters): how many main segments a match has, and whether the tie-breaker segment is used in round robin matches and in
+// knockout matches (Group Boards and the Plate pool follow the knockout tick). Only Teams events get these three, and each
+// is rebuilt as a whole number (1 to 50, like the sanitizer keeps) or a real true/false. A tie-breaker saved with the older
+// single `enabled` tick counts for both stages, as in the app. No usable segment list: nothing is published.
+const isPlain = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+function publicTeamMatch(d) {
+  const ec = d.eventCreation, f = d.format;
+  if (!isPlain(ec) || ec.competitionUnit !== 'Teams' || !isPlain(f) || !Array.isArray(f.teamSegments)) return {};
+  const count = Math.min(f.teamSegments.filter(isPlain).length, 50);
+  if (count < 1) return {};
+  const tb = isPlain(f.teamTieBreaker) ? f.teamTieBreaker : null;
+  const legacy = !!tb && !('inRoundRobin' in tb) && !('inKnockout' in tb);
+  const on = (k) => !!tb && (legacy ? tb.enabled === true : tb[k] === true);
+  return { segmentCount: count, segmentTieBreakerRR: on('inRoundRobin'), segmentTieBreakerKO: on('inKnockout') };
+}
+
 function toPublicView(data) {
   const d = data || {};
   const finalizedAt = validFinalizedAt(d);
@@ -88,8 +105,8 @@ function toPublicView(data) {
   const isGroupBoards = !!(d.format && d.format.formatType === 'podknockout');
   return {
     eventCreation: pick(d.eventCreation, ['tournamentName', 'eventName', 'eventType', 'competitionUnit', 'date']),
-    format: pick(d.format, ['formatType', 'bestOfLegs', 'qualifiersPerGroup', 'plateQualifiersPerGroup',
-      'losersPool', 'advanceMode', 'knockoutLegs', 'seedingEnabled', 'numSeeds', 'podCount', 'podLegs']),
+    format: { ...pick(d.format, ['formatType', 'bestOfLegs', 'qualifiersPerGroup', 'plateQualifiersPerGroup',
+      'losersPool', 'advanceMode', 'knockoutLegs', 'seedingEnabled', 'numSeeds', 'podCount', 'podLegs']), ...publicTeamMatch(d) },
     tieBreakOrder: Array.isArray(d.tieBreakOrder) ? d.tieBreakOrder.slice() : undefined,
     entriesList: (d.entriesList || []).map((e) => pick(e, ['id', 'name', 'org', 'withdrawn'])),
     groups: (d.groups || []).filter((g) => g && g.confirmed).map(publicGroup),

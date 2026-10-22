@@ -46,7 +46,7 @@ test('help page: covers the agreed topics', () => {
   const t = HELP.replace(/<[^>]+>/g, ' ');
   ['Live', 'Upcoming', 'Results', 'Final results', 'Groups', 'Bracket', 'Rounds', 'Chart', 'Find a player', 'This is me', 'Follow',
     'MP', 'MW', 'ML', 'LW', '+/-', 'Pts', 'TB', 'H2H', '3-way LD', 'Bye', 'Neither attended', 'WO', 'Group 3', 'Board', 'pair name',
-    'QR', 'Auto / Light / Dark', 'No. You can look', 'about every 20 seconds', 'We can', 'Results not available'].forEach((w) => assert.ok(t.includes(w), 'mentions ' + w));
+    'Teams', 'Find a team', 'segments', 'tie-breaker', 'total legs', 'QR', 'Auto / Light / Dark', 'No. You can look', 'about every 20 seconds', 'We can', 'Results not available'].forEach((w) => assert.ok(t.includes(w), 'mentions ' + w));
 });
 
 test('help page: no plan names, no exact retention numbers, no accounts or admin talk', () => {
@@ -78,6 +78,22 @@ test('claims checked against the viewer code: doubles show the pair name only, a
   assert.match(a, /pair name or the club/);
   // what the code really does: the finder looks at name and org only
   assert.match(INDEX, /\(e\.name\|\|''\)\.toLowerCase\(\)\.indexOf\(q\)!==-1 \|\| \(e\.org\|\|''\)/);
+});
+
+test('claims checked against the viewer code: the Teams answers match what the page does', () => {
+  const find = answer('q-teams-find'), header = answer('q-teams-header'), total = answer('q-teams-total');
+  // the finder box: the code says "Find a team" for a Teams event and the search still looks at name and club
+  assert.ok(INDEX.includes("function unitWord(plural){ return isTeamsEvent() ? (plural ? 'teams' : 'team')"));
+  assert.ok(INDEX.includes("el('finder').placeholder = 'Find a '+unitWord()"));
+  assert.match(find, /Find a team/); assert.match(find, /team name, or its club/);
+  // the header line: the same words the code builds, and it replaces "best of legs" only for Teams
+  assert.ok(INDEX.includes('if(isTeamsEvent(s)) return teamsParts(f);'));
+  assert.ok(INDEX.includes("' per match'")); assert.ok(INDEX.includes("' + tie-breaker'"));
+  assert.ok(header.includes('5 segments + tie-breaker per match')); assert.ok(header.includes('Round robin: 5 segments per match'));
+  assert.match(header, /Group Boards events the groups and the Finals use the knockout setting/);
+  // a result is the plain total of legs (the same fields every other match uses)
+  assert.match(total, /total legs each team won across all its segments/);
+  assert.ok(!/\bplan\b/i.test(find + header + total));
 });
 
 test('claims checked against the list rules: a finished but unfinalized event can drop off Live', () => {
@@ -234,4 +250,11 @@ test('help page: the theme script uses the same stored key as the event and home
   assert.match(HELP, /<script id="faq-theme">[\s\S]*?var KEY = 'dartdraw\.viewer\.theme'/);
   assert.match(INDEX, /var THEME_KEY = 'dartdraw\.viewer\.theme'/);
   assert.match(HOME, /HM_THEME_KEY = 'dartdraw\.viewer\.theme'/);
+});
+
+test('the Teams help states the level rules the organiser app enforces: a draw in a round robin without a tie-breaker, never in a knockout', () => {
+  assert.match(HELP, /a level result is a draw in a round robin/);
+  assert.match(HELP, /a knockout match is not allowed to end level/);
+  assert.match(HELP, /best of a set number of legs/);
+  assert.match(HELP, /when that stage uses a tie-breaker \(it is only played if the totals are level\)/);
 });

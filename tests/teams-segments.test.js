@@ -1067,6 +1067,9 @@ const FORBIDDEN = /HANDOUT|[Rr]oster|[Rr]ubber|Players per team|placeholder="Pla
     const view = toPublicView(JSON.parse(JSON.stringify(t)));
     assert.equal(view.eventCreation.competitionUnit, 'Teams');
     assert.doesNotMatch(JSON.stringify(view), /teamSegments|teamTieBreaker|players|Roster|mixedRubbers/);
+    // the page header needs only how many segments a match has and where the tie-breaker is played (see tests/viewer-teams.test.js)
+    assert.deepEqual(Object.keys(view.format).filter((k) => /^segment/.test(k)).sort(), ['segmentCount', 'segmentTieBreakerKO', 'segmentTieBreakerRR']);
+    assert.equal(view.format.segmentCount, 5);
     if (ft === 'roundrobin') assert.ok(Object.values(view.groups[0].scores).some((s) => s.legs1 === 6 || s.legs2 === 6));
   });
 });
