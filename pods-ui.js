@@ -246,6 +246,7 @@ function podsStage4(){
     '<p class="intro">Confirm each group once its draw is right. When the last group is confirmed, the Finals chart is built with "Winner of Group N" placeholders. A group with scores can\'t be unconfirmed.</p>'+
     '<div class="summary-grid" style="margin-bottom:12px"><div><label>Groups confirmed</label><strong>'+prog.confirmed+' of '+prog.total+'</strong></div>'+
       '<div><label>Finals</label><strong>'+(podsFinals(t) ? escText(podsFinals(t).size)+'-slot chart built' : 'Not built yet')+'</strong></div></div>'+
+    (podsFinals(t) && typeof publishForQrNoteHTML === 'function' ? publishForQrNoteHTML() : '')+
     '<div class="buttonrow"><button class="btn primary" '+(prog.confirmed === prog.total ? 'disabled ' : '')+'onclick="podsConfirmAllClick()">Confirm all groups</button>'+
       (podsFinals(t) ? '<button class="btn secondary" onclick="doFinalPrint()">Print bracket pack</button><button class="btn primary" onclick="goStage(5)">Continue to manage tournament →</button>' : '')+'</div>'+
     lineupSheetToggleHTML()+
@@ -343,7 +344,8 @@ function podsStage6(){
     var w = podChampion(p), r = w ? bracketRunnerUp(p.bracket) : null;
     return '<tr><td class="l">'+escapeHtml(p.label)+'</td><td class="l">'+escapeHtml(w ? name(w) : (podNoWinner(p) ? 'No winner' : '—'))+'</td><td class="l">'+escapeHtml(name(r))+'</td><td class="dim">'+podBoardLabel(p)+'</td></tr>';
   }).join('');
-  var html = '<div class="card"><h2>Finalize standings</h2><p class="intro">Group winners and Finals placings. Read-only: fix a result in Manage Tournament if needed.</p></div>'+
+  var pointer = typeof finishPointerHTML === 'function' ? finishPointerHTML() : '';
+  var html = '<div class="card"><h2>Finalize standings</h2><p class="intro">Group winners and Finals placings. Read-only: fix a result in Manage Tournament if needed.</p>'+pointer+'</div>'+
     '<div class="card"><h3 style="margin:0 0 10px;font-size:15px">Group winners</h3><div style="overflow-x:auto"><table class="std-table"><thead><tr><th class="l">Group</th><th class="l">Winner</th><th class="l">Runner-up</th><th>Board</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
   if(podsFinals(t)) html += knockoutPlacementsCard(podsFinals(t), 'Finals');
   html += '<div class="print-controls"><button class="btn secondary" onclick="goStage(5)">Back to manage tournament</button><button class="btn primary" onclick="goStage(7)">Continue to print →</button></div>';
@@ -353,7 +355,7 @@ function podsStage6(){
 /* ---------- Stage 7: print ---------- */
 function podsStage7(){
   var t = state, pods = podsList(t), built = !!podsFinals(t);
-  return '<div class="card"><h2>Print final chart</h2><p class="intro">Prints one sheet per group, then the Finals, with results filled in, as a high-resolution A4 landscape PDF.</p>'+
+  return '<div class="card"><h2>Print final chart</h2><p class="intro">Prints one sheet per group, then the Finals, with results filled in, as a high-resolution A4 landscape PDF.</p>'+(typeof finishPointerHTML === 'function' ? finishPointerHTML() : '')+
     '<div class="summary-grid" style="margin-bottom:12px"><div><label>Group sheets</label><strong>'+pods.length+'</strong></div>'+
       '<div><label>Finals</label><strong>'+(built ? 'Included' : 'Not built yet')+'</strong></div></div>'+
     '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(t.printSettings.sponsorFooterEnabled ? 'checked' : '')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">Include sponsor footer on printed charts</label></div>'+

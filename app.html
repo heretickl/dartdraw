@@ -3755,7 +3755,7 @@ function eventComplete(t){
 }
 function finalizeCardHTML(){
   if(!state) return '';
-  const head = '<div class="card"><h2>Accept results &amp; finalize</h2>';
+  const head = '<div class="card" id="finalizeCard"><h2>Accept results &amp; finalize</h2>';
   if(isLocked(state)){
     const when = finalizedWhenText(state);
     return head+'<div class="confirm-box finalized-note" style="margin:0"><b>Results finalized</b>'+(when?escapeHtml(when)+'. ':'')+'Only an Admin can reopen or edit this event.</div></div>';
@@ -4751,6 +4751,23 @@ function fitPopoutChart(){
 window.addEventListener('resize', ()=>{ if(popoutMode){ if(staleOpen()) renderStaleBanner(); fitPopoutChart(); } });
 
 /* ---------- Stage 1: Event Creation ---------- */
+/* "Number of entries" names what one entry is: a pair in Doubles, a team in Teams (Singles, and an existing Triples
+   event, keep the plain wording). It follows the Competition type box as it changes, before Save. */
+function entriesLabelFor(unit){
+  if(unit==='Doubles') return { label:'Number of pairs', hint:'Each entry is a pair of two players: 24 players make 12 pairs.' };
+  if(unit==='Teams') return { label:'Number of teams', hint:'Each entry is one team. Captains write their line-up on the day.' };
+  return { label:'Number of entries', hint:'' };
+}
+function entriesHintHTML(unit){
+  const h = entriesLabelFor(unit).hint;
+  return '<div class="hint" id="f_entries_hint"'+(h?'':' hidden')+'>'+h+'</div>';
+}
+function updateEntriesLabel(unit){
+  const l = entriesLabelFor(unit);
+  const label = document.getElementById('f_entries_label'), hint = document.getElementById('f_entries_hint');
+  if(label) label.textContent = l.label;
+  if(hint){ hint.textContent = l.hint; hint.hidden = !l.hint; }
+}
 /* Competition types offered for a new event: Singles, Doubles and Teams. Triples is hidden, not removed: an existing
    Triples event keeps it (as an extra option, so saving stage 1 never silently changes its type). */
 const OFFERED_UNITS = ['Singles','Doubles','Teams'];
@@ -4774,11 +4791,11 @@ function stage1(){
       '<div class="field"><label>Event category</label><select id="f_etype">'+ ['Open','Women','Youth'].map(o=>'<option'+(e.eventType===o?' selected':'')+'>'+o+'</option>').join('') +'</select></div>'+
       (teamsFormatLocked(state)
         ? '<div class="field"><label>Competition type</label><select id="f_unit" disabled>'+ unitOptionsHTML(e.competitionUnit) +'</select><div class="hint">Games have started, so a Teams event stays Teams.</div></div>'
-        : '<div class="field"><label>Competition type</label><select id="f_unit">'+ unitOptionsHTML(e.competitionUnit) +'</select></div>')+
+        : '<div class="field"><label>Competition type</label><select id="f_unit" onchange="updateEntriesLabel(this.value)">'+ unitOptionsHTML(e.competitionUnit) +'</select></div>')+
     '</div>'+
     '<div class="grid2">'+
       '<div class="field"><label>Tournament date</label><input id="f_date" type="date" value="'+escapeHtml(e.date)+'"></div>'+
-      '<div class="field"><label id="f_entries_label">Number of entries</label><input id="f_entries" type="number" min="2" value="'+escText(e.entries)+'">'+entryLimitHintHTML()+'</div>'+
+      '<div class="field"><label id="f_entries_label">'+entriesLabelFor(e.competitionUnit).label+'</label><input id="f_entries" type="number" min="2" value="'+escText(e.entries)+'">'+entriesHintHTML(e.competitionUnit)+entryLimitHintHTML()+'</div>'+
     '</div>'+
     '<div class="hint">Number of boards is set in Scheduling (Format &amp; branding, next step).</div>'+
     '<div class="buttonrow">'+
@@ -6874,6 +6891,7 @@ function stage4(){
     '<div class="hint" style="margin-bottom:6px">A master running order sheet (board-by-board match list) is added automatically, straight after the rules &amp; format sheet (or as the first page when that sheet is left out).</div>'+
     '<div class="printlist">'+ state.groups.map(g=> '<div><span>Group '+escText(g.label)+' — '+groupBoardLabel(g)+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">Confirmed</b>':'<b style="color:#c0392b">Not confirmed</b>')+'</span></div>' ).join('') +'</div>'+
     (!allConfirmed ? '<div class="confirm-box"><b>Some charts are not confirmed yet</b>You can still print the confirmed charts now, or go back and confirm the rest first.</div>' : '')+
+    publishForQrNoteHTML()+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="goStage(3)">Make changes</button>'+
       '<button class="btn '+(confirmed.length?'primary':'secondary')+'" '+(confirmed.length?'':'disabled')+' onclick="doFinalPrint()">Print bracket pack</button>'+
@@ -6899,6 +6917,7 @@ function stage4Knockout(){
   const seeded = !!state.format.seedingEnabled;
   let html = competitionDurationSummaryHTML(state) + checkInCardHTML();
   html += '<div class="card"><h2>Generate &amp; confirm bracket</h2><p class="intro">'+(seeded ? 'Builds the knockout bracket from the seed order set in Chart details.' : 'Builds the knockout bracket from a fresh random draw (seeding is off — turn it on in Chart details to use a set order instead).')+' You can regenerate it any time before you start entering results.</p>'+
+    (state.knockout ? publishForQrNoteHTML() : '')+
     '<div class="buttonrow">'+
       '<button class="btn primary" onclick="regenerateKnockoutBracket()">'+(state.knockout?'Regenerate bracket':'Generate bracket')+'</button>'+
       (state.knockout?'<button class="btn secondary" onclick="doFinalPrint()">Print bracket pack</button>':'')+
@@ -7196,6 +7215,25 @@ function printQrBlockHTML(t, path){
     '<div style="font-size:9px;line-height:1.3;max-width:40mm"><b style="font-size:10px">Live results</b><br>Scan, or go to<br><span style="word-break:break-all">'+escapeHtml(url.replace('https://', '').replace('http://', ''))+'</span></div></div>';
 }
 function printQrHeaderAttr(qr){ return qr ? ' style="grid-template-columns:minmax(58px,auto) 1fr auto auto"' : ''; }
+/* Step 4: the QR codes on the blank pack only print while Publish results is on and the public site's address is known
+   (printQrBlockHTML). Publish results lives on step 5, after this print, so step 4 says so above its Print button, with
+   a button that switches publishing on through setPublished, exactly like ticking the box. Nothing is shown once QR codes
+   will print, or on a finalized event (its publishing can no longer change). */
+function publishForQrNoteHTML(){
+  if(!state || isLocked(state)) return '';
+  const base = currentOrganizer && currentOrganizer.viewerUrl;
+  if(state.published && base) return '';
+  if(!base) return '<div class="confirm-box" id="qrPublishNote"><b>These sheets will print without QR codes</b>The address of the public results site isn\'t set up yet, so no QR code can be printed. Ask your admin. Everything else prints as normal.</div>';
+  return '<div class="confirm-box" id="qrPublishNote"><b>Publishing is off, so these sheets will have no QR code</b>QR codes only print while Publish results is on (on Manage Tournament, step 5). If spectators will follow on their phones, publish first, then print. Anyone with the link can then see the draw and, later, the scores.'+
+    '<div class="buttonrow" style="margin:8px 0 0"><button class="btn secondary" onclick="publishResultsNow()">Publish results now</button></div></div>';
+}
+function publishResultsNow(){
+  if(!state || isLocked(state)){ finalizedBlockModal('changed'); return; }
+  if(staleOpen()){ staleBlockModal(); return; }
+  if(state.published){ render(); return; }
+  setPublished(true);
+  showInfoToast('Publishing… print the pack once the status says Saved, so the QR codes work.');
+}
 function setPublished(on){
   const was = !!state.published;
   state.published = !!on;
@@ -7390,12 +7428,27 @@ function scaleManageCharts(){
   });
 }
 /* ---------- Stage 6: Finalize Standings (review only) ---------- */
+/* Steps 6 and 7 only review and print; the event is closed with Accept & finalize, at the bottom of step 5
+   (finalizeCardHTML). Say so on both, with a link there. Not shown once the event is finalized. */
+function finishPointerHTML(){
+  if(!state || isLocked(state)) return '';
+  return '<div class="recommend" id="finishPointer">To finish the event, use <b>Accept &amp; finalize</b> at the bottom of step 5 (Manage Tournament). <button type="button" class="btn ghost" style="padding:2px 8px;font-size:12px" onclick="goToFinalizeCard()">Go there</button></div>';
+}
+function goToFinalizeCard(){
+  goStage(5);
+  if(currentStage!==5) return;
+  requestAnimationFrame(()=>{
+    const el = document.getElementById('finalizeCard');
+    if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+}
 function stage6(){
   if(state.format.formatType==='podknockout') return podsStage6();
   if(state.format.formatType==='knockout') return stage6Knockout();
   const confirmed = state.groups.filter(g=>g.confirmed);
   let html = '<div class="card">'+
     '<h2>Finalize standings</h2><p class="intro">Review each group\'s final standings before printing. This page is read-only — if you spot an issue, go back to Manage Tournament to fix a score.</p>'+
+    finishPointerHTML()+
   '</div>';
   if(!confirmed.length){
     html += '<div class="card"><p class="intro" style="margin:0">No confirmed charts yet.</p></div>';
@@ -7425,7 +7478,7 @@ function knockoutPlacementsCard(bracket, title){
 }
 function stage6Knockout(){
   if(!state.knockout) return '<div class="card"><p class="intro" style="margin:0">No bracket yet — generate one in Confirm & Print Bracket.</p></div>';
-  let html = '<div class="card"><h2>Finalize standings</h2><p class="intro">Final placements from the bracket. Read-only — fix a result in Manage Tournament if needed.</p></div>';
+  let html = '<div class="card"><h2>Finalize standings</h2><p class="intro">Final placements from the bracket. Read-only — fix a result in Manage Tournament if needed.</p>'+finishPointerHTML()+'</div>';
   html += knockoutPlacementsCard(state.knockout, 'Main bracket');
   html += '<div class="print-controls"><button class="btn secondary" onclick="goStage(5)">Back to manage tournament</button><button class="btn primary" onclick="goStage(7)">Continue to print →</button></div>';
   return html;
@@ -7444,7 +7497,7 @@ function stage7(){
   const confirmed = state.groups.filter(g=>g.confirmed);
   const startedCount = confirmed.filter(g=>g.gameStarted).length;
   return '<div class="card">'+
-    '<h2>Print final chart</h2><p class="intro">Export the completed pack with entered scores and final standings, as a high-resolution A4 landscape PDF.</p>'+
+    '<h2>Print final chart</h2><p class="intro">Export the completed pack with entered scores and final standings, as a high-resolution A4 landscape PDF.</p>'+finishPointerHTML()+
     '<div class="summary-grid" style="margin-bottom:12px">'+
       '<div><label>Format</label><strong>A4 landscape</strong></div>'+
       '<div><label>Resolution</label><strong>High-resolution</strong></div>'+
@@ -7467,7 +7520,7 @@ function stage7(){
 }
 function stage7Knockout(){
   return '<div class="card">'+
-    '<h2>Print final chart</h2><p class="intro">Export the bracket with results filled in, as a high-resolution A4 landscape PDF.</p>'+
+    '<h2>Print final chart</h2><p class="intro">Export the bracket with results filled in, as a high-resolution A4 landscape PDF.</p>'+finishPointerHTML()+
     '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(state.printSettings.sponsorFooterEnabled?'checked':'')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">Include sponsor footer on printed charts</label></div>'+
     lineupSheetToggleHTML()+
     rulesSheetToggleHTML()+

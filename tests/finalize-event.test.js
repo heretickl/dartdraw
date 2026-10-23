@@ -147,6 +147,79 @@ test('finalize card: junk finalized values are treated as locked, without a date
   assert.match(html, /Results finalized/); assert.doesNotMatch(html, /Invalid Date/); assert.doesNotMatch(html, /<button/);
 });
 
+test('steps 6 and 7 point to Accept & finalize on step 5 in every format (not once finalized), and Go there opens step 5', () => {
+  reset();
+  const fixtures = [
+    ['roundrobin', { groups: [group('g1', true)] }], ['knockout', { knockout: br('a') }],
+    ['rrknockout', { groups: [group('g1', true)], knockout: br('a') }],
+    ['podknockout', { pods: [pod('p1', br('a'))], knockout: Object.assign(br('a'), { podFinals: true }) }]
+  ];
+  for (const [fmt, extra] of fixtures) {
+    for (const n of [6, 7]) {
+      const t = fresh(fmt, extra);
+      const html = f('stage' + n)();
+      assert.match(html, /To finish the event, use <b>Accept &amp; finalize<\/b> at the bottom of step 5 \(Manage Tournament\)\./, fmt + ' stage ' + n);
+      assert.match(html, /onclick="goToFinalizeCard\(\)">Go there</);
+      t.finalized = { at: AT };
+      assert.doesNotMatch(f('stage' + n)(), /To finish the event/, fmt + ' stage ' + n + ' finalized');
+    }
+  }
+  assert.match(f('finalizeCardHTML')(), /^<div class="card" id="finalizeCard">/);
+  const t = fresh('knockout', { knockout: br('a') }); t.eventCreation.saved = true; t.format.saved = true; t.entriesList = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }];
+  run(app, 'currentStage = 6'); app.requestAnimationFrame = () => {};
+  f('goToFinalizeCard')();
+  assert.equal(run(app, 'currentStage'), 5);
+});
+
+test('step 4: when publishing is off, a note above Print says the sheets will have no QR code, with Publish results now', () => {
+  reset();
+  const base = { name: 'Sam', viewerUrl: 'https://live.example.com' };
+  const fixtures = [
+    ['roundrobin', { groups: [group('g1', true)] }], ['knockout', { knockout: br('a') }],
+    ['rrknockout', { groups: [group('g1', true)] }],
+    ['podknockout', { pods: [pod('p1', br('a'))], knockout: Object.assign(br('a'), { podFinals: true }) }]
+  ];
+  app.__o = base; run(app, 'currentOrganizer = __o');
+  for (const [fmt, extra] of fixtures) {
+    const t = fresh(fmt, extra);
+    let html = f('stage4')();
+    assert.match(html, /Publishing is off, so these sheets will have no QR code<\/b>QR codes only print while Publish results is on/, fmt);
+    assert.match(html, /<button class="btn secondary" onclick="publishResultsNow\(\)">Publish results now<\/button>/, fmt);
+    assert.ok(html.indexOf('qrPublishNote') < html.indexOf('onclick="doFinalPrint()"'), fmt + ': above the Print button');
+    t.published = true; t.publicSlug = 'abc';
+    assert.doesNotMatch(f('stage4')(), /qrPublishNote/, fmt + ': none once QR codes will print');
+    t.published = false; t.finalized = { at: AT };
+    assert.doesNotMatch(f('stage4')(), /qrPublishNote/, fmt + ': none on a finalized event');
+  }
+  // no public address configured: say so, no button (publishing alone would not print a QR code)
+  run(app, 'currentOrganizer = { name: "Sam", viewerUrl: "" }');
+  const t = fresh('knockout', { knockout: br('a') }); t.published = true;
+  const html = f('stage4')();
+  assert.match(html, /These sheets will print without QR codes<\/b>The address of the public results site isn\\?'t set up yet/);
+  assert.doesNotMatch(html, /publishResultsNow/);
+});
+
+test('Publish results now turns publishing on through setPublished (not listed), and refuses a finalized or out-of-date event', () => {
+  reset();
+  run(app, 'currentOrganizer = { name: "Sam", viewerUrl: "https://live.example.com" }');
+  let persisted = 0; app.persist = () => { persisted++; };
+  const toasts = []; app.showInfoToast = (m) => toasts.push(m);
+  const modals = []; app.openModal = (m) => modals.push(m);
+  const t = fresh('knockout', { knockout: br('a') });
+  f('publishResultsNow')();
+  assert.equal(t.published, true); assert.ok(t.publicSlug); assert.equal(t.listed, false);
+  assert.equal(persisted, 1);
+  assert.match(toasts[0], /print the pack once the status says Saved/);
+  const done = fresh('knockout', { knockout: br('a'), finalized: { at: AT } });
+  f('publishResultsNow')();
+  assert.ok(!done.published); assert.equal(persisted, 1); assert.equal(modals[0].title, 'Event is finalized');
+  const stale = fresh('knockout', { knockout: br('a') });
+  run(app, 'staleIds.add("t_fin1")');
+  f('publishResultsNow')();
+  run(app, 'staleIds.clear()');
+  assert.ok(!stale.published); assert.equal(persisted, 1); assert.equal(modals[1].title, 'Updated elsewhere');
+});
+
 test('the card is the last thing every format shows on Manage Tournament', () => {
   reset();
   fresh('knockout', { knockout: br('a') });

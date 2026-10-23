@@ -99,6 +99,22 @@ test('copy: no plan or tier wording, no contact email, no rosters or rubbers, Si
   assert.match(markup(read('how-it-works.html')), /Basic setup keeps things simple; Advanced adds/);
 });
 
+test('how-it-works names the seven steps as the app does, and says Accept & finalize is on step 5', () => {
+  const how = markup(read('how-it-works.html'));
+  const steps = [...how.matchAll(/<li><span class="num">\d<\/span><div><h3>([^<]+)<\/h3>/g)].map((m) => m[1].replace(/&amp;/g, '&'));
+  assert.deepEqual(steps, ['Event creation', 'Format & branding', 'Chart details', 'Confirm & Print Bracket', 'Manage Tournament', 'Finalize Standings', 'Print Final Chart']);
+  const app = read('app.html');
+  steps.forEach((s) => assert.ok(app.includes(s) || app.includes(s.replace('&', '&amp;')), s + ' is a step name in the app'));
+  assert.match(how, /Manage Tournament<\/h3><p>[^<]*click Accept &amp; finalize at the bottom of this step/);
+  assert.match(how, /Finalize Standings<\/h3><p>[^<]*read-only/);
+  assert.doesNotMatch(how, /Print and accept|QR codes included/);
+  // the landing hero: plain Log in, and who makes accounts
+  const idx = markup(read('index.html'));
+  assert.match(idx, /data-login>Log in <svg/);
+  assert.doesNotMatch(idx, /Log in to get started/);
+  assert.match(idx, /<p class="cta-note">No account yet\? Accounts are created by the site admin\.<\/p>/);
+});
+
 test('only the landing page carries the signed-in check', () => {
   assert.match(scripts(read('index.html')).join('\n'), /fetch\('\/api\/auth\/me'/);
   ['features.html', 'how-it-works.html', 'help.html'].forEach((p) => {
@@ -355,7 +371,7 @@ test('pop-up: a page restored from the back/forward cache reloads, so a stale po
 });
 
 // ---------- login.html in the pop-up ----------
-function runLogin({ embed, framed = true, loginOk = true }) {
+function runLogin({ embed, framed = true, loginOk = true, config = { signupOpen: false }, configOk = true }) {
   const js = scripts(read('login.html'))[0];
   const els = {};
   const el = (id) => (els[id] = els[id] || {
@@ -381,7 +397,7 @@ function runLogin({ embed, framed = true, loginOk = true }) {
       addEventListener: (t, fn) => { docHandlers[t] = fn; }
     },
     fetch: (url) => {
-      if (url === '/api/auth/config') return Promise.resolve({ ok: true, json: () => Promise.resolve({ signupOpen: false }) });
+      if (url === '/api/auth/config') return configOk === 'throw' ? Promise.reject(new Error('offline')) : Promise.resolve({ ok: configOk, json: () => Promise.resolve(config) });
       if (url === '/api/auth/login') return Promise.resolve({ ok: loginOk, status: loginOk ? 200 : 401, json: () => Promise.resolve(loginOk ? {} : { error: 'Wrong email or password.' }) });
       return Promise.reject(new Error('unexpected ' + url));
     }
@@ -430,6 +446,58 @@ test('login.html: a failed sign-in shows the message and goes nowhere', async ()
   await submit(r);
   assert.deepEqual(r.calls.top.concat(r.calls.own), []);
   assert.equal(r.els.msg.textContent, 'Wrong email or password.');
+});
+
+// ---------- "No account yet?" and the Admin's contact line ----------
+const settle = async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); };
+
+test('login.html: "No account yet?" is in the page as written (works without JavaScript), with an empty hidden contact line', () => {
+  const m = read('login.html').replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '');
+  assert.match(m, /<div class="foot noacct" id="noAccountFoot"><b>No account yet\?<\/b> Accounts are created by the site admin\.<span class="contact" id="adminContact" hidden><\/span><\/div>/);
+  assert.doesNotMatch(m, /id="noAccountFoot"[^>]*hidden/);
+  assert.match(read('login.html'), /\[hidden\]\{display:none!important\}/, 'hidden wins over the contact line display rule');
+});
+
+test('login.html: with a contact line set, it is shown under "No account yet?" as text', async () => {
+  const r = runLogin({ embed: true, config: { signupOpen: false, adminContact: 'Ask the club secretary at the bar.' } });
+  await settle();
+  assert.equal(r.els.adminContact.textContent, 'Ask the club secretary at the bar.');
+  assert.equal(r.els.adminContact.hidden, false);
+  assert.equal(r.el('noAccountFoot').hidden, false);
+});
+
+test('login.html: with no contact line (empty, missing, not text) only the first sentence shows', async () => {
+  for (const config of [{ signupOpen: false, adminContact: '' }, { signupOpen: false, adminContact: '   ' }, { signupOpen: false }, { signupOpen: false, adminContact: 42 }, { signupOpen: false, adminContact: { a: 1 } }]) {
+    const r = runLogin({ embed: false, framed: false, config });
+    await settle();
+    assert.equal(r.els.adminContact.hidden, true, JSON.stringify(config));
+    assert.equal(r.els.adminContact.textContent, '');
+    assert.equal(r.el('noAccountFoot').hidden, false);
+  }
+  // the check failing (server error, or offline) leaves the note as it is in the page
+  for (const configOk of [false, 'throw']) {
+    const r = runLogin({ embed: false, framed: false, configOk });
+    await settle();
+    assert.equal(r.el('noAccountFoot').hidden, false);
+    assert.equal(r.el('adminContact').textContent, '');
+  }
+});
+
+test('login.html: the contact line can never become markup (textContent only, at most 200 characters)', async () => {
+  const evil = '<img src=x onerror=alert(1)><script>alert(2)</script>';
+  const r = runLogin({ embed: true, config: { signupOpen: false, adminContact: evil + 'x'.repeat(300) } });
+  await settle();
+  assert.equal(r.els.adminContact.textContent, (evil + 'x'.repeat(300)).slice(0, 200), 'set as text, cut to 200');
+  assert.equal(r.els.adminContact.innerHTML, undefined, 'innerHTML is never touched');
+  const js = scripts(read('login.html'))[0];
+  assert.doesNotMatch(js, /innerHTML|insertAdjacentHTML|outerHTML|document\.write/);
+});
+
+test('login.html: while sign-up is open the Sign up link replaces "No account yet?"', async () => {
+  const r = runLogin({ embed: true, config: { signupOpen: true, adminContact: 'Ask Sam.' } });
+  await settle();
+  assert.equal(r.el('signupFoot').hidden, false);
+  assert.equal(r.el('noAccountFoot').hidden, true);
 });
 
 test('login.html has the embed styles', () => {

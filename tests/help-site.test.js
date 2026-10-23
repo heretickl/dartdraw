@@ -282,7 +282,11 @@ test('the buttons, labels and messages the guide quotes still exist in app.html 
     'Saving…', 'Saved', 'Couldn’t save — click to retry', 'Updated elsewhere — click to reload', 'Finalizing…', 'This event is finalized — only an Admin can change it',
     'Change password', 'Log out', 'Current password', 'New password', 'Rename', 'Duplicate', 'Delete',
     'Updated elsewhere — reload to get the latest', '>Reload<', 'Please rotate your device to landscape to use DartDraw.', 'DartDraw works best on a tablet, laptop or desktop.',
-    'Your browser blocked the new window — allow pop-ups for this site, then click the button again.', '>Print<'
+    'Your browser blocked the new window — allow pop-ups for this site, then click the button again.', '>Print<',
+    // Release 2: Quick start, the step 4 QR note, the step 6/7 pointer and the entries label
+    'Review print pack →', 'Confirm all ', 'Knockout stage', 'Results finalized', 'Best of legs', 'Edit scheduling settings', 'Format',
+    'Publish results now', 'Publishing is off, so these sheets will have no QR code', 'To finish the event, use <b>Accept & finalize</b> at the bottom of step 5', 'Go there',
+    'Number of pairs', 'Number of teams'
   ];
   const missing = quoted.filter((q) => !appText.includes(q) && !read('pods-ui.js').includes(q) && !read('boardplan-ui.js').includes(q) && !read('render.js').includes(q));
   assert.deepEqual(missing, [], 'quoted in the guide but not in the app');
@@ -292,6 +296,39 @@ test('the buttons, labels and messages the guide quotes still exist in app.html 
   // and the guide really does quote them (so this list does not rot into checking nothing)
   const t = text(help);
   ['Open in new window ↗', 'Start all games', 'Accept & finalize', 'Publish results', 'List on the public page', 'Mark no-show…', 'Adjust positions…', 'Neither showed', 'Random draw', 'Save as PDF'].forEach((q) => assert.ok(t.includes(q), 'guide should quote ' + q));
+});
+
+test('Release 2: Quick start is the first guide article and first in the contents, with 7 linked steps for the 24-player example', () => {
+  const guide = content.sections.find((s) => s.kind === 'guide');
+  assert.equal(guide.items[0].id, 'quick-start');
+  assert.equal(guide.items[0].title, 'Quick start: run your first event in about 10 minutes');
+  const toc = (help.match(/<nav class="help-toc"[\s\S]*?<\/nav>/) || [])[0];
+  assert.match(toc, /<ol>\s*<li data-toc="quick-start"><a href="#quick-start">Quick start/);
+  const qs = (help.match(/<article class="harticle" id="quick-start"[\s\S]*?<\/article>/) || [''])[0];
+  for (let i = 1; i <= 7; i++) assert.match(qs, new RegExp('<li id="quick-start-step-' + i + '">'));
+  assert.equal((qs.match(/<span class="see">You should see:/g) || []).length, 7);
+  const t = articleText('quick-start');
+  assert.match(t, /24 players, one evening, 4 dartboards/);
+  ['+ New tournament', 'Number of entries', 'Save event creation →', 'Round robin → Knockout', 'Save format & branding →', 'Random draw', 'Review print pack →',
+    'Confirm all 6 charts', 'Publish results now', 'Print bracket pack', 'Start all games', 'Save score', 'Generate knockout bracket', 'Accept & finalize'].forEach((q) => assert.ok(t.includes(q), 'quick start should quote ' + q));
+  assert.ok(t.indexOf('Publish results now') < t.indexOf('Print bracket pack'), 'publish comes before print');
+  // the search finds it by the words people type, and the keywords are never shown
+  assert.match(qs, /data-keywords="[^"]*tutorial/);
+  assert.match(help, /<article class="harticle" id="creating-an-event"[^>]*data-keywords="[^"]*\bpairs\b/);
+  assert.match(scripts(help)[0], /getAttribute\('data-keywords'\)/);
+});
+
+test('Release 2: "No account yet?" is the first heading of Getting started, with no address in it; the QR advice puts publishing first', () => {
+  const gs = (help.match(/<article class="harticle" id="getting-started"[\s\S]*?<\/article>/) || [''])[0];
+  assert.match(gs, /<div class="hbody">\s*<h4 id="no-account">No account yet\?<\/h4>/);
+  assert.match(articleText('getting-started'), /No account yet\? Accounts are created by the site admin\./);
+  assert.doesNotMatch(articleText('getting-started'), /@/);
+  const dp = articleText('draws-and-printing');
+  assert.match(dp, /Publishing is off, so these sheets will have no QR code/);
+  assert.match(dp, /Click Publish results now in it \(the same as ticking Publish results on step 5\), then print/);
+  assert.doesNotMatch(text(help), /Switch publishing on before you print/);
+  assert.match(articleText('creating-an-event'), /in a Doubles event it is called Number of pairs, and in a Teams event Number of teams/);
+  assert.match(articleText('finishing-the-event'), /To finish the event, use Accept & finalize at the bottom of step 5/);
 });
 
 test('the login page still has the Forgot password? link the guide tells people to click', () => {

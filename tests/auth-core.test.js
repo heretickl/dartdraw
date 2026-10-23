@@ -363,26 +363,52 @@ test('config: signupOpen only when SIGNUP_OPEN is "true" and mail is configured'
   const get = () => callHandler(configHandler, { method: 'GET' });
   let r = await get();
   assert.equal(r.statusCode, 200);
-  assert.deepEqual(r.body, { signupOpen: false });
+  assert.deepEqual(r.body, { signupOpen: false, adminContact: '' });
 
   process.env.SIGNUP_OPEN = 'true';                       // flag on, mail not configured
-  assert.deepEqual((await get()).body, { signupOpen: false });
+  assert.deepEqual((await get()).body, { signupOpen: false, adminContact: '' });
 
   process.env.MAIL_PROVIDER = 'console';                   // both
-  assert.deepEqual((await get()).body, { signupOpen: true });
+  assert.deepEqual((await get()).body, { signupOpen: true, adminContact: '' });
 
   process.env.SIGNUP_OPEN = 'false';                       // mail ok, flag off
-  assert.deepEqual((await get()).body, { signupOpen: false });
+  assert.deepEqual((await get()).body, { signupOpen: false, adminContact: '' });
   process.env.SIGNUP_OPEN = '1';
-  assert.deepEqual((await get()).body, { signupOpen: false });
+  assert.deepEqual((await get()).body, { signupOpen: false, adminContact: '' });
 
   process.env.SIGNUP_OPEN = 'true';
   process.env.MAIL_PROVIDER = 'resend';                    // resend without key/from
-  assert.deepEqual((await get()).body, { signupOpen: false });
+  assert.deepEqual((await get()).body, { signupOpen: false, adminContact: '' });
   process.env.RESEND_API_KEY = 'k'; process.env.MAIL_FROM = 'DartDraw <no-reply@example.com>';
-  assert.deepEqual((await get()).body, { signupOpen: false });   // still no APP_URL
+  assert.deepEqual((await get()).body, { signupOpen: false, adminContact: '' });   // still no APP_URL
   process.env.APP_URL = 'https://app.example.com';
-  assert.deepEqual((await get()).body, { signupOpen: true });
+  assert.deepEqual((await get()).body, { signupOpen: true, adminContact: '' });
+});
+
+test('config: shows the Admin’s contact line, and nothing else that is stored', async () => {
+  const get = () => callHandler(configHandler, { method: 'GET' });
+  db.tables.site_settings.push({ key: 'adminContact', value: 'Ask the club secretary at the bar.' }, { key: 'resultsDays', value: 30 }, { key: 'liveHours', value: 12 }, { key: 'secretThing', value: 'x' });
+  const r = await get();
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual(r.body, { signupOpen: false, adminContact: 'Ask the club secretary at the bar.' });
+  assert.equal(r.headers['cache-control'] || r.headers['Cache-Control'], 'no-store');
+  // only the one row is read
+  const reads = db.calls.filter((c) => /site_settings/.test(c.text));
+  assert.deepEqual(reads.map((c) => c.text), ["SELECT value FROM site_settings WHERE key = 'adminContact'"]);
+  // a stored value that is not clean plain text is never passed on
+  db.tables.site_settings = [{ key: 'adminContact', value: '<img src=x onerror=alert(1)>' }];
+  assert.equal((await get()).body.adminContact, '');
+  db.tables.site_settings = [{ key: 'adminContact', value: { html: '<b>' } }];
+  assert.equal((await get()).body.adminContact, '');
+  db.tables.site_settings = [{ key: 'adminContact', value: 'x'.repeat(201) }];
+  assert.equal((await get()).body.adminContact, '');
+  // no table, or no database at all: still answers
+  db.dropTable('site_settings');
+  assert.deepEqual((await get()).body, { signupOpen: false, adminContact: '' });
+  db = { sql: async () => { throw new Error('connection reset'); } };
+  const down = await get();
+  assert.equal(down.statusCode, 200);
+  assert.deepEqual(down.body, { signupOpen: false, adminContact: '' });
 });
 
 test('config needs no login and is GET only', async () => {

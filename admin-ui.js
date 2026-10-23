@@ -24,6 +24,7 @@ var adminEditing = null;
 var ADMIN_VIEWS = ['organizers', 'events', 'settings'];
 var ADMIN_FORMATS = { roundrobin: 'Round Robin', knockout: 'Knockout', rrknockout: 'Round Robin → Knockout', podknockout: 'Group Boards' };
 var ADMIN_DEFAULT_LIMITS = { resultsDays: [1, 90], liveHours: [1, 168] };
+var ADMIN_CONTACT_MAX = 200;   // the sign-in page contact line (api/_lib/settings.js CONTACT_MAX_LENGTH)
 
 function isAdminUser(){ return !!(currentOrganizer && currentOrganizer.role === 'admin'); }
 function adminViewActive(){ return !!adminState.view && isAdminUser(); }
@@ -178,11 +179,14 @@ function adminSettingsHTML(settings){
   settings = settings || {};
   var lim = settings.limits || ADMIN_DEFAULT_LIMITS;
   var rd = lim.resultsDays || ADMIN_DEFAULT_LIMITS.resultsDays, lh = lim.liveHours || ADMIN_DEFAULT_LIMITS.liveHours;
-  return '<div class="adm-head"><div><h2>Settings</h2><p class="intro" style="margin:0">How long events stay on the public home page.</p></div></div>' +
+  var maxC = settings.contactMaxLength || ADMIN_CONTACT_MAX;
+  return '<div class="adm-head"><div><h2>Settings</h2><p class="intro" style="margin:0">How long events stay on the public home page, and who to ask for an account.</p></div></div>' +
     '<div class="grid2" style="max-width:640px">' +
       '<div class="field"><label>Days a finalized event stays under Results</label><input id="adminSetResults" type="number" min="' + adminEsc(rd[0]) + '" max="' + adminEsc(rd[1]) + '" step="1" value="' + adminEsc(settings.resultsDays) + '"><div class="hint">Whole days, ' + adminEsc(rd[0]) + ' to ' + adminEsc(rd[1]) + '.</div></div>' +
       '<div class="field"><label>Hours a started event stays under Live now</label><input id="adminSetLive" type="number" min="' + adminEsc(lh[0]) + '" max="' + adminEsc(lh[1]) + '" step="1" value="' + adminEsc(settings.liveHours) + '"><div class="hint">Whole hours, ' + adminEsc(lh[0]) + ' to ' + adminEsc(lh[1]) + '. After this with no new score, an unfinished event drops off.</div></div>' +
     '</div>' +
+    '<div class="field" style="max-width:640px"><label for="adminSetContact">Contact line on the sign-in page</label><input id="adminSetContact" type="text" maxlength="' + adminEsc(maxC) + '" value="' + adminEsc(typeof settings.adminContact === 'string' ? settings.adminContact : '') + '" placeholder="e.g. Ask the club secretary at the bar, or phone 012-345 6789.">' +
+      '<div class="hint">Shown under &ldquo;No account yet? Accounts are created by the site admin.&rdquo; on the sign-in page, for anyone to read. One line of plain text, up to ' + adminEsc(maxC) + ' characters (no &lt; or &gt;). Leave it empty to show only that sentence.</div></div>' +
     '<div class="buttonrow"><button class="btn primary" onclick="adminSaveSettings()">Save</button></div>';
 }
 
@@ -235,7 +239,7 @@ function renderAdminView(){
   var subs = {
     organizers: 'Add organisers, change tiers, suspend, reset passwords and move events.',
     events: 'See and edit any organiser\'s events, and control what is public.',
-    settings: 'Choose how long events stay on the public home page.'
+    settings: 'Choose how long events stay on the public home page, and what the sign-in page says about getting an account.'
   };
   document.getElementById('pageTitle').textContent = 'Admin';
   document.getElementById('pageSub').textContent = subs[adminState.view] || '';
@@ -517,10 +521,19 @@ async function adminSaveSettings(){
   var hours = adminWholeNumber(document.getElementById('adminSetLive'), lh);
   if(days === null){ adminInfo('Check the numbers', 'Days under Results must be a whole number from ' + rd[0] + ' to ' + rd[1] + '.'); return false; }
   if(hours === null){ adminInfo('Check the numbers', 'Hours under Live now must be a whole number from ' + lh[0] + ' to ' + lh[1] + '.'); return false; }
-  var r = await adminCall('/api/admin/settings', 'PUT', { resultsDays: days, liveHours: hours });
+  var body = { resultsDays: days, liveHours: hours };
+  var contactEl = document.getElementById('adminSetContact');
+  if(contactEl){
+    var maxC = (adminState.settings && adminState.settings.contactMaxLength) || ADMIN_CONTACT_MAX;
+    var contact = String(contactEl.value == null ? '' : contactEl.value).replace(/\s+/g, ' ').trim();
+    if(contact.length > maxC){ adminInfo('Check the contact line', 'The contact line must be ' + maxC + ' characters or fewer.'); return false; }
+    if(/[<>]/.test(contact)){ adminInfo('Check the contact line', 'The contact line must be plain text, without < or >.'); return false; }
+    body.adminContact = contact;
+  }
+  var r = await adminCall('/api/admin/settings', 'PUT', body);
   if(!r.ok){ adminFail(r, 'Could not save the settings.'); return false; }
   adminState.settings = r.data;
-  adminState.notice = 'Saved. The public home page uses these numbers from now on.';
+  adminState.notice = contactEl ? 'Saved. The public home page and the sign-in page use these settings from now on.' : 'Saved. The public home page uses these numbers from now on.';
   render();
   return true;
 }

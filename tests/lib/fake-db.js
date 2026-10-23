@@ -89,6 +89,8 @@
 //   SELECT key, value FROM site_settings WHERE key IN ('resultsDays', 'liveHours')
 //   INSERT INTO site_settings (key, value, updated_at) VALUES ('resultsDays', ?::jsonb, now()), ('liveHours', ?::jsonb, now())
 //        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()   (vals: json, json)
+//   the same INSERT with a third row ('adminContact', ?::jsonb, now())                  (vals: json, json, json)
+//   SELECT value FROM site_settings WHERE key = 'adminContact'
 
 let nextId = 1;
 function newId(prefix) { return prefix + '-' + (nextId++); }
@@ -518,8 +520,14 @@ function createFakeDb(seed) {
     if (has(/^SELECT key, value FROM site_settings WHERE key IN \('resultsDays', 'liveHours'\)$/i)) {
       return tables.site_settings.filter((r) => r.key === 'resultsDays' || r.key === 'liveHours').map((r) => Object.assign({}, r));
     }
-    if (has(/^INSERT INTO site_settings \(key, value, updated_at\) VALUES \('resultsDays', \?::jsonb, now\(\)\), \('liveHours', \?::jsonb, now\(\)\) ON CONFLICT \(key\) DO UPDATE SET value = EXCLUDED\.value, updated_at = now\(\)$/i)) {
-      [['resultsDays', vals[0]], ['liveHours', vals[1]]].forEach(([key, json]) => {
+    if (has(/^SELECT value FROM site_settings WHERE key = 'adminContact'$/i)) {
+      return tables.site_settings.filter((r) => r.key === 'adminContact').map((r) => ({ value: r.value }));
+    }
+    const withContact = has(/^INSERT INTO site_settings \(key, value, updated_at\) VALUES \('resultsDays', \?::jsonb, now\(\)\), \('liveHours', \?::jsonb, now\(\)\), \('adminContact', \?::jsonb, now\(\)\) ON CONFLICT \(key\) DO UPDATE SET value = EXCLUDED\.value, updated_at = now\(\)$/i);
+    if (withContact || has(/^INSERT INTO site_settings \(key, value, updated_at\) VALUES \('resultsDays', \?::jsonb, now\(\)\), \('liveHours', \?::jsonb, now\(\)\) ON CONFLICT \(key\) DO UPDATE SET value = EXCLUDED\.value, updated_at = now\(\)$/i)) {
+      const pairs = [['resultsDays', vals[0]], ['liveHours', vals[1]]];
+      if (withContact) pairs.push(['adminContact', vals[2]]);
+      pairs.forEach(([key, json]) => {
         const value = JSON.parse(json);
         const existing = tables.site_settings.find((r) => r.key === key);
         if (existing) { existing.value = value; existing.updated_at = api.now(); }

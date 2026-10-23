@@ -46,6 +46,7 @@ h1{margin:0;font-size:clamp(40px,5.4vw,68px);line-height:1.03;letter-spacing:-.0
 h1 em{font-style:normal;color:var(--gold-big)}
 .lede{margin:26px 0 34px;font-size:clamp(18px,1.9vw,23px);line-height:1.5;color:#46566a;max-width:520px}
 .cta-row{display:flex;flex-wrap:wrap;align-items:center;gap:22px}
+.cta-note{margin:14px 0 0;font-size:15px;color:var(--muted)}
 .tags{display:flex;flex-wrap:wrap;gap:6px 14px;margin:38px 0 0;padding:0;list-style:none;color:#5b6a7d;font-size:17px}
 .tags li+li:before{content:"\2022";margin-right:14px;color:#9aa8ba}
 /* app preview */
@@ -221,6 +222,8 @@ section.band.help{padding:36px 0 64px}
 .harticle b,.faq-body b{color:var(--navy);font-weight:700}
 .harticle a,.faq-body a{color:var(--blue-d)}
 .callout{margin:14px 0;padding:12px 16px;background:var(--gold-soft);border-left:4px solid var(--gold);border-radius:8px}
+.harticle ol.qsteps li{margin:12px 0}
+.harticle .see{display:block;margin-top:4px;font-size:15.5px;color:var(--muted)}
 .harticle dl.msgs{margin:0 0 12px}
 .harticle dl.msgs dt{margin:14px 0 0;padding:6px 12px;background:#f1f5fa;border-radius:8px;font-weight:700;color:var(--navy);font-size:16px;line-height:1.4}
 .harticle dl.msgs dd{margin:6px 0 0 12px;font-size:16px}
@@ -310,6 +313,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
       <div>
         <p class="toc-h">Guide</p>
         <ol>
+          <li data-toc="quick-start"><a href="#quick-start">Quick start: run your first event in about 10 minutes</a></li>
           <li data-toc="getting-started"><a href="#getting-started">Getting started</a></li>
           <li data-toc="creating-an-event"><a href="#creating-an-event">Creating an event (step 1)</a></li>
           <li data-toc="choosing-a-format"><a href="#choosing-a-format">Choosing a format (step 2)</a></li>
@@ -338,10 +342,39 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
     <p class="hempty" id="helpEmpty" hidden>Nothing matches &ldquo;<span id="helpEmptyQ"></span>&rdquo;. Try fewer or different words, such as &ldquo;score&rdquo;, &ldquo;print&rdquo; or &ldquo;knockout&rdquo;.</p>
 
     <h2 class="hgroup" id="guide" data-group-head="guide">Guide</h2>
-    <article class="harticle" id="getting-started" data-item data-group="guide" data-kind="guide">
-      <div class="hhead"><h3>Getting started</h3><a class="anchor" href="#getting-started" aria-label="Link to this section">#</a></div>
-      <p class="sum">Sign in, learn the seven steps, choose Basic or Advanced setup, and know what the save messages mean.</p>
+    <article class="harticle" id="quick-start" data-item data-group="guide" data-kind="guide" data-keywords="tutorial walkthrough example first new beginner begin start set up setup how to quickstart players">
+      <div class="hhead"><h3>Quick start: run your first event in about 10 minutes</h3><a class="anchor" href="#quick-start" aria-label="Link to this section">#</a></div>
+      <p class="sum">Seven steps for a first event: 24 players, singles, 4 dartboards, groups then a knockout.</p>
       <div class="hbody">
+<p>The example: 24 players, one evening, 4 dartboards. Everyone plays in groups of 4, then the top 2 of each group play a knockout. Work down the steps in the left-hand menu; each one opens when the one before is saved.</p>
+<ol class="qsteps">
+<li id="quick-start-step-1"><b>Create the event.</b> Click <b>+ New tournament</b>, type a <b>Tournament name</b> and an <b>Event name</b>, leave <b>Competition type</b> on <b>Singles</b>, set the <b>Tournament date</b> and type 24 in <b>Number of entries</b>. Click <b>Save event creation &rarr;</b>.
+<span class="see">You should see: step 2, <b>Format &amp; branding</b>. More: <a href="#creating-an-event">Creating an event</a>.</span></li>
+<li id="quick-start-step-2"><b>Choose the format.</b> Click <b>Format</b> to open it, choose <b>Round robin &rarr; Knockout</b> and set <b>Best of legs</b> to 3; leave <b>Maximum entries per group</b> at 4 and <b>Entries per group (advance to knockout)</b> at 2. Under <b>Scheduling</b>, check it says 4 boards (new events start with 4; <b>Edit scheduling settings</b> changes it), then click <b>Save format &amp; branding &rarr;</b>.
+<span class="see">You should see: step 3, <b>Chart details</b>, with 24 entries called &ldquo;Entry 1&rdquo; to &ldquo;Entry 24&rdquo;. The blue box may suggest a different split; it is only a suggestion. More: <a href="#choosing-a-format">Choosing a format</a>.</span></li>
+<li id="quick-start-step-3"><b>Type the names and draw the groups.</b> Type each player&rsquo;s name over &ldquo;Entry 1&rdquo;, &ldquo;Entry 2&rdquo; and so on, then click <b>Random draw</b>. Click <b>Review print pack &rarr;</b>.
+<span class="see">You should see: six groups, A to F, of 4 players each, each with a board; groups that share a board play one after another. More: <a href="#draw">Drawing the groups</a>.</span></li>
+<li id="quick-start-step-4"><b>Confirm, publish, print.</b> On step 4, click <b>Confirm all 6 charts</b>. If spectators will follow on their phones, click <b>Publish results now</b> in the note above the print button <em>first</em>, so the QR codes print; then click <b>Print bracket pack</b> and choose a printer or <b>Save as PDF</b>.
+<span class="see">You should see: your browser&rsquo;s print window with the running order and one chart for each group. More: <a href="#print-pack">Printing the blank pack</a> and <a href="#qr-codes">QR codes</a>.</span></li>
+<li id="quick-start-step-5"><b>Play the groups.</b> On step 5, <b>Manage Tournament</b>, click <b>Start all games</b> and confirm in the box. Then click the box where two players meet, type the legs each won (for example 2 and 1) and click <b>Save score</b>.
+<span class="see">You should see: the standings under that chart update at once. More: <a href="#enter-scores">Entering scores</a>.</span></li>
+<li id="quick-start-step-6"><b>Run the knockout.</b> When every group is finished, click <b>Generate knockout bracket</b> in the <b>Knockout stage</b> card. Enter each knockout match the same way: click it, type the legs and click <b>Save score</b>.
+<span class="see">You should see: the top 2 of each group, 12 players, in the bracket, with 4 of them starting in round 2 (a bye); each winner moves on by itself. More: <a href="#rr-knockout-draw">Drawing the knockout from a round robin</a>.</span></li>
+<li id="quick-start-step-7"><b>Finish.</b> When the final is in, go to the bottom of step 5 and click <b>Accept &amp; finalize</b>, then <b>Accept &amp; finalize</b> again in the box &ldquo;Accept results as final?&rdquo;. You cannot undo this; only an Admin can reopen the event.
+<span class="see">You should see: &ldquo;Results finalized&rdquo;, and the public page says <b>Final results</b>. Step 7, <b>Print Final Chart</b>, prints the results. More: <a href="#finishing-the-event">Finishing the event</a>.</span></li>
+</ol>
+<p>Stuck? See <a href="#troubleshooting">Printing tips and troubleshooting</a> or the <a href="#faq">questions</a>. No account yet? See <a href="#no-account">No account yet?</a></p>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="getting-started" data-item data-group="guide" data-kind="guide" data-keywords="login log in signin sign up signup register registration account invite invitation admin password">
+      <div class="hhead"><h3>Getting started</h3><a class="anchor" href="#getting-started" aria-label="Link to this section">#</a></div>
+      <p class="sum">Get an account, sign in, learn the seven steps, choose Basic or Advanced setup, and know what the save messages mean.</p>
+      <div class="hbody">
+<h4 id="no-account">No account yet?</h4>
+<p>Accounts are created by the site admin, usually the person who runs DartDraw for your club or league. Unless the sign-in box shows a <b>Sign up</b> link, you cannot make one yourself: ask your admin to create it. You then get a link to choose your password, and you sign in as below.</p>
+<p>The sign-in box says the same under <b>Sign in</b>: &ldquo;No account yet? Accounts are created by the site admin.&rdquo; Your admin can add a line under it saying who to ask and how. If your club has no admin yet, the person who set up DartDraw for you can create one. See also <a href="#faq-admin">Who is the Admin, and how do I reach them?</a></p>
+
 <h4 id="signing-in">Signing in</h4>
 <p>Your site admin creates your account and sends you a link to choose a password. After that:</p>
 <ol>
@@ -360,8 +393,8 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <li><b>Format &amp; branding</b>: choose the format, legs, boards, logos and rules.</li>
 <li><b>Chart details</b>: names, seeds, organisations and the draw.</li>
 <li><b>Confirm &amp; Print Bracket</b>: check each chart, confirm it and print the blank pack.</li>
-<li><b>Manage Tournament</b>: start the games, enter scores, share live results and finish the event.</li>
-<li><b>Finalize Standings</b>: a read-only look at the final standings.</li>
+<li><b>Manage Tournament</b>: start the games, enter scores, share live results and finish the event with <b>Accept &amp; finalize</b> at the bottom.</li>
+<li><b>Finalize Standings</b>: a read-only look at the final standings. It does not close the event.</li>
 <li><b>Print Final Chart</b>: print the pack with every result filled in.</li>
 </ol>
 
@@ -395,9 +428,9 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 </div>
       <p class="totop"><a href="#top">Back to top &uarr;</a></p>
     </article>
-    <article class="harticle" id="creating-an-event" data-item data-group="guide" data-kind="guide">
+    <article class="harticle" id="creating-an-event" data-item data-group="guide" data-kind="guide" data-keywords="players pairs teams people entries how many">
       <div class="hhead"><h3>Creating an event (step 1)</h3><a class="anchor" href="#creating-an-event" aria-label="Link to this section">#</a></div>
-      <p class="sum">Name it, choose Singles, Doubles or Teams, set the date and the number of entries.</p>
+      <p class="sum">Name it, choose Singles, Doubles or Teams, set the date and the number of entries (players, pairs or teams).</p>
       <div class="hbody">
 <p>Click <b>+ New tournament</b> at the top of the left-hand menu. Step 1 is called <b>Event creation</b>. Fill in:</p>
 <ol>
@@ -407,13 +440,13 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <li><b>Event category</b>: <b>Open</b>, <b>Women</b> or <b>Youth</b>. It is printed on the charts.</li>
 <li><b>Competition type</b>: <b>Singles</b>, <b>Doubles</b> or <b>Teams</b>.</li>
 <li><b>Tournament date</b>: shown on the charts. The public home page also uses it to list upcoming events.</li>
-<li><b>Number of entries</b>: at least 2.</li>
+<li><b>Number of entries</b>: at least 2. An entry is a player in Singles, a pair in Doubles and a team in Teams, and the box says so: in a Doubles event it is called <b>Number of pairs</b>, and in a Teams event <b>Number of teams</b>.</li>
 </ol>
 <p>Click <b>Save event creation &rarr;</b> to move on to step 2.</p>
 
 <h4 id="singles-or-doubles">Singles, Doubles or Teams</h4>
 <p>In <b>Singles</b>, one entry is one player.</p>
-<p>In <b>Doubles</b>, one entry is a <b>pair</b> of two players. The number of entries is the number of pairs, so 24 players make 12 entries. In step 3 each pair has one box, the <b>Pair name</b>. Charts, results and the public page show the pair name, so choose something both players recognise, such as both surnames together.</p>
+<p>In <b>Doubles</b>, one entry is a <b>pair</b> of two players. The number of entries is the number of pairs, so 24 players make 12 pairs: type 12 in <b>Number of pairs</b>. In step 3 each pair has one box, the <b>Pair name</b>. Charts, results and the public page show the pair name, so choose something both players recognise, such as both surnames together.</p>
 <p>In <b>Teams</b>, one entry is a <b>team</b>, and in step 3 it has one box, the <b>Team name</b>. There is no list of players to fill in: captains write their line-up on the day. A team match is made of segments that you set on step 2. See <a href="#teams">Teams events</a>.</p>
 
 <h4 id="boards-and-entries">Boards and the number of entries</h4>
@@ -647,6 +680,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <p>If no paper size up to A1 holds the bracket at 7 pt, the box says that even A1 needs to shrink it and offers only the split and the shrink.</p>
 <p>Your answer is remembered for the event. You are asked again when it no longer fits: when you pick a different paper size, or after another draw that needs a different size.</p>
 <p>Your browser&rsquo;s print window opens. Choose a printer, or choose <b>Save as PDF</b> to make a file. Print the blank pack before you start games; DartDraw suggests it when you start.</p>
+<p class="callout"><b>Want QR codes on the sheets?</b> Publish before you print. While publishing is off, step 4 shows a note above the print button: &ldquo;Publishing is off, so these sheets will have no QR code&rdquo;. Click <b>Publish results now</b> in it (the same as ticking <b>Publish results</b> on step 5), then print. Sheets printed earlier have no QR code; print them again after publishing to get them.</p>
 
 <h4 id="logos-and-rules">Logos, sponsors and the rules sheet</h4>
 <p>Your tournament logo goes in every sheet header. Sponsor logos (Advanced setup) print in the footer when <b>Include sponsor footer on printed charts</b> is ticked. The rules sheet is written for you from your settings: the format, scoring, how many go through, tie-break order, plus anything you typed in <b>Walkover, conduct &amp; other rules</b>.</p>
@@ -654,7 +688,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <h4 id="qr-codes">QR codes</h4>
 <p>Only some sheets carry a QR code, with the live address beside it: the round robin group charts, the knockout and Finals bracket sheets, the Group Boards group sheets, and in Group Boards the <b>Boards</b> and <b>Players A&ndash;Z</b> sheets. It is in the header, except on a two-sided knockout bracket, where it sits below the Champion box. The rules sheet and the running order do not have one.</p>
 <p>Each code opens that sheet&rsquo;s own page: a group chart opens that group, a bracket sheet opens the bracket, the Boards sheet opens the Boards tab, and Players A&ndash;Z opens the event. The codes are made in your browser, so printing does not need extra internet.</p>
-<p>They only appear when <b>Publish results</b> is on <em>and</em> the address of the public site is set up (if the Public results card says it is not, tell your admin). Switch publishing on before you print, or the codes will not be there.</p>
+<p>They only appear when <b>Publish results</b> is on <em>and</em> the address of the public site is set up. Publishing lives on step 5, after the print on step 4, so step 4 reminds you: while publishing is off, a note above the print button says the sheets will have no QR code, with a <b>Publish results now</b> button. Click it before you print. If the note says instead that the address of the public results site isn&rsquo;t set up yet, ask your admin; the sheets then print without QR codes.</p>
 </div>
       <p class="totop"><a href="#top">Back to top &uarr;</a></p>
     </article>
@@ -772,6 +806,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <li>A link appears. Click <b>Copy link</b> to share it, <b>Open &#8599;</b> to look at it, or <b>All events &#8599;</b> for the public home page.</li>
 <li>Untick <b>Publish results</b> any time to take the page offline.</li>
 </ol>
+<p>You can also publish from step 4: while publishing is off, a note above the print button has a <b>Publish results now</b> button, so the QR codes print on the blank pack. It does the same as ticking the box here.</p>
 <p>If the card says the address of the public site is not set up yet, tell your admin.</p>
 
 <h4 id="listing">Listing on the home page</h4>
@@ -799,7 +834,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
       <p class="sum">Review the final standings, print the final chart, then accept the results.</p>
       <div class="hbody">
 <h4 id="review">Review and print</h4>
-<p>Step 6, <b>Finalize Standings</b>, is a read-only look at the final tables or placings. If you spot a mistake, click <b>Back to manage tournament</b> and correct the score. Step 7, <b>Print Final Chart</b>, prints the pack with every result. Click <b>Print final chart &mdash; Save high-res A4 PDF</b>, and choose <b>Save as PDF</b> in the print window if you want a file.</p>
+<p>Step 6, <b>Finalize Standings</b>, is a read-only look at the final tables or placings. If you spot a mistake, click <b>Back to manage tournament</b> and correct the score. Step 7, <b>Print Final Chart</b>, prints the pack with every result. Neither step closes the event: both say &ldquo;To finish the event, use Accept &amp; finalize at the bottom of step 5&rdquo;, with a <b>Go there</b> link. Click <b>Print final chart &mdash; Save high-res A4 PDF</b>, and choose <b>Save as PDF</b> in the print window if you want a file.</p>
 <p>If two entries are still level after every tie-break rule, a box called &ldquo;Resolve ties before continuing&rdquo; stops you at steps 6 and 7. Settle the tie, then use <b>Adjust positions&hellip;</b>.</p>
 
 <h4 id="accept">Accepting the results</h4>
@@ -834,12 +869,16 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <li>Sheets are A4 landscape, apart from knockout brackets, which follow the <b>Knockout bracket paper size</b> you chose (or are split over A4 sheets, if you chose that). Set the printer to the same paper size, or the bracket is shrunk again by the printer.</li>
 <li>Look at the preview before printing. If the page is cut off, check the paper size and that the scale is on its default setting.</li>
 <li>Print the blank pack <em>before</em> you start the games. You can print again at any time.</li>
-<li>Switch <b>Publish results</b> on before you print if you want QR codes on the group charts and bracket sheets.</li>
+<li>Publish before you print if you want QR codes on the group charts and bracket sheets: click <b>Publish results now</b> in the note on step 4, or tick <b>Publish results</b> on step 5.</li>
 <li>Print the full pack from the main window: <b>Print bracket pack</b> on step 4, <b>Print final chart &mdash; Save high-res A4 PDF</b> on step 7. The <b>Print</b> button in the full-page window prints only the chart that window shows.</li>
 </ul>
 
 <h4 id="fixes">Common problems</h4>
 <dl class="msgs">
+<dt>No QR codes on my printed sheets</dt>
+<dd>Publishing was off when you printed. Click <b>Publish results now</b> on step 4 (or tick <b>Publish results</b> on step 5), then print again. If step 4 says the address of the public results site isn&rsquo;t set up yet, ask your admin.</dd>
+<dt>I can&rsquo;t find the finalize button</dt>
+<dd>It is at the bottom of step 5, <b>Manage Tournament</b>: <b>Accept &amp; finalize</b>. Steps 6 and 7 only review and print; they say where it is, with a <b>Go there</b> link.</dd>
 <dt>Nothing opens when I click Open in new window</dt>
 <dd>Your browser blocked the pop-up. DartDraw usually says so: &ldquo;Your browser blocked the new window &mdash; allow pop-ups for this site, then click the button again.&rdquo; Allow pop-ups for this site and click again. See <a href="#full-page-window">Full-page window for a second screen</a>.</dd>
 <dt>&ldquo;Scores are locked&rdquo;</dt>
@@ -1020,7 +1059,7 @@ var count=document.getElementById('helpCount'),empty=document.getElementById('he
 var items=[].slice.call(document.querySelectorAll('[data-item]'));
 var heads=[].slice.call(document.querySelectorAll('[data-group-head]'));
 var tocItems=[].slice.call(document.querySelectorAll('[data-toc]'));
-var texts=items.map(function(el){return String(el.textContent||'').toLowerCase().replace(/\s+/g,' ')});
+var texts=items.map(function(el){return (String(el.textContent||'')+' '+String(el.getAttribute('data-keywords')||'')).toLowerCase().replace(/\s+/g,' ')});
 form.hidden=false;
 function terms(q){return String(q||'').toLowerCase().split(/\s+/).filter(Boolean)}
 function apply(){

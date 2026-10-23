@@ -528,6 +528,40 @@ test('adminSaveSettings validates the ranges, PUTs both numbers, and reports err
   assert.match(modals[0].body, /settings table/);
 });
 
+test('adminSettingsHTML: the sign-in contact line field, escaped, limited to 200, with a hint', () => {
+  reset();
+  const html = f('adminSettingsHTML')({ resultsDays: 14, liveHours: 48, adminContact: '"><script>alert(1)</script>', limits: { resultsDays: [1, 90], liveHours: [1, 168] }, contactMaxLength: 200 });
+  assert.match(html, /<label for="adminSetContact">Contact line on the sign-in page<\/label><input id="adminSetContact" type="text" maxlength="200" value="&quot;&gt;&lt;script&gt;alert\(1\)&lt;\/script&gt;"/);
+  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /No account yet\? Accounts are created by the site admin\./);
+  assert.match(html, /Leave it empty to show only that sentence/);
+  assert.match(f('adminSettingsHTML')({ resultsDays: 14, liveHours: 48 }), /id="adminSetContact" type="text" maxlength="200" value=""/, 'older server answer: empty field, default limit');
+});
+
+test('adminSaveSettings sends the contact line (trimmed, one line), and refuses one that is too long or has < or >', async () => {
+  reset();
+  reply('GET /api/admin/settings', 200, { resultsDays: 14, liveHours: 48, adminContact: '', limits: { resultsDays: [1, 90], liveHours: [1, 168] }, contactMaxLength: 200 });
+  await f('adminShow')('settings'); calls.length = 0;
+  els.adminSetResults = { value: '14' }; els.adminSetLive = { value: '48' };
+  for (const bad of ['x'.repeat(201), '<b>hi</b>', 'a > b']) {
+    els.adminSetContact = { value: bad }; modals.length = 0;
+    assert.equal(await f('adminSaveSettings')(), false);
+    assert.equal(modals.length, 1);
+    assert.match(modals[0].title, /contact line/);
+  }
+  assert.equal(calls.length, 0);
+  els.adminSetContact = { value: '  Ask the club secretary\n at the bar. ' };
+  reply('PUT /api/admin/settings', 200, { resultsDays: 14, liveHours: 48, adminContact: 'Ask the club secretary at the bar.', limits: { resultsDays: [1, 90], liveHours: [1, 168] }, contactMaxLength: 200 });
+  assert.equal(await f('adminSaveSettings')(), true);
+  assert.deepEqual(calls[0], { url: '/api/admin/settings', method: 'PUT', body: { resultsDays: 14, liveHours: 48, adminContact: 'Ask the club secretary at the bar.' } });
+  assert.equal(run(app, 'adminState.settings.adminContact'), 'Ask the club secretary at the bar.');
+  assert.match(run(app, 'adminState.notice'), /sign-in page/);
+  calls.length = 0;
+  els.adminSetContact = { value: '' };
+  assert.equal(await f('adminSaveSettings')(), true);
+  assert.deepEqual(calls[0].body, { resultsDays: 14, liveHours: 48, adminContact: '' }, 'an empty box clears the line');
+});
+
 /* ---------- Opening and reopening events ---------- */
 function eventRow(id, extra) {
   const t = f('blankTournament')(); Object.assign(t, extra || {});

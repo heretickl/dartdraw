@@ -24,7 +24,7 @@ function reset() {
   run(app, 'currentOrganizer = __org; lockedIds.clear(); currentStage = 1');
 }
 const optionValues = (html, id) => {
-  const m = html.match(new RegExp('<select id="' + id + '">([\\s\\S]*?)</select>'));
+  const m = html.match(new RegExp('<select id="' + id + '"(?: onchange="[^"]*")?>([\\s\\S]*?)</select>'));
   return m ? [...m[1].matchAll(/<option value="([^"]*)"/g)].map((x) => x[1]) : null;
 };
 const formatChoices = (html) => [...html.matchAll(/setFormatType\('(\w+)'\)/g)].map((x) => x[1]);
@@ -59,6 +59,26 @@ test('stage 1 keeps Triples selectable only for an event that already has it; Te
   assert.deepEqual(optionValues(render(1), 'f_unit'), ['Singles', 'Doubles', 'Teams']);
   assert.match(render(1), /<option value="Doubles" selected>/);
   void tr; void tm;
+});
+
+test('stage 1 names the entries: pairs in Doubles, teams in Teams, unchanged in Singles; it follows the type box before Save', () => {
+  reset();
+  blank('Singles'); let html = render(1);
+  assert.match(html, /<label id="f_entries_label">Number of entries<\/label>/);
+  assert.match(html, /<div class="hint" id="f_entries_hint" hidden><\/div>/);
+  blank('Doubles'); html = render(1);
+  assert.match(html, /<label id="f_entries_label">Number of pairs<\/label>/);
+  assert.match(html, /id="f_entries_hint">Each entry is a pair of two players: 24 players make 12 pairs\.<\/div>/);
+  blank('Teams'); html = render(1);
+  assert.match(html, /<label id="f_entries_label">Number of teams<\/label>/);
+  assert.match(render(1), /<select id="f_unit" onchange="updateEntriesLabel\(this\.value\)">/);
+  // live: changing the box (not yet saved) relabels the field
+  const label = { textContent: 'Number of entries' }, hint = { textContent: '', hidden: true };
+  app.document = { getElementById: (id) => ({ f_entries_label: label, f_entries_hint: hint }[id] || null) };
+  f('updateEntriesLabel')('Doubles');
+  assert.equal(label.textContent, 'Number of pairs'); assert.equal(hint.hidden, false);
+  f('updateEntriesLabel')('Singles');
+  assert.equal(label.textContent, 'Number of entries'); assert.equal(hint.hidden, true); assert.equal(hint.textContent, '');
 });
 
 test('saving stage 1 on an existing Teams event keeps Teams, and leaves stored player lists exactly as they were', () => {

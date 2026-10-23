@@ -29,6 +29,10 @@ input:focus-visible{border-color:var(--blue)}
 .msg.ok{background:#e8f5ec;color:var(--green)}
 .foot{text-align:center;margin-top:14px;font-size:13px;color:var(--muted)}
 .foot a{display:inline-block;padding:10px 6px;color:var(--blue);text-decoration:underline;font-weight:700}
+/* "No account yet?": shown while sign-up is closed. The contact line is the Admin's own text (Admin > Settings), set with textContent. */
+.noacct{margin-top:6px;line-height:1.5}
+.noacct b{color:var(--ink)}
+.noacct .contact{display:block;margin-top:4px;color:var(--ink);overflow-wrap:anywhere}
 [hidden]{display:none!important}
 /* Embedded in the pop-up on the public site (login.html?embed=1): no page background or centring, a flat card. */
 html.embed body{display:block;min-height:0;padding:0;background:transparent}
@@ -50,6 +54,7 @@ html.embed .card{max-width:none;border:0;border-radius:0;box-shadow:none;margin:
   </form>
   <div class="foot"><a href="/forgot.html">Forgot password?</a></div>
   <div class="foot" id="signupFoot" hidden>Need an account? <a href="/register.html">Sign up</a></div>
+  <div class="foot noacct" id="noAccountFoot"><b>No account yet?</b> Accounts are created by the site admin.<span class="contact" id="adminContact" hidden></span></div>
 </main>
 <script>
 /* Embedded mode: the public site shows this page in a pop-up. Success and the other pages then open in the whole window. */
@@ -86,10 +91,23 @@ async function postJson(url, payload){
   return { res, body };
 }
 
-// Show the Sign up link only while sign-up is open. If the check fails the link stays hidden.
+// Show the Sign up link only while sign-up is open; otherwise "No account yet?" stays, with the Admin's contact line
+// under it when one is set. The line is plain text from Admin > Settings: it is only ever set with textContent.
+// If the check fails the link stays hidden and the note shows without a contact line.
 fetch('/api/auth/config', { cache:'no-store' })
   .then((r) => r.ok ? r.json() : null)
-  .then((cfg) => { if(cfg && cfg.signupOpen === true){ document.getElementById('signupFoot').hidden = false; } })
+  .then((cfg) => {
+    if(!cfg) return;
+    if(cfg.signupOpen === true){
+      document.getElementById('signupFoot').hidden = false;
+      document.getElementById('noAccountFoot').hidden = true;
+      return;
+    }
+    const line = typeof cfg.adminContact === 'string' ? cfg.adminContact.trim().slice(0, 200) : '';
+    const el = document.getElementById('adminContact');
+    el.textContent = line;
+    el.hidden = !line;
+  })
   .catch(() => {});
 
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{

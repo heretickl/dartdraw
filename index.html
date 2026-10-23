@@ -46,6 +46,7 @@ h1{margin:0;font-size:clamp(40px,5.4vw,68px);line-height:1.03;letter-spacing:-.0
 h1 em{font-style:normal;color:var(--gold-big)}
 .lede{margin:26px 0 34px;font-size:clamp(18px,1.9vw,23px);line-height:1.5;color:#46566a;max-width:520px}
 .cta-row{display:flex;flex-wrap:wrap;align-items:center;gap:22px}
+.cta-note{margin:14px 0 0;font-size:15px;color:var(--muted)}
 .tags{display:flex;flex-wrap:wrap;gap:6px 14px;margin:38px 0 0;padding:0;list-style:none;color:#5b6a7d;font-size:17px}
 .tags li+li:before{content:"\2022";margin-right:14px;color:#9aa8ba}
 /* app preview */
@@ -237,9 +238,10 @@ window.__ddSignedIn=fetch('/api/auth/me',{credentials:'same-origin',cache:'no-st
     <h1 id="heroH">Your tournament.<br>Every draw, <em>organised.</em></h1>
     <p class="lede">Create draws, organise groups and prepare branded tournament charts &mdash; all in one place.</p>
     <div class="cta-row">
-      <a class="btn big" href="/login.html" data-login>Log in to get started <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+      <a class="btn big" href="/login.html" data-login>Log in <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-arrow"/></svg></a>
       <a class="btn ghost big" href="/features">Explore the features</a>
     </div>
+    <p class="cta-note">No account yet? Accounts are created by the site admin.</p>
     <ul class="tags" aria-label="Competition types"><li>Singles</li><li>Doubles</li><li>Teams</li></ul>
   </div>
   <div class="preview" aria-hidden="true">

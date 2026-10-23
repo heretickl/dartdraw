@@ -69,7 +69,12 @@ function closeForm(text, kind, intro){
 // anyway; the server refuses with 403 when it is closed.
 fetch('/api/auth/config', { cache:'no-store' })
   .then((r) => r.ok ? r.json() : null)
-  .then((cfg) => { if(cfg && cfg.signupOpen === false){ closeForm('Sign-up is not open yet.', 'err'); } })
+  .then((cfg) => {
+    if(!(cfg && cfg.signupOpen === false)) return;
+    // The same words as the sign-in page's "No account yet?", plus the Admin's contact line (plain text, shown as text).
+    const contact = typeof cfg.adminContact === 'string' ? cfg.adminContact.trim().slice(0, 200) : '';
+    closeForm('Sign-up is not open yet. Accounts are created by the site admin.' + (contact ? ' ' + contact : ''), 'err');
+  })
   .catch(() => {});
 
 form.addEventListener('submit', async (e)=>{
