@@ -1942,21 +1942,21 @@ function propagateByes(rounds){
   propagateByesCore(rounds);
   settleVoids(rounds);
 }
+/* Round by round, every next-round slot takes its feeder's winner (or nobody, when the feeder has no winner). A slot
+   that changes resets that match's result, and because the rounds are walked in order the reset carries on through
+   every later round: correcting or clearing an early result never leaves the old winner (or a stale score, or a
+   stale champion) further on. A slot that already holds the right entry is left alone, so a score-only correction
+   (same winner) changes nothing later. */
 function propagateByesCore(rounds){
   for(let r=0; r<rounds.length-1; r++){
+    const nextRound = rounds[r+1];
     rounds[r].forEach((m, i)=>{
-      if(!m.winnerId) return;
-      const nextRound = rounds[r+1];
-      const nextMatch = nextRound[Math.floor(i/2)];
-      const slot = i%2===0 ? 'aEntryId' : 'bEntryId';
-      if(nextMatch[slot] !== m.winnerId){
-        nextMatch[slot] = m.winnerId;
-        nextMatch.winnerId = null; nextMatch.aLegs=null; nextMatch.bLegs=null; nextMatch.bye=false; delete nextMatch.void;
-      }
-      // Auto-advance a next-round match if it now has exactly one real side (opponent eliminated with no other source, rare but possible when a whole side of the bracket is byes)
+      const next = nextRound[Math.floor(i/2)], slot = i%2===0 ? 'aEntryId' : 'bEntryId', want = m.winnerId || null;
+      if(next[slot] === want) return;
+      next[slot] = want;
+      next.winnerId = null; next.aLegs = null; next.bLegs = null; next.wo = false; next.bye = false; delete next.void;
     });
   }
-  // Second pass: any match with one populated side and the other side impossible to fill (both its own feeder matches are byes into a dead slot) is rare with power-of-2 brackets, so no extra handling needed.
 }
 /* "Neither showed": a void match has no winner and nobody advances from it. The next-round match is resolved from its
    two feeders — both void: void too; one void and the other won: a bye for that winner; one void and the other still
@@ -2109,7 +2109,113 @@ function bracketColumnsHTML(bracket, t, opts){
     }).join('')+
   '</div>';
 }
+/* ---------- Correcting or clearing a knockout result (every bracket: Knockout, the main bracket and the Plate pool
+   after a round robin, Teams knockouts, the Group Boards Finals and Group Boards groups) ----------
+   A change that alters who goes through resets, transitively, every later match the old winner had reached
+   (propagateByesCore), and the champion with it. Before such a change erases a later RESULT, the organiser is told
+   which ones and asked (koChangeWithConfirm); Cancel leaves everything as it was. A score-only correction (same
+   winner) never touches later rounds, so it is not asked about. Group Boards groups keep their own cascade
+   (podsApplyResult/podsPropagate) and are not asked about a score change, as before; Clear result asks everywhere. */
+/* A match that holds a result an organiser entered or caused: a score, a winner, a walkover or "neither showed". A bye is not one. */
+function koHasResult(m){ return !!m && !m.bye && (m.winnerId!=null || m.aLegs!=null || m.bLegs!=null || (!!m.void && !!(m.aEntryId || m.bEntryId))); }
+function koMatchKey(m){ return [m.aEntryId||'', m.bEntryId||'', m.winnerId||'', m.aLegs==null?'':m.aLegs, m.bLegs==null?'':m.bLegs, m.void?1:0, m.wo?1:0].join('|'); }
+/* The later results a change to match (ri, mi) would erase, found by making the change on a copy of the bracket:
+   applyTo(match) makes the change, settle(rounds) re-settles the copy exactly as the real change will. */
+function koChangeEffects(bracket, ri, mi, applyTo, settle){
+  const copy = JSON.parse(JSON.stringify(bracket.rounds));
+  applyTo(copy[ri][mi]);
+  settle(copy);
+  const cleared = [];
+  for(let r=ri+1; r<bracket.rounds.length; r++) bracket.rounds[r].forEach((m, i)=>{
+    if(koHasResult(m) && koMatchKey(m)!==koMatchKey(copy[r][i])) cleared.push({ ri:r, mi:i, m });
+  });
+  const last = bracket.rounds.length-1;
+  const champion = cleared.some(c=> c.ri===last) ? bracketChampion(bracket) : null;
+  return { cleared, champion };
+}
+/* "Semifinal 3-1: Sam 3–1 Alex" (or a walkover, or neither attended), for the list in the confirm box. */
+function koClearedLineHTML(bracket, c){
+  const m = c.m, a = escapeHtml(bracketEntryName(state, m.aEntryId)||'?'), b = escapeHtml(bracketEntryName(state, m.bEntryId)||'?');
+  const what = m.void ? a+' v '+b+' (neither attended)'
+    : m.aLegs!=null && m.bLegs!=null ? a+' '+escText(m.aLegs)+'–'+escText(m.bLegs)+' '+b+(m.wo?' (walkover)':'')
+    : a+' v '+b;
+  return '<li>'+escapeHtml(koRoundName(bracket, c.ri))+' '+escapeHtml(koMatchTag(bracket, state, c.ri, c.mi))+': '+what+'</li>';
+}
+/* The question asked before a change erases later results. verb: 'change' (a new score), 'clear' (Clear result) or 'reverse' (Reverse it). */
+function koChampionLineHTML(bracket, id, pod){
+  const name = escapeHtml(bracketEntryName(state, id)||'');
+  return pod ? '<p>The group winner ('+name+') will be cleared too, and their place in the Finals with it.</p>' : '<p>The champion ('+name+') will be cleared too.</p>';
+}
+function koCascadeConfirmHTML(bracket, fx, verb, pod){
+  const n = fx.cleared.length;
+  const doing = verb==='clear' ? 'Clearing' : verb==='reverse' ? 'Reversing' : 'Changing';
+  return '<p>'+doing+' this result will clear '+n+' later result'+(n===1?'':'s')+', and you will need to enter '+(n===1?'it':'them')+' again:</p>'+
+    '<ul style="margin:-6px 0 14px 18px;padding:0;font-size:13px;line-height:1.5">'+fx.cleared.map(c=> koClearedLineHTML(bracket, c)).join('')+'</ul>'+
+    (fx.champion ? koChampionLineHTML(bracket, fx.champion, pod) : '')+
+    '<p>Continue?</p>';
+}
+/* Started-round stamps (Start round) of later rounds that this change emptied: a round with no result left whose round
+   before it is no longer decided has not really started, so its "Start round" button comes back. */
+/* Decided for the round-by-round schedule: it has a winner, is a bye, or is void. In round 1 a match with a missing side
+   is a dead slot (decided); in a later round a missing side means it is still waiting for a feeder (not decided). */
+function koMatchDecided(m, ri){ return !!(m.winnerId || m.bye || m.void || (ri===0 && (!m.aEntryId || !m.bEntryId))); }
+function koResetEmptiedRounds(bracket, fromRound){
+  const rsa = bracket.roundStartedAt;
+  if(!Array.isArray(rsa)) return;
+  for(let r=fromRound+1; r<bracket.rounds.length; r++){
+    if(!rsa[r] || bracket.rounds[r].some(koHasResult)) continue;
+    if(!bracket.rounds[r-1].every(m=> koMatchDecided(m, r-1))) rsa[r] = null;
+  }
+}
+/* Makes the change for real. Group Boards groups go through podsApplyResult (their own cascade, and the check that no
+   scored Finals match depends on it); every other bracket is re-settled with settle(). Returns { ok, message }. */
+function koCommitChange(bracketKey, ri, mi, applyTo, settle){
+  const pod = podByKey(state, bracketKey);
+  if(pod) return podsApplyResult(state, pod, ()=> applyTo(pod.bracket.rounds[ri][mi]));
+  const bracket = bracketByKey(state, bracketKey);
+  applyTo(bracket.rounds[ri][mi]);
+  settle(bracket.rounds);
+  koResetEmptiedRounds(bracket, ri);
+  return { ok:true, message:'' };
+}
+/* Every knockout result change goes through here. It never runs on a finalized event. When later results would be
+   erased (and always for Clear result) it asks first, in a box that replaces the one on screen; the change is made
+   only on "Change result" / "Clear result". Returns what an openModal handler returns. */
+function koChangeWithConfirm(bracketKey, ri, mi, applyTo, settle, verb){
+  if(isLocked(state)) return { error:'This event is finalized. Only an Admin can change it.' };
+  const bracket = bracketByKey(state, bracketKey);
+  if(!bracket || !bracket.rounds[ri] || !bracket.rounds[ri][mi]) return { error:'This match is no longer in the bracket.' };
+  const pod = podByKey(state, bracketKey);
+  const commit = ()=>{
+    if(isLocked(state)) return { error:'This event is finalized. Only an Admin can change it.' };
+    const res = koCommitChange(bracketKey, ri, mi, applyTo, settle);
+    if(!res.ok) return { error: res.message };
+    persist(); render();
+  };
+  const fx = koChangeEffects(bracket, ri, mi, applyTo, pod ? podsPropagate : settle);
+  if(verb!=='clear' && (pod || !fx.cleared.length)) return commit();
+  const m = bracket.rounds[ri][mi];
+  const aName = escapeHtml(bracketEntryName(state, m.aEntryId)||''), bName = escapeHtml(bracketEntryName(state, m.bEntryId)||'');
+  const body = fx.cleared.length ? koCascadeConfirmHTML(bracket, fx, verb, !!pod)
+    : '<p>'+aName+' v '+bName+' ('+escapeHtml(koRoundName(bracket, ri))+' '+escapeHtml(koMatchTag(bracket, state, ri, mi))+') goes back to not played'+
+      (m.winnerId && ri<bracket.rounds.length-1 ? ', and '+escapeHtml(bracketEntryName(state, m.winnerId)||'')+' is taken out of the next round' : '')+
+      (m.winnerId && ri===bracket.rounds.length-1 ? (pod ? ', and the group winner is cleared, with their place in the Finals' : ', and the champion is cleared') : '')+'.</p>';
+  openModal({
+    title: verb==='clear' ? 'Clear this result?' : 'This changes who goes through',
+    bodyHTML: body,
+    confirmLabel: verb==='clear' ? 'Clear result' : verb==='reverse' ? 'Reverse it' : 'Change result', confirmClass:'danger',
+    onConfirm: commit
+  });
+  return { keepOpen:true };
+}
+/* Clear result: the match goes back to unplayed, and what it decided later on is cleared (with the question above). */
+function koClearResult(bracketKey, roundIdx, matchIdx){
+  return koChangeWithConfirm(bracketKey, roundIdx, matchIdx,
+    (x)=>{ x.aLegs = null; x.bLegs = null; x.winnerId = null; x.wo = false; delete x.void; },
+    propagateByes, 'clear');
+}
 function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
   const bracket = bracketByKey(state, bracketKey);
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m.aEntryId || !m.bEntryId || m.bye) return;
@@ -2128,6 +2234,8 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
       (teams ? teamResultHintHTML(state, 'ko')
         : '<p style="font-size:11px;color:#8a97a5">Best of '+bestOf+' legs — a side can score at most '+majority+'. Knockout matches can\'t end in a draw.</p>'),
     confirmLabel:'Save score', confirmClass:'primary',
+    secondaryLabel: koHasResult(m) && !m.void ? 'Clear result' : '',
+    onSecondary: ()=> koClearResult(bracketKey, roundIdx, matchIdx),
     onConfirm:()=>{
       const va = document.getElementById('scA').value, vb = document.getElementById('scB').value;
       const la = parseInt(va), lb = parseInt(vb);
@@ -2142,13 +2250,9 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
       }
       const winnerIsA = la>lb;
       const wasVoid = !!m.void;
-      const apply = ()=>{ m.aLegs = la; m.bLegs = lb; m.winnerId = winnerIsA ? m.aEntryId : m.bEntryId; m.wo = false; delete m.void; };
-      const podHit = podByKey(state, bracketKey);
-      if(podHit){
-        const res = podsApplyResult(state, podHit, apply);
-        if(!res.ok) return { error: res.message };
-      } else { apply(); propagateByes(bracket.rounds); if(wasVoid) settleVoids(bracket.rounds, true); }
-      persist(); render();
+      const applyTo = (x)=>{ x.aLegs = la; x.bLegs = lb; x.winnerId = winnerIsA ? x.aEntryId : x.bEntryId; x.wo = false; delete x.void; };
+      const settle = (rounds)=>{ propagateByes(rounds); if(wasVoid) settleVoids(rounds, true); };
+      return koChangeWithConfirm(bracketKey, roundIdx, matchIdx, applyTo, settle, 'change');
     }
   });
 }
@@ -2164,6 +2268,7 @@ function koWalkoverLegs(t, bracketKey, totalRounds, roundIdx){
   return Math.floor(legsForKnockoutRound(t, bracketKey, totalRounds, roundIdx)/2)+1;
 }
 function markKnockoutNoShow(bracketKey, roundIdx, matchIdx, side){
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
   const bracket = bracketByKey(state, bracketKey);
   if(!bracket) return;
   const m = bracket.rounds[roundIdx][matchIdx];
@@ -2184,6 +2289,7 @@ function markKnockoutNoShow(bracketKey, roundIdx, matchIdx, side){
 /* "Neither showed": nobody advances. The next opponent gets a bye (see settleVoids); a group whose final is void has
    no winner and leaves a dead Finals slot. Both players are flagged no-show, as a single no-show flags one. */
 function markKnockoutVoid(bracketKey, roundIdx, matchIdx){
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
   const bracket = bracketByKey(state, bracketKey);
   if(!bracket) return;
   const m = bracket.rounds[roundIdx][matchIdx];
@@ -2200,17 +2306,15 @@ function markKnockoutVoid(bracketKey, roundIdx, matchIdx){
 }
 /* Undoes "neither showed": the match goes back to being played. The no-show flags stay, as they do after any no-show correction. */
 function reverseKnockoutVoid(bracketKey, roundIdx, matchIdx){
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
   const bracket = bracketByKey(state, bracketKey);
   if(!bracket) return;
   const m = bracket.rounds[roundIdx][matchIdx];
   if(!m || !m.void || !m.aEntryId || !m.bEntryId) return;
-  const apply = ()=>{ delete m.void; };
-  const podHit = podByKey(state, bracketKey);
-  if(podHit){
-    const res = podsApplyResult(state, podHit, apply);
-    if(!res.ok){ openModal({title:'Can\'t change this result', body: res.message, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}}); return; }
-  } else { apply(); propagateByes(bracket.rounds); settleVoids(bracket.rounds, true); }
-  persist(); render();
+  /* The bye the void gave the next opponent goes, and with it anything that opponent has won since (asked first). */
+  const res = koChangeWithConfirm(bracketKey, roundIdx, matchIdx, (x)=>{ delete x.void; },
+    (rounds)=>{ propagateByes(rounds); settleVoids(rounds, true); }, 'reverse');
+  if(res && res.error) openModal({title:'Can\'t change this result', body: res.message || res.error, confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
 }
 function openKoNoShowPicker(bracketKey, roundIdx, matchIdx){
   const bracket = bracketByKey(state, bracketKey);
@@ -2808,8 +2912,8 @@ function buildGroups(t){
      never place a new/unassigned entry into one, even if it has room
      (groups don't always split evenly, so an already-started group can
      easily sit under maxPer while others are full). This only governs
-     this automatic placement; manual "Swap with…" between two already-
-     seated entries is a separate code path and stays unrestricted. If
+     this automatic placement; manual "Swap with…" is a separate code path
+     with the same rule (refused once a group involved is in play). If
      every existing group has already started, an extra one is created
      purely to hold the overflow rather than force it into a live group. */
   function openGroupPool(){
@@ -2866,6 +2970,9 @@ function buildGroups(t){
    extra needs to happen here for those. */
 function shuffleGroups(){
   const t = state;
+  if(isLocked(t)) return;
+  const busy = groupsInPlayLabels(t);
+  if(busy.length){ rosterLockedModal('The groups can no longer be redrawn', busy, 'a new draw'); return; }
   const active = shuffleArray(t.entriesList.filter(e=>!e.withdrawn));
   const withdrawn = t.entriesList.filter(e=>e.withdrawn);
   t.entriesList = active.concat(withdrawn);
@@ -2880,6 +2987,8 @@ function confirmShuffleGroups(){
      confirmation. Only a re-draw (groups already exist) is destructive
      enough to warn about. */
   if(!state.groups.length){ shuffleGroups(); return; }
+  const busy = groupsInPlayLabels(state);
+  if(busy.length){ rosterLockedModal('The groups can no longer be redrawn', busy, 'a new draw'); return; }
   openModal({
     title:'Random draw?',
     body:'Randomly re-deals every entry into a new group'+(state.format.orgSplit?' (still avoiding same-organisation clashes where possible)':'')+'. This discards any manual swaps you\'ve made, and un-confirms any chart whose entries change.',
@@ -4403,23 +4512,32 @@ async function duplicateTournament(id, ev){
 }
 
 /* ---------- Modal ---------- */
-function openModal({title, body, bodyHTML, confirmLabel, confirmClass, onConfirm}){
+/* onConfirm (and the optional second action, onSecondary, shown as a third button between Cancel and the main one)
+   may return { error } to keep the box open with a message, or { keepOpen:true } when it opened another box in its
+   place (for example a "this will clear later results" check), so that box is not closed straight away. */
+function openModal({title, body, bodyHTML, confirmLabel, confirmClass, onConfirm, secondaryLabel, secondaryClass, onSecondary}){
   const backdrop = document.getElementById('modalBackdrop');
   const box = document.getElementById('modalBox');
+  const second = secondaryLabel && typeof onSecondary==='function';
   box.innerHTML = '<h3>'+title+'</h3>' + (bodyHTML ? bodyHTML : '<p>'+(body||'')+'</p>') +
     '<div id="modalErr" style="color:#c0392b;font-size:11px;margin:-8px 0 10px;display:none"></div>'+
-    '<div class="buttonrow"><button class="btn secondary" onclick="closeModal()">Cancel</button><button class="btn '+(confirmClass||'primary')+'" id="modalConfirmBtn">'+confirmLabel+'</button></div>';
+    '<div class="buttonrow"><button class="btn secondary" onclick="closeModal()">Cancel</button>'+
+      (second ? '<button class="btn '+(secondaryClass||'ghost')+'" id="modalSecondaryBtn">'+secondaryLabel+'</button>' : '')+
+      '<button class="btn '+(confirmClass||'primary')+'" id="modalConfirmBtn">'+confirmLabel+'</button></div>';
   backdrop.classList.add('show');
-  document.getElementById('modalConfirmBtn').onclick = ()=>{
-    const result = onConfirm();
+  const handle = (fn)=> ()=>{
+    const result = fn();
     if(result && result.error){
       const errEl = document.getElementById('modalErr');
       errEl.textContent = result.error;
       errEl.style.display = 'block';
       return;
     }
+    if(result && result.keepOpen) return;
     closeModal();
   };
+  document.getElementById('modalConfirmBtn').onclick = handle(onConfirm);
+  if(second) document.getElementById('modalSecondaryBtn').onclick = handle(onSecondary);
 }
 function closeModal(){ document.getElementById('modalBackdrop').classList.remove('show'); }
 
@@ -4669,11 +4787,29 @@ function stage1(){
     '</div>'+
   '</div>';
 }
+/* The entries ensureEntries would remove for a requested count: active entries past that number, from the end. */
+function entriesRemovedBy(t, requested){
+  const n = Math.max(2, parseInt(requested)||0);
+  const active = (t.entriesList||[]).filter(e=>!e.withdrawn);
+  return active.length > n ? active.slice(n).map(e=>e.id) : [];
+}
+function entriesInPlayModal(t, requested, ids){
+  const names = ids.map(id=> escapeHtml((t.entriesList.find(e=>e.id===id)||{}).name||'')).join(', ');
+  const active = t.entriesList.filter(e=>!e.withdrawn).length;
+  openModal({ title:'These entries are already playing',
+    bodyHTML:'<p>Lowering the number of entries to '+escText(requested)+' would remove the last '+(active-Math.max(2, parseInt(requested)||0))+' from the list, and '+names+' '+(ids.length===1?'is':'are')+' already playing: their group has started, they have a result, or they are in the drawn knockout. Removing them would delete results already played.</p>'+
+      '<p>Nothing has been saved: change the number back to '+escText(active)+'. To take someone out of the rest of the event, use <b>Mark no-show&hellip;</b> instead.</p>',
+    confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{} });
+}
 function saveStage1(){
   const e = state.eventCreation;
   /* Basic limit: checked before anything is changed or saved. Shrinking, or keeping an already-larger event as it is, stays allowed. */
   const requested = Math.max(2, parseInt(document.getElementById('f_entries').value)||2);
   if(entryGrowthBlocked(requested, state.entriesList.filter(x=>!x.withdrawn).length)){ showEntryLimitModal(); return; }
+  /* Lowering the number removes entries from the end of the list (ensureEntries). Refused, before anything is changed
+     (so the form keeps what was typed), when one of those is already playing. */
+  const playing = entriesRemovedBy(state, requested).filter(id=> withdrawBlock(state, id));
+  if(playing.length){ entriesInPlayModal(state, requested, playing); return; }
   e.tournamentName = document.getElementById('f_tname').value.trim() || 'Untitled tournament';
   e.eventName = document.getElementById('f_ename').value.trim() || 'Untitled event';
   e.eventType = document.getElementById('f_etype').value;
@@ -5657,11 +5793,14 @@ function setStage3OrgSplit(v){
 function entriesPanel(){
   const drawn = !!state.groups.length;
   const drawBtnClass = drawn ? 'btn ghost' : 'btn primary';
-  const drawHint = drawn
+  const busy = groupsInPlayLabels(state);
+  const drawHint = busy.length
+    ? groupsLockedText(busy)+' started, so the groups can no longer be redrawn and entries in a started group can no longer be swapped: that would leave results with entries who did not play them. Use Mark no-show… to take someone out.'
+    : drawn
     ? 'Random draw re-deals who\'s in which group'+(state.format.orgSplit?', avoiding same-organisation clashes where possible':'')+'.'
     : 'Entries aren\'t assigned to a group yet — click Random draw to deal them in'+(state.format.orgSplit?', avoiding same-organisation clashes where possible':'')+'.';
   const viewToggle = '<div class="buttonrow" style="margin:0 0 10px;align-items:center">'+
-      '<button class="'+drawBtnClass+'" onclick="confirmShuffleGroups()">Random draw</button>'+
+      '<button class="'+drawBtnClass+'"'+(busy.length?' disabled':'')+' onclick="confirmShuffleGroups()">Random draw</button>'+
       '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" style="width:auto;height:auto" '+(state.format.orgSplit?'checked':'')+' onchange="setStage3OrgSplit(this.checked)"> Avoid same-organisation clashes</label>'+
     '</div>'+
     '<div class="hint" style="margin:0 0 14px">'+drawHint+'</div>'+
@@ -5691,8 +5830,8 @@ function groupedEntriesHTML(){
           if(!ent) return '';
           return '<div class="entry-row">'+
             entryFieldsHTML(ent)+
-            '<button class="btn ghost" style="padding:6px 9px;font-size:10px" onclick="openSwapPicker(\''+escJs(eid)+'\')">Swap with…</button>'+
-            '<button class="btn danger" style="padding:6px 9px;font-size:10px" onclick="withdrawEntry(\''+escJs(eid)+'\')">Withdraw</button></div>';
+            (groupInPlay(g) ? '' : '<button class="btn ghost" style="padding:6px 9px;font-size:10px" onclick="openSwapPicker(\''+escJs(eid)+'\')">Swap with…</button>')+
+            withdrawButtonHTML(ent)+'</div>';
         }).join('')+
         '</div>'+
         livePreviewBlock(g)+
@@ -5729,8 +5868,8 @@ function flatEntriesRowsHTML(rows){
     '<div class="entry-row">'+
       (group ? '<span class="confirm-flag yes" style="flex-shrink:0;min-width:64px;text-align:center">Group '+escText(group.label)+'</span>' : '<span class="confirm-flag no" style="flex-shrink:0;min-width:64px;text-align:center">Not drawn</span>')+
       entryFieldsHTML(ent)+
-      (group ? '<button class="btn ghost" style="padding:6px 9px;font-size:10px" onclick="openSwapPicker(\''+escJs(ent.id)+'\')">Swap with…</button>' : '')+
-      '<button class="btn danger" style="padding:6px 9px;font-size:10px" onclick="withdrawEntry(\''+escJs(ent.id)+'\')">Withdraw</button>'+
+      (group && !groupInPlay(group) ? '<button class="btn ghost" style="padding:6px 9px;font-size:10px" onclick="openSwapPicker(\''+escJs(ent.id)+'\')">Swap with…</button>' : '')+
+      withdrawButtonHTML(ent)+
     '</div>'
   ).join('');
 }
@@ -5826,13 +5965,111 @@ function withdrawEntryPreDraw(entryId){
     title:'Withdraw '+escapeHtml(ent.name)+'?',
     body:'Removes them from the entry list before groups are drawn.',
     confirmLabel:'Withdraw', confirmClass:'danger',
-    onConfirm:()=>{ ent.withdrawn = true; persist(); render(); }
+    onConfirm:()=>{
+      if(withdrawBlock(state, entryId)) return { error: WITHDRAW_TOO_LATE };
+      ent.withdrawn = true; persist(); render();
+    }
   });
 }
+const WITHDRAW_TOO_LATE = 'Play has begun since this box opened, so Withdraw is no longer possible. Click Cancel, then use Mark no-show… instead.';
+/* ---------- Withdrawing after play has begun (refused) ----------
+   Withdraw changes who is in a group (or the roster), so it is only safe before play. Once the entry's group has
+   started, once it has any result, or once a drawn bracket (knockout, Plate pool, Group Boards group or Finals)
+   holds it, Withdraw is refused and the existing no-show flow is offered instead: in a round robin group
+   markGroupNoShow (remaining matches become walkover losses), in a bracket markKnockoutNoShow on the entry's next
+   match (the opponent goes through). Returns null when Withdraw is still safe, else what blocks it. */
+/* A bracket of the event's CURRENT format only: a format change keeps an old bracket in the data (pods.js leaves a plain
+   bracket from another format alone), and that one must not count as "drawn". Knockout: the bracket. Round robin ->
+   Knockout: the main bracket and the Plate pool, once drawn from the groups (they carry the A1/B2 seed labels; an older
+   event without labels counts when the round robin has been marked finished). Group Boards: the groups that are
+   confirmed or scored (an editable group is still the draw), and the Finals. Round robin: none. */
+function bracketDrawnFromRR(t, b){ return !!b && !b.podFinals && (b.seedLabels ? Object.keys(b.seedLabels).length>0 : !!t.rrFinishedAt); }
+function entryBrackets(t){
+  const out = [], ft = t.format && t.format.formatType;
+  if(ft==='knockout'){ if(t.knockout && !t.knockout.podFinals) out.push({ key:'knockout', bracket:t.knockout }); }
+  else if(ft==='rrknockout'){
+    if(bracketDrawnFromRR(t, t.knockout)) out.push({ key:'knockout', bracket:t.knockout });
+    if(bracketDrawnFromRR(t, t.knockoutLosers)) out.push({ key:'knockoutLosers', bracket:t.knockoutLosers });
+  } else if(ft==='podknockout'){
+    podsList(t).forEach(p=>{ if(p.bracket && !podsCanEdit(p)) out.push({ key:podBracketKey(p), bracket:p.bracket }); });
+    if(podsFinals(t)) out.push({ key:'knockout', bracket:podsFinals(t) });
+  }
+  return out;
+}
+function bracketHoldsEntry(bracket, entryId){ return bracket.rounds.some(r=> r.some(m=> m.aEntryId===entryId || m.bEntryId===entryId)); }
+function withdrawBlock(t, entryId){
+  const g = (t.groups||[]).find(gr=> gr.entryIds.includes(entryId)) || null;
+  const inBracket = entryBrackets(t).filter(b=> bracketHoldsEntry(b.bracket, entryId));
+  if(inBracket.length) return { reason:'bracket', group:g, brackets:inBracket };
+  const hasResult = !!g && groupMatches(g).some(([a,b])=> (a===entryId || b===entryId) && getScore(g,a,b));
+  if(g && (g.gameStarted || hasResult)) return { reason:'started', group:g };
+  return null;
+}
+/* The entry's next knockout match still to play: { key, ri, mi, side, ready } (ready = both sides known), or null. */
+function entryNextKnockoutMatch(t, entryId, brackets){
+  for(const b of brackets){
+    for(let ri=0; ri<b.bracket.rounds.length; ri++){
+      for(let mi=0; mi<b.bracket.rounds[ri].length; mi++){
+        const m = b.bracket.rounds[ri][mi];
+        if(m.aEntryId!==entryId && m.bEntryId!==entryId) continue;
+        if(m.winnerId || m.bye || m.void) continue;
+        return { key:b.key, bracket:b.bracket, ri, mi, side: m.aEntryId===entryId ? 'a' : 'b', ready: !!(m.aEntryId && m.bEntryId) };
+      }
+    }
+  }
+  return null;
+}
+/* Shown instead of the Withdraw box once play has begun. Its button is the existing no-show flow, when there is one. */
+function withdrawRefusedModal(entryId, block){
+  const t = state, ent = t.entriesList.find(e=>e.id===entryId);
+  if(!ent) return;
+  const name = escapeHtml(ent.name);
+  const close = { confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{} };
+  if(block.reason==='bracket'){
+    const next = entryNextKnockoutMatch(t, entryId, block.brackets);
+    const pods = block.brackets.every(b=> b.key.indexOf('pod:')===0);
+    const title = pods ? 'The groups have been drawn' : 'The knockout has been drawn';
+    const head = '<p>'+(pods ? 'The Group Boards groups have been drawn' : 'The knockout has been drawn')+' and '+name+' is in '+(pods ? 'one' : 'it')+'. Withdrawing now would leave '+name+' in the bracket and change results that are already in.</p>';
+    if(next && next.ready){
+      const tag = escapeHtml(koRoundName(next.bracket, next.ri))+' '+escapeHtml(koMatchTag(next.bracket, t, next.ri, next.mi));
+      const opp = escapeHtml(bracketEntryName(t, next.side==='a' ? next.bracket.rounds[next.ri][next.mi].bEntryId : next.bracket.rounds[next.ri][next.mi].aEntryId)||'');
+      openModal({ title, bodyHTML: head+'<p>To take '+name+' out of the rest of the event, use <b>Mark no-show</b> instead: '+name+' loses '+tag+' by a walkover, and '+opp+' goes through. Results already played stay.</p>',
+        confirmLabel:'Mark no-show instead', confirmClass:'primary', onConfirm:()=>{ markKnockoutNoShow(next.key, next.ri, next.mi, next.side); } });
+      return;
+    }
+    const later = next ? '<p>'+name+'&rsquo;s next match ('+escapeHtml(koRoundName(next.bracket, next.ri))+' '+escapeHtml(koMatchTag(next.bracket, t, next.ri, next.mi))+') has no opponent yet. When it has, click <b>Mark no-show&hellip;</b> on that match: the opponent goes through by a walkover.</p>'
+      : '<p>'+name+' has no knockout match left to play, so there is nothing to change. Their results stay as they are.</p>';
+    openModal(Object.assign({ title, bodyHTML: head+later }, close));
+    return;
+  }
+  const g = block.group;
+  const open = groupMatches(g).filter(([a,b])=> (a===entryId || b===entryId) && !getScore(g,a,b)).length;
+  const head = '<p>Withdrawing now would remove '+name+'&rsquo;s played results from Group '+escText(g.label)+' and change the table.</p>';
+  if(ent.noShow){ openModal(Object.assign({ title:'Games have started in Group '+escText(g.label), bodyHTML: head+'<p>'+name+' is already marked as a no-show: their remaining matches are walkover losses. Nothing else to do.</p>' }, close)); return; }
+  if(!open){ openModal(Object.assign({ title:'Games have started in Group '+escText(g.label), bodyHTML: head+'<p>'+name+' has played every match in the group, so there is nothing to mark. Their results stay as they are.</p>' }, close)); return; }
+  openModal({ title:'Games have started in Group '+escText(g.label),
+    bodyHTML: head+'<p>To take '+name+' out of the rest of the event, use <b>Mark no-show</b> instead: '+name+'&rsquo;s '+open+' remaining match'+(open===1?'':'es')+' become'+(open===1?'s a':'')+' walkover loss'+(open===1?'':'es')+', so the opponents get the points. Results already played stay.</p>',
+    confirmLabel:'Mark no-show instead', confirmClass:'primary', onConfirm:()=>{ markGroupNoShow(g.id, entryId); } });
+}
+/* What step 3 shows beside an entry: Withdraw while it is safe; once play has begun a "Mark no-show…" button that
+   explains why and offers the no-show flow (or nothing, when the entry has nothing left to play or is already marked). */
+function withdrawButtonHTML(ent){
+  const block = withdrawBlock(state, ent.id);
+  const style = 'padding:6px 9px;font-size:10px';
+  if(!block) return '<button class="btn danger" style="'+style+'" onclick="withdrawEntry(\''+escJs(ent.id)+'\')">Withdraw</button>';
+  if(ent.noShow) return '<span class="confirm-flag no" style="flex-shrink:0">No-show</span>';
+  const route = block.reason==='bracket' ? entryNextKnockoutMatch(state, ent.id, block.brackets)
+    : groupMatches(block.group).some(([a,b])=> (a===ent.id || b===ent.id) && !getScore(block.group,a,b));
+  if(!route) return '';
+  return '<button class="btn ghost" style="'+style+'" title="Games have started: Withdraw is no longer possible" onclick="withdrawEntry(\''+escJs(ent.id)+'\')">Mark no-show&hellip;</button>';
+}
 function withdrawEntry(entryId){
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
   const ent = state.entriesList.find(e=>e.id===entryId);
   const g = state.groups.find(gr=> gr.entryIds.includes(entryId));
   if(!ent) return;
+  const block = withdrawBlock(state, entryId);
+  if(block){ withdrawRefusedModal(entryId, block); return; }
   if(!g){ withdrawEntryPreDraw(entryId); return; }
   openModal({
     title:'Withdraw '+escapeHtml(ent.name)+'?',
@@ -5840,6 +6077,7 @@ function withdrawEntry(entryId){
       '<div class="field"><label>Replacement name (optional)</label><input id="withdrawReplacement" type="text" placeholder="Leave blank for a bye"></div>',
     confirmLabel:'Withdraw', confirmClass:'danger',
     onConfirm:()=>{
+      if(withdrawBlock(state, entryId)) return { error: WITHDRAW_TOO_LATE };   // play began while this box was open
       const replacement = document.getElementById('withdrawReplacement').value.trim();
       g.entryIds = g.entryIds.filter(id=>id!==entryId);
       ent.withdrawn = true;
@@ -5858,9 +6096,24 @@ function withdrawEntry(entryId){
    Lists every Group/Position slot; shows the occupant's name if filled, or
    "(blank)" if that position doesn't exist yet. Clicking a row performs the
    swap (or move, if the target slot is blank) immediately. */
+/* ---------- Groups that are in play keep their entries ----------
+   Once a group has started (Start all games) or holds any result, moving an entry in or out of it would leave
+   results with entries who did not play them (orphan scores) and change the table. So Swap with… and Random draw are
+   refused from then on (with the reason), and step 3 stops offering them; Mark no-show… is the way to take someone out.
+   Before the start nothing changes. */
+function groupInPlay(g){ return !!g && (!!g.gameStarted || Object.keys(g.scores||{}).length>0); }
+function groupsInPlayLabels(t){ return (t.groups||[]).filter(groupInPlay).map(g=>g.label); }
+function groupsLockedText(labels){ return labels.length===1 ? 'Group '+labels[0]+' has' : 'Groups '+labels.join(', ')+' have'; }
+function rosterLockedModal(title, labels, what){
+  openModal({ title, bodyHTML:'<p>'+escapeHtml(groupsLockedText(labels))+' started, so '+what+' would leave results already played with entries who did not play them, and change the table.</p>'+
+    '<p>To take someone out of the rest of the event, use <b>Mark no-show&hellip;</b> instead: their remaining matches become walkover losses.</p>',
+    confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{} });
+}
 function openSwapPicker(entryId){
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
   const source = state.groups.find(g=> g.entryIds.includes(entryId));
   if(!source) return;
+  if(groupInPlay(source)){ rosterLockedModal('Entries can no longer be swapped', [source.label], 'swapping or moving an entry'); return; }
   const ent = state.entriesList.find(e=>e.id===entryId);
   const maxPer = parseInt(state.format.maxPerGroup)||4;
   const srcIdx = source.entryIds.indexOf(entryId);
@@ -5873,6 +6126,8 @@ function openSwapPicker(entryId){
       const label = 'Position '+(slot+1);
       if(isCurrent){
         rows += '<div class="picker-row current">'+label+'<span class="occ">'+escapeHtml(ent.name)+' — currently here</span></div>';
+      } else if(groupInPlay(g)){
+        if(slot < g.entryIds.length){ const occEnt = state.entriesList.find(e=>e.id===g.entryIds[slot]); rows += '<div class="picker-row current">'+label+'<span class="occ">'+escapeHtml(occEnt?occEnt.name:'—')+' — this group has started</span></div>'; }
       } else if(slot < g.entryIds.length){
         const occEnt = state.entriesList.find(e=>e.id===g.entryIds[slot]);
         rows += '<div class="picker-row" onclick="performSwap(\''+escJs(entryId)+'\',\''+escJs(g.id)+'\','+slot+')">'+label+'<span class="occ">'+escapeHtml(occEnt?occEnt.name:'—')+'</span></div>';
@@ -5890,9 +6145,12 @@ function openSwapPicker(entryId){
   document.getElementById('modalBox').classList.add('wide');
 }
 function performSwap(entryId, targetGroupId, slotIndex){
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
   const target = state.groups.find(g=>g.id===targetGroupId);
   const source = state.groups.find(g=> g.entryIds.includes(entryId));
   if(!target || !source) return;
+  const busy = [source, target].filter((g, i, a)=> groupInPlay(g) && a.indexOf(g)===i).map(g=>g.label);
+  if(busy.length){ rosterLockedModal('Entries can no longer be swapped', busy, 'swapping or moving an entry'); return; }
   const srcIdx = source.entryIds.indexOf(entryId);
   const occupantId = target.entryIds[slotIndex];
   let sizeChanged = false;
@@ -6107,6 +6365,7 @@ function setScore(g,a,b,legsA,legsB){
    clears the tag automatically. */
 function majorityLegs(){ return isTeamsEvent(state) ? teamWalkoverLegs(state) : Math.floor((parseInt(state.format.bestOfLegs)||5)/2)+1; }
 function markGroupNoShow(groupId, entryId){
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
   const g = state.groups.find(x=>x.id===groupId);
   const ent = state.entriesList.find(e=>e.id===entryId);
   if(!g || !ent) return;
@@ -6122,9 +6381,14 @@ function markGroupNoShow(groupId, entryId){
   persist(); render();
 }
 function undoGroupNoShow(groupId, entryId){
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
   const g = state.groups.find(x=>x.id===groupId);
   const ent = state.entriesList.find(e=>e.id===entryId);
   if(!g || !ent) return;
+  /* Undoing removes the walkover results, so after the knockout is drawn it would leave the group unfinished (the same
+     state Clear result refuses to make). */
+  const blocked = rrUndoNoShowBlockedMessage(state, g);
+  if(blocked){ openModal({ title:'This no-show can no longer be undone', body: escapeHtml(blocked), confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{} }); return; }
   ent.noShow = false;
   groupMatches(g).forEach(([a,b])=>{
     if(a!==entryId && b!==entryId) return;
@@ -6136,10 +6400,11 @@ function undoGroupNoShow(groupId, entryId){
 function openNoShowPicker(groupId){
   const g = state.groups.find(x=>x.id===groupId);
   if(!g) return;
+  const undoBlocked = !!rrUndoNoShowBlockedMessage(state, g);   // after the knockout is drawn a no-show stays (see undoGroupNoShow)
   const rows = g.entryIds.map(id=>{
     const ent = state.entriesList.find(e=>e.id===id);
     if(!ent) return '';
-    if(ent.noShow) return '<div class="picker-row"><span>'+escapeHtml(ent.name)+'</span><span class="occ">marked WO — <a href="javascript:void(0)" onclick="undoGroupNoShow(\''+escJs(g.id)+'\',\''+escJs(ent.id)+'\');closeModal();">undo</a></span></div>';
+    if(ent.noShow) return '<div class="picker-row"><span>'+escapeHtml(ent.name)+'</span><span class="occ">marked WO'+(undoBlocked ? '' : ' — <a href="javascript:void(0)" onclick="closeModal();undoGroupNoShow(\''+escJs(g.id)+'\',\''+escJs(ent.id)+'\');">undo</a>')+'</span></div>';
     return '<div class="picker-row" onclick="markGroupNoShow(\''+escJs(g.id)+'\',\''+escJs(ent.id)+'\');closeModal();">'+escapeHtml(ent.name)+'</div>';
   }).join('');
   openModal({
@@ -6461,7 +6726,48 @@ function lockedScoreClick(groupId){
     onConfirm:()=>{}
   });
 }
+/* Clear result (round robin, Singles, Doubles and Teams): the match goes back to not played and the standings are
+   worked out again. Refused once the knockout has been drawn from these groups: clearing would leave the group
+   unfinished, and a knockout can only be drawn (or redrawn) from finished groups, so the drawn bracket could no longer
+   be checked against, or rebuilt from, the standings. Entering the right score instead is still allowed. */
+function rrClearBlockedMessage(t, g){
+  if(t.format.formatType!=='rrknockout' || !entryBrackets(t).length) return '';
+  return 'The knockout has already been drawn from the group standings, so a result in Group '+g.label+' can no longer be cleared: '+
+    'the group would be unfinished, and the knockout can only be drawn from finished groups. To fix a wrong score, enter the right score and click Save score. '+
+    'If that changes who goes through, use Regenerate from current standings (it discards any knockout results, and asks first).';
+}
+function rrUndoNoShowBlockedMessage(t, g){
+  if(!rrClearBlockedMessage(t, g)) return '';
+  return 'The knockout has already been drawn from the group standings, so a no-show in Group '+g.label+' can no longer be undone: '+
+    'undoing it would remove its walkover results and leave the group unfinished, and the knockout can only be drawn from finished groups. '+
+    'If they did play a match after all, enter the real score over the WO box and click Save score.';
+}
+function clearGroupResult(groupId, aId, bId, aName, bName){
+  if(isLocked(state)) return { error:'This event is finalized. Only an Admin can change it.' };
+  const g = state.groups.find(x=>x.id===groupId);
+  if(!g) return { error:'This group no longer exists.' };
+  const blocked = rrClearBlockedMessage(state, g);
+  if(blocked) return { error: blocked };
+  const sc = getScore(g, aId, bId);
+  if(!sc) return;
+  const firstIsA = aId<bId;
+  const shown = sc.wo ? 'a walkover' : escText(firstIsA ? sc.legs1 : sc.legs2)+'–'+escText(firstIsA ? sc.legs2 : sc.legs1);
+  openModal({
+    title:'Clear this result?',
+    bodyHTML:'<p>'+escapeHtml(aName)+' v '+escapeHtml(bName)+' ('+shown+') goes back to not played. The Group '+escText(g.label)+' standings are worked out again.</p>',
+    confirmLabel:'Clear result', confirmClass:'danger',
+    onConfirm:()=>{
+      if(isLocked(state)) return { error:'This event is finalized. Only an Admin can change it.' };
+      const again = rrClearBlockedMessage(state, g);
+      if(again) return { error: again };
+      if(g.scores) delete g.scores[scoreKey(aId, bId)];
+      persist(); render();
+    }
+  });
+  return { keepOpen:true };
+}
 function promptScore(groupId, aId, bId, aName, bName){
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
   const g = state.groups.find(x=>x.id===groupId);
   if(!g.gameStarted){ lockedScoreClick(groupId); return; }
   if(isTeamsEvent(state)){ promptScoreTeams(g, aId, bId, aName, bName); return; }
@@ -6478,6 +6784,8 @@ function promptScore(groupId, aId, bId, aName, bName){
       '<div class="field"><label>'+escapeHtml(bName)+' legs</label><input id="scB" type="number" '+clampAttr+' value="'+escText(curB)+'"></div></div>'+
       '<p style="font-size:11px;color:#8a97a5">Best of '+escText(state.format.bestOfLegs)+' legs — a side can score at most '+majority0+'.</p>',
     confirmLabel:'Save score', confirmClass:'primary',
+    secondaryLabel: sc ? 'Clear result' : '',
+    onSecondary: ()=> clearGroupResult(groupId, aId, bId, aName, bName),
     onConfirm:()=>{
       const va = document.getElementById('scA').value, vb = document.getElementById('scB').value;
       const la = parseInt(va), lb = parseInt(vb);
@@ -6511,6 +6819,8 @@ function promptScoreTeams(g, aId, bId, aName, bName){
       '<div class="field"><label>'+escapeHtml(bName)+' legs</label><input id="scB" type="number" '+clampAttr+' value="'+escText(curB)+'"></div></div>'+
       teamResultHintHTML(state, 'rr'),
     confirmLabel:'Save score', confirmClass:'primary',
+    secondaryLabel: sc ? 'Clear result' : '',
+    onSecondary: ()=> clearGroupResult(g.id, aId, bId, aName, bName),
     onConfirm:()=>{
       const va = document.getElementById('scA').value, vb = document.getElementById('scB').value;
       const bad = teamResultError(state, va, vb, 'rr', sc ? teamStoredResult(firstIsA ? sc.legs1 : sc.legs2, firstIsA ? sc.legs2 : sc.legs1) : null);   // the raw stored values, not the boxes' 0s
@@ -6561,7 +6871,7 @@ function stage4(){
     lineupSheetToggleHTML()+
     rulesSheetToggleHTML()+
     (koPrintModels(state).length ? koPaperPanelHTML() : '')+
-    '<div class="hint" style="margin-bottom:6px">A master running order sheet (board-by-board match list) is generated automatically as the first page of the pack.</div>'+
+    '<div class="hint" style="margin-bottom:6px">A master running order sheet (board-by-board match list) is added automatically, straight after the rules &amp; format sheet (or as the first page when that sheet is left out).</div>'+
     '<div class="printlist">'+ state.groups.map(g=> '<div><span>Group '+escText(g.label)+' — '+groupBoardLabel(g)+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">Confirmed</b>':'<b style="color:#c0392b">Not confirmed</b>')+'</span></div>' ).join('') +'</div>'+
     (!allConfirmed ? '<div class="confirm-box"><b>Some charts are not confirmed yet</b>You can still print the confirmed charts now, or go back and confirm the rest first.</div>' : '')+
     '<div class="buttonrow">'+
@@ -6690,7 +7000,7 @@ function nextEligibleKnockoutRound(bracket){
     if(rsa[i]) continue;
     if(i===0) return 0;
     const prevRound = bracket.rounds[i-1];
-    const prevDecided = prevRound.every(m=> m.winnerId || m.bye || !m.aEntryId || !m.bEntryId);
+    const prevDecided = prevRound.every(m=> koMatchDecided(m, i-1));
     return prevDecided ? i : -1;
   }
   return -1;

@@ -6,6 +6,8 @@
 //   - Every item has an id (used as the #anchor, so keep it short, lower case, with dashes and never change one that
 //     is already linked), a title (the heading, or the question) and a body (HTML).
 //   - Guide items may also have a summary: one sentence shown under the heading.
+//   - An item may list claims: ['ko-cascade', ...]. Each tag names a statement about what the app does, and
+//     tests/help-claims.test.js runs the app to check it. Add a tag (and its test) when you write such a sentence.
 //   - Use the exact button and label names from the app, in <b>bold</b>. Use <h4> for sub-headings inside a guide item.
 //   - Link to another item with <a href="#its-id">. Do not add <script>, email addresses or the words that
 //     tests/help-site.test.js forbids. Run: npm run build-landing, then npm test.
@@ -25,6 +27,7 @@ const sections = [
         id: 'getting-started',
         title: 'Getting started',
         summary: 'Sign in, learn the seven steps, choose Basic or Advanced setup, and know what the save messages mean.',
+        claims: ['phone-bar'],
         body: `
 <h4 id="signing-in">Signing in</h4>
 <p>Your site admin creates your account and sends you a link to choose a password. After that:</p>
@@ -35,7 +38,7 @@ const sections = [
 </ol>
 <p>Forgot your password? The surest way is to ask your admin for a reset link. You can also click <b>Forgot password?</b> under the sign-in form and type your email. If a link arrives, follow it. If nothing arrives, ask your admin.</p>
 <p>To change your password while you are signed in, click <b>Change password</b> next to <b>Log out</b> in the left-hand menu (on a phone or a narrow window, tap the step name in the bar at the top, then <b>Change password</b>). Type your <b>Current password</b>, then your <b>New password</b> twice. It must be at least 8 characters. Changing it signs you out on your other devices, but not on the one you are using.</p>
-<p class="callout"><b>Screen size.</b> The organiser app is made for a laptop, desktop or tablet. On a tablet or phone, hold it sideways (landscape). Held upright, DartDraw covers the screen with &ldquo;Please rotate your device to landscape to use DartDraw.&rdquo; Turn the device and your work is still there. A phone on its side works too, with a note that DartDraw works best on a tablet, laptop or desktop: the left-hand menu becomes a bar at the top. Tap the step name there for the steps, your events, <b>Rename</b>, <b>Duplicate</b> and <b>Delete</b> for the open event, and <b>Change password</b>. See <a href="#faq-phone">Can I use my phone?</a></p>
+<p class="callout"><b>Screen size.</b> The organiser app is made for a laptop, desktop or tablet. On a tablet or phone, hold it sideways (landscape). Held upright, DartDraw covers the screen with &ldquo;Please rotate your device to landscape to use DartDraw.&rdquo; Turn the device and your work is still there. A phone on its side works too, with a note that DartDraw works best on a tablet, laptop or desktop: the left-hand menu becomes a bar at the top. Tap the step name there for the steps, your events, <b>Rename</b>, <b>Duplicate</b> and <b>Delete</b> for the open event, and <b>Change password</b>. The bar is used on every phone (a touch screen less than 600 pixels on its short side, whichever way you hold it) and in any window narrower than about 700 pixels. A tablet, and a laptop or desktop window that is wider than that, keep the menu at the side, even when the window is short. See <a href="#faq-phone">Can I use my phone?</a></p>
 
 <h4 id="seven-steps">The seven steps</h4>
 <p>The left-hand menu lists seven steps. Work down the list. You cannot skip ahead: step 2 opens once step 1 is saved, and step 3 opens once step 2 is saved.</p>
@@ -102,7 +105,7 @@ const sections = [
 
 <h4 id="boards-and-entries">Boards and the number of entries</h4>
 <p>There is no boards box on step 1. You set the number of boards on step 2, under Scheduling.</p>
-<p>You can change the number of entries later: click <b>Edit</b> on the summary card at the top of a step, change the number and save. Raising it adds blank entries such as &ldquo;Entry 9&rdquo;. Lowering it removes entries from the end of the list, so do that before you type names or draw groups.</p>
+<p>You can change the number of entries later: click <b>Edit</b> on the summary card at the top of a step, change the number and save. Raising it adds blank entries such as &ldquo;Entry 9&rdquo;. Lowering it removes entries from the end of the list, so do that before you type names or draw groups. Once one of those entries is playing (their group has started, they have a result, or they are in the drawn knockout), DartDraw refuses with &ldquo;These entries are already playing&rdquo; and saves nothing, because it would delete results already played. See <a href="#faq-entries-locked">Why can&rsquo;t I change the entries after the games start?</a></p>
 <p>If you see a message that your account allows up to a certain number of entries per event, contact your admin.</p>
 
 <h4 id="your-events">Your saved events</h4>
@@ -218,6 +221,7 @@ const sections = [
         id: 'entries-and-check-in',
         title: 'Entries, seeds, check-in and no-shows',
         summary: 'Naming entries, organisations, seeding, check-in, withdrawals, walkovers and matches nobody played.',
+        claims: ['withdraw-guard', 'checkin-warning'],
         body: `
 <h4 id="naming-entries">Naming entries</h4>
 <p>Entries start with placeholder names such as &ldquo;Entry 1&rdquo;. Once groups are drawn, entries without a name of your own are labelled by position, for example &ldquo;Player A1&rdquo; or &ldquo;Pair A1&rdquo;. Type a name in the box and it stays.</p>
@@ -238,14 +242,15 @@ const sections = [
 
 <h4 id="check-in">Check-in</h4>
 <p>On step 4 there is a <b>Check-in</b> card. Tick each entry as they arrive, or click <b>Check in all</b>. Use the search box, or tick <b>Only show who hasn&rsquo;t checked in yet</b>.</p>
-<p>Check-in is just a record for you. It never stops you confirming, printing or starting. You get a yellow warning &ldquo;Not everyone is checked in&rdquo; when you start games, generate a bracket or confirm Group Boards groups, and you can carry on. In Group Boards, tick people in on step 4. Then, on step 3, before you click <b>Draw groups</b>, a <b>Withdraw the N not checked in</b> button (N is a number) removes everyone who is not ticked. It only appears once at least one person is ticked, and only before the draw.</p>
+<p>Check-in is just a record for you. It never stops you confirming, printing or starting. You get a yellow warning &ldquo;Not everyone is checked in&rdquo; when you click <b>Start all games</b>, when you click <b>Generate bracket</b> or <b>Regenerate bracket</b> in a Knockout, and when you draw or confirm Group Boards groups. You can carry on. Drawing the knockout after a round robin (<b>Generate knockout bracket</b>) does not warn, because by then everyone has played in the groups. In Group Boards, tick people in on step 4. Then, on step 3, before you click <b>Draw groups</b>, a <b>Withdraw the N not checked in</b> button (N is a number) removes everyone who is not ticked. It only appears once at least one person is ticked, and only before the draw.</p>
 
 <h4 id="withdrawals">Withdrawals</h4>
-<p>In a round robin, click <b>Withdraw</b> next to the entry on step 3. Before the draw it simply removes them. After the draw you can type a replacement name to fill the slot, or leave it blank for a bye. A group whose entries changed is un-confirmed so you can check it again.</p>
+<p>In a round robin, click <b>Withdraw</b> next to the entry on step 3. You can do this until their group starts. Before the draw it simply removes them. After the draw you can type a replacement name to fill the slot, or leave it blank for a bye. A group whose entries changed is un-confirmed so you can check it again.</p>
+<p>Once their group has started (after <b>Start all games</b>), once they have a result, or once a drawn bracket holds them, Withdraw is no longer possible, because it would remove results that are already in and change the table. On step 3 the <b>Withdraw</b> button is then replaced by <b>Mark no-show&hellip;</b> (by a <b>No-show</b> tag once they are marked, and by nothing when they have no match left to play). Click it and DartDraw explains why and offers <b>Mark no-show instead</b>: in a group, their remaining matches become walkover losses; in the knockout, they lose their next match by a walkover and the opponent goes through. Results already played stay. See <a href="#player-leaves">A player leaves part-way</a>.</p>
 <p>The Knockout list on step 3 has no Withdraw button. If someone is not coming, use <b>Mark no-show&hellip;</b> on their match once the bracket is drawn.</p>
 
 <h4 id="no-shows">No-shows and walkovers</h4>
-<p>In a <b>round robin</b>, once the games have started, click <b>Mark no-show&hellip;</b> on the group&rsquo;s chart and choose the entry. Every match they have not yet played in that group is filled in as a walkover loss (a win by the majority of legs to nil) and tagged <b>WO</b>. Real results you already entered are never overwritten. The same box has an <b>undo</b> link. Entering a real score over a WO box replaces it.</p>
+<p>In a <b>round robin</b>, once the games have started, click <b>Mark no-show&hellip;</b> on the group&rsquo;s chart and choose the entry. Every match they have not yet played in that group is filled in as a walkover loss (a win by the majority of legs to nil) and tagged <b>WO</b>. Real results you already entered are never overwritten. Until the knockout is drawn from the groups, the same box has an <b>undo</b> link. After that a no-show can no longer be undone (it would leave the group unfinished), but entering a real score over a WO box still replaces it.</p>
 <p>In a <b>knockout</b> or <b>Group Boards</b> match, click <b>Mark no-show&hellip;</b> under the match and choose who did not show. The other side wins by a walkover and goes through, tagged <b>WO</b>.</p>
 
 <h4 id="neither-showed">Neither showed</h4>
@@ -256,12 +261,49 @@ const sections = [
 `
       },
       {
+        id: 'player-leaves',
+        title: 'A player leaves part-way',
+        summary: 'What to do when an entry has to stop: before their group starts, during the groups, during the knockout, and after the event is finalized.',
+        claims: ['withdraw-guard', 'no-show-route'],
+        body: `
+<p>Whatever stage you are at, results already played are never removed. What you click depends on how far the event has gone.</p>
+
+<h4 id="leaves-before">Before the draw, or before their group starts</h4>
+<ol>
+<li>Go to step 3, <b>Chart details</b>.</li>
+<li>Click <b>Withdraw</b> next to the entry.</li>
+<li>Before the draw they are simply removed. After the draw, type a replacement name to fill the slot, or leave the box blank for a bye, then click <b>Withdraw</b>.</li>
+<li>If their group was confirmed, it is un-confirmed. Check it on step 4 and click <b>Confirm this chart</b> again.</li>
+</ol>
+<p>A Knockout or Group Boards event has no Withdraw button on step 3. Once the bracket is drawn, use the knockout steps below.</p>
+
+<h4 id="leaves-groups">During the round robin</h4>
+<p>Do not use Withdraw: once the group has started it is refused, because it would remove results already played. Instead:</p>
+<ol>
+<li>On step 5, <b>Manage Tournament</b>, click <b>Mark no-show&hellip;</b> on their group&rsquo;s chart.</li>
+<li>Choose the entry.</li>
+</ol>
+<p>Every match they have not played in that group becomes a walkover loss, tagged <b>WO</b>, so their opponents get the points. You can also start from step 3: click <b>Mark no-show&hellip;</b> beside their name, then <b>Mark no-show instead</b>. To take it back, use the <b>undo</b> link in the no-show box. That link is there only until the knockout is drawn from the groups; after that, enter the real score over a WO box instead.</p>
+
+<h4 id="leaves-knockout">During the knockout</h4>
+<ol>
+<li>Find their next match in the bracket on step 5 (or in the full-page window).</li>
+<li>Click <b>Mark no-show&hellip;</b> under the match and choose them.</li>
+</ol>
+<p>Their opponent goes through by a walkover, tagged <b>WO</b>. If their next match has no opponent yet, wait until it has one, then do the same. After a round robin, <b>Mark no-show&hellip;</b> beside their name on step 3 does this for you when the match is ready. The group results stay as they are and the knockout is not drawn again. In Group Boards it works the same way inside each group and in the Finals.</p>
+
+<h4 id="leaves-finalized">After the event is finalized</h4>
+<p>Nothing can be changed any more. Only an Admin can reopen the event. See <a href="#reopening">Changing a finalized event</a>.</p>
+`
+      },
+      {
         id: 'draws-and-printing',
         title: 'Groups, draws and printing (steps 3 and 4)',
         summary: 'Draw and confirm the groups, then print the blank pack: charts, rules sheet, logos and QR codes.',
+        claims: ['print-order', 'roster-lock'],
         body: `
 <h4 id="draw">Drawing the groups</h4>
-<p>In a round robin, step 3 is called <b>Draw &amp; groups</b>. Entries stay as &ldquo;Not drawn&rdquo; until you click <b>Random draw</b>. Click it again to deal everyone out afresh; DartDraw asks first because it discards your manual swaps.</p>
+<p>In a round robin, step 3 is called <b>Draw &amp; groups</b>. Entries stay as &ldquo;Not drawn&rdquo; until you click <b>Random draw</b>. Click it again to deal everyone out afresh; DartDraw asks first because it discards your manual swaps. Once any group has started, <b>Random draw</b> is greyed out and <b>Swap with&hellip;</b> is no longer offered for entries in a started group: moving entries then would leave results with people who did not play them.</p>
 <ul>
 <li>Switch between <b>Flat list</b> and <b>Grouped view</b>. The flat list has a search box for name or organisation.</li>
 <li><b>Swap with&hellip;</b> opens a list of groups and positions. Pick one. If it is occupied the two entries swap. If it is blank the entry moves there.</li>
@@ -274,10 +316,10 @@ const sections = [
 <p>For a Knockout, step 4 has <b>Generate bracket</b> (or <b>Regenerate bracket</b>). Regenerating after results exist wipes them, and asks first.</p>
 
 <h4 id="print-pack">Printing the blank pack</h4>
-<p>Click <b>Print bracket pack</b>. The pack is A4 landscape and can include:</p>
+<p>Click <b>Print bracket pack</b>. The pack is A4 landscape and can include, in this order:</p>
 <ul>
-<li>the rules &amp; format sheet as the first page (tick box on the same screen);</li>
-<li>a master running order: one column per board (up to 8 on a sheet), each board&rsquo;s groups in the order they play, and each group&rsquo;s matches with a tick box. A board with more groups than fit continues on the next sheet; a group is never split;</li>
+<li>the rules &amp; format sheet, always the first page when it is ticked (tick box on the same screen);</li>
+<li>a master running order, straight after the rules sheet (or first, if you leave the rules sheet out): one column per board (up to 8 on a sheet), each board&rsquo;s groups in the order they play, and each group&rsquo;s matches with a tick box. A board with more groups than fit continues on the next sheet; a group is never split;</li>
 <li>one chart for each confirmed group;</li>
 <li>the knockout bracket, or a projected bracket with labels like A1 before the groups are played;</li>
 <li>in Group Boards, a <b>Players A&ndash;Z</b> sheet, a <b>Boards</b> sheet, one sheet for each group and the Finals;</li>
@@ -308,7 +350,8 @@ const sections = [
       {
         id: 'managing-the-tournament',
         title: 'Managing the tournament (step 5)',
-        summary: 'Start the games, enter scores, run the knockout and Group Boards, and keep a private incident log.',
+        summary: 'Start the games, enter scores, correct or clear a result, run the knockout and Group Boards, and keep a private incident log.',
+        claims: ['ko-cascade', 'clear-result', 'rr-clear-after-draw'],
         body: `
 <p>Step 5 is <b>Manage Tournament</b>. This is where you spend match day.</p>
 
@@ -318,9 +361,17 @@ const sections = [
 
 <h4 id="enter-scores">Entering scores</h4>
 <p><b>Round robin:</b> click the box where two entries meet. Type each side&rsquo;s legs and click <b>Save score</b>. The winner must have exactly the legs needed for your best-of, and the loser fewer. Positions, points and leg totals update at once in the standings under each chart.</p>
-<p><b>Knockout:</b> click a match, type the legs and click <b>Save score</b>. There are no draws. The winner moves to the next round. If you change who won a match, later matches that depended on it are cleared.</p>
+<p><b>Knockout:</b> click a match, type the legs and click <b>Save score</b>. There are no draws. The winner moves to the next round.</p>
 <p><b>Teams:</b> type the total legs each team won across the whole match. See <a href="#teams-results">Entering a team result</a>.</p>
-<p>To correct a score, click it again and save the new result.</p>
+
+<h4 id="correct-a-result">Correcting or clearing a result</h4>
+<ul>
+<li><b>To correct a score</b>, click it again, type the right legs and click <b>Save score</b>.</li>
+<li><b>To clear a result</b>, for example a score typed on the wrong match, click it and choose <b>Clear result</b>. DartDraw asks &ldquo;Clear this result?&rdquo; first: click <b>Clear result</b> again, or <b>Cancel</b>. The match goes back to not played, and the round robin standings are worked out again. A walkover can be cleared the same way. A match marked <b>Neither showed</b> has <b>Reverse it</b> instead.</li>
+<li><b>In a knockout</b>, if you change who won a match, or clear it, every later match that the old winner had reached is cleared as well, right up to the final, and so is the champion. You then enter those results again. If any of those later matches already has a result, DartDraw asks you first and lists them, for example &ldquo;Changing this result will clear 2 later results, and you will need to enter them again&rdquo;, with the champion if there is one. Click <b>Change result</b> to go ahead, or <b>Cancel</b> to leave everything as it was. Correcting only the score, with the same winner, changes nothing later and asks nothing. This works the same in the Plate pool, a Teams knockout, the Group Boards Finals and the full-page window. Inside a Group Boards group, a new winner clears the later matches of that group in the same way without asking; it is refused if a Finals match that depends on it already has a score.</li>
+<li><b>After the knockout has been drawn from a round robin</b>, a group result can still be corrected with <b>Save score</b>, but it can no longer be cleared: the group would be unfinished, and the knockout is only drawn from finished groups. If a correction changes who goes through, use <b>Regenerate from current standings</b> (it discards any knockout results, and asks first).</li>
+<li>A finalized event cannot be changed. See <a href="#reopening">Changing a finalized event</a>.</li>
+</ul>
 
 <h4 id="standings">Standings</h4>
 <p>The standings table shows <b>MP</b> (matches played), <b>MW</b> (won), <b>ML</b> (lost), <b>LW</b> (legs won), <b>+/-</b> (leg difference) and <b>Pts</b>. A small <b>TB</b> badge shows which tie-break separated two entries. A <b>?</b> means they are still level. See <a href="#faq-tie-breaks">How do tie-breaks work?</a></p>
@@ -437,6 +488,7 @@ const sections = [
         id: 'finishing-the-event',
         title: 'Finishing the event',
         summary: 'Review the final standings, print the final chart, then accept the results.',
+        claims: ['finalized-sidebar'],
         body: `
 <h4 id="review">Review and print</h4>
 <p>Step 6, <b>Finalize Standings</b>, is a read-only look at the final tables or placings. If you spot a mistake, click <b>Back to manage tournament</b> and correct the score. Step 7, <b>Print Final Chart</b>, prints the pack with every result. Click <b>Print final chart &mdash; Save high-res A4 PDF</b>, and choose <b>Save as PDF</b> in the print window if you want a file.</p>
@@ -453,7 +505,8 @@ const sections = [
 <h4 id="what-it-locks">What it locks</h4>
 <ul>
 <li>The public page shows <b>Final results</b>, and the event moves to <b>Results</b> on the home page if it is listed.</li>
-<li>Nothing in the event can be edited, renamed or deleted from the organiser app. Controls are greyed out. That includes the publishing and listing settings.</li>
+<li>Nothing in the event can be edited, renamed or deleted from the organiser app. The controls on the steps are greyed out, including the publishing and listing settings.</li>
+<li>The <b>Rename</b> and <b>Delete</b> buttons under the event in <b>Saved tournaments</b> look the same as before, but they are locked too: clicking one only explains why, for example &ldquo;Finalized events can only be renamed by an Admin.&rdquo; <b>Duplicate</b> still works and makes a new copy you can edit.</li>
 <li>You can still look through every step, print, copy the public link, open other events and change your password.</li>
 </ul>
 
@@ -487,6 +540,10 @@ const sections = [
 <dd>You have no confirmed chart yet. Confirm at least one in Confirm &amp; Print Bracket.</dd>
 <dt>&ldquo;The knockout can only be drawn once every group is finished&rdquo;</dt>
 <dd>Finish every group first. If entries are level on the cut-off line, settle them with <b>Adjust positions&hellip;</b>.</dd>
+<dt>I typed a score on the wrong match</dt>
+<dd>Click the match and choose <b>Clear result</b>, then put the score where it belongs. See <a href="#correct-a-result">Correcting or clearing a result</a>.</dd>
+<dt>Withdraw has gone, and Mark no-show&hellip; is there instead</dt>
+<dd>The entry&rsquo;s group has started, or the knockout has been drawn. Withdrawing now would remove results already in, so use <b>Mark no-show instead</b>. See <a href="#player-leaves">A player leaves part-way</a>.</dd>
 <dt>&ldquo;Resolve ties before continuing&rdquo;</dt>
 <dd>Two or more entries are level after every tie-break rule. Decide the order (a playoff or your decision) and set it with <b>Adjust positions&hellip;</b>.</dd>
 <dt>I was sent back to the sign-in box</dt>
@@ -498,7 +555,7 @@ const sections = [
 <dt>The page looks out of date</dt>
 <dd>Press <b>F5</b> to reload. The saved copy is always the truth.</dd>
 <dt>The left-hand menu is missing</dt>
-<dd>Your screen is narrow or short (a phone on its side, for example), so the menu is replaced by a bar at the top. Tap the step name in that bar to choose a step or another event. For more room, use a laptop, desktop or tablet, or widen the window.</dd>
+<dd>You are on a phone, or the window is narrower than about 700 pixels, so the menu is replaced by a bar at the top. Tap the step name in that bar to choose a step or another event. For more room, use a laptop, desktop or tablet, or widen the window.</dd>
 <dt>&ldquo;Please rotate your device to landscape to use DartDraw.&rdquo;</dt>
 <dd>On a tablet or phone, DartDraw only works held sideways. Turn the device; the message goes by itself and nothing you did is lost.</dd>
 </dl>
@@ -529,7 +586,13 @@ const sections = [
       {
         id: 'faq-change-after-finalized',
         title: 'How do I change a score after the event is finalized?',
-        body: `<p>You cannot. Only an Admin can reopen a finalized event, so ask your admin. Once it is reopened, reload the event, fix the score and accept the results again. Before you finalize, you can correct any score by clicking it and saving a new result. See <a href="#finishing-the-event">Finishing the event</a>.</p>`
+        body: `<p>You cannot. Only an Admin can reopen a finalized event, so ask your admin. Once it is reopened, reload the event, fix the score and accept the results again. Before you finalize, you can correct any score by clicking it and saving a new result. See <a href="#finishing-the-event">Finishing the event</a> and <a href="#correct-a-result">Correcting or clearing a result</a>.</p>`
+      },
+      {
+        id: 'faq-correct-result',
+        title: 'How do I correct or clear a result?',
+        claims: ['ko-cascade', 'clear-result'],
+        body: `<p>Click the match. To correct it, type the right legs and click <b>Save score</b>. To empty it, click <b>Clear result</b>, then <b>Clear result</b> again in the box that asks &ldquo;Clear this result?&rdquo;. The match goes back to not played. In a knockout, a new winner (or a cleared match) also clears every later match the old winner had reached, and the champion. When any of those already has a result, DartDraw lists them first and you choose <b>Change result</b> or <b>Cancel</b>. A new score with the same winner changes nothing later. Once the knockout has been drawn from a round robin, group results can be corrected but not cleared. See <a href="#correct-a-result">Correcting or clearing a result</a>.</p>`
       },
       {
         id: 'faq-pair-names',
@@ -601,14 +664,20 @@ const sections = [
         body: `<p>Change the format before you start the games. Go back to step 2, make the change and save. Round robin groups adjust to fit. Group Boards cannot be redrawn once scores are in. Once scores are entered it is safest to leave the format alone.</p>`
       },
       {
+        id: 'faq-entries-locked',
+        title: 'Why can’t I change the entries, swap or redraw after the games start?',
+        claims: ['roster-lock'],
+        body: `<p>Because results already played belong to the entries who played them. Once a group has started (after <b>Start all games</b>), has a result, or the knockout has been drawn, DartDraw refuses anything that would move or remove those entries, and says why: <b>Withdraw</b>, <b>Swap with&hellip;</b> and <b>Random draw</b> on step 3, and lowering <b>Number of entries</b> on step 1 when that would remove someone who is playing. Before the games start all of these work as usual. To take someone out once play has begun, use <b>Mark no-show&hellip;</b>. See <a href="#player-leaves">A player leaves part-way</a>.</p>`
+      },
+      {
         id: 'faq-move-player',
         title: 'Can I move a player to another group?',
-        body: `<p>Yes, on step 3. In a round robin use <b>Swap with&hellip;</b>. In Group Boards use <b>Move&hellip;</b> before you confirm the groups. A confirmed group whose entries change is un-confirmed for you. Do this before games start. Moving players around after scores are in will confuse the results.</p>`
+        body: `<p>Yes, on step 3. In a round robin use <b>Swap with&hellip;</b>. In Group Boards use <b>Move&hellip;</b> before you confirm the groups. A confirmed group whose entries change is un-confirmed for you. Do this before games start: once a group has started, DartDraw refuses to swap or move its entries. See <a href="#faq-entries-locked">Why can&rsquo;t I change the entries after the games start?</a></p>`
       },
       {
         id: 'faq-no-show',
         title: 'Someone did not turn up. What do I do?',
-        body: `<p>Once play has started, use <b>Mark no-show&hellip;</b>. In a round robin it fills their unplayed matches with walkover losses. In a knockout it gives the opponent a walkover win. If both are missing in a knockout or Group Boards match, choose <b>Neither showed</b> (a round robin does not have that choice). Before play, in a round robin you can <b>Withdraw</b> them. See <a href="#no-shows">No-shows and walkovers</a>.</p>`
+        body: `<p>Once play has started, use <b>Mark no-show&hellip;</b>. In a round robin it fills their unplayed matches with walkover losses. In a knockout it gives the opponent a walkover win. If both are missing in a knockout or Group Boards match, choose <b>Neither showed</b> (a round robin does not have that choice). Before their group starts, in a round robin you can <b>Withdraw</b> them; once it has started, Withdraw is refused and offers <b>Mark no-show instead</b>. See <a href="#no-shows">No-shows and walkovers</a> and <a href="#player-leaves">A player leaves part-way</a>.</p>`
       },
       {
         id: 'faq-admin',

@@ -228,14 +228,21 @@ test('toggleConfirm on a half-played group cannot be used to get round the rule'
   assert.equal(t.knockout, null); assert.equal(modals.length, 1);
 });
 
-test('a withdrawal that un-confirms a finished group blocks the draw until the new entry has played', () => {
+test('a roster change that un-confirms a finished group blocks the draw until the new entry has played', () => {
   const t = rrk(); t.groups.forEach(finish); t.groups.forEach((g) => { g.confirmedEntryIds = g.entryIds.slice(); });
   assert.equal(f('knockoutDrawBlock')(t), null);
-  app.document = { getElementById: () => ({ value: 'Newcomer' }) };   // the replacement-name field
-  try {
-    f('withdrawEntry')(t.groups[1].entryIds[3]);
-    modals[modals.length - 1].onConfirm();
-  } finally { delete app.document; }
+  // Withdraw itself is refused once the group has started (Release 1, D2): it offers Mark no-show instead.
+  const victim = t.groups[1].entryIds[3];
+  f('withdrawEntry')(victim);
+  assert.equal(modals[modals.length - 1].title, 'Games have started in Group B');
+  assert.equal(t.groups[1].entryIds.includes(victim), true);
+  assert.equal(t.groups[1].confirmed, true);
+  // A roster change made some other way (a stored event edited before this guard existed) still un-confirms the group.
+  t.entriesList.find((e) => e.id === victim).withdrawn = true;
+  t.groups[1].entryIds = t.groups[1].entryIds.filter((id) => id !== victim);
+  t.entriesList.push({ id: 'newcomer', name: 'Newcomer', autoName: false });
+  t.groups[1].entryIds.push('newcomer');
+  f('reconcileConfirmations')(t);
   const g = t.groups[1];
   assert.equal(g.confirmed, false, 'the app un-confirmed the group itself');
   assert.equal(g.entryIds.length, 4);
