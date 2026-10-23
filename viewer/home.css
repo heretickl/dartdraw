@@ -64,6 +64,7 @@
 .hm-fmt{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line-strong);border-radius:99px;padding:0 8px}
 .hm-chev{color:var(--on-blue);font-size:24px;line-height:1}
 .hm-none{padding:26px 8px 0;text-align:center;color:var(--muted)}
+.hm-fail p{margin:0 0 10px}.hm-fail b{color:var(--ink);font-size:17px}
 .hm-btn{display:inline-block;font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;min-height:44px;padding:10px 18px;border:1px solid var(--blue);border-radius:99px;background:var(--blue-tint);color:var(--on-blue);cursor:pointer;text-decoration:none}
 .hm-foot{text-align:center;color:var(--muted);font-size:13px;padding:30px 16px 10px;line-height:1.7}
 /* one subcard per stage inside the event card (round robin, knockout, groups, finals) */

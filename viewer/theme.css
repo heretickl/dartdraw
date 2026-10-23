@@ -73,7 +73,7 @@ header .sub{font-family:var(--display);font-weight:500;font-size:15px;letter-spa
 .themesw button{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;border:0;background:transparent;color:#8fa1b6;padding:4px 10px;border-radius:99px;cursor:pointer;min-height:28px}
 .themesw button[aria-pressed="true"]{background:rgba(255,255,255,.18);color:#fff}
 .status{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13px;color:#8fa1b6;flex-wrap:wrap}
-#hStatus{display:inline-flex;align-items:center;gap:10px}
+#hStatus{display:inline-flex;align-items:center;gap:4px 10px;flex-wrap:wrap}
 .live-pill{display:inline-flex;align-items:center;gap:6px;background:var(--live);color:#fff;border-radius:99px;padding:3px 12px;font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.1em;text-transform:uppercase}
 .live-pill i{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.6s ease-in-out infinite}
 .live-pill.off{background:#4a3a14;color:#f4b43a}
@@ -271,3 +271,5 @@ body.tv .evstages{display:none}
 
 /* the Help link in the page footer */
 footer a{color:var(--on-blue);font-weight:600}
+.venue{margin-top:8px;font-size:13px;color:#8fa1b6}
+.venue a{color:#8fc2ff}

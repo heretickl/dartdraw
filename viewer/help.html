@@ -81,6 +81,14 @@
         <p>You can also paste an event link or code there to open it directly.</p>
       </div>
     </details>
+    <details class="q" id="q-home-cant-load">
+      <summary>The home page says it can&rsquo;t load events</summary>
+      <div class="a">
+        <p>The page couldn&rsquo;t reach the site the first time, so it has no list to show yet. It does <b>not</b> mean nothing is on. The numbers on the tabs only appear once the list has loaded.</p>
+        <p>Check your connection, for example weak signal or venue Wi-Fi, then tap <b>Try again</b>. The page also keeps trying by itself, so you can leave it open.</p>
+        <p>If you have an event link, you can open it directly instead.</p>
+      </div>
+    </details>
   </section>
 
   <section class="help-grp" id="g-event" aria-labelledby="h-event">
@@ -106,16 +114,16 @@
           <dt><span class="pillx soon">Starting soon</span></dt><dd>The draw is out but no match has been played yet.</dd>
           <dt><span class="pillx live">Live</span></dt><dd>Matches are being played and scores are coming in.</dd>
           <dt><span class="pillx done">Final results</span></dt><dd>The organiser has marked the event as finished. Nothing more will change.</dd>
-          <dt><span class="pillx off">Offline</span></dt><dd>Your phone hasn&rsquo;t been able to reach the site for a while. The page keeps trying.</dd>
+          <dt><span class="pillx off">Offline</span></dt><dd>Your phone hasn&rsquo;t been able to reach the site for a while. The page keeps trying, and the scores on screen stay as they were.</dd>
         </dl>
-        <p>Next to the pill you will see <b>Updated</b> and a clock time. That is when your phone last got fresh results.</p>
+        <p>Next to the pill you will see <b>Scores last changed</b> and a time. That is when the organiser last saved a change to the event, usually a score. It is not when your phone last checked, so it can be a while ago when no match has finished. If it is not today, the date is shown too.</p>
       </div>
     </details>
     <details class="q" id="q-refresh">
       <summary>How often does the page refresh?</summary>
       <div class="a">
         <p>An event page checks for new scores about every 20 seconds while it is open. You don&rsquo;t need to reload it. The home page checks about every 30 seconds.</p>
-        <p>There can be a short delay between the organiser entering a score and you seeing it.</p>
+        <p>There can be a short delay between the organiser entering a score and you seeing it. The page checking often does not mean the scores change often. Look at <b>Scores last changed</b> to see when they last did.</p>
       </div>
     </details>
     <details class="q" id="q-stages">
@@ -129,6 +137,18 @@
 
   <section class="help-grp" id="g-players" aria-labelledby="h-players">
     <h2 id="h-players">Finding a player</h2>
+    <details class="q" id="q-when-where">
+      <summary>When and where does my player play?</summary>
+      <div class="a">
+        <p>It depends on the kind of event. (In a Teams event, read &ldquo;team&rdquo; for &ldquo;player&rdquo;.)</p>
+        <ul>
+          <li><b>Group Boards events</b> have a <b>Boards</b> tab. It shows each board, the match on it now, the next few, and a rough time. A player&rsquo;s page also says things like &ldquo;Board 2 &middot; 1 match ahead &middot; ~7:50 pm&rdquo;. A time with a ~ is an estimate and can run late.</li>
+          <li><b>Round robin groups</b> show the group on a player&rsquo;s page, its board if the organiser gave one, and who they still have to play. They do not show the order or a time.</li>
+          <li><b>Knockout events</b> show a match as soon as both sides are known, for example &ldquo;Next: Semifinal (3-1) vs Leo Ahmad&rdquo; (the code in brackets is the match number), or &ldquo;opponent not decided yet&rdquo; while one side is still to be decided. They do not show a board or a time.</li>
+        </ul>
+        <p>In Round robin and Knockout events the organiser calls each match at the venue, so this site can&rsquo;t say where or when. Listen for the announcements, or ask at the organiser&rsquo;s desk.</p>
+      </div>
+    </details>
     <details class="q" id="q-find-player">
       <summary>How do I find a player?</summary>
       <div class="a">
@@ -396,9 +416,10 @@
       <summary>The scores aren&rsquo;t moving</summary>
       <div class="a">
         <ol>
-          <li>Check the <b>Updated</b> time next to the pill at the top. If it is recent, you are up to date.</li>
-          <li>Reload the page, or open it again from the home page.</li>
-          <li>Scores can only appear once the organiser has entered them. A match may still be in play.</li>
+          <li>Look at <b>Scores last changed</b> next to the pill at the top. That is when the organiser last saved a change. If it is recent, you have the latest scores, and the next result just hasn&rsquo;t been entered yet.</li>
+          <li>Results appear when the organiser types them in, often a minute or two after a match ends. A match may still be in play.</li>
+          <li>If the time is old and you know matches have finished, reload the page, or open it again from the home page.</li>
+          <li>If the pill says <b>Offline</b>, see the next question.</li>
         </ol>
         <p>If it still looks wrong, ask the organiser.</p>
       </div>
@@ -407,6 +428,7 @@
       <summary>It says &ldquo;Offline&rdquo;, &ldquo;Reconnecting&rdquo; or &ldquo;Couldn&rsquo;t load results&rdquo;</summary>
       <div class="a">
         <p>Your phone can&rsquo;t reach the site right now, maybe because of weak signal or venue Wi-Fi. Keep the page open. It keeps trying and will fill in on its own when the connection comes back.</p>
+        <p>While it can&rsquo;t refresh, the scores on screen stay as they were. <b>Scores last changed</b> tells you how old they are. <b>Last checked</b> is when your phone last reached the site.</p>
         <p>Try switching between Wi-Fi and mobile data.</p>
       </div>
     </details>

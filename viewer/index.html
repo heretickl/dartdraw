@@ -30,6 +30,7 @@
     <div class="sub" id="hSub"></div>
     <div class="sub" id="hLegs"></div>
     <div class="status"><span id="hStatus"></span><span class="pill" id="hProgress" hidden></span></div>
+    <div class="venue" id="hVenue" hidden></div>
   </div>
 </header>
 <nav id="nav" hidden><div class="wrap" id="navLinks"></div></nav>
@@ -60,7 +61,6 @@ function slugFromUrl(){
 var SLUG = slugFromUrl();
 
 function el(id){ return document.getElementById(id); }
-function clockLabel(ms){ return new Date(ms).toLocaleTimeString([], {hour:'numeric', minute:'2-digit', second:'2-digit'}); }
 
 function boardLabel(g){
   var b = (g.boards||[]).filter(function(x){ return x!=null; });
@@ -769,6 +769,7 @@ function render(){
   var prog = progressText();
   el('hProgress').hidden = !prog; el('hProgress').textContent = prog;
   el('head').hidden = false;
+  setVenueNote();
 
   // keep each bracket's horizontal scroll across refreshes
   var scrolls = {};
@@ -884,16 +885,58 @@ function eventStarted(s){
   })) return true;
   return bracketStarted(s.knockout) || bracketStarted(s.knockoutLosers) || pods.some(function(p){ return !!p && bracketStarted(p.bracket); });
 }
-function statusPillHTML(started, stale, lastOkAt, finished){
-  if(stale) return '<span class="live-pill off">Offline</span> Reconnecting…';
-  var upd = ' Updated ' + (lastOkAt ? clockLabel(lastOkAt) : '');
-  if(finished) return '<span class="live-pill done">Final results</span>' + upd;
-  return started ? '<span class="live-pill"><i></i>Live</span>' + upd : '<span class="live-pill soon">Starting soon</span>' + upd;
+/* "Scores last changed": the time the server last saved the event (updatedAt), as a clock time, with the date when it is not
+   today. A missing or invalid time gives '' so the page never prints "Invalid Date" or NaN. */
+var MONTHS_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function toDate(v){
+  if(v == null || v === '' || v === 0) return null;
+  var d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+function clockShort(d){ return d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }
+function changedLabel(v, now){
+  var t = toDate(v);
+  if(!t) return '';
+  var n = toDate(now) || new Date(), hm = clockShort(t);
+  if(t.getFullYear()===n.getFullYear() && t.getMonth()===n.getMonth() && t.getDate()===n.getDate()){
+    var mins = Math.max(0, Math.floor((n.getTime() - t.getTime()) / 60000));
+    return hm + (mins < 1 ? ' (just now)' : mins < 60 ? ' ('+mins+' min ago)' : '');
+  }
+  return t.getDate() + ' ' + MONTHS_ABBR[t.getMonth()] + (t.getFullYear()!==n.getFullYear() ? ' '+t.getFullYear() : '') + ', ' + hm;
+}
+/* updatedAt: when the organiser last saved (from the server). lastOkAt: when this phone last reached the site. */
+function statusPillHTML(started, stale, updatedAt, finished, lastOkAt, now){
+  var chg = changedLabel(updatedAt, now), changed = chg ? ' Scores last changed ' + chg : '';
+  if(stale){
+    var chk = toDate(lastOkAt);
+    return '<span class="live-pill off">Offline</span> Can’t refresh right now. Trying again…' + changed +
+      (chk ? ' <span class="chk">Last checked ' + clockShort(chk) + '</span>' : '');
+  }
+  if(finished) return '<span class="live-pill done">Final results</span>' + changed;
+  return started ? '<span class="live-pill"><i></i>Live</span>' + changed : '<span class="live-pill soon">Starting soon</span>' + changed;
+}
+/* Events with no board or time on this page (everything except Group Boards): once the draw is made, and until the event is
+   over, matches are called at the venue. Shown as one calm line under the status. */
+function venueNoteNeeded(s){
+  if(!s || !s.format || s.finalizedAt) return false;
+  var type = s.format.formatType;
+  if(type==='podknockout' || (s.pods||[]).length) return false;
+  var groups = s.groups || [], hasGroups = type!=='knockout' && groups.length;
+  if(!hasGroups && !s.knockout && !s.knockoutLosers) return false;                 // before the draw
+  try{
+    if(s.knockout) return !bracketIsComplete(s.knockout) && !bracketIsVoidFinal(s.knockout);
+    return !groups.every(function(g){ return g.gameStarted && groupIsComplete(g); });
+  }catch(e){ return false; }   // an odd or partial bracket: say nothing rather than guess
+}
+function setVenueNote(){
+  var on = venueNoteNeeded(state), v = el('hVenue');
+  v.hidden = !on;
+  v.innerHTML = on ? 'Board and time for each match are announced at the venue. <a href="/help#q-when-where">More</a>' : '';
 }
 function setStatus(){
   var stale = lastOkAt && (Date.now() - lastOkAt) > POLL_MS*3;
   var started = state ? eventStarted(state) : false;
-  el('hStatus').innerHTML = statusPillHTML(started, stale, lastOkAt, !!(state && state.finalizedAt));   // Final results only once the organiser has finalized the event (the server sends finalizedAt only for a valid date)
+  el('hStatus').innerHTML = statusPillHTML(started, stale, lastUpdatedAt, !!(state && state.finalizedAt), lastOkAt);   // Final results only once the organiser has finalized the event (the server sends finalizedAt only for a valid date)
 }
 
 async function load(){

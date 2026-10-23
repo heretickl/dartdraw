@@ -144,6 +144,25 @@ test('tabs show their counts, a red dot only when something is live, and which o
   assert.doesNotMatch(call('hmTabsHTML', { live: [], upcoming: [], results: [] }, 'live'), /hm-dot/);
 });
 
+test('first load failed: the list says it cannot load (with a Try again button), not "Nothing is live", and the tabs show no 0 counts', () => {
+  const html = call('hmLoadFailedHTML');
+  assert.match(html, /Can.t load events right now/); assert.match(html, /We.ll keep trying/);
+  assert.match(html, /<button type="button" class="hm-btn" data-hm-retry>Try again<\/button>/);
+  assert.doesNotMatch(html, /Nothing is live/);
+  const bare = call('hmTabsHTML', { live: [], upcoming: [], results: [] }, 'live', true);
+  assert.doesNotMatch(bare, /hm-c|hm-dot/); assert.match(bare, />Live</);
+  // the page paints the failure only while nothing has ever loaded; after a good load a later failure keeps the list
+  const painted = {}; const els = {};
+  const doc = { getElementById: (id) => els[id] || (els[id] = { id, contains: () => false, setAttribute() {}, removeAttribute() {}, set innerHTML(v) { painted[id] = v; } }), activeElement: null, body: {} };
+  const ctx = loadHomeWith(doc);
+  vm.runInContext('HM.failed = true; hmView()', ctx);
+  assert.match(painted.hmList, /Can.t load events right now/); assert.doesNotMatch(painted.hmList, /Nothing is live/); assert.doesNotMatch(painted.hmTabs, /hm-c/);
+  vm.runInContext("HM.okAt = Date.now(); HM.data = { live: [], upcoming: [], results: [] }; hmView()", ctx);
+  assert.match(painted.hmList, /Nothing is live right now/); assert.match(painted.hmTabs, /hm-c/);
+  vm.runInContext('HM.failed = true; hmView()', ctx);
+  assert.match(painted.hmList, /Nothing is live right now/, 'after a successful load a later failure only changes the small status line');
+});
+
 test('the update line says loading, just now, minutes ago, or that a refresh failed', () => {
   assert.equal(call('hmUpdatedText', 0, false, 1000), 'Loading events…');
   assert.equal(call('hmUpdatedText', 1000, false, 5000), 'Updated just now');

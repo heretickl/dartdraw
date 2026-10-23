@@ -222,11 +222,11 @@ function hmListHTML(kind, items, q, today){
       '<div class="hm-list">' + g.items.map(function(it){ return hmCardHTML(kind, it); }).join('') + '</div></section>';
   }).join('');
 }
-function hmTabsHTML(data, tab){
+function hmTabsHTML(data, tab, noCounts){
   return HM_TABS.map(function(k){
     var n = data[k].length;
     return '<button type="button" role="tab" id="hm-t-' + k + '" data-hm-tab="' + k + '" aria-selected="' + (k === tab ? 'true' : 'false') + '" aria-controls="hmList" tabindex="' + (k === tab ? '0' : '-1') + '">' +
-      (k === 'live' && n ? '<span class="hm-dot"></span>' : '') + HM_TAB_LABEL[k] + '<span class="hm-c">' + n + '</span></button>';
+      (k === 'live' && n && !noCounts ? '<span class="hm-dot"></span>' : '') + HM_TAB_LABEL[k] + (noCounts ? '' : '<span class="hm-c">' + n + '</span>') + '</button>';
   }).join('');
 }
 function hmUpdatedText(okAt, failed, now){
@@ -234,6 +234,11 @@ function hmUpdatedText(okAt, failed, now){
   if(!okAt) return 'Loading events\u2026';
   var mins = Math.floor((now - okAt) / 60000);
   return mins < 1 ? 'Updated just now' : 'Updated ' + mins + ' min ago';
+}
+/* The first load has failed and nothing has loaded yet: say so, instead of "Nothing is live right now" with zero counts. */
+function hmLoadFailedHTML(){
+  return '<div class="hm-none hm-fail"><p><b>Can\u2019t load events right now.</b></p><p>Check your connection. We\u2019ll keep trying.</p>' +
+    '<p><button type="button" class="hm-btn" data-hm-retry>Try again</button></p></div>';
 }
 function hmHomeLinkHTML(){ return '<p><a class="hm-btn" href="/">See all events</a></p>'; }
 
@@ -311,10 +316,11 @@ function hmPaint(id, html){
 /* Redraws what depends on the data or the tab. The search box itself is left alone so typing is never interrupted. */
 function hmView(){
   var tab = HM.tab || hmDefaultTab(HM.data);
-  hmPaint('hmTabs', hmTabsHTML(HM.data, tab));
+  var noData = !HM.okAt;   // nothing has loaded yet (still loading, or the first load failed): no counts, they would all read 0
+  hmPaint('hmTabs', hmTabsHTML(HM.data, tab, noData));
   hmPaint('hmOpen', hmOpenHTML(HM.q));
-  var loading = !HM.okAt && !HM.failed;
-  hmPaint('hmList', loading ? '<p class="hm-none">Loading events\u2026</p>' : hmListHTML(tab, HM.data[tab], HM.q, hmToday()));
+  var loading = noData && !HM.failed;
+  hmPaint('hmList', loading ? '<p class="hm-none">Loading events\u2026</p>' : noData ? hmLoadFailedHTML() : hmListHTML(tab, HM.data[tab], HM.q, hmToday()));
   hmStatus();
 }
 /* What the status line should look like: its class, its HTML, and whether it announces itself. Only the failure message is
@@ -368,6 +374,8 @@ function showHome(){
   hmView();
 
   root.addEventListener('click', function(e){
+    var rt = e.target && e.target.closest ? e.target.closest('[data-hm-retry]') : null;
+    if(rt){ HM.failed = false; hmView(); HM.poll.start(); try{ root.setAttribute('tabindex', '-1'); root.focus({ preventScroll: true }); }catch(err){} return; }   // shows "Loading events" again, then the result of a fresh try
     var t = e.target && e.target.closest ? e.target.closest('[data-hm-tab]') : null;
     if(t){ var k = t.getAttribute('data-hm-tab'); location.hash = '#/' + k; hmSetTab(k); }
   });

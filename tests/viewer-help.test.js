@@ -124,6 +124,21 @@ test('claims checked against index.html and render.js: Rounds/Chart defaults, NO
   assert.match(INDEX, /var POLL_MS = 20000;/);
 });
 
+test('Release 2 spectator answers: when and where, scores last changed, and the home page that cannot load', () => {
+  const ids = [...HELP.matchAll(/<details class="q" id="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(ids.indexOf('q-when-where'), ids.indexOf('q-find-player') - 1, 'first in Finding a player');
+  const w = answer('q-when-where');
+  assert.match(w, /Group Boards events have a Boards tab/); assert.match(w, /Knockout events show a match as soon as both sides are known/);
+  assert.match(w, /organiser calls each match at the venue/); assert.match(w, /ask at the organiser.s desk/);
+  assert.ok(!/\bplan\b/i.test(w.replace(/board plan/gi, '')));
+  assert.match(INDEX, /Board and time for each match are announced at the venue\. <a href="\/help#q-when-where">More<\/a>/);
+  const stuck = answer('q-stuck-scores');
+  assert.match(stuck, /Scores last changed/); assert.ok(!/you are up to date/.test(stuck)); assert.ok(!/\bUpdated\b/.test(stuck + answer('q-status-pill') + answer('q-refresh')));
+  assert.match(answer('q-offline'), /Last checked/);
+  assert.match(answer('q-home-cant-load'), /Try again/); assert.match(answer('q-home-cant-load'), /does not mean nothing is on/);
+  assert.match(INDEX, /Scores last changed/); assert.ok(!/Updated '/.test(INDEX));
+});
+
 test('vercel.json: /help rewrites to /help.html and the event rewrite is still there', () => {
   const rw = VERCEL.rewrites;
   assert.ok(rw.some((r) => r.source === '/help' && r.destination === '/help.html'));
