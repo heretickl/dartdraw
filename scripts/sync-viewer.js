@@ -1,13 +1,15 @@
 // The organiser app and the public viewer are separate Vercel projects, so the
-// viewer can't load render.js / render.css from the app's folder. The root copies
-// are the source of truth; this copies them into viewer/.
+// viewer can't load render.js / render.css / help-search.js from the app's folder.
+// The root copies are the source of truth; this copies them into viewer/.
+//   render.js, render.css  the standings and bracket drawing
+//   help-search.js         the Help search, used by help.html and viewer/help.html
 //   node scripts/sync-viewer.js          copy root -> viewer/
 //   node scripts/sync-viewer.js --check  exit 1 if viewer/ is out of date
 const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const FILES = ['render.js', 'render.css'];
+const FILES = ['render.js', 'render.css', 'help-search.js'];
 const check = process.argv.includes('--check');
 let stale = 0;
 

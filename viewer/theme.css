@@ -269,7 +269,56 @@ body.tv .tvpage{font-size:18px}
 .evstage:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 body.tv .evstages{display:none}
 
-/* the Help link in the page footer */
-footer a{color:var(--on-blue);font-weight:600}
+/* the Help link in the page footer: a 44px-high tap area */
+footer a{color:var(--on-blue);font-weight:600;display:inline-block;min-height:44px;padding:13px 6px;line-height:18px}
+/* the Help button in the event header, beside "All events": the home page's Help button look, 44px to tap */
+.headrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.evhelp{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-height:44px;min-width:64px;padding:0 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#dbe5f1;font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none}
+.evhelp:hover{background:rgba(255,255,255,.12)}
+.evhelp:focus-visible{outline:2px solid #8fc2ff;outline-offset:2px}
+body.tv .evhelp{display:none}
+/* text for screen readers only */
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* who goes through: the line above the group tables and the green bar on those places */
+.qline{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font-size:14px}
+.qline b{font-weight:600}
+.qline .qkey{color:var(--muted)}
+.qbar{display:inline-block;flex:0 0 auto;width:4px;height:18px;border-radius:2px;background:var(--green);vertical-align:middle}
+.qline .qbar{margin-top:1px}
+.std-table td.pos.q{box-shadow:inset 3px 0 0 var(--green);padding-left:8px}
+.qall{margin:8px 0 0}
+/* the keys under tables and brackets */
+.tkey{margin-top:8px}
+.keybtn{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 2px;border:0;background:none;color:var(--on-blue);font:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left}
+.keybtn::after{content:"+";display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--line-strong);font-size:14px;line-height:1}
+.keybtn[aria-expanded="true"]::after{content:"\2212"}
+.keybtn:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+.keybody{margin:2px 0 6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper2);font-size:13px}
+.keylist{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;margin:0;align-items:baseline}
+.keylist dt{margin:0;font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.06em;white-space:nowrap}
+.keylist dd{margin:0;overflow-wrap:anywhere}
+.keyfoot{margin:10px 0 0}
+.keyfoot a{color:var(--on-blue);font-weight:600}
+/* a walkover written in full on a player's page may wrap */
+.res.wo{white-space:normal;text-align:right;font-size:16px}
+.rs small.wo{white-space:nowrap}
+/* the "New here?" bar on an event page: one slim line under the header (at most 43px closed), opening in place */
+.hm-sbar{background:var(--paper2);border-bottom:1px solid var(--line);color:var(--ink)}
+.hm-sbrow{display:flex;align-items:stretch;max-width:1100px;margin:0 auto;padding:0 4px 0 12px}
+.hm-sbtoggle{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px;min-height:42px;padding:0 4px;border:0;background:transparent;color:inherit;font:inherit;font-size:14px;line-height:1.2;text-align:left;cursor:pointer}
+.hm-sbtext{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hm-sbtext b{color:var(--on-blue);font-weight:600}
+.hm-sbchev{flex:none;font-size:20px;line-height:1;color:var(--muted);transition:transform .15s}
+.hm-sbtoggle[aria-expanded="true"] .hm-sbchev{transform:rotate(90deg)}
+.hm-sbx{flex:none;width:42px;min-height:42px;border:0;background:transparent;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;border-radius:8px}
+.hm-sbx:hover,.hm-sbtoggle:hover .hm-sbchev{color:var(--ink)}
+.hm-sbtoggle:focus-visible,.hm-sbx:focus-visible{outline:2px solid var(--blue);outline-offset:-2px;border-radius:8px}
+.hm-sbbody{max-width:1100px;margin:0 auto;padding:0 16px 10px}
+.hm-sbbody ol{margin:0 0 6px;padding-left:22px;font-size:14px;line-height:1.5}
+.hm-sbbody li{margin:0 0 6px}
+.hm-sbbody a{color:var(--on-blue);font-weight:600}
+.hm-sbmore{margin:0;font-size:14px}
+.hm-sbmore a{display:inline-flex;align-items:center;min-height:44px}
+@media (prefers-reduced-motion: reduce){.hm-sbchev{transition:none}}
 .venue{margin-top:8px;font-size:13px;color:#8fa1b6}
 .venue a{color:#8fc2ff}

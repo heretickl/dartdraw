@@ -46,7 +46,70 @@ test('help page: covers the agreed topics', () => {
   const t = HELP.replace(/<[^>]+>/g, ' ');
   ['Live', 'Upcoming', 'Results', 'Final results', 'Groups', 'Bracket', 'Rounds', 'Chart', 'Find a player', 'This is me', 'Follow',
     'MP', 'MW', 'ML', 'LW', '+/-', 'Pts', 'TB', 'H2H', '3-way LD', 'Bye', 'Neither attended', 'WO', 'Group 3', 'Board', 'pair name',
-    'Teams', 'Find a team', 'segments', 'tie-breaker', 'total legs', 'QR', 'Auto / Light / Dark', 'No. You can look', 'about every 20 seconds', 'We can', 'Results not available'].forEach((w) => assert.ok(t.includes(w), 'mentions ' + w));
+    'Teams', 'Find a team', 'segments', 'tie-breaker', 'total legs', 'QR', 'Auto / Light / Dark', 'No. You can look', 'about every 20 seconds', 'We can', 'Results not available',
+    // Release 4 and 5: the glossary, the keys, who goes through, walkovers in full, the Plate pool, Start here and Quick answers
+    'Words you will see', 'What do the columns mean?', 'What do the labels mean?', 'Top 2 in each group go through to the knockout', 'by walkover',
+    'Plate pool', 'New here? Three things to know', 'Quick answers', 'Back to the event', 'opens on the part of the event being played now'].forEach((w) => assert.ok(t.includes(w), 'mentions ' + w));
+});
+
+test('Release 5 outline (kb-review F2): groups in order, Quick answers and Start here first, every old anchor still on the page', () => {
+  const groups = [...HELP.matchAll(/<section class="help-grp" id="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(groups, ['g-players', 'g-fresh', 'g-results', 'g-kinds', 'g-home', 'g-trouble', 'g-glossary', 'g-privacy']);
+  const pg = loadHelp('spectator');
+  // the 40 ids of the old outline, and its group ids, still resolve (as questions, or as headings inside the new groups)
+  ['q-live-upcoming-results', 'q-missing-event', 'q-results-final', 'q-search-events', 'q-home-cant-load', 'q-tabs', 'q-status-pill', 'q-refresh',
+    'q-stages', 'q-when-where', 'q-find-player', 'q-me-following', 'q-player-status', 'q-columns', 'q-points', 'q-ties', 'q-tb-badges', 'q-grid',
+    'q-green-bar', 'q-rounds-chart', 'q-match-labels', 'q-winner', 'q-group-boards', 'q-boards-tab', 'q-group-picker', 'q-doubles', 'q-teams-match',
+    'q-teams-total', 'q-teams-find', 'q-teams-header', 'q-qr', 'q-share', 'q-theme', 'q-account', 'q-saved', 'q-what-shown', 'q-stuck-scores',
+    'q-offline', 'q-not-available', 'q-no-player', 'q-no-name', 'q-slow',
+    'g-home', 'g-event', 'g-players', 'g-tables', 'g-brackets', 'g-boards', 'g-doubles', 'g-teams', 'g-links', 'g-look', 'g-privacy', 'g-trouble'].forEach((id) => assert.ok(pg.byId(id), id));
+  // the new answers
+  ['q-come-back', 'q-ties-three', 'q-plate', 'q-wrong-score', 'q-glossary'].forEach((id) => assert.ok(pg.byId(id) && pg.byId(id).tagName.toLowerCase() === 'details', id));
+  // Start here and Quick answers come before the first group, and step aside while a search shows results
+  assert.ok(HELP.indexOf('id="start"') < HELP.indexOf('id="quick"') && HELP.indexOf('id="quick"') < HELP.indexOf('id="g-players"'));
+  const qa = pg.byId('quick').querySelectorAll('a').map((a) => a.getAttribute('href'));
+  assert.deepEqual(qa, ['#q-find-player', '#q-status-pill', '#q-columns']);
+  ['Where is my player?', 'Is it live?', 'What do the columns mean?'].forEach((w) => assert.ok(pg.byId('quick').textContent.includes(w), w));
+  pg.type('bracket');
+  assert.equal(pg.byId('start').hidden, true); assert.equal(pg.byId('quick').hidden, true);
+  pg.type('');
+  assert.equal(pg.byId('start').hidden, false); assert.equal(pg.byId('quick').hidden, false);
+});
+
+test('glossary: one entry per word with its own anchor, linked from the answers that use the words; #glossary opens it', () => {
+  const g = answer('q-glossary');
+  ['Leg', 'Best of', 'Seed', 'A1, B2', 'Match codes', 'Bye', 'Walkover (WO)', 'No-show', 'Board', 'MP, MW, ML', 'TB, tie-break, tie-breaker', 'H2H', '3-way LD',
+    'Qualify', 'Plate pool', 'Group Boards', 'Final results', 'Segment', 'Pair'].forEach((w) => assert.ok(g.includes(w), w));
+  ['glossary-leg', 'glossary-seed', 'glossary-match-codes', 'glossary-wo', 'glossary-tb', 'glossary-3way', 'glossary-qualify', 'glossary-segment', 'glossary-pair'].forEach((id) => assert.match(HELP, new RegExp('<h4 id="' + id + '">')));
+  assert.match(g, /Won 2&ndash;0 by walkover/); assert.match(g, /G2&middot;1-1/);
+  // linked from answers that use the words, and from the event page's keys and Start card
+  assert.match(HELP, /href="#glossary-match-codes"/); assert.match(HELP, /href="#glossary-seed"/); assert.match(HELP, /href="#glossary"/);
+  assert.match(INDEX, /helpHref\('glossary'\)/); assert.match(HOME, /#glossary/);
+  const pg = loadHelp('spectator', { hash: '#glossary-wo' });
+  assert.equal(pg.byId('q-glossary').open, true);
+  const pg2 = loadHelp('spectator', { hash: '#glossary' });
+  assert.equal(pg2.byId('q-glossary').open, true);
+  // the TB badge and the Teams tie-breaker are told apart; 3-way LD is what render.js badges
+  assert.match(g, /TB in a group table is the tie-break badge/); assert.match(g, /tie-breaker in a Teams event is different/);
+  assert.ok(read('render.js').includes("(st.tieSize>2?st.tieSize+'-way ':'')"));
+});
+
+test('"Back to the event": Help shows it only for a valid ?from= code and builds the link from that code alone', () => {
+  const script = HELP.match(/<script id="faq-from">([\s\S]*?)<\/script>/)[1];
+  const run = (search) => {
+    const links = { helpBack: { hidden: true, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } }, helpBackEnd: { hidden: true, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } } };
+    const ctx = { document: { getElementById: (id) => links[id] || null }, location: { search }, decodeURIComponent };
+    vm.createContext(ctx); vm.runInContext(script, ctx);
+    return links;
+  };
+  const ok = run('?from=chrsopensing1');
+  assert.equal(ok.helpBack.hidden, false); assert.equal(ok.helpBack.attrs.href, '/live/chrsopensing1');
+  assert.equal(ok.helpBackEnd.hidden, false);
+  ['', '?from=', '?from=short', '?from=UPPERCASEslug1', '?from=%22%3E%3Cscript%3E', '?from=javascript:alert(1)', '?from=abc/../../x12345', '?from=%E0%A4%A'].forEach((s) => {
+    const l = run(s);
+    assert.equal(l.helpBack.hidden, true, s); assert.equal(l.helpBack.attrs.href, undefined, s);
+  });
+  assert.match(HELP, /<a class="help-back" id="helpBack" href="\/" hidden>/);
 });
 
 test('help page: no plan names, no exact retention numbers, no accounts or admin talk', () => {
@@ -59,14 +122,14 @@ test('help page: no plan names, no exact retention numbers, no accounts or admin
 });
 
 test('help page: with no JavaScript every question is visible (the search box starts hidden and only the script shows it)', () => {
-  assert.match(HELP, /id="faqFind" hidden/);
+  assert.match(HELP, /id="faqFind"[^>]* hidden>/);
   const open = HELP.match(/<details\b[^>]*>/g);
   open.forEach((tag) => assert.ok(!/\bhidden\b/.test(tag), tag));
-  assert.match(HELP, /find\.hidden = false/);
+  assert.match(HELP, /reveal: document\.getElementById\('faqFind'\)/);
 });
 
 const answer = (id) => {
-  const m = HELP.match(new RegExp('<details class="q" id="' + id + '">[\\s\\S]*?</details>'));
+  const m = HELP.match(new RegExp('<details class="q" id="' + id + '"[^>]*>[\\s\\S]*?</details>'));
   assert.ok(m, id);
   return m[0].replace(/<[^>]+>/g, ' ').replace(/&rsquo;/g, "'").replace(/\s+/g, ' ');
 };
@@ -131,7 +194,7 @@ test('Release 2 spectator answers: when and where, scores last changed, and the 
   assert.match(w, /Group Boards events have a Boards tab/); assert.match(w, /Knockout events show a match as soon as both sides are known/);
   assert.match(w, /organiser calls each match at the venue/); assert.match(w, /ask at the organiser.s desk/);
   assert.ok(!/\bplan\b/i.test(w.replace(/board plan/gi, '')));
-  assert.match(INDEX, /Board and time for each match are announced at the venue\. <a href="\/help#q-when-where">More<\/a>/);
+  assert.match(INDEX, /Board and time for each match are announced at the venue\. <a href="'\+escapeHtml\(helpHref\('q-when-where'\)\)\+'">More<\/a>/);
   const stuck = answer('q-stuck-scores');
   assert.match(stuck, /Scores last changed/); assert.ok(!/you are up to date/.test(stuck)); assert.ok(!/\bUpdated\b/.test(stuck + answer('q-status-pill') + answer('q-refresh')));
   assert.match(answer('q-offline'), /Last checked/);
@@ -160,105 +223,167 @@ test('the home page header still has its brand, search, tabs and theme button af
   assert.equal((html.match(/<div/g) || []).length, (html.match(/<\/div>/g) || []).length, 'divs are balanced');
 });
 
-// ---- the search filter ----
-const script = HELP.match(/<script id="faq-filter">([\s\S]*?)<\/script>/);
-test('help page: the search script is present', () => assert.ok(script));
+// ---- the search ----
+// The page runs the shared module (viewer/help-search.js, a synced copy of the root help-search.js) and a small script
+// that hands it the questions. tests/lib/help-pages.js loads the real page into a small DOM and runs both.
+const { loadHelp } = require('./lib/help-pages');
+const shownQ = (pg) => pg.doc.querySelectorAll('details.q').filter((d) => !d.hidden).map((d) => d.id);
+const shownG = (pg) => pg.doc.querySelectorAll('.help-grp').filter((g) => !g.hidden).map((g) => g.id);
+const links = (pg) => pg.byId('faqResults').querySelectorAll('a').filter((a) => a.getAttribute('data-id'));
+const ALLQ = (HELP.match(/<details class="q" /g) || []).length;
 
-const load = () => { const ctx = {}; vm.createContext(ctx); vm.runInContext(script[1], ctx, { filename: 'help.html#filter' }); return ctx; };
-const node = () => ({ hidden: false, open: false });
-const make = () => {
-  const g1 = { node: node(), items: [{ node: node(), text: 'What do Live, Upcoming and Results mean?' }, { node: node(), text: 'How do I find a player? Type a name' }] };
-  const g2 = { node: node(), items: [{ node: node(), text: 'The Bracket: Rounds and Chart views' }] };
-  return [g1, g2];
-};
-
-test('search: an empty query shows every question and leaves the open ones as they are', () => {
-  const f = load().faqFilter, groups = make();
-  groups[0].items[0].node.open = true; groups[0].items[0].node.hidden = true;
-  assert.equal(f(groups, ''), 3);
-  groups.forEach((g) => { assert.equal(g.node.hidden, false); g.items.forEach((i) => { assert.equal(i.node.hidden, false); }); });
-  assert.equal(groups[0].items[0].node.open, true, 'opened by the reader, so it stays open');
-  assert.equal(f(groups, '   '), 3);
-  assert.equal(f(groups, null), 3);
+test('help page: the search loads the shared module, the page data, then the script that wires them; the old filter is gone', () => {
+  const i = HELP.indexOf('<script src="/help-search.js"></script>'), j = HELP.indexOf('<script type="application/json" id="helpSearchData">'), k = HELP.indexOf('<script id="faq-search">');
+  assert.ok(i > 0 && i < j && j < k, 'module, data, page script, in that order');
+  assert.ok(!/faqFilter|id="faq-filter"/.test(HELP), 'the substring filter is gone');
+  const data = JSON.parse(HELP.match(/<script type="application\/json" id="helpSearchData">([\s\S]*?)<\/script>/)[1]);
+  assert.ok(data.synonyms.length >= 20 && data.noAnswer.length >= 3);
+  assert.ok(data.synonyms.some((g) => g.includes('son') && g.includes('find a player')), 'where is my son');
+  assert.ok(data.synonyms.some((g) => g.includes('wo') && g.includes('walkover')));
+  assert.ok(fs.readFileSync(path.join(VIEWER, 'help-search.js')).equals(fs.readFileSync(path.join(VIEWER, '..', 'help-search.js'))), 'the viewer copy is current');
+  // every question carries keywords, plain words only
+  const kw = [...HELP.matchAll(/<details class="q" id="[^"]+" data-keywords="([^"]*)">/g)];
+  assert.equal(kw.length, ALLQ);
+  kw.forEach((m) => assert.match(m[1], /^[a-z0-9 ]+$/));
 });
 
-test('search: matches ignore case, need every word, and open the matching questions', () => {
-  const f = load().faqFilter, groups = make();
-  assert.equal(f(groups, 'BRACKET'), 1);
-  assert.equal(groups[0].node.hidden, true, 'a group with no match is hidden');
-  assert.equal(groups[1].node.hidden, false);
-  assert.equal(groups[1].items[0].node.open, true);
-  assert.equal(f(groups, 'find name'), 1);
-  assert.equal(groups[0].items[0].node.hidden, true);
-  assert.equal(groups[0].items[1].node.hidden, false);
-  assert.equal(groups[1].node.hidden, true);
-  assert.equal(f(groups, 'find bracket'), 0, 'both words must be in the same question');
-  assert.equal(groups[0].node.hidden, true); assert.equal(groups[1].node.hidden, true);
-  assert.equal(f(groups, 'zzzz'), 0);
+test('search: the box appears once the script runs; with nothing typed every question shows and nothing else', () => {
+  const pg = loadHelp('spectator');
+  assert.equal(pg.byId('faqFind').hidden, false);
+  assert.equal(shownQ(pg).length, ALLQ);
+  assert.equal(pg.byId('faqResults').hidden, true);
+  assert.equal(pg.byId('faqNone').hidden, true);
+  assert.equal(pg.byId('faqStatus').hidden, true);
 });
 
-test('search: clearing the box closes only what the search opened, not what the reader opened', () => {
-  const f = load().faqFilter, groups = make();
-  const mine = groups[1].items[0];
-  mine.node.open = true;                       // the reader opened this one by hand
-  f(groups, 'find');                           // opens the player question; the bracket one is hidden but stays open
-  assert.equal(groups[0].items[1].node.open, true);
-  assert.equal(mine.node.open, true);
-  f(groups, 'bracket');                        // the player question stops matching: the search closes what it opened
-  assert.equal(groups[0].items[1].node.open, false);
-  assert.equal(mine.node.open, true, 'already open, so the search does not own it');
-  f(groups, '');
-  assert.equal(mine.node.open, true, 'still open after clearing');
-  f(groups, 'live');                           // opens the first question
-  assert.equal(groups[0].items[0].node.open, true);
-  f(groups, '');
-  assert.equal(groups[0].items[0].node.open, false, 'opened by the search, closed when it is cleared');
+test('search: "where is my son" lists the finding answers first; a list of titles with snippets, not every answer opened', () => {
+  const pg = loadHelp('spectator');
+  pg.type('where is my son');
+  const ls = links(pg);
+  assert.ok(ls.length >= 2);
+  assert.equal(ls[0].getAttribute('href'), '#q-find-player');
+  assert.equal(ls[0].querySelector('.hs-title').textContent, 'How do I find a player?');
+  assert.ok(ls[0].querySelector('.hs-snip').textContent.length > 20);
+  assert.equal(pg.byId('faqStatus').hidden, false);
+  const total = pg.controller.search('where is my son').results.length;
+  assert.equal(pg.byId('faqStatus').textContent, total + ' questions match');
+  assert.equal(ls.length, Math.min(total, 8), 'at most 8 at first');
+  assert.ok(pg.doc.querySelectorAll('details.q').every((d) => !d.open), 'nothing is opened when no answer is clearly best');
 });
 
-test('search: clearing the box brings everything back', () => {
-  const f = load().faqFilter, groups = make();
-  f(groups, 'zzzz');
-  assert.equal(f(groups, ''), 3);
-  groups.forEach((g) => { assert.equal(g.node.hidden, false); g.items.forEach((i) => assert.equal(i.node.hidden, false)); });
+test('search: "WO" finds the walkover answers only, not "two" or "would"; the labels answer first, then the glossary word, and a pick opens with WO marked', () => {
+  const pg = loadHelp('spectator');
+  pg.type('WO');
+  const ls = links(pg), ids = ls.map((a) => a.getAttribute('data-id'));
+  assert.deepEqual(ids.slice(0, 2), ['q-match-labels', 'q-glossary']);
+  assert.equal(ls[1].getAttribute('href'), '#glossary-wo', 'the glossary result lands on its WO entry');
+  assert.ok(!ids.includes('q-stages') && !ids.includes('q-qr'), ids.join());
+  pg.click(ls[0]);
+  const top = pg.byId('q-match-labels');
+  assert.deepEqual(shownQ(pg), ['q-match-labels']);
+  assert.equal(top.open, true);
+  const marks = top.querySelectorAll('mark').map((m) => m.textContent);
+  assert.ok(marks.includes('WO'), marks.join());
+  assert.ok(!marks.some((m) => /two|would/i.test(m)));
+  assert.deepEqual(shownG(pg), ['g-results'], 'only its group shows');
 });
 
-test('search: the page wiring shows the box, filters as you type, and shows the no-match message', () => {
-  const els = {}, listeners = {};
-  const el = (id) => (els[id] = els[id] || { id, hidden: true, textContent: '', value: '', addEventListener: (ev, fn) => { listeners[id + ':' + ev] = fn; } });
-  const q = (text) => ({ hidden: false, open: false, textContent: text, tagName: 'DETAILS' });
-  const d1 = q('Scores not moving'), d2 = q('Light and dark switch'), d3 = q('Bracket rounds');
-  const grp = (items) => ({ hidden: false, querySelectorAll: () => items });
-  const g1 = grp([d1, d2]), g2 = grp([d3]);
-  ['faqSearch', 'faqFind', 'faqStatus', 'faqNone'].forEach(el);
-  els.faqNone.hidden = true;
-  const toggles = [], winL = {};
-  [d1, d2, d3].forEach((d) => { d.addEventListener = (ev, fn) => { if (ev === 'toggle') toggles.push([d, fn]); }; });
-  els.q3 = d3; d3.closest = () => g2;
-  const doc = { getElementById: (id) => els[id] || null, querySelectorAll: (sel) => (sel === '.help-grp' ? [g1, g2] : []) };
-  const ctx = { document: doc, location: { hash: '' }, window: { addEventListener: (ev, fn) => { winL[ev] = fn; } }, decodeURIComponent, Array, String };
-  vm.createContext(ctx);
-  vm.runInContext(script[1], ctx);
-  assert.equal(els.faqFind.hidden, false, 'search box is shown once the script runs');
-  els.faqSearch.value = 'bracket'; listeners['faqSearch:input']();
-  assert.equal(d3.hidden, false); assert.equal(d1.hidden, true); assert.equal(g1.hidden, true);
-  assert.equal(els.faqStatus.textContent, '1 question matches'); assert.equal(els.faqNone.hidden, true);
-  els.faqSearch.value = 'nothing here'; listeners['faqSearch:input']();
-  assert.equal(els.faqNone.hidden, false); assert.equal(els.faqStatus.hidden, true);
-  els.faqSearch.value = ''; listeners['faqSearch:input']();
-  assert.equal(d1.hidden, false); assert.equal(g1.hidden, false); assert.equal(els.faqNone.hidden, true);
-  // the reader touches a question that a search had opened: the toggle listener takes it out of the search's hands
-  els.faqSearch.value = 'scores'; listeners['faqSearch:input']();
-  assert.equal(d1.open, true);
-  const fire = (d) => toggles.forEach(([x, fn]) => { if (x === d) fn(); });
-  fire(d1);                                  // the script's own change: nothing happens
-  d1.open = false; fire(d1);                 // the reader closed it
-  d1.open = true; fire(d1);                  // and opened it again themselves
-  els.faqSearch.value = ''; listeners['faqSearch:input']();
-  assert.equal(d1.open, true, 'a question the reader touched stays open when the search is cleared');
-  // an address like /help#q3 opens that question, also when the address changes later
-  assert.equal(typeof winL.hashchange, 'function');
-  g2.hidden = true; d3.hidden = true; d3.open = false; ctx.location.hash = '#q3'; winL.hashchange();
-  assert.equal(d3.open, true); assert.equal(d3.hidden, false); assert.equal(g2.hidden, false);
+test('search: clearing closes only what the search opened, not what the reader opened, and keeps a chosen answer open', () => {
+  const pg = loadHelp('spectator');
+  const mine = pg.byId('q-theme');
+  mine.open = true; pg.doc.flush();               // opened by hand
+  pg.type('refresh');                             // opens q-refresh by itself
+  assert.equal(pg.byId('q-refresh').open, true);
+  pg.type('');
+  assert.equal(pg.byId('q-refresh').open, false, 'opened by the search, closed when it is cleared');
+  assert.equal(mine.open, true, 'the reader’s own stays open');
+  assert.equal(shownQ(pg).length, ALLQ);
+  assert.equal(shownG(pg).length, pg.doc.querySelectorAll('.help-grp').length);
+  // a question the reader picks from the list is theirs
+  pg.type('team');
+  const pick = links(pg).find((a) => a.getAttribute('data-id') === 'q-teams-total');
+  pg.click(pick);
+  assert.deepEqual(shownQ(pg), ['q-teams-total']);
+  assert.equal(pg.byId('q-teams-total').open, true);
+  pg.key('Escape');
+  assert.equal(pg.input.value, '');
+  assert.equal(pg.byId('q-teams-total').open, true, 'chosen by the reader, so it stays open');
+  assert.equal(pg.doc.querySelectorAll('mark').length, 0);
+  // the reader closing and reopening a question the search opened takes it out of the search's hands
+  pg.type('refresh');
+  const r = pg.byId('q-refresh');
+  r.open = false; pg.doc.flush(); r.open = true; pg.doc.flush();
+  pg.type('');
+  assert.equal(r.open, true);
+});
+
+test('search: no answer shows what was typed, the honest line when the Help knows it has none, and popular questions', () => {
+  const pg = loadHelp('spectator');
+  pg.type('<i>zzz</i>');
+  assert.equal(pg.byId('faqNone').hidden, false);
+  assert.equal(pg.byId('faqNoneQ').textContent, '<i>zzz</i>', 'text, never HTML');
+  assert.equal(pg.byId('faqSay').hidden, true);
+  assert.equal(pg.byId('faqStatus').textContent, '0 questions match');
+  assert.deepEqual(shownQ(pg), []);
+  const hrefs = pg.byId('faqNone').querySelectorAll('a').map((a) => a.getAttribute('href'));
+  assert.ok(hrefs.length >= 3 && hrefs.length <= 5);
+  hrefs.forEach((h) => assert.ok(pg.byId(h.slice(1)), h + ' exists'));
+  assert.match(pg.byId('faqNone').textContent, /Try fewer words/);
+  assert.match(pg.byId('faqNone').textContent, /Ask the organiser at the venue desk/);
+  pg.type('notify');
+  assert.equal(pg.byId('faqSay').hidden, false);
+  assert.match(pg.byId('faqSay').textContent, /can.t send notifications/);
+  pg.type('language');
+  assert.match(pg.byId('faqSay').textContent, /English only/);
+  pg.type('');
+  assert.equal(pg.byId('faqNone').hidden, true);
+});
+
+test('search: a group title counts ("privacy" finds the Privacy questions), and a typo still finds a close match', () => {
+  const pg = loadHelp('spectator');
+  const p = pg.controller.search('privacy').results.map((r) => r.id);
+  ['q-account', 'q-saved', 'q-what-shown'].forEach((id) => assert.ok(p.slice(0, 3).includes(id), id));
+  const t = pg.controller.search('walkovr');
+  assert.equal(t.results[0].id, 'q-match-labels');
+  assert.equal(t.clear, false, 'a guessed spelling is offered, not opened');
+});
+
+test('search: an address like /help#q-ties opens that question, on load and when the address changes, even mid-search', () => {
+  const pg = loadHelp('spectator', { hash: '#q-ties' });
+  assert.equal(pg.byId('q-ties').open, true);
+  pg.type('qr');
+  assert.deepEqual(shownQ(pg), ['q-qr']);
+  pg.goTo('#q-tb-badges');                         // not a result: the search is cleared so it can show
+  assert.equal(pg.input.value, '');
+  assert.equal(pg.byId('q-tb-badges').open, true);
+  assert.equal(pg.byId('q-tb-badges').hidden, false);
+  assert.equal(pg.byId('g-tables').hidden, false);
+});
+
+test('search: Enter opens the top result, ArrowDown moves into the list and ArrowUp back to the box', () => {
+  const pg = loadHelp('spectator');
+  pg.type('who plays next');
+  const e = pg.key('Enter');
+  assert.equal(e.defaultPrevented, true);
+  assert.equal(pg.hash, '#q-player-status');
+  assert.equal(pg.byId('q-player-status').open, true);
+  pg.type('bracket');
+  pg.key('ArrowDown');
+  const ls = links(pg);
+  assert.equal(pg.doc.activeElement, ls[0]);
+  const down = { type: 'keydown', key: 'ArrowDown', preventDefault() {} };
+  pg.byId('faqResults').dispatchEvent(Object.assign(down, { target: ls[0] }));
+  assert.equal(pg.doc.activeElement, ls[1]);
+  pg.byId('faqResults').dispatchEvent({ type: 'keydown', key: 'ArrowUp', target: ls[1], preventDefault() {} });
+  pg.byId('faqResults').dispatchEvent({ type: 'keydown', key: 'ArrowUp', target: ls[0], preventDefault() {} });
+  assert.equal(pg.doc.activeElement, pg.input);
+});
+
+test('help.css: results, marks and the no-answer box are styled; result rows are big enough to tap', () => {
+  const css = read('help.css');
+  ['.hs-link{', '.hs-title{', '.hs-snip{', 'mark.hs-mark{', '.none-list{', '.help-results{'].forEach((s) => assert.ok(css.includes(s), s));
+  assert.match(css, /\.hs-link\{[^}]*padding:12px/);
+  assert.match(css, /\.hs-link\{[^}]*overflow-wrap:anywhere/);
 });
 
 test('help page: the theme script uses the same stored key as the event and home pages', () => {

@@ -13,7 +13,9 @@ const header = () => {
 
 test('event header: exactly one plain "All events" link to / sits before the toprow', () => {
   const h = header();
-  assert.equal((h.match(/<a\b/g) || []).length, 1);
+  // two links: All events, and (Release 4) the Help button beside it
+  assert.equal((h.match(/<a\b/g) || []).length, 2);
+  assert.match(h, /<div class="headrow"><a class="allevents" href="\/">[\s\S]*?<\/a><a class="evhelp" id="hHelp" href="\/help">Help<\/a><\/div>/);
   assert.equal((HTML.match(/class="allevents"/g) || []).length, 1);
   const m = h.match(/<a class="allevents" href="\/">([\s\S]*?)<\/a>/);
   assert.ok(m, 'link is <a class="allevents" href="/">');

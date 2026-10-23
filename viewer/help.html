@@ -33,81 +33,120 @@
 
 <main>
 <div class="help-wrap help-main">
+  <a class="help-back" id="helpBack" href="/" hidden>&lsaquo; Back to the event</a>
   <p class="help-intro">Short answers about following a tournament on this site. Tap a question to open it.</p>
 
-  <div class="help-find" id="faqFind" hidden>
-    <input id="faqSearch" type="search" placeholder="Search help" aria-label="Search help questions" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <div class="help-find" id="faqFind" role="search" hidden>
+    <input id="faqSearch" type="search" maxlength="120" placeholder="Search help, e.g. &ldquo;where is my son&rdquo;" aria-label="Search help questions" aria-describedby="faqStatus" aria-controls="faqResults" autocomplete="off" autocapitalize="off" spellcheck="false">
   </div>
   <div class="help-status" id="faqStatus" role="status" aria-live="polite" hidden></div>
-  <p class="help-none" id="faqNone" hidden>No question matches that. Try a shorter word, like &ldquo;score&rdquo; or &ldquo;bracket&rdquo;.</p>
+  <div class="help-none" id="faqNone" hidden>
+    <p class="none-h">No answer for &ldquo;<span id="faqNoneQ"></span>&rdquo;.</p>
+    <p class="none-say" id="faqSay" hidden></p>
+    <p>Try fewer words, or a different word. Or start with one of these:</p>
+    <ul class="none-list">
+      <li><a href="#q-when-where">When and where does my player play?</a></li>
+      <li><a href="#q-find-player">How do I find a player?</a></li>
+      <li><a href="#q-stuck-scores">The scores aren&rsquo;t moving</a></li>
+      <li><a href="#q-columns">What do MP, MW, ML, LW, +/-, Pts and TB mean?</a></li>
+      <li><a href="#glossary">Words you will see</a></li>
+    </ul>
+    <p class="none-end">Still stuck? Ask the organiser at the venue desk.</p>
+  </div>
+  <div class="help-results" id="faqResults" hidden></div>
 
-  <section class="help-grp" id="g-home" aria-labelledby="h-home">
-    <h2 id="h-home">The home page</h2>
-    <details class="q" id="q-live-upcoming-results">
-      <summary>What do Live, Upcoming and Results mean?</summary>
+  <section class="help-start" id="start" aria-labelledby="h-start">
+    <h2 id="h-start">New here? Three things to know</h2>
+    <ol>
+      <li>Tap an event on the home page. <b>Live</b> is being played now, <b>Upcoming</b> hasn&rsquo;t started yet, <b>Results</b> are finished. An event opens on the part being played now.</li>
+      <li>Find your player with the search box on the event page. Tap <b>&#9734; Follow</b> to keep them on the Following tab, or <b>This is me</b> if it is you.</li>
+      <li>Scores appear when the organiser enters them, usually a minute or two after a match. Board and time are announced at the venue (Group Boards events show them on the Boards tab).</li>
+    </ol>
+    <p class="start-more">Short headings like MP and Pts are explained in <a href="#glossary">Words you will see</a>.</p>
+  </section>
+
+  <nav class="help-quick" id="quick" aria-labelledby="h-quick">
+    <h2 id="h-quick">Quick answers</h2>
+    <a class="qa" href="#q-find-player"><b>Where is my player?</b><span>Open their event, type part of the name in <i>Find a player</i> and tap it. Their page says what they play next.</span></a>
+    <a class="qa" href="#q-status-pill"><b>Is it live?</b><span>Look at the pill under the event name. <i>Live</i> means matches are being played; <i>Scores last changed</i> says when the last result came in.</span></a>
+    <a class="qa" href="#q-columns"><b>What do the columns mean?</b><span>MP played, MW won, ML lost, LW legs won, +/- leg difference, Pts points. Tap <i>What do the columns mean?</i> under any table.</span></a>
+  </nav>
+
+  <section class="help-grp" id="g-players" aria-labelledby="h-players">
+    <h2 id="h-players">Following a player</h2>
+    <details class="q" id="q-when-where" data-keywords="when where time what time schedule timetable board which board court start time play order called">
+      <summary>When and where does my player play?</summary>
       <div class="a">
-        <p><b>Live</b> events have started: at least one match has been played, and the scores are coming in.</p>
-        <p><b>Upcoming</b> events are listed but haven&rsquo;t started yet. They show the date and, if the organiser gave one, the start time.</p>
-        <p><b>Results</b> are finished events. Tap one to see the winner and every score.</p>
-        <p>The small number on each tab is how many events are in it. Tap any event to open it.</p>
-      </div>
-    </details>
-    <details class="q" id="q-missing-event">
-      <summary>Why can&rsquo;t I see an event?</summary>
-      <div class="a">
-        <p>The home page only lists events the organiser chose to show there. Some organisers share a link or a code instead.</p>
-        <p>If you have a link or a code, paste it into the search box at the top. An <b>Open event</b> button appears. Tap it.</p>
-        <p>Other reasons an event may be missing:</p>
+        <p>It depends on the kind of event. (In a Teams event, read &ldquo;team&rdquo; for &ldquo;player&rdquo;.)</p>
         <ul>
-          <li>The organiser hasn&rsquo;t published it yet.</li>
-          <li>It was taken offline.</li>
-          <li>It stopped being updated a while ago, so it dropped off Live.</li>
-          <li>It finished, but the organiser hasn&rsquo;t marked it as final yet, and it has gone quiet (see the next question).</li>
+          <li><b>Group Boards events</b> have a <b>Boards</b> tab. It shows each board, the match on it now, the next few, and a rough time. A player&rsquo;s page also says things like &ldquo;Board 2 &middot; 1 match ahead &middot; ~7:50 pm&rdquo;. A time with a ~ is an estimate and can run late.</li>
+          <li><b>Round robin groups</b> show the group on a player&rsquo;s page, its board if the organiser gave one, and who they still have to play. They do not show the order or a time.</li>
+          <li><b>Knockout events</b> show a match as soon as both sides are known, for example &ldquo;Next: Semifinal (3-1) vs Leo Ahmad&rdquo; (the code in brackets is the <a href="#glossary-match-codes">match code</a>), or &ldquo;opponent not decided yet&rdquo; while one side is still to be decided. They do not show a board or a time.</li>
         </ul>
-        <p>Not sure? Ask the organiser for the event link.</p>
+        <p>In Round robin and Knockout events the organiser calls each match at the venue, so this site can&rsquo;t say where or when. Listen for the announcements, or ask at the organiser&rsquo;s desk.</p>
       </div>
     </details>
-    <details class="q" id="q-results-final">
-      <summary>When does an event move to Results?</summary>
+    <details class="q" id="q-find-player" data-keywords="find player search name son daughter kid child my player look up before the draw">
+      <summary>How do I find a player?</summary>
       <div class="a">
-        <p>Only after the organiser marks the event <b>Final results</b>. Until then it stays in Live while the organiser is still updating it, even if the last match has been played, and its card may say &ldquo;Awaiting final results&rdquo;. If it goes quiet for a while without being marked final, it drops off the home page until it is. The link you were given keeps working.</p>
-        <p>Results stay on the home page for a limited time, then they are removed. If you want to keep a result, note it down or take a screenshot.</p>
+        <p>Type part of a name in the <b>Find a player</b> box under the tabs. Matching names appear below the box. Tap one, or press Enter to open the first.</p>
+        <p>You can also tap any name in a table or a bracket.</p>
+        <p>A player&rsquo;s page shows their position, points and leg difference, who they have played, and who is next.</p>
+        <p>Before the draw is made, the event page lists nobody yet, so there is no search box. Names appear once the organiser makes the draw.</p>
       </div>
     </details>
-    <details class="q" id="q-search-events">
-      <summary>How do I search for an event?</summary>
+    <details class="q" id="q-no-name" data-keywords="missing name not listed spelling cant find my name">
+      <summary>I can&rsquo;t find my name in the search</summary>
       <div class="a">
-        <p>Type in the search box on the home page. It looks at the event name, the tournament name, the format and the winner&rsquo;s name. It only searches the tab you are on.</p>
-        <p>You can also paste an event link or code there to open it directly.</p>
+        <p>Try a shorter part of your name, or your club if you know it. Search matches part of a name, so you don&rsquo;t need to spell it all out. If you still can&rsquo;t find it, you may not be in the draw yet, or the organiser may have spelled it differently.</p>
       </div>
     </details>
-    <details class="q" id="q-home-cant-load">
-      <summary>The home page says it can&rsquo;t load events</summary>
+    <details class="q" id="q-me-following" data-keywords="me follow following star favourite unfollow stop following blue gold track">
+      <summary>What are Me and Following?</summary>
       <div class="a">
-        <p>The page couldn&rsquo;t reach the site the first time, so it has no list to show yet. It does <b>not</b> mean nothing is on. The numbers on the tabs only appear once the list has loaded.</p>
-        <p>Check your connection, for example weak signal or venue Wi-Fi, then tap <b>Try again</b>. The page also keeps trying by itself, so you can leave it open.</p>
-        <p>If you have an event link, you can open it directly instead.</p>
+        <p>On a player&rsquo;s page, tap <b>This is me</b> to make that player you. The <b>Me</b> tab then opens straight to your group standing and next match each time you come back. Me is one player.</p>
+        <p>Tap <b>Follow</b> to keep an eye on someone else. Follow as many as you like. They all appear together on the <b>Following</b> tab, which shows how many you follow.</p>
+        <p>You are marked in blue and the players you follow are marked with a star and gold.</p>
+      </div>
+    </details>
+    <details class="q" id="q-come-back" data-keywords="come back later return again next time reopen same link">
+      <summary>How do I come back later?</summary>
+      <div class="a">
+        <p>Open the same link again, or scan the QR code again. If you set Me or followed someone, the page opens on your <b>Me</b> or <b>Following</b> tab, unless the link itself names a screen (some QR codes open one group).</p>
+        <p>Me and Following are kept on this device, for each event. The home page lists the events the organiser chose to show there.</p>
+      </div>
+    </details>
+    <details class="q" id="q-player-status" data-keywords="next match next opponent who plays next status out eliminated knocked out still in withdrawn lost">
+      <summary>What does the line under a player&rsquo;s name say?</summary>
+      <div class="a">
+        <p>It says where that player is right now. For example who they play next, how many matches they have left in their group, their place when the group is finished, or that they are out and who they lost to.</p>
+        <p>A player who left the event is shown as <b>Withdrawn</b>.</p>
       </div>
     </details>
   </section>
 
-  <section class="help-grp" id="g-event" aria-labelledby="h-event">
-    <h2 id="h-event">Opening an event</h2>
-    <details class="q" id="q-tabs">
-      <summary>What are the tabs at the top?</summary>
+  <section class="help-grp" id="g-fresh" aria-labelledby="h-fresh">
+    <h2 id="h-fresh"><span id="g-event"></span>Is this up to date?</h2>
+    <details class="q" id="q-refresh" data-keywords="refresh reload update updating live scores how often automatic">
+      <summary>How often does the page refresh?</summary>
       <div class="a">
-        <p>Which tabs you see depends on the event.</p>
-        <dl class="legend">
-          <dt><span class="k">Me</span></dt><dd>The one player you picked as yourself.</dd>
-          <dt><span class="k">Following</span></dt><dd>Any players you chose to follow.</dd>
-          <dt><span class="k">Groups</span></dt><dd>A table and a results grid for each group.</dd>
-          <dt><span class="k">Boards</span></dt><dd>Which match is on which board. Only in Group Boards events.</dd>
-          <dt><span class="k">Bracket</span></dt><dd>The knockout draw, round by round.</dd>
-        </dl>
-        <p>Before the draw is made, the page says so and asks you to check back soon.</p>
+        <p>An event page checks for new scores about every 20 seconds while it is open. You don&rsquo;t need to reload it. The home page checks about every 30 seconds.</p>
+        <p>There can be a short delay between the organiser entering a score and you seeing it. The page checking often does not mean the scores change often. Look at <b>Scores last changed</b> to see when they last did.</p>
       </div>
     </details>
-    <details class="q" id="q-status-pill">
+    <details class="q" id="q-stuck-scores" data-keywords="not updating not moving stuck frozen old stale same score late delay wrong problem">
+      <summary>The scores aren&rsquo;t moving</summary>
+      <div class="a">
+        <ol>
+          <li>Look at <b>Scores last changed</b> next to the pill at the top. That is when the organiser last saved a change. If it is recent, you have the latest scores, and the next result just hasn&rsquo;t been entered yet.</li>
+          <li>Results appear when the organiser types them in, often a minute or two after a match ends. A match may still be in play.</li>
+          <li>If the time is old and you know matches have finished, reload the page, or open it again from the home page.</li>
+          <li>If the pill says <b>Offline</b>, see <a href="#q-offline">It says Offline</a>.</li>
+        </ol>
+        <p>If it still looks wrong, ask the organiser.</p>
+      </div>
+    </details>
+    <details class="q" id="q-status-pill" data-keywords="pill live starting soon final results finished scores last changed offline is it live">
       <summary>What do &ldquo;Starting soon&rdquo;, &ldquo;Live&rdquo; and &ldquo;Final results&rdquo; mean?</summary>
       <div class="a">
         <dl class="legend">
@@ -119,64 +158,48 @@
         <p>Next to the pill you will see <b>Scores last changed</b> and a time. That is when the organiser last saved a change to the event, usually a score. It is not when your phone last checked, so it can be a while ago when no match has finished. If it is not today, the date is shown too.</p>
       </div>
     </details>
-    <details class="q" id="q-refresh">
-      <summary>How often does the page refresh?</summary>
+    <details class="q" id="q-results-final" data-keywords="old results how long kept stay disappear screenshot awaiting official finished">
+      <summary>When does an event move to Results?</summary>
       <div class="a">
-        <p>An event page checks for new scores about every 20 seconds while it is open. You don&rsquo;t need to reload it. The home page checks about every 30 seconds.</p>
-        <p>There can be a short delay between the organiser entering a score and you seeing it. The page checking often does not mean the scores change often. Look at <b>Scores last changed</b> to see when they last did.</p>
+        <p>Only after the organiser marks the event <b>Final results</b>. Until then it stays in Live while the organiser is still updating it, even if the last match has been played, and its card may say &ldquo;Awaiting final results&rdquo;. If it goes quiet for a while without being marked final, it drops off the home page until it is. The link you were given keeps working.</p>
+        <p>Results stay on the home page for a limited time, then they are removed. If you want to keep a result, note it down or take a screenshot.</p>
       </div>
     </details>
-    <details class="q" id="q-stages">
-      <summary>What are the stage cards and the progress line?</summary>
+    <details class="q" id="q-offline" data-keywords="offline reconnecting no signal wifi connection mobile data roaming">
+      <summary>It says &ldquo;Offline&rdquo;, &ldquo;Reconnecting&rdquo; or &ldquo;Couldn&rsquo;t load results&rdquo;</summary>
       <div class="a">
-        <p>Some events have two stages, for example groups first and then a knockout, or groups and then the Finals. Two cards near the top show where each stage is: not started, in progress with the number of matches played, or complete. Tap a card to jump to that stage.</p>
-        <p>In the header, a line such as &ldquo;2 of 4 groups finished&rdquo; shows how far the group stage has got. Under the title you may also see how many legs a match is, for example &ldquo;Best of 5 legs&rdquo;. In a Teams event it says how many segments a match has instead (see Teams).</p>
+        <p>Your phone can&rsquo;t reach the site right now, maybe because of weak signal or venue Wi-Fi. Keep the page open. It keeps trying and will fill in on its own when the connection comes back.</p>
+        <p>While it can&rsquo;t refresh, the scores on screen stay as they were. <b>Scores last changed</b> tells you how old they are. <b>Last checked</b> is when your phone last reached the site.</p>
+        <p>Try switching between Wi-Fi and mobile data.</p>
       </div>
     </details>
-  </section>
-
-  <section class="help-grp" id="g-players" aria-labelledby="h-players">
-    <h2 id="h-players">Finding a player</h2>
-    <details class="q" id="q-when-where">
-      <summary>When and where does my player play?</summary>
+    <details class="q" id="q-not-available" data-keywords="not available error broken link">
+      <summary>It says &ldquo;Results not available&rdquo;</summary>
       <div class="a">
-        <p>It depends on the kind of event. (In a Teams event, read &ldquo;team&rdquo; for &ldquo;player&rdquo;.)</p>
-        <ul>
-          <li><b>Group Boards events</b> have a <b>Boards</b> tab. It shows each board, the match on it now, the next few, and a rough time. A player&rsquo;s page also says things like &ldquo;Board 2 &middot; 1 match ahead &middot; ~7:50 pm&rdquo;. A time with a ~ is an estimate and can run late.</li>
-          <li><b>Round robin groups</b> show the group on a player&rsquo;s page, its board if the organiser gave one, and who they still have to play. They do not show the order or a time.</li>
-          <li><b>Knockout events</b> show a match as soon as both sides are known, for example &ldquo;Next: Semifinal (3-1) vs Leo Ahmad&rdquo; (the code in brackets is the match number), or &ldquo;opponent not decided yet&rdquo; while one side is still to be decided. They do not show a board or a time.</li>
-        </ul>
-        <p>In Round robin and Knockout events the organiser calls each match at the venue, so this site can&rsquo;t say where or when. Listen for the announcements, or ask at the organiser&rsquo;s desk.</p>
-      </div>
-    </details>
-    <details class="q" id="q-find-player">
-      <summary>How do I find a player?</summary>
-      <div class="a">
-        <p>Type part of a name in the <b>Find a player</b> box under the tabs. Matching names appear below the box. Tap one, or press Enter to open the first.</p>
-        <p>You can also tap any name in a table or a bracket.</p>
-        <p>A player&rsquo;s page shows their position, points and leg difference, who they have played, and who is next.</p>
-      </div>
-    </details>
-    <details class="q" id="q-me-following">
-      <summary>What are Me and Following?</summary>
-      <div class="a">
-        <p>On a player&rsquo;s page, tap <b>This is me</b> to make that player you. The <b>Me</b> tab then opens straight to your group standing and next match each time you come back. Me is one player.</p>
-        <p>Tap <b>Follow</b> to keep an eye on someone else. Follow as many as you like. They all appear together on the <b>Following</b> tab, which shows how many you follow.</p>
-        <p>You are marked in blue and the players you follow are marked with a star and gold.</p>
-      </div>
-    </details>
-    <details class="q" id="q-player-status">
-      <summary>What does the line under a player&rsquo;s name say?</summary>
-      <div class="a">
-        <p>It says where that player is right now. For example who they play next, how many matches they have left in their group, their place when the group is finished, or that they are out and who they lost to.</p>
-        <p>A player who left the event is shown as <b>Withdrawn</b>.</p>
+        <p>The link isn&rsquo;t valid, or the organiser has taken the results offline. Check you copied the whole link. If an organiser republishes the event, the page comes back on its own, so it is worth keeping the tab open. Otherwise tap <b>See all events</b> to go to the home page.</p>
       </div>
     </details>
   </section>
 
-  <section class="help-grp" id="g-tables" aria-labelledby="h-tables">
-    <h2 id="h-tables">Reading group tables</h2>
-    <details class="q" id="q-columns">
+  <section class="help-grp" id="g-results" aria-labelledby="h-results">
+    <h2 id="h-results">Reading the results</h2>
+    <details class="q" id="q-tabs" data-keywords="tabs menu groups bracket boards draw knockout opens which tab">
+      <summary>What are the tabs at the top?</summary>
+      <div class="a">
+        <p>Which tabs you see depends on the event.</p>
+        <dl class="legend">
+          <dt><span class="k">Me</span></dt><dd>The one player you picked as yourself.</dd>
+          <dt><span class="k">Following</span></dt><dd>Any players you chose to follow.</dd>
+          <dt><span class="k">Groups</span></dt><dd>A table and a results grid for each group.</dd>
+          <dt><span class="k">Boards</span></dt><dd>Which match is on which board. Only in Group Boards events.</dd>
+          <dt><span class="k">Bracket</span></dt><dd>The knockout draw, round by round.</dd>
+        </dl>
+        <p>The page opens on the part of the event being played now: for example <b>Bracket</b> once the knockout has been drawn, or <b>Boards</b> while the groups of a Group Boards event are playing. If you set Me or follow someone, it opens on Me or Following instead. Tap any tab to switch; the page won&rsquo;t move you while you are reading.</p>
+        <p>Before the draw is made, the page says so and asks you to check back soon.</p>
+      </div>
+    </details>
+    <h3 class="help-sub" id="g-tables">Group tables</h3>
+    <details class="q" id="q-columns" data-keywords="mp mw ml md lw pts tb columns abbreviations letters table headings legs won key legend">
       <summary>What do MP, MW, ML, LW, +/-, Pts and TB mean?</summary>
       <div class="a">
         <dl class="legend">
@@ -186,19 +209,28 @@
           <dt><span class="k">MD</span></dt><dd>Matches drawn. This column only appears if a match in the group was drawn.</dd>
           <dt><span class="k">LW</span></dt><dd>Legs won, across all of the player&rsquo;s matches.</dd>
           <dt><span class="k">+/-</span></dt><dd>Leg difference: legs won minus legs lost.</dd>
-          <dt><span class="k">Pts</span></dt><dd>Points. See the next question.</dd>
+          <dt><span class="k">Pts</span></dt><dd>Points. See <a href="#q-points">How do points work?</a></dd>
           <dt><span class="k">TB</span></dt><dd>Tie-break badge. Only appears when players are level on points.</dd>
         </dl>
         <p>The first column is the position in the group.</p>
+        <p>Under each group table, tap <b>What do the columns mean?</b> for a short key, on a phone too.</p>
       </div>
     </details>
-    <details class="q" id="q-points">
+    <details class="q" id="q-points" data-keywords="points pts scoring table">
       <summary>How do points work?</summary>
       <div class="a">
         <p>Win a match: <b>2 points</b>. Draw: <b>1 point</b>. Lose: <b>0 points</b>. Players are ranked by points first.</p>
       </div>
     </details>
-    <details class="q" id="q-ties">
+    <details class="q" id="q-green-bar" data-keywords="green bar qualify advance go through top 2 who goes through places knockout plate">
+      <summary>Who goes through to the knockout?</summary>
+      <div class="a">
+        <p>In events with groups and then a knockout, the top places in each group go through. The line above the group tables says how many, for example &ldquo;Top 2 in each group go through to the knockout&rdquo;.</p>
+        <p>A green bar beside the position marks those places, in the tables on the <b>Groups</b> tab and in a player&rsquo;s group summary. Until a group has played all its matches, the places can still change.</p>
+        <p>If the event also has a <a href="#q-plate">Plate pool</a>, the same line says who plays in it. In a group with no more players than that number, everyone goes through.</p>
+      </div>
+    </details>
+    <details class="q" id="q-ties" data-keywords="tie tied level equal points same points tie break head to head playoff">
       <summary>What happens when players are level on points?</summary>
       <div class="a">
         <p>Ties are split by rules, applied one at a time until the players are separated. The usual order is:</p>
@@ -207,13 +239,18 @@
           <li><b>Leg difference</b>: legs won minus legs lost.</li>
           <li><b>Legs won</b>.</li>
         </ol>
-        <p>The organiser sets the order for each event, so it can differ.</p>
-        <p>When three or more players are level, only the matches <i>between those players</i> are counted. A small mini-table under the group shows exactly what was compared. This matters because results can go in a circle: A beat B, B beat C, and C beat A.</p>
-        <p>If every rule leaves players level, the organiser decides, or there is a playoff.</p>
+        <p>The organiser sets the order for each event, so it can differ. If every rule leaves players level, the organiser decides, or there is a playoff.</p>
         <p>While a group is still being played, tie notes are marked <b>Provisional</b> because they can change as matches finish.</p>
       </div>
     </details>
-    <details class="q" id="q-tb-badges">
+    <details class="q" id="q-ties-three" data-keywords="three way 3 way three players level mini table circle">
+      <summary>What if three or more players are level?</summary>
+      <div class="a">
+        <p>Then only the matches <i>between those players</i> are counted. A small mini-table under the group shows exactly what was compared. This matters because results can go in a circle: A beat B, B beat C, and C beat A.</p>
+        <p>The same rules are used inside the mini-table: head-to-head (its points), then leg difference, then legs won.</p>
+      </div>
+    </details>
+    <details class="q" id="q-tb-badges" data-keywords="h2h ld lw tb badge badges 3 way question mark asterisk tooltip hover">
       <summary>What do the TB badges mean?</summary>
       <div class="a">
         <p>A badge shows which rule put a player ahead of the player beside them when they were level on points.</p>
@@ -225,10 +262,10 @@
           <dt><span class="hb level">?</span></dt><dd>Still level after every rule. It needs an organiser decision or a playoff.</dd>
         </dl>
         <p>An asterisk (*) after a position means the organiser set that position by hand.</p>
-        <p>On a computer, hover over a badge for a short explanation.</p>
+        <p>On a computer, hover over a badge for a short explanation. On a phone, tap <b>What do the columns mean?</b> under the table.</p>
       </div>
     </details>
-    <details class="q" id="q-grid">
+    <details class="q" id="q-grid" data-keywords="grid results grid colours colors red green score table">
       <summary>How do I read the results grid?</summary>
       <div class="a">
         <p>Under each group table is a grid of every match. Find your row, then read across to the opponent&rsquo;s column. The score shows the row player&rsquo;s legs first.</p>
@@ -242,17 +279,8 @@
         <p>A small <b>WO</b> next to a score means a walkover: one player didn&rsquo;t turn up. On a phone the grid scrolls sideways if it is wider than the screen.</p>
       </div>
     </details>
-    <details class="q" id="q-green-bar">
-      <summary>What does the green bar mean?</summary>
-      <div class="a">
-        <p>In events with a group stage and then a knockout, a green bar beside a position in a player&rsquo;s group summary marks the places that go through to the knockout.</p>
-      </div>
-    </details>
-  </section>
-
-  <section class="help-grp" id="g-brackets" aria-labelledby="h-brackets">
-    <h2 id="h-brackets">Brackets</h2>
-    <details class="q" id="q-rounds-chart">
+    <h3 class="help-sub" id="g-brackets">Brackets</h3>
+    <details class="q" id="q-rounds-chart" data-keywords="rounds chart bracket view fit to screen full size knockout draw">
       <summary>What are the Rounds and Chart views?</summary>
       <div class="a">
         <p><b>Rounds</b> shows one round at a time as big match cards. Use the round buttons (Quarters, Semis and so on) to move between them. A tick on a button means that round is finished. This is the default on phones.</p>
@@ -260,39 +288,49 @@
         <p>Switch any time with the Rounds / Chart buttons. The page remembers your choice on this device. Large draws (32 or more) open in Rounds unless you have chosen Chart.</p>
       </div>
     </details>
-    <details class="q" id="q-match-labels">
+    <details class="q" id="q-match-labels" data-keywords="labels to play waiting bye neither attended no show walkover wo not played did not show">
       <summary>What do To play, Waiting, Bye and the other labels mean?</summary>
       <div class="a">
         <dl class="legend">
           <dt><span class="k">To play</span></dt><dd>Both players are known and the match hasn&rsquo;t been played.</dd>
           <dt><span class="k">Waiting</span></dt><dd>At least one player isn&rsquo;t decided yet. It will fill in as earlier matches finish. A slot may say &ldquo;Winner of&rdquo; and the match it comes from.</dd>
           <dt><span class="k">Bye</span></dt><dd>The player goes straight to the next round without playing.</dd>
+          <dt><span class="k">Walkover</span></dt><dd>One player didn&rsquo;t turn up, so the other went through. The one who didn&rsquo;t is marked &ldquo;did not show&rdquo;.</dd>
           <dt><span class="k">Neither attended</span></dt><dd>Neither player turned up, so nobody went through that match.</dd>
           <dt><span class="k">Not played</span></dt><dd>The match didn&rsquo;t happen and no player was ever decided for it.</dd>
         </dl>
         <p>In the Chart view a match nobody attended shows <b>NO-SHOW</b> beside both names, and a bye shows <b>BYE</b>.</p>
-        <p>A small <b>WO</b> next to a player in a bracket means a walkover. That player didn&rsquo;t turn up, so the other player went through.</p>
+        <p>A small <b>WO</b> next to a player in a bracket means a walkover. That player didn&rsquo;t turn up, so the other player went through. On a player&rsquo;s page the result is written in full: &ldquo;Won 2&ndash;0 by walkover&rdquo; for the one who went through, &ldquo;Lost 0&ndash;2 by walkover&rdquo; for the one who didn&rsquo;t turn up.</p>
+        <p>A number or a label like A1 before a name is a <a href="#glossary-seed">seed or group place</a>. Under each bracket, tap <b>What do the labels mean?</b> for a short key.</p>
       </div>
     </details>
-    <details class="q" id="q-winner">
+    <details class="q" id="q-winner" data-keywords="winner champion who won runner up final">
       <summary>How do I see who won?</summary>
       <div class="a">
         <p>In a finished match the winner is shown in bold with a green score, and the loser is greyed out. When the final is played, a <b>Winner</b> banner appears at the top of the bracket, with the runner-up under it.</p>
         <p>The <span class="pillx done">Final results</span> pill in the page header means the organiser has signed off the whole event.</p>
       </div>
     </details>
+    <details class="q" id="q-stages" data-keywords="stage stages progress best of legs how many legs">
+      <summary>What are the stage cards and the progress line?</summary>
+      <div class="a">
+        <p>Some events have two stages, for example groups first and then a knockout, or groups and then the Finals. Two cards near the top show where each stage is: not started, in progress with the number of matches played, or complete. Tap a card to jump to that stage.</p>
+        <p>In the header, a line such as &ldquo;2 of 4 groups finished&rdquo; shows how far the group stage has got. Under the title you may also see how many legs a match is, for example &ldquo;Best of 5 legs&rdquo; (see <a href="#glossary-best-of">Best of</a>). In a Teams event it says how many segments a match has instead (see Teams).</p>
+      </div>
+    </details>
   </section>
 
-  <section class="help-grp" id="g-boards" aria-labelledby="h-boards">
-    <h2 id="h-boards">Group Boards events</h2>
-    <details class="q" id="q-group-boards">
+  <section class="help-grp" id="g-kinds" aria-labelledby="h-kinds">
+    <h2 id="h-kinds">Kinds of event</h2>
+    <h3 class="help-sub" id="g-boards">Group Boards events</h3>
+    <details class="q" id="q-group-boards" data-keywords="group boards finals groups">
       <summary>What is a Group Boards event?</summary>
       <div class="a">
         <p>Players are split into small groups, for example <b>Group 3</b>. Each group plays its own knockout on its own board or boards. The winner of each group goes through to the <b>Finals</b>.</p>
         <p>A player&rsquo;s page shows where they are drawn, like &ldquo;Group 3 &middot; Board 3&rdquo;.</p>
       </div>
     </details>
-    <details class="q" id="q-boards-tab">
+    <details class="q" id="q-boards-tab" data-keywords="boards tab board up now called next time who is playing">
       <summary>What is on the Boards tab?</summary>
       <div class="a">
         <p>One card per board. It shows the match that is on now, then the next few. You may see:</p>
@@ -305,29 +343,23 @@
         <p>If you set yourself as <b>Me</b>, your page also shows your next board and how many matches are ahead of yours.</p>
       </div>
     </details>
-    <details class="q" id="q-group-picker">
+    <details class="q" id="q-group-picker" data-keywords="finals groups picker my group switch all groups">
       <summary>How do I switch between Finals and the groups?</summary>
       <div class="a">
         <p>On the Bracket tab, use the picker at the top. Choose <b>Finals</b>, <b>All groups</b>, or one group. Groups still playing are listed apart from the completed ones. If you are set as Me, a <b>My group</b> button takes you straight to your group.</p>
-        <p>The All groups view shows each group as a card with its boards, the number of players, and its winner once it is finished. Tap a card to open that group.</p>
+        <p>While the groups are playing, the Bracket tab opens on All groups (or on your own group, if you set Me and your group is still playing). All groups shows each group as a card with its boards, the number of players, and its winner once it is finished. Tap a card to open that group. Once every group is finished it opens on the Finals.</p>
       </div>
     </details>
-  </section>
-
-  <section class="help-grp" id="g-doubles" aria-labelledby="h-doubles">
-    <h2 id="h-doubles">Doubles</h2>
-    <details class="q" id="q-doubles">
+    <h3 class="help-sub" id="g-doubles">Doubles</h3>
+    <details class="q" id="q-doubles" data-keywords="doubles pair pairs partner">
       <summary>How are doubles shown?</summary>
       <div class="a">
         <p>In a doubles event each entry is a pair. It is shown by the pair name the organiser gave it, which is often both surnames. Long pair names may wrap onto a second line. The page doesn&rsquo;t list the two people separately.</p>
         <p>The pages still say &ldquo;player&rdquo;. Everything works the same: tap a pair to open its page, follow it, or mark it as Me. The search box matches the pair name or the club, so type what is shown for the pair.</p>
       </div>
     </details>
-  </section>
-
-  <section class="help-grp" id="g-teams" aria-labelledby="h-teams">
-    <h2 id="h-teams">Teams</h2>
-    <details class="q" id="q-teams-match">
+    <h3 class="help-sub" id="g-teams">Teams</h3>
+    <details class="q" id="q-teams-match" data-keywords="team match segments segment foursome tie breaker how it works">
       <summary>How does a team match work?</summary>
       <div class="a">
         <p>A team match is played in segments, one after another and in order, for example a foursome, then some singles and some doubles. Each segment is a best of a set number of legs, and the organiser chooses how many segments a match has.</p>
@@ -335,39 +367,87 @@
         <p>If the totals are level, a <b>tie-breaker</b> segment is played, but only in the stages where the organiser chose to use one. Where there is none, a level result is a draw in a round robin, and a knockout match is not allowed to end level.</p>
       </div>
     </details>
-    <details class="q" id="q-teams-total">
+    <details class="q" id="q-teams-total" data-keywords="team result total score legs">
       <summary>Why is a result a total like 7&ndash;3?</summary>
       <div class="a">
         <p>The page shows one result for the whole match: the total legs each team won across all its segments, with the tie-breaker&rsquo;s legs included if it was played. So 7&ndash;3 means one team won seven legs in total and the other won three.</p>
         <p>The tables, grids and brackets use those totals the same way they use legs in other events, so <b>LW</b> and <b>+/-</b> add up the totals. The page doesn&rsquo;t break a result down by segment.</p>
       </div>
     </details>
-    <details class="q" id="q-teams-find">
+    <details class="q" id="q-teams-find" data-keywords="find team search team">
       <summary>How do I find a team?</summary>
       <div class="a">
         <p>In a Teams event each entry is a team, shown by its team name. Type part of the team name, or its club, in the <b>Find a team</b> box under the tabs, then tap the team to open its page.</p>
         <p>You can follow a team or mark it as Me, just like a player in other events. The page doesn&rsquo;t list the people in a team.</p>
       </div>
     </details>
-    <details class="q" id="q-teams-header">
+    <details class="q" id="q-teams-header" data-keywords="segments tie breaker header line">
       <summary>What does &ldquo;5 segments + tie-breaker per match&rdquo; under the title mean?</summary>
       <div class="a">
         <p>In a Teams event this line takes the place of &ldquo;Best of 5 legs&rdquo;. It says how many segments each match has, and adds <b>+ tie-breaker</b> when that stage uses a tie-breaker (it is only played if the totals are level).</p>
         <p>If the round robin and the knockout differ, each is shown on its own, for example &ldquo;Round robin: 5 segments per match &middot; Knockout: 5 segments + tie-breaker per match&rdquo;. In Group Boards events the groups and the Finals use the knockout setting.</p>
       </div>
     </details>
+    <h3 class="help-sub" id="g-plate">Plate pool</h3>
+    <details class="q" id="q-plate" data-keywords="plate plate pool consolation second bracket did not go through">
+      <summary>What is the Plate pool?</summary>
+      <div class="a">
+        <p>Some events with groups and then a knockout also run a <b>Plate pool</b>: a second knockout for the players who didn&rsquo;t go through to the main bracket. The line above the group tables says who plays in it.</p>
+        <p>Its bracket is on the <b>Bracket</b> tab, under the main bracket, and it has its own winner. Its match codes start with P, for example P1-2.</p>
+      </div>
+    </details>
   </section>
 
-  <section class="help-grp" id="g-links" aria-labelledby="h-links">
-    <h2 id="h-links">Links and QR codes</h2>
-    <details class="q" id="q-qr">
+  <section class="help-grp" id="g-home" aria-labelledby="h-home">
+    <h2 id="h-home">Finding events</h2>
+    <details class="q" id="q-live-upcoming-results" data-keywords="tabs home page live upcoming results finished events">
+      <summary>What do Live, Upcoming and Results mean?</summary>
+      <div class="a">
+        <p><b>Live</b> events have started: at least one match has been played, and the scores are coming in.</p>
+        <p><b>Upcoming</b> events are listed but haven&rsquo;t started yet. They show the date and, if the organiser gave one, the start time.</p>
+        <p><b>Results</b> are finished events. Tap one to see the winner and every score.</p>
+        <p>The small number on each tab is how many events are in it. Tap any event to open it.</p>
+      </div>
+    </details>
+    <details class="q" id="q-search-events" data-keywords="search event find event">
+      <summary>How do I search for an event?</summary>
+      <div class="a">
+        <p>Type in the search box on the home page. It looks at the event name, the tournament name, the format and the winner&rsquo;s name. It only searches the tab you are on.</p>
+        <p>You can also paste an event link or code there to open it directly.</p>
+      </div>
+    </details>
+    <details class="q" id="q-missing-event" data-keywords="missing event not listed cant find event code paste link">
+      <summary>Why can&rsquo;t I see an event?</summary>
+      <div class="a">
+        <p>The home page only lists events the organiser chose to show there. Some organisers share a link or a code instead.</p>
+        <p>If you have a link or a code, paste it into the search box at the top. An <b>Open event</b> button appears. Tap it.</p>
+        <p>Other reasons an event may be missing:</p>
+        <ul>
+          <li>The organiser hasn&rsquo;t published it yet.</li>
+          <li>It was taken offline.</li>
+          <li>It stopped being updated a while ago, so it dropped off Live.</li>
+          <li>It finished, but the organiser hasn&rsquo;t marked it as final yet, and it has gone quiet (see <a href="#q-results-final">When does an event move to Results?</a>).</li>
+        </ul>
+        <p>Not sure? Ask the organiser for the event link.</p>
+      </div>
+    </details>
+    <details class="q" id="q-home-cant-load" data-keywords="cant load not loading error blank nothing is live">
+      <summary>The home page says it can&rsquo;t load events</summary>
+      <div class="a">
+        <p>The page couldn&rsquo;t reach the site the first time, so it has no list to show yet. It does <b>not</b> mean nothing is on. The numbers on the tabs only appear once the list has loaded.</p>
+        <p>Check your connection, for example weak signal or venue Wi-Fi, then tap <b>Try again</b>. The page also keeps trying by itself, so you can leave it open.</p>
+        <p>If you have an event link, you can open it directly instead.</p>
+      </div>
+    </details>
+    <h3 class="help-sub" id="g-links">Links and QR codes</h3>
+    <details class="q" id="q-qr" data-keywords="qr qr code scan camera sheet code print">
       <summary>What are the QR codes on the organiser&rsquo;s sheets?</summary>
       <div class="a">
         <p>The organiser may print sheets with QR codes. Point your phone camera at one and open the link it shows. It takes you to the live page for that event, so you don&rsquo;t need to type anything. Some codes open a particular group or the Finals bracket.</p>
         <p>You can also type or paste the code that goes with the event into the home page search box.</p>
       </div>
     </details>
-    <details class="q" id="q-share">
+    <details class="q" id="q-share" data-keywords="share link send copy link friend">
       <summary>Can I share a link to what I&rsquo;m looking at?</summary>
       <div class="a">
         <p>Yes. Copy the address from your browser and send it. The part after the <code>#</code> says which screen to open, such as one group, the bracket, or one player&rsquo;s page, so the other person lands in the same place.</p>
@@ -376,9 +456,85 @@
     </details>
   </section>
 
-  <section class="help-grp" id="g-look" aria-labelledby="h-look">
-    <h2 id="h-look">Light and dark</h2>
-    <details class="q" id="q-theme">
+  <section class="help-grp" id="g-trouble" aria-labelledby="h-trouble">
+    <h2 id="h-trouble">Something wrong or missing</h2>
+    <details class="q" id="q-wrong-score" data-keywords="wrong score mistake incorrect error fix correct report mistake complain complaint who do i tell">
+      <summary>I think a score is wrong. Who do I tell?</summary>
+      <div class="a">
+        <p>The scores are typed in by the organiser at the venue. This site only shows them, and it has no way to send the organiser a message.</p>
+        <p>Tell the organiser or the scorer&rsquo;s desk. Once they fix it, the page shows the change by itself at its next refresh.</p>
+      </div>
+    </details>
+    <details class="q" id="q-slow" data-keywords="slow cut off sideways scroll wide table loading">
+      <summary>The page is slow or the table looks cut off</summary>
+      <div class="a">
+        <p>On a slow connection the page can take a moment to load.</p>
+        <p>Wide tables and bracket charts scroll sideways. Swipe along them. For brackets, <b>Rounds</b> is easier on a small screen.</p>
+      </div>
+    </details>
+    <details class="q" id="q-no-player" data-keywords="cant find player removed old link">
+      <summary>It says &ldquo;We can&rsquo;t find that player&rdquo;</summary>
+      <div class="a">
+        <p>The player may have been taken out of the draw, or the link is old. Go back and search for the name again. (In a Teams event the page says &ldquo;team&rdquo;.) If you set that player as Me and they were removed, the Me tab asks you to pick again.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="help-grp" id="g-glossary" aria-labelledby="h-glossary">
+    <h2 id="h-glossary">Words you will see</h2>
+    <details class="q" id="q-glossary" data-keywords="glossary words terms jargon definitions seed seeded seeding draw stage pair qualify">
+      <summary><span id="glossary"></span>Words you will see: a short glossary</summary>
+      <div class="a">
+        <p>Plain meanings for the words and short codes on the event pages, with an example of where you see each one.</p>
+        <h4 id="glossary-leg">Leg</h4>
+        <p>One game of darts. A match is a set number of legs, and the score of a match is the legs each side won, for example 3&ndash;1.</p>
+        <h4 id="glossary-best-of">Best of</h4>
+        <p>&ldquo;Best of 5 legs&rdquo; means the match is up to 5 legs: the first to win 3 wins it. The line under the event name says how many, for example &ldquo;Knockout: best of 3 legs, final best of 5&rdquo;.</p>
+        <h4 id="glossary-draw">Draw</h4>
+        <p>How the organiser places the players into groups or a bracket. Names appear on the page once the draw is made. (A drawn match, level on legs, is something else: see MD under the columns.)</p>
+        <h4 id="glossary-stage">Stage</h4>
+        <p>One part of an event, for example the groups and then the knockout. The stage cards near the top show each one.</p>
+        <h4 id="glossary-seed">Seed</h4>
+        <p>A number before a name in the first round of a bracket, like &ldquo;1 Aiden Tan&rdquo;. It is the organiser&rsquo;s ranking before the event: 1 is the top seed.</p>
+        <h4 id="glossary-group-place">A1, B2 (group places)</h4>
+        <p>In a knockout after groups, the label before a name says where that player finished in their group: <b>A1</b> won Group A, <b>B2</b> was second in Group B.</p>
+        <h4 id="glossary-match-codes">Match codes: 1-2, G2&middot;1-1, P2-1</h4>
+        <p>Each bracket match has a code: <b>1-2</b> is round 1, match 2. In a Group Boards event, <b>G2&middot;1-1</b> is Group 2&rsquo;s bracket, round 1, match 1. In the Plate pool the code starts with P, like <b>P2-1</b>. A player&rsquo;s page uses it too: &ldquo;Next: Semifinal (3-1)&rdquo;.</p>
+        <h4 id="glossary-bye">Bye</h4>
+        <p>No opponent in that round, so the player goes straight through. Shown as <b>Bye</b> in Rounds and <b>BYE</b> in the Chart.</p>
+        <h4 id="glossary-wo">Walkover (WO)</h4>
+        <p>A match won because the opponent didn&rsquo;t turn up. In a bracket chart a small <b>WO</b> marks the player who didn&rsquo;t turn up, and in a results grid it follows the score. On a player&rsquo;s page it is written in full: &ldquo;Won 2&ndash;0 by walkover&rdquo; or &ldquo;Lost 0&ndash;2 by walkover&rdquo;.</p>
+        <h4 id="glossary-no-show">No-show, Neither attended</h4>
+        <p>Neither player turned up, so nobody goes through from that match. Rounds says <b>Neither attended</b>; the Chart shows <b>NO-SHOW</b> beside both names.</p>
+        <h4 id="glossary-board">Board</h4>
+        <p>The dartboard a match is played on, numbered at the venue, for example &ldquo;Board 2&rdquo;. A group may show its board; Group Boards events show each match&rsquo;s board on the Boards tab.</p>
+        <h4 id="glossary-columns">MP, MW, ML, MD, LW, +/-, Pts</h4>
+        <p>Matches played, won, lost and drawn; legs won; leg difference (legs won minus legs lost); points (2 for a win, 1 for a draw). See <a href="#q-columns">the columns</a>.</p>
+        <h4 id="glossary-tb">TB, tie-break, tie-breaker</h4>
+        <p><b>TB</b> in a group table is the tie-break badge: which rule put a player ahead of one level on points. A <b>tie-breaker</b> in a Teams event is different: an extra segment played when the team totals are level.</p>
+        <h4 id="glossary-h2h">H2H</h4>
+        <p>Head-to-head: the result of the match between the two players who are level on points.</p>
+        <h4 id="glossary-3way">3-way LD</h4>
+        <p>Three players were level on points, so only the matches between those three were counted (a mini-table), and leg difference in that mini-table split them. &ldquo;3-way H2H&rdquo; and &ldquo;3-way LW&rdquo; work the same way.</p>
+        <h4 id="glossary-qualify">Qualify, go through</h4>
+        <p>Finish high enough in a group to play in the knockout. The line above the group tables says how many, for example &ldquo;Top 2 in each group go through to the knockout&rdquo;, and a green bar marks those places.</p>
+        <h4 id="glossary-plate">Plate pool</h4>
+        <p>A second knockout for the players who didn&rsquo;t go through to the main bracket, with its own winner. See <a href="#q-plate">What is the Plate pool?</a></p>
+        <h4 id="glossary-group-boards">Group Boards</h4>
+        <p>A kind of event: players are split into small groups, each plays its own knockout on its own board, and each group winner goes to the Finals.</p>
+        <h4 id="glossary-final-results">Final results</h4>
+        <p>The organiser has checked and finished the event, so the scores won&rsquo;t change any more. The pill under the event name says <b>Final results</b>.</p>
+        <h4 id="glossary-segment">Segment (Teams)</h4>
+        <p>One part of a team match, such as one singles or doubles game. The legs from every segment are added up for the team&rsquo;s result, for example 7&ndash;3.</p>
+        <h4 id="glossary-pair">Pair (Doubles)</h4>
+        <p>Two players who play together as one entry, shown by one pair name like &ldquo;Tan / Lim&rdquo;. The pages still call a pair a &ldquo;player&rdquo;.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="help-grp" id="g-privacy" aria-labelledby="h-privacy">
+    <h2 id="h-privacy"><span id="g-look"></span>Settings and privacy</h2>
+    <details class="q" id="q-theme" data-keywords="dark mode light mode night mode theme colours">
       <summary>How do I switch between light and dark?</summary>
       <div class="a">
         <p>On an event page and on this page, use the <b>Auto / Light / Dark</b> switch at the top right. <b>Auto</b> follows your phone&rsquo;s setting.</p>
@@ -386,23 +542,20 @@
         <p>Your choice is remembered on this device, for every page on this site.</p>
       </div>
     </details>
-  </section>
-
-  <section class="help-grp" id="g-privacy" aria-labelledby="h-privacy">
-    <h2 id="h-privacy">Privacy</h2>
-    <details class="q" id="q-account">
+    <details class="q" id="q-account" data-keywords="account sign up register login log in password privacy">
       <summary>Do I need an account?</summary>
       <div class="a">
         <p>No. You can look at any event without signing up or giving your name.</p>
       </div>
     </details>
-    <details class="q" id="q-saved">
+    <details class="q" id="q-saved" data-keywords="privacy data cookies stored saved device delete remove clear">
       <summary>Where are Me and Following saved?</summary>
       <div class="a">
         <p>Only on your own device, in your browser. Nothing is sent anywhere. That also means they don&rsquo;t follow you to another phone or browser, and clearing your browser&rsquo;s site data removes them. Each event keeps its own Me and Following.</p>
+        <p>The &ldquo;New here?&rdquo; tips are remembered the same way once you tap <b>Got it</b> on the home page, or the <b>&times;</b> on an event page.</p>
       </div>
     </details>
-    <details class="q" id="q-what-shown">
+    <details class="q" id="q-what-shown" data-keywords="privacy data personal information names">
       <summary>What does the page show about players?</summary>
       <div class="a">
         <p>Only what the organiser chose to publish for that event: the draw, names, scores and standings. This page can&rsquo;t change anything.</p>
@@ -410,114 +563,51 @@
     </details>
   </section>
 
-  <section class="help-grp" id="g-trouble" aria-labelledby="h-trouble">
-    <h2 id="h-trouble">If something looks wrong</h2>
-    <details class="q" id="q-stuck-scores">
-      <summary>The scores aren&rsquo;t moving</summary>
-      <div class="a">
-        <ol>
-          <li>Look at <b>Scores last changed</b> next to the pill at the top. That is when the organiser last saved a change. If it is recent, you have the latest scores, and the next result just hasn&rsquo;t been entered yet.</li>
-          <li>Results appear when the organiser types them in, often a minute or two after a match ends. A match may still be in play.</li>
-          <li>If the time is old and you know matches have finished, reload the page, or open it again from the home page.</li>
-          <li>If the pill says <b>Offline</b>, see the next question.</li>
-        </ol>
-        <p>If it still looks wrong, ask the organiser.</p>
-      </div>
-    </details>
-    <details class="q" id="q-offline">
-      <summary>It says &ldquo;Offline&rdquo;, &ldquo;Reconnecting&rdquo; or &ldquo;Couldn&rsquo;t load results&rdquo;</summary>
-      <div class="a">
-        <p>Your phone can&rsquo;t reach the site right now, maybe because of weak signal or venue Wi-Fi. Keep the page open. It keeps trying and will fill in on its own when the connection comes back.</p>
-        <p>While it can&rsquo;t refresh, the scores on screen stay as they were. <b>Scores last changed</b> tells you how old they are. <b>Last checked</b> is when your phone last reached the site.</p>
-        <p>Try switching between Wi-Fi and mobile data.</p>
-      </div>
-    </details>
-    <details class="q" id="q-not-available">
-      <summary>It says &ldquo;Results not available&rdquo;</summary>
-      <div class="a">
-        <p>The link isn&rsquo;t valid, or the organiser has taken the results offline. Check you copied the whole link. If an organiser republishes the event, the page comes back on its own, so it is worth keeping the tab open. Otherwise tap <b>See all events</b> to go to the home page.</p>
-      </div>
-    </details>
-    <details class="q" id="q-no-player">
-      <summary>It says &ldquo;We can&rsquo;t find that player&rdquo;</summary>
-      <div class="a">
-        <p>The player may have been taken out of the draw, or the link is old. Go back and search for the name again. (In a Teams event the page says &ldquo;team&rdquo;.) If you set that player as Me and they were removed, the Me tab asks you to pick again.</p>
-      </div>
-    </details>
-    <details class="q" id="q-no-name">
-      <summary>I can&rsquo;t find my name in the search</summary>
-      <div class="a">
-        <p>Try a shorter part of your name, or your club if you know it. Search matches part of a name, so you don&rsquo;t need to spell it all out. If you still can&rsquo;t find it, you may not be in the draw yet, or the organiser may have spelled it differently.</p>
-      </div>
-    </details>
-    <details class="q" id="q-slow">
-      <summary>The page is slow or the table looks cut off</summary>
-      <div class="a">
-        <p>On a slow connection the page can take a moment to load.</p>
-        <p>Wide tables and bracket charts scroll sideways. Swipe along them. For brackets, <b>Rounds</b> is easier on a small screen.</p>
-      </div>
-    </details>
-  </section>
-
-  <p class="help-end"><a href="/">See all events</a></p>
+  <p class="help-end"><a class="help-back-end" id="helpBackEnd" href="/" hidden>&lsaquo; Back to the event</a> <a href="/">See all events</a></p>
 </div>
 </main>
 <footer>Powered by DartDraw</footer>
 
-<script id="faq-filter">
-/* Help search. faqFilter is a plain function so it can be tested without a browser.
-   groups: [{ node, items: [{ node, text, open }] }]. A question matches when it contains every word typed (any case).
-   An empty search shows everything. A search opens the matching questions, and clearing it closes only the ones the search
-   opened (a question you opened yourself stays open). it.bySearch remembers that; it.expected is the open state the script
-   last set, so the page can tell a tap by the reader from the script's own change. Returns how many questions are shown. */
-function faqFilter(groups, query){
-  var words = String(query == null ? '' : query).toLowerCase().split(/\s+/).filter(Boolean);
-  var shown = 0;
-  groups.forEach(function(g){
-    var any = false;
-    g.items.forEach(function(it){
-      var hay = String(it.text || '').toLowerCase();
-      var ok = words.every(function(w){ return hay.indexOf(w) !== -1; });
-      it.node.hidden = !ok;
-      if(words.length && ok){ if(!it.node.open){ it.node.open = true; it.bySearch = true; } }
-      else if(it.bySearch){ it.node.open = false; it.bySearch = false; }
-      it.expected = !!it.node.open;
-      if(ok){ any = true; shown++; }
-    });
-    g.node.hidden = !any;
-  });
-  return shown;
-}
+<script src="/help-search.js"></script>
+<script type="application/json" id="helpSearchData">{"synonyms":[["son","daughter","kid","kids","child","children","husband","wife","dad","mum","mom","father","mother","friend","brother","sister","grandson","granddaughter","my player","my son","my daughter","where is","find","find player","find a player","look up"],["when","what time","time","times","schedule","timetable","which board","what board","board number","court","where","start time","starting time","order of play","when do i play"],["qualify","qualifies","qualified","qualifying","advance","advances","advancing","go through","goes through","through","top 2","top two","green bar"],["champion","winner","won","who won","winning","runner up","runner"],["not updating","not moving","stuck","frozen","old","stale","not changing","no new scores","delay","delayed"],["refresh","reload","refreshes","auto refresh","live scores"],["dark mode","night mode","light mode","theme","dark","light","dark theme"],["wo","walkover","walk over","no show","noshow","didnt turn up","did not turn up","didnt show","did not show","absent","neither attended","forfeit"],["h2h","head to head","tb","tie break","tiebreak","ld","leg difference","3 way","three way","badge","badges","?","*","asterisk","question mark"],["tie","tied","ties","level","level on points","same points","equal points"],["team","teams","pair","pairs","doubles","partner"],["mp","mw","ml","md","lw","pts","+/-","columns","abbreviation","abbreviations","letters","headings"],["qr","qr code","scan","camera","barcode"],["share","send link","copy link","whatsapp","send to a friend","link"],["account","sign up","signup","register","login","log in","sign in","password"],["privacy","data","cookie","cookies","tracking","track","personal data","permission","permissions","collect"],["offline","no signal","wifi","wi fi","no internet","connection","reconnecting","roaming","mobile data"],["missing","name missing","not listed","not there","spelling","misspelled","wrong name","cant find"],["cut off","sideways","scroll","too wide"],["finished","over","ended","complete","final results","awaiting","official"],["me","this is me","myself","follow","following","star","favourite","favorite","unfollow","blue","gold"],["withdrawn","withdraw","retired","pulled out","quit"],["eliminated","knocked out","out","still in","next match","next opponent","who plays next","plays next","next game","lost"],["how long","kept","stay","expire","disappear","hours","days","old results"],["problem","broken","blank","error","not working","wrong"],["segment","segments","foursome","team match"],["leg","legs","best of"],["bye","byes"],["delete","remove","clear","forget"],["colour","color","colours","colors","red green","red","green"],["tooltip","hover","explanation"],["group boards","boards tab","board tab"],["who is playing","playing now","up now","on now"],["seed","seeds","seeded","seeding","top seed","a1","b2"],["plate","plate pool","consolation","second bracket"],["glossary","jargon","terms","words you will see"],["match code","match codes","match number"],["come back","come back later","return","later","next time"]],"noAnswer":[{"terms":["notify","notified","notification","notifications","alert","alerts","push","remind","reminder","text me","sms","email","email me"],"say":"This site can’t send notifications. Keep the event page open: it refreshes by itself."},{"terms":["contact","contact organiser","organiser","organizer"],"say":"This site has no way to message the organiser. Ask at the organiser’s desk at the venue."},{"terms":["language","languages","bahasa","malay","melayu","translate","translation"],"say":"The site is in English only for now."},{"terms":["app","install","add to home screen","home screen","bookmark","bookmarks","download app"],"say":"There is no app to install. Bookmark the event page in your browser, or keep the link you were given: it keeps working."},{"terms":["accessibility","screen reader","screenreader","colorblind","colourblind","colour blind","color blind"],"say":"This Help has no page about accessibility yet. If you need the results another way, ask the organiser at the venue desk."},{"terms":["third place","3rd place","bronze"],"say":"Third place is not covered in this Help. Ask the organiser at the venue desk."},{"terms":["text size","font","font size","large text","larger text","bigger text","small text","small","zoom"],"say":"To make the text bigger, use your browser’s zoom (on a phone, spread two fingers on the screen)."}]}</script>
+<script id="faq-search">
+/* Help search: the shared module help-search.js (a copy of the root file, made by npm run sync-viewer) does the work.
+   This page gives it the questions, their groups, the synonyms above, and where to show the results. Without JavaScript
+   the box stays hidden and every question shows. The Start here card and the Quick answers step aside while a search
+   is showing results (they are passed as 'tocs' with no questions of their own). */
 (function(){
-  if(typeof document === 'undefined' || !document.querySelectorAll) return;
-  var input = document.getElementById('faqSearch'), find = document.getElementById('faqFind');
-  var status = document.getElementById('faqStatus'), none = document.getElementById('faqNone');
-  if(!input || !find) return;
-  var groups = Array.prototype.map.call(document.querySelectorAll('.help-grp'), function(g){
-    return { node: g, items: Array.prototype.map.call(g.querySelectorAll('details.q'), function(d){
-      var it = { node: d, text: d.textContent, bySearch: false, expected: !!d.open };
-      if(d.addEventListener) d.addEventListener('toggle', function(){ if(!!d.open !== it.expected){ it.bySearch = false; it.expected = !!d.open; } });   // the reader opened or closed it: the search no longer owns it
-      return it;
-    }) };
+  if(typeof document === 'undefined' || !document.querySelectorAll || typeof HelpSearch === 'undefined') return;
+  var input = document.getElementById('faqSearch');
+  if(!input) return;
+  var data = {};
+  try{ data = JSON.parse(document.getElementById('helpSearchData').textContent); }catch(e){}
+  var items = [].slice.call(document.querySelectorAll('details.q'));
+  var groups = [].slice.call(document.querySelectorAll('.help-grp')).map(function(g){
+    return { el: g, ids: [].slice.call(g.querySelectorAll('details.q')).map(function(d){ return d.id; }) };
   });
-  find.hidden = false;           // the search box only appears when this script runs, so without JavaScript every question just shows
-  function run(){
-    var q = input.value, n = faqFilter(groups, q), searching = !!q.trim();
-    none.hidden = n > 0;
-    status.hidden = !searching || n === 0;
-    status.textContent = searching && n > 0 ? (n === 1 ? '1 question matches' : n + ' questions match') : '';
-  }
-  input.addEventListener('input', run);
-  input.addEventListener('search', run);
-  // /help#q-ties opens that question, on load and when the address changes
-  function openFromHash(){
-    try{
-      var id = decodeURIComponent((location.hash || '').slice(1)), d = id ? document.getElementById(id) : null;
-      if(d && d.tagName === 'DETAILS'){ var grp = d.closest ? d.closest('.help-grp') : null; if(grp) grp.hidden = false; d.hidden = false; d.open = true; if(d.scrollIntoView) d.scrollIntoView(); }
-    }catch(e){}
-  }
-  openFromHash();
-  if(typeof window !== 'undefined' && window.addEventListener) window.addEventListener('hashchange', openFromHash);
+  var asides = ['start', 'quick'].map(function(id){ return document.getElementById(id); }).filter(Boolean).map(function(el){ return { el: el, ids: [] }; });
+  HelpSearch.attach({
+    input: input, reveal: document.getElementById('faqFind'), status: document.getElementById('faqStatus'), hideIdleStatus: true,
+    results: document.getElementById('faqResults'), empty: document.getElementById('faqNone'), emptyQ: document.getElementById('faqNoneQ'),
+    say: document.getElementById('faqSay'), items: items, groups: groups, tocs: asides, data: data,
+    groupOf: function(d){ var g = d.closest ? d.closest('.help-grp') : null, h = g ? g.querySelector('h2') : null; return h ? h.textContent : ''; },
+    count: function(n){ return n === 1 ? '1 question matches' : n + ' questions match'; },
+    nearCount: function(n){ return 'No direct answer. ' + n + (n === 1 ? ' close match' : ' close matches'); }
+  });
+})();
+</script>
+<script id="faq-from">
+/* "Back to the event": the event page links here as /help?from=<its code>. Only a code of the shape the server accepts is
+   used, and the link is built from it alone; anything else leaves the links hidden (the header's All events goes home). */
+(function(){
+  if(typeof document === 'undefined' || typeof location === 'undefined') return;
+  var m = /[?&]from=([^&#]*)/.exec(String(location.search || '')), slug = '';
+  try{ slug = m ? decodeURIComponent(m[1]) : ''; }catch(e){ slug = ''; }
+  if(!/^[a-z0-9]{8,40}$/.test(slug)) return;
+  ['helpBack', 'helpBackEnd'].forEach(function(id){
+    var a = document.getElementById(id);
+    if(a){ a.setAttribute('href', '/live/' + slug); a.hidden = false; }
+  });
 })();
 </script>
 <script id="faq-theme">

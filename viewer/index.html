@@ -17,7 +17,7 @@
 <body>
 <header id="head" hidden>
   <div class="wrap">
-    <a class="allevents" href="/"><span class="am" aria-hidden="true">D</span>&lsaquo; All events</a>
+    <div class="headrow"><a class="allevents" href="/"><span class="am" aria-hidden="true">D</span>&lsaquo; All events</a><a class="evhelp" id="hHelp" href="/help">Help</a></div>
     <div class="toprow">
       <div class="over" id="hOver"></div>
       <div class="themesw" role="group" aria-label="Colour theme">
@@ -33,6 +33,7 @@
     <div class="venue" id="hVenue" hidden></div>
   </div>
 </header>
+<div class="startwrap" id="startCard" hidden></div>
 <nav id="nav" hidden><div class="wrap" id="navLinks"></div></nav>
 <div class="wrap finder" id="finderWrap" hidden>
   <input id="finder" type="search" placeholder="Find a player" aria-label="Find a player" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -61,6 +62,19 @@ function slugFromUrl(){
 var SLUG = slugFromUrl();
 
 function el(id){ return document.getElementById(id); }
+
+/* A link to the spectator Help that knows which event it came from (/help?from=<slug>#anchor), so Help can offer
+   "Back to the event". Only a slug of the shape the server accepts is passed on; anything else gives the plain /help. */
+var SLUG_RE = /^[a-z0-9]{8,40}$/;
+function helpHref(anchor){
+  return '/help' + (SLUG_RE.test(SLUG || '') ? '?from=' + SLUG : '') + (anchor ? '#' + anchor : '');
+}
+function setHelpLinks(){
+  var h = el('hHelp'); if(h && h.setAttribute) h.setAttribute('href', helpHref(''));
+  var f = document.querySelector ? document.querySelector('footer a[href^="/help"]') : null;
+  if(f && f.setAttribute) f.setAttribute('href', helpHref(''));
+}
+setHelpLinks();
 
 function boardLabel(g){
   var b = (g.boards||[]).filter(function(x){ return x!=null; });
@@ -168,7 +182,14 @@ function koResultText(l, id){
   if(m.bye) return 'Bye';
   if(m.void) return 'Neither attended';
   if(!m.winnerId) return koOpponent(l, id) ? 'To play' : 'Waiting';
-  return (m.winnerId===id ? 'Won ' : 'Lost ') + (my!=null && op!=null ? my+'–'+op : '') + (m.wo ? ' (WO)' : '');
+  return (m.winnerId===id ? 'Won ' : 'Lost ') + (my!=null && op!=null ? my+'–'+op : '') + (m.wo ? ' by walkover' : '');
+}
+/* A result on a player's page, written in full: "Won 2–0 by walkover" (the opponent did not turn up) or "Lost 0–2 by
+   walkover" (this player did not). The compact "WO" stays only in the grid and the bracket chart, where there is no room,
+   and their keys say what it means. */
+function resultHTML(txt){
+  var cls = /^Won/.test(txt) ? 'w' : /^Lost/.test(txt) ? 'l' : 't';
+  return '<span class="res '+cls+(/walkover$/.test(txt) ? ' wo' : '')+'">'+escapeHtml(txt)+'</span>';
 }
 
 /* One line saying where a player is right now. */
@@ -222,16 +243,15 @@ function matchesHTML(id){
   var rows = [], gr = groupRows(id);
   if(gr && gr.g.gameStarted){
     gr.rows.forEach(function(r){
-      var cls = !r.played ? 't' : r.my>r.op ? 'w' : r.my<r.op ? 'l' : 't';
-      var txt = !r.played ? 'To play' : (r.my>r.op ? 'Won ' : r.my<r.op ? 'Lost ' : 'Drew ')+r.my+'–'+r.op+(r.wo ? ' (WO)' : '');
-      rows.push('<div class="mrow"><span class="tap" data-eid="'+escapeHtml(r.opp)+'">vs '+escapeHtml(entryName(r.opp))+'</span><span class="res '+cls+'">'+txt+'</span></div>');
+      var txt = !r.played ? 'To play' : (r.my>r.op ? 'Won ' : r.my<r.op ? 'Lost ' : 'Drew ')+r.my+'–'+r.op+(r.wo ? ' by walkover' : '');
+      rows.push('<div class="mrow"><span class="tap" data-eid="'+escapeHtml(r.opp)+'">vs '+escapeHtml(entryName(r.opp))+'</span>'+resultHTML(txt)+'</div>');
     });
   }
   koLines(id).forEach(function(l){
-    var opp = koOpponent(l, id), txt = koResultText(l, id), cls = /^Won/.test(txt) ? 'w' : /^Lost/.test(txt) ? 'l' : 't';
+    var opp = koOpponent(l, id), txt = koResultText(l, id);
     var info = bpMatchInfo(bpKeyOf(l.b), l.ri, l.mi);
     rows.push('<div class="mrow"><span>'+escapeHtml((state.format.formatType==='podknockout' ? l.title+' · ' : '')+l.round)+' <span class="note">'+escapeHtml(l.tag)+'</span>'+(info ? ' · Board '+escapeHtml(info.board) : '')+
-      (opp ? ' · <span class="tap" data-eid="'+escapeHtml(opp)+'">vs '+escapeHtml(entryName(opp))+'</span>' : '')+'</span><span class="res '+cls+'">'+txt+'</span></div>');
+      (opp ? ' · <span class="tap" data-eid="'+escapeHtml(opp)+'">vs '+escapeHtml(entryName(opp))+'</span>' : '')+'</span>'+resultHTML(txt)+'</div>');
   });
   return rows.length ? rows.join('') : '<p class="empty">No matches yet.</p>';
 }
@@ -295,10 +315,43 @@ function availableTabs(){
   if(hasKo) t.push('bracket');
   return t;
 }
+/* The tab for the part of the event being played now (kb-review S-P0-4), when the address names no tab:
+   - Round robin: Groups.  Knockout: Bracket.
+   - Round robin + knockout: Groups until the knockout is drawn (it is drawn once every group is finished), then Bracket.
+   - Group Boards: Boards while any group is still playing (or, with no board schedule, the Bracket tab, which then opens on
+     All groups rather than an empty Finals: defaultPodSel), and the Bracket tab on the Finals once every group is done.
+   - Finished or finalized: the same rules land on the Bracket (winner banner) or, for a round robin, the final tables. */
+function anyPodPlaying(){ return (state.pods||[]).some(function(p){ return !podFinished(p); }); }
+function stageTab(tabs){
+  var type = state.format.formatType, has = function(t){ return tabs.indexOf(t)!==-1; }, pick;
+  if(type==='roundrobin') pick = 'groups';
+  else if(type==='knockout') pick = 'bracket';
+  else if(type==='rrknockout') pick = state.knockout ? 'bracket' : 'groups';
+  else if(type==='podknockout') pick = anyPodPlaying() && has('boards') ? 'boards' : 'bracket';
+  if(pick && has(pick)) return pick;
+  return has('groups') ? 'groups' : has('bracket') ? 'bracket' : tabs[0];
+}
+/* The stage tab this visit first opened on. Kept (in memory only) while the address names no tab, so a refresh in the
+   background never moves someone who is reading; a reload works it out again. */
+var landingTab = null;
 function defaultTab(tabs){
   if(myId() && tabs.indexOf('me')!==-1) return 'me';
   if(followIds().length) return 'following';
-  return tabs.indexOf('groups')!==-1 ? 'groups' : tabs.indexOf('bracket')!==-1 ? 'bracket' : tabs[0];
+  if(landingTab && tabs.indexOf(landingTab)!==-1) return landingTab;
+  return stageTab(tabs);
+}
+/* Group Boards, the Bracket tab's first view: the Finals once every group is finished, otherwise the viewer's own group
+   (when set as Me and still playing) or All groups. Chosen once; the picker, a stage card or an address changes it after. */
+function defaultPodSel(){
+  var pods = state.pods||[];
+  if(!pods.length || !anyPodPlaying()) return state.knockout ? 'finals' : 'all';
+  var mine = myId() ? pods.find(function(p){ return p.entryIds.indexOf(myId())!==-1 && !podFinished(p); }) : null;
+  return mine ? mine.id : 'all';
+}
+/* True when the address after # names a screen (a tab, a group or bracket view, or a player). */
+function addressNamesScreen(tabs){
+  var h = (location.hash||'').replace(/^#\/?/, '').split('?')[0];
+  return /^p\/./.test(h) || tabs.indexOf(h)!==-1 || /^(groups|bracket)\/./.test(h);
 }
 function currentRoute(tabs){
   var raw = (location.hash||'').replace(/^#\/?/, ''), tv = /[?&]tv=1(&|$)/.test(raw), h = raw.split('?')[0], m = /^p\/(.+)$/.exec(h);
@@ -306,7 +359,7 @@ function currentRoute(tabs){
   var sub = /^(groups|bracket)\/(.+)$/.exec(h);
   if(sub && tabs.indexOf(sub[1])!==-1){ var sel; try{ sel = decodeURIComponent(sub[2]); }catch(e){ sel = sub[2]; } return {name:sub[1], sel:sel, tv:false}; }
   var name = tabs.indexOf(h)!==-1 ? h : defaultTab(tabs);
-  return {name:name, tv:(tv && name==='boards')};
+  return {name:name, tv:(tv && name==='boards' && h==='boards')};   // TV mode only when the address itself names the Boards tab
 }
 /* The Group Boards screen a #/bracket/... address names: 'finals', or the group labelled in 'group-<label>'. The codes on the
    printed sheets use these addresses, and so does #/groups/A for one round-robin group. One that names something this event
@@ -315,7 +368,7 @@ var appliedSel = null;
 /* All the groups, or only the one a #/groups/<label> address names (with a way back to the rest). */
 function groupsTabHTML(label){
   var one = label ? state.groups.find(function(g){ return g.label===label; }) : null;
-  return one ? '<a class="back" href="#/groups">← All groups</a>'+groupCardHTML(one) : state.groups.map(groupCardHTML).join('');
+  return one ? '<a class="back" href="#/groups">← All groups</a>'+qualifyLineHTML()+groupCardHTML(one) : qualifyLineHTML()+state.groups.map(groupCardHTML).join('');
 }
 function applyBracketSel(r){
   if(r.name!=='bracket' || !r.sel){ appliedSel = null; return; }
@@ -392,21 +445,115 @@ function resultsGridHTML(g){
   return '<div class="scroll"><table class="grid"><thead>'+head+'</thead><tbody>'+rows+'</tbody></table></div>';
 }
 
+/* ---------- Who goes through (round robin + knockout only) ----------
+   The organiser's draw takes the top qualifiersPerGroup rows of each group's standings into the knockout (collectQualifiers in
+   the app), and with a Plate pool the next plateQualifiersPerGroup rows (or everyone left) into the Plate. */
+function qualifiersPerGroup(){
+  if(!state || !state.format || state.format.formatType!=='rrknockout') return 0;
+  return Math.max(1, parseInt(state.format.qualifiersPerGroup, 10) || 2);
+}
+function plateRuleText(q){
+  if(!state.format.losersPool) return '';
+  var cap = parseInt(state.format.plateQualifiersPerGroup, 10);
+  if(cap >= 1) return (cap===1 ? 'Place '+(q+1)+' plays' : 'Places '+(q+1)+'–'+(q+cap)+' play')+' in the Plate pool; anyone below that is out.';
+  return 'Everyone else plays in the Plate pool.';
+}
+function qualifyLineHTML(){
+  var q = qualifiersPerGroup();
+  if(!q || !(state.groups||[]).length) return '';
+  var drawn = !!state.knockout, go = drawn ? 'went' : 'go', goes = drawn ? 'went' : 'goes';
+  var main = q===1 ? 'The winner of each group '+goes+' through to the knockout.' : 'Top '+q+' in each group '+go+' through to the knockout.';
+  var plate = plateRuleText(q);
+  return '<p class="qline"><span class="qbar" aria-hidden="true"></span><span><b>'+escapeHtml(main)+'</b>'+(plate ? ' '+escapeHtml(plate) : '')+
+    ' <span class="qkey">The green bar marks the places that '+go+' through.</span></span></p>';
+}
+/* The standings table with the places that go through marked (a green bar on the position, and words for a screen reader). */
+function markedStandingsHTML(g, st){
+  var q = qualifiersPerGroup(), i = 0;
+  var html = standingsTableHTML(g, st);
+  if(!q) return html;
+  return html.replace(/<td class="pos">([^<]*)<\/td>/g, function(all, pos){
+    return (i++ < q) ? '<td class="pos q">'+pos+'<span class="sr"> (goes through)</span></td>' : all;
+  });
+}
+
+/* ---------- Keys under tables and brackets: a tappable "What do ... mean?" that opens a short legend ----------
+   Works on phones (no tooltips needed) and with the keyboard (a real button with aria-expanded). Which keys are open is
+   kept for this visit, and in sessionStorage when the browser allows it, so a refresh does not close them. */
+var KEY_STORE = 'dartdraw.viewer.keysOpen';
+var keysOpen = loadKeysOpen();
+function loadKeysOpen(){
+  try{ var v = JSON.parse(sessionStorage.getItem(KEY_STORE) || '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }catch(e){ return {}; }
+}
+function setKeyOpen(id, open){
+  if(open) keysOpen[id] = 1; else delete keysOpen[id];
+  try{ sessionStorage.setItem(KEY_STORE, JSON.stringify(keysOpen)); }catch(e){}
+}
+function keyDomId(id){ return 'key-'+String(id).replace(/[^A-Za-z0-9_-]/g, '_'); }
+function keyToggleHTML(id, label, items, foot){
+  var open = !!keysOpen[id], dom = keyDomId(id);
+  return '<div class="tkey"><button type="button" class="keybtn" data-key="'+escapeHtml(id)+'" aria-expanded="'+open+'" aria-controls="'+dom+'">'+escapeHtml(label)+'</button>'+
+    '<div class="keybody" id="'+dom+'"'+(open ? '' : ' hidden')+'><dl class="keylist">'+items.map(function(it){
+      return '<dt>'+it[0]+'</dt><dd>'+it[1]+'</dd>';
+    }).join('')+'</dl>'+(foot ? '<p class="note keyfoot">'+foot+'</p>' : '')+'</div></div>';
+}
+function tableKeyHTML(g, st){
+  var teams = isTeamsEvent(), u = unitWord(), us = unitWord(true);
+  var showDraws = st.some(function(s){ return s.draws>0; }), anyTie = st.some(function(s){ return s.tieRule; });
+  var items = [['MP', 'Matches played'], ['MW', 'Matches won'], ['ML', 'Matches lost']];
+  if(showDraws) items.push(['MD', 'Matches drawn']);
+  items.push(['LW', 'Legs won'+(teams ? ', adding up the team totals of every match' : '')], ['+/-', 'Leg difference: legs won minus legs lost'], ['Pts', 'Points: 2 for a win, 1 for a draw']);
+  if(anyTie) items.push(['TB', 'Tie-break: why two '+us+' level on points are in this order. <b>H2H</b> head-to-head, <b>LD</b> leg difference, <b>LW</b> legs won; <b>3-way</b> means three were level, so only their matches against each other count; <b>?</b> still level']);
+  if(qualifiersPerGroup()) items.push(['<span class="qbar" aria-hidden="true"></span><span class="sr">Green bar</span>', 'Goes through to the knockout']);
+  items.push(['Grid', 'Read across from a '+u+'&rsquo;s row: their legs come first. Green won, red lost, · not played yet, <b>WO</b> walkover (one side did not turn up)']);
+  return keyToggleHTML('g:'+g.id, 'What do the columns mean?', items,
+    '<a href="'+escapeHtml(helpHref('q-columns'))+'">More in Help</a> · <a href="'+escapeHtml(helpHref('glossary'))+'">Words you will see</a>');
+}
+function bracketKeyHTML(b, key){
+  var items = [], seeds = [], any = { bye:false, wo:false, nil:false, from:false, pod:false };
+  b.rounds.forEach(function(round, ri){ round.forEach(function(m, mi){
+    if(m.bye) any.bye = true;
+    if(m.wo && m.winnerId) any.wo = true;
+    if(m.void) any.nil = true;
+    if(ri>0 && (!m.aEntryId || !m.bEntryId)) any.from = true;
+    if(m.aFromPod || m.bFromPod) any.pod = true;
+    if(ri===0) ['a','b'].forEach(function(s){ var id = m[s+'EntryId'], sd = id ? bracketSeedForDisplay(state, b.seeds, b.seedLabels, id) : null; if(sd) seeds.push(String(sd)); });
+  }); });
+  if(seeds.length){
+    if(seeds.every(function(s){ return /^\d+$/.test(s); })) items.push(['1, 2 …', 'Seed: the organiser&rsquo;s ranking before the event (1 is the top seed). Shown in the first round only']);
+    else {
+      var sm = /^(.*?)(\d+)$/.exec(seeds[0]);
+      items.push([escapeHtml(seeds[0]), 'Where they finished in their group'+(sm && sm[1] ? ': '+escapeHtml(seeds[0])+' means Group '+escapeHtml(sm[1])+', '+ordinal(parseInt(sm[2], 10))+' place' : '')]);
+    }
+  }
+  var t0 = koMatchTag(b, state, 0, b.rounds[0].length>1 ? 1 : 0);
+  items.push([escapeHtml(t0), 'Match code: '+(b.podLabel ? 'Group '+escapeHtml(b.podLabel)+'&rsquo;s bracket, ' : b===state.knockoutLosers ? 'P for the Plate pool, then ' : '')+'round '+t0.replace(/^.*?(\d+)-(\d+)$/, '$1, match $2')]);
+  if(any.from) items.push(['Winner of …', 'Filled in when that earlier match is played']);
+  if(any.pod) items.push(['Winner of Group …', 'Filled in when that group finishes']);
+  if(any.bye) items.push(['Bye', 'No opponent this round: straight through']);
+  if(any.wo) items.push(['WO', 'Walkover: that '+unitWord()+' did not turn up, so the other went through. Rounds says &ldquo;did not show&rdquo;']);
+  if(any.nil) items.push(['NO-SHOW', 'Neither turned up (Rounds says &ldquo;Neither attended&rdquo;), so nobody goes through']);
+  return keyToggleHTML('b:'+key, 'What do the labels mean?', items,
+    '<a href="'+escapeHtml(helpHref('q-match-labels'))+'">More in Help</a> · <a href="'+escapeHtml(helpHref('glossary'))+'">Words you will see</a>');
+}
+
 function groupCardHTML(g){
   var started = g.gameStarted;
-  var body;
+  var body, q = qualifiersPerGroup();
   if(!started){
     body = '<p class="empty">This group hasn\'t started yet.</p>';
   } else {
     var st = computeStandings(g);
-    body = '<div class="scroll">'+standingsTableHTML(g, st)+'</div>'+tieNotesHTML(g, st, {public:true})+
+    body = '<div class="scroll">'+markedStandingsHTML(g, st)+'</div>'+
+      (q && st.length && st.length<=q ? '<p class="note qall">Everyone in this group goes through.</p>' : '')+
+      tableKeyHTML(g, st)+tieNotesHTML(g, st, {public:true})+
       '<h3>Results</h3>'+resultsGridHTML(g);
   }
   return '<section class="card" id="group-'+escapeHtml(g.label)+'" data-gid="'+escapeHtml(g.id)+'"><h2>Group '+escapeHtml(g.label)+(boardLabel(g)?'<span class="sub">'+escapeHtml(boardLabel(g))+'</span>':'')+'</h2>'+body+'</section>';
 }
 
 /* ---------- Group Boards: pick Finals, all groups, or one group ---------- */
-var podSel = 'finals';   // 'finals' | 'all' | a group id
+var podSel = null;   // 'finals' | 'all' | a group id; null until the first view picks it (defaultPodSel)
 function podFinished(p){ return !!(p.bracket && (bracketIsComplete(p.bracket) || bracketIsVoidFinal(p.bracket))); }
 function podsPickerHTML(){
   var pods = state.pods||[], open = pods.filter(function(p){ return !podFinished(p); }), done = pods.filter(podFinished);
@@ -429,6 +576,7 @@ function podsAllHTML(){
   }).join('')+'</div></section>';
 }
 function podsBracketTabHTML(){
+  if(podSel==null) podSel = defaultPodSel();
   var pods = state.pods||[], sel = pods.find(function(p){ return p.id===podSel; });
   if(podSel==='finals' && !state.knockout) podSel = 'all';
   if(podSel!=='finals' && podSel!=='all' && !sel) podSel = state.knockout ? 'finals' : 'all';
@@ -560,6 +708,7 @@ function bracketCardHTML(bracket, key, title){
     bracketToolsHTML(key, bracketView(bracket))+
     (bracketView(bracket)==='rounds' ? roundsViewHTML(bracket, key)
       : '<div class="scroll" data-bracket="'+key+'">'+mirroredChartHTML(bracket, state, {interactive:false, readable:true})+'</div>')+
+    bracketKeyHTML(bracket, key)+
     '</section>';
 }
 
@@ -606,14 +755,14 @@ function rsSlotHTML(b, ri, mi, side){
   return '<div class="rs'+(won ? ' won' : '')+(lost ? ' lost' : '')+who+'">'+
     (seed ? '<i class="sd">'+escapeHtml(String(seed))+'</i>' : '')+
     '<span class="tap" data-eid="'+escapeHtml(id)+'">'+(who===' is-fol' ? '★ ' : '')+escapeHtml(entryName(id))+'</span>'+
-    (m.wo && lost ? '<small class="note">WO</small>' : '')+
+    (m.wo && lost ? '<small class="note wo">did not show</small>' : '')+
     '<b>'+(legs!=null ? legs : '')+'</b></div>';
 }
 function rsMatchHTML(b, ri, mi){
   var m = b.rounds[ri][mi], tag = koMatchTag(b, state, ri, mi);
   var status = m.void ? '<span class="mt dim">'+((m.aEntryId || m.bEntryId) ? 'Neither attended' : 'Not played')+'</span>'
     : m.bye ? '<span class="mt dim">Bye</span>'
-    : m.winnerId ? ''
+    : m.winnerId ? (m.wo ? '<span class="mt dim">Walkover</span>' : '')
     : (m.aEntryId && m.bEntryId) ? '<span class="mt rdy">To play</span>'
     : '<span class="mt dim">Waiting</span>';
   var mine = m.aEntryId===myId() || m.bEntryId===myId();
@@ -779,10 +928,12 @@ function render(){
   var tabs = availableTabs();
   if(!tabs.length){
     el('app').innerHTML = '<div class="card"><p class="empty">The draw hasn\'t been made yet. Check back soon.</p></div>';
-    el('nav').hidden = true; el('finderWrap').hidden = true;
+    el('nav').hidden = true; el('finderWrap').hidden = true; el('startCard').hidden = true;
     return;
   }
   var r = currentRoute(tabs), body = '';
+  if(!landingTab && r.name!=='me' && r.name!=='following' && r.name!=='p' && !addressNamesScreen(tabs)) landingTab = r.name;
+  if(podSel==null && (state.pods||[]).length) podSel = defaultPodSel();
   if(!(r.name==='bracket' && r.sel)) appliedSel = null;
   if(r.name==='me') body = meHTML();
   else if(r.name==='following') body = followingHTML();
@@ -804,6 +955,7 @@ function render(){
     return '<a href="#/'+t+'"'+(t===activeTab ? ' class="on" aria-current="page"' : '')+'>'+TAB_LABEL[t]+(n ? ' ('+n+')' : '')+'</a>';
   }).join('');
   document.body.classList.toggle('tv', !!r.tv);
+  setStartCard(!!r.tv);
   el('nav').hidden = !!r.tv; el('finderWrap').hidden = !!r.tv || !state.entriesList.length;
   if(typeof setInterval === 'function'){
     if(r.tv && !tvTimer) tvTimer = setInterval(function(){ tvPage++; if(state) render(); }, 12000);
@@ -821,7 +973,20 @@ function goToPlayer(id){
 }
 document.addEventListener('click', function(e){
   var t = e.target;
-  if(!t || !t.closest || !state) return;
+  if(!t || !t.closest) return;
+  var ok = t.closest('[data-start-ok]');
+  if(ok){ dismissStartCard(); return; }
+  var st = t.closest('[data-start-toggle]');
+  if(st){ toggleStartBar(st); return; }
+  if(!state) return;
+  var kb = t.closest('[data-key]');
+  if(kb){   // open or close a key in place: no redraw, so the button keeps the keyboard focus
+    var kid = kb.getAttribute('data-key'), open = kb.getAttribute('aria-expanded')!=='true', body = el(kb.getAttribute('aria-controls'));
+    setKeyOpen(kid, open);
+    kb.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if(body) body.hidden = !open;
+    return;
+  }
   var ss = t.closest('[data-stagesel]');   // a Group Boards stage card: pick that view even when the address does not change
   if(ss){
     var sv = ss.getAttribute('data-stagesel'), gm = /^group-(.+)$/.exec(sv), gp = gm ? (state.pods||[]).find(function(x){ return x.label===gm[1]; }) : null;
@@ -865,7 +1030,7 @@ window.addEventListener('resize', function(){
 });
 
 function showMessage(title, text, extraHTML){
-  el('head').hidden = true; el('nav').hidden = true; el('finderWrap').hidden = true;
+  el('head').hidden = true; el('nav').hidden = true; el('finderWrap').hidden = true; el('startCard').hidden = true;
   el('app').innerHTML = '<div class="msg"><h1>'+title+'</h1><p class="empty">'+text+'</p>'+(extraHTML || '')+'</div>';
 }
 /* Has any match been played? A group score, or a bracket match with a winner (a bye does not count) or marked void.
@@ -931,7 +1096,37 @@ function venueNoteNeeded(s){
 function setVenueNote(){
   var on = venueNoteNeeded(state), v = el('hVenue');
   v.hidden = !on;
-  v.innerHTML = on ? 'Board and time for each match are announced at the venue. <a href="/help#q-when-where">More</a>' : '';
+  v.innerHTML = on ? 'Board and time for each match are announced at the venue. <a href="'+escapeHtml(helpHref('q-when-where'))+'">More</a>' : '';
+}
+/* "New here?" bar (home.js builds it): a slim line under the header, only for a first-time visitor who came straight in,
+   from a QR code or a shared link, not from the home page (which shows its own card). Decided once per page view. The
+   line opens the three points in place; the × hides it for good on this device. */
+var startWanted = null, startOpen = false;
+function cameFromOutside(){
+  try{ var r = document.referrer; if(!r || typeof r !== 'string') return true; return new URL(r).origin !== location.origin; }catch(e){ return true; }
+}
+function setStartCard(tv){
+  var box = el('startCard');
+  if(typeof hmStartWanted !== 'function') return;
+  if(startWanted === null) startWanted = hmStartWanted(hmStore()) && cameFromOutside();
+  var on = startWanted && !tv && hmStartWanted(hmStore());
+  box.hidden = !on;
+  var html = on && typeof hmStartBarHTML === 'function' ? hmStartBarHTML({ help: helpHref(''), team: isTeamsEvent(), open: startOpen }) : '';
+  if(startShownHTML !== html){ box.innerHTML = html; startShownHTML = html; }   // unchanged on a refresh: left alone, so focus stays
+}
+var startShownHTML = '';
+function dismissStartCard(){
+  if(typeof hmStartDismiss === 'function') hmStartDismiss(hmStore());
+  startWanted = false; startShownHTML = '';
+  var box = el('startCard'); box.hidden = true; box.innerHTML = '';
+  var h = el('hTitle'); if(h && h.focus){ h.setAttribute('tabindex', '-1'); try{ h.focus({ preventScroll: true }); }catch(e){} }
+}
+function toggleStartBar(btn){   // open or close in place: no redraw, so the button keeps the keyboard focus
+  startOpen = btn.getAttribute('aria-expanded') !== 'true';
+  btn.setAttribute('aria-expanded', startOpen ? 'true' : 'false');
+  var body = el(btn.getAttribute('aria-controls'));
+  if(body) body.hidden = !startOpen;
+  if(typeof hmStartBarHTML === 'function') startShownHTML = hmStartBarHTML({ help: helpHref(''), team: isTeamsEvent(), open: startOpen });   // so the next refresh leaves it as it is
 }
 function setStatus(){
   var stale = lastOkAt && (Date.now() - lastOkAt) > POLL_MS*3;

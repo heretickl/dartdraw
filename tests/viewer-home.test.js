@@ -680,3 +680,54 @@ test('stage subcards: a done stage with no matches does not say "0 of 0 matches"
   assert.equal(txt(fin[1], 'v'), 'Winner Sam Roe'); assert.equal(txt(fin[1], 's'), 'Complete');
   assert.doesNotMatch(fin.join(''), /0 of 0/);
 });
+
+/* ---------- Release 5: the "New here?" card (kb-review E2) ---------- */
+function store(entries, opts) {
+  const m = new Map(Object.entries(entries || {}));
+  return { get length() { if (opts && opts.throws) throw new Error('blocked'); return m.size; }, key: (i) => [...m.keys()][i] ?? null,
+    getItem: (k) => { if (opts && opts.throws) throw new Error('blocked'); return m.has(k) ? m.get(k) : null; }, setItem: (k, v) => { if (opts && opts.throws) throw new Error('blocked'); m.set(k, String(v)); }, map: m };
+}
+test('Start card: shown to a first-time visitor; hidden after Got it, or for someone who already follows or set Me; works without storage', () => {
+  h('HM_START.done = false');
+  home.__s = store({ 'dartdraw.viewer.theme': 'dark', 'dartdraw.viewer.bracketView': 'rounds', 'dartdraw.viewer.abcdefgh1234': '{"me":null,"follow":[]}' });
+  assert.equal(h('hmStartWanted(__s)'), true, 'plain words and empty prefs are not a returning follower');
+  home.__s = store({ 'dartdraw.viewer.abcdefgh1234': '{"me":null,"follow":["e1"]}' });
+  assert.equal(h('hmStartWanted(__s)'), false, 'follows a player');
+  home.__s = store({ 'dartdraw.viewer.abcdefgh1234': '{"me":"e2","follow":[]}' });
+  assert.equal(h('hmStartWanted(__s)'), false, 'set Me');
+  home.__s = store({});
+  assert.equal(h('hmStartWanted(__s)'), true);
+  h('hmStartDismiss(__s)');
+  assert.equal(home.__s.map.get('dartdraw.viewer.seenStart'), '1', 'Got it is remembered on this device');
+  h('HM_START.done = false');
+  assert.equal(h('hmStartWanted(__s)'), false);
+  // storage blocked: shown, and Got it still hides it for this page view
+  home.__s = store({}, { throws: true });
+  assert.equal(h('hmStartWanted(__s)'), true);
+  assert.doesNotThrow(() => h('hmStartDismiss(__s)'));
+  assert.equal(h('hmStartWanted(__s)'), false);
+  h('HM_START.done = false');
+  assert.equal(h('hmStartWanted(null)'), true);
+});
+test('Start card: three short points, a Got it button and a link to the glossary; Teams wording on a Teams event page', () => {
+  const homeCard = call('hmStartHTML', 'home');
+  assert.match(homeCard, /<section class="hm-start" aria-labelledby="hmStartH"><h2 id="hmStartH">New here\? Three things to know<\/h2>/);
+  assert.equal((homeCard.match(/<li>/g) || []).length, 3);
+  assert.match(homeCard, /<b>Live<\/b> is being played now, <b>Upcoming<\/b> hasn’t started yet, <b>Results<\/b> are finished/);
+  assert.match(homeCard, /<button type="button" class="hm-btn" data-start-ok>Got it<\/button>/);
+  assert.match(homeCard, /href="\/help#glossary">Words you will see<\/a>/);
+  // an event page: a slim one-line bar that opens the same three points in place, with an × that closes it for good
+  const ev = call('hmStartBarHTML', { help: '/help?from=abcdefgh1234', team: true });
+  assert.match(ev, /<button type="button" class="hm-sbtoggle" data-start-toggle aria-expanded="false" aria-controls="hmStartMore"><span class="hm-sbtext"><b>New here\?<\/b> What the colours and columns mean<\/span>/);
+  assert.match(ev, /<button type="button" class="hm-sbx" data-start-ok aria-label="[^"]+"/);
+  assert.match(ev, /<div class="hm-sbbody" id="hmStartMore" hidden><ol>/);
+  assert.equal((ev.match(/<li>/g) || []).length, 3);
+  assert.match(ev, /opens on the part of the event being played now/);
+  assert.match(ev, /Find your team with the search box/);
+  assert.match(ev, /Blue marks you, gold the teams you follow/);
+  assert.match(ev, /href="\/help\?from=abcdefgh1234#glossary"/);
+  assert.match(ev, /<p class="hm-sbmore"><a href="\/help\?from=abcdefgh1234">More help/);
+  const open = call('hmStartBarHTML', { open: true });
+  assert.match(open, /aria-expanded="true"/); assert.match(open, /id="hmStartMore"><ol>/); assert.match(open, /gold the players you follow/);
+  assert.doesNotMatch(homeCard + ev, /\b(plan|tier|Basic|Pro)\b|@/);
+});

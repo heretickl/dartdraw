@@ -242,6 +242,68 @@ function hmLoadFailedHTML(){
 }
 function hmHomeLinkHTML(){ return '<p><a class="hm-btn" href="/">See all events</a></p>'; }
 
+/* ---- "New here?" tips for first-time visitors (a card on the home page; a slim bar on an event page opened straight from a QR code or a link) ----
+   Shown until the visitor taps Got it (or the bar's close button), and never to someone who already set Me or follows a player in any event on this
+   device. Remembered in localStorage only (nothing is sent anywhere); without storage it still works, for this page view. */
+var HM_START_KEY = 'dartdraw.viewer.seenStart';
+var HM_START = { done: false };
+function hmStore(){ try{ return typeof localStorage !== 'undefined' ? localStorage : null; }catch(e){ return null; } }
+function hmStartWanted(ls){
+  if(HM_START.done) return false;
+  try{
+    if(!ls) return true;
+    if(ls.getItem(HM_START_KEY)) return false;
+    var n = ls.length | 0;
+    for(var i = 0; i < n; i++){
+      var k = ls.key(i);
+      if(typeof k !== 'string' || k.indexOf('dartdraw.viewer.') !== 0 || k === HM_START_KEY) continue;
+      try{
+        var p = JSON.parse(ls.getItem(k));
+        if(p && typeof p === 'object' && (typeof p.me === 'string' || (Array.isArray(p.follow) && p.follow.length))) return false;
+      }catch(e){}   // the theme and bracket-view keys are plain words, not JSON
+    }
+  }catch(e){}
+  return true;
+}
+function hmStartDismiss(ls){ HM_START.done = true; try{ if(ls) ls.setItem(HM_START_KEY, '1'); }catch(e){} }
+/* The three points. kind: 'home' or 'event'. o.help: the Help address to use (the event page passes one that knows the
+   event); o.team: a Teams event. */
+function hmStartPoints(kind, o){
+  o = o || {};
+  var help = String(o.help || '/help'), base = help.split('#')[0], unit = o.team ? 'team' : 'player';
+  var words = '<a href="' + hmEsc(base + '#glossary') + '">Words you will see</a>';
+  return kind === 'event' ? [
+    'This page opens on the part of the event being played now. The tabs switch between the parts.',
+    'Find your ' + unit + ' with the search box. Tap <b>\u2606 Follow</b> or <b>This is me</b> to keep them on the Following or Me tab.',
+    'Blue marks you, gold the ' + unit + 's you follow, green a win or a place that goes through. Short headings like MP and Pts: tap <b>What do the columns mean?</b> under a table, or see ' + words + '.'
+  ] : [
+    '<b>Live</b> is being played now, <b>Upcoming</b> hasn\u2019t started yet, <b>Results</b> are finished. Tap an event to open it.',
+    'To find your player, open their event and use its search box. Tap <b>\u2606 Follow</b> or <b>This is me</b> to keep them handy.',
+    'Blue marks you, gold the players you follow, green a win or a place that goes through. Short headings like MP and Pts are explained under each table and in ' + words + '.'
+  ];
+}
+/* The home page's card. */
+function hmStartHTML(kind, o){
+  var help = String((o && o.help) || '/help');
+  return '<section class="hm-start" aria-labelledby="hmStartH"><h2 id="hmStartH">New here? Three things to know</h2><ol>' +
+    hmStartPoints(kind, o).map(function(p){ return '<li>' + p + '</li>'; }).join('') + '</ol>' +
+    '<div class="hm-startbtns"><button type="button" class="hm-btn" data-start-ok>Got it</button><a class="hm-startmore" href="' + hmEsc(help) + '">More help</a></div></section>';
+}
+/* An event page's slim bar: one line under the header, so the scores stay on a phone's first screen. The line is a
+   button that opens the three points in place (aria-expanded); the \u00d7 closes it for good on this device (the same
+   stored choice as Got it). o.open: drawn opened. */
+function hmStartBarHTML(o){
+  o = o || {};
+  var help = String(o.help || '/help'), open = !!o.open;
+  return '<section class="hm-sbar" aria-label="New here?"><div class="hm-sbrow">' +
+    '<button type="button" class="hm-sbtoggle" data-start-toggle aria-expanded="' + (open ? 'true' : 'false') + '" aria-controls="hmStartMore">' +
+    '<span class="hm-sbtext"><b>New here?</b> What the colours and columns mean</span><span class="hm-sbchev" aria-hidden="true">\u203a</span></button>' +
+    '<button type="button" class="hm-sbx" data-start-ok aria-label="Close this tip (it will not come back)" title="Close">\u00d7</button></div>' +
+    '<div class="hm-sbbody" id="hmStartMore"' + (open ? '' : ' hidden') + '><ol>' +
+    hmStartPoints('event', o).map(function(p){ return '<li>' + p + '</li>'; }).join('') + '</ol>' +
+    '<p class="hm-sbmore"><a href="' + hmEsc(help) + '">More help</a></p></div></section>';
+}
+
 /* ---------- The page itself (the only part that touches the document) ---------- */
 var HM_THEME_KEY = 'dartdraw.viewer.theme';   // the same stored choice the event page uses
 var HM_THEME_ICON = { auto:'\u25D0', light:'\u2600', dark:'\u263E' };
@@ -366,6 +428,7 @@ function showHome(){
   root.id = 'home'; root.className = 'hm';
   root.innerHTML = hmHeaderHTML() +
     '<main class="hm-body"><div class="hm-wrap"><div class="hm-upd" id="hmUpd"></div>' +
+    '<div id="hmStart">' + (hmStartWanted(hmStore()) ? hmStartHTML('home') : '') + '</div>' +
     '<div id="hmList" role="tabpanel"></div>' +
     '<p class="hm-foot">Results update automatically \u00B7 Powered by DartDraw \u00B7 <a href="/help">Help</a></p></div></main>';
   document.body.insertBefore(root, document.body.firstChild);
@@ -374,6 +437,13 @@ function showHome(){
   hmView();
 
   root.addEventListener('click', function(e){
+    var ok = e.target && e.target.closest ? e.target.closest('[data-start-ok]') : null;
+    if(ok){
+      hmStartDismiss(hmStore());
+      var sc = document.getElementById('hmStart'); if(sc) sc.innerHTML = '';
+      var on = document.querySelector('#hmTabs [aria-selected="true"]'); if(on && on.focus) on.focus();   // the keyboard focus goes on to the event tabs
+      return;
+    }
     var rt = e.target && e.target.closest ? e.target.closest('[data-hm-retry]') : null;
     if(rt){ HM.failed = false; hmView(); HM.poll.start(); try{ root.setAttribute('tabindex', '-1'); root.focus({ preventScroll: true }); }catch(err){} return; }   // shows "Loading events" again, then the result of a fresh try
     var t = e.target && e.target.closest ? e.target.closest('[data-hm-tab]') : null;

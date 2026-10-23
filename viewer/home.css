@@ -104,3 +104,12 @@
 .hm-help:hover{background:rgba(255,255,255,.12)}
 .hm-help:focus-visible{outline:2px solid #8fc2ff;outline-offset:2px}
 .hm-foot a{color:var(--on-blue);font-weight:600}
+/* "New here? Three things to know": a calm card, never in the way (home page and an event page) */
+.hm-start{margin:14px 0 0;padding:14px 16px;border:1px solid var(--line-strong);border-left:3px solid var(--blue);border-radius:16px;background:var(--paper);color:var(--ink)}
+.hm-start h2{margin:0 0 8px;font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:.04em;text-transform:uppercase}
+.hm-start ol{margin:0 0 12px;padding-left:22px;font-size:14px;line-height:1.5}
+.hm-start li{margin:0 0 6px}
+.hm-start a{color:var(--on-blue);font-weight:600}
+.hm-startbtns{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap}
+.hm-startmore{display:inline-flex;align-items:center;min-height:44px;padding:0 4px}
+.hm-start .hm-btn:focus-visible,.hm-startmore:focus-visible{outline:2px solid var(--blue);outline-offset:2px}

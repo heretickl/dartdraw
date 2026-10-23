@@ -421,7 +421,7 @@ test('wording: the home page counts teams in a Teams event and keeps players / p
 /* ---------- the help page ---------- */
 test('help: the Teams section answers how a match works, why a result is a total, how to find a team and what the header line means', () => {
   const HELP = fs.readFileSync(path.join(__dirname, '..', 'viewer', 'help.html'), 'utf8');
-  const sec = HELP.match(/<section class="help-grp" id="g-teams"[\s\S]*?<\/section>/);
+  const sec = HELP.match(/<h3 class="help-sub" id="g-teams">[\s\S]*?(?=<h3 class="help-sub" id="g-plate">)/);   // Release 5: the Teams part of "Kinds of event"
   assert.ok(sec, 'a Teams section');
   const ids = [...sec[0].matchAll(/<details class="q" id="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(ids, ['q-teams-match', 'q-teams-total', 'q-teams-find', 'q-teams-header']);
