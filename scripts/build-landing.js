@@ -468,7 +468,28 @@ section.band.help{padding:36px 0 64px}
 .hgroup:not(:first-child){margin-top:44px}
 .hintro{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin:0 0 24px;padding:16px 18px;background:#fff;border:1px solid var(--line);border-radius:14px}
 .hintro p{margin:0;flex:1 1 280px;font-size:16px;color:#32435a}
+.hstart{margin-bottom:12px;background:var(--gold-soft);border-color:#ecd9a4}
+.hstart a{color:var(--blue-d);font-weight:700}
 .hempty{margin:0 0 20px;padding:18px 20px;background:#fff;border:1px dashed #b9c4d3;border-radius:14px;color:#32435a;font-size:16.5px}
+.hempty p{margin:0 0 8px}
+.hempty .hempty-h{font-weight:700;color:var(--navy)}
+.hsuggest{margin:0 0 10px;padding-left:22px}
+.hsuggest li{margin:6px 0}
+.hsuggest a{color:var(--blue-d);font-weight:600}
+.hempty .hempty-end{margin:0;color:var(--muted)}
+.hresults{margin:0 0 26px}
+.hs-near{margin:0 0 8px;font-weight:700;color:var(--navy)}
+.hs-list{list-style:none;margin:0;padding:0}
+.hs-item{margin:0 0 8px}
+.hs-link{display:block;padding:12px 16px;background:#fff;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:var(--ink);overflow-wrap:anywhere}
+.hs-link:hover{border-color:#9fb0c6}
+.hs-link[aria-current="true"]{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-soft)}
+.hs-title{display:block;font-weight:700;font-size:16.5px;line-height:1.3;color:var(--navy)}
+.hs-head{display:block;margin-top:2px;font-size:14.5px;font-weight:700;color:#7a5600}
+.hs-snip{display:block;margin-top:4px;font-size:15px;line-height:1.45;color:#46566a}
+mark.hs-mark{background:#ffe08a;color:inherit;border-radius:3px;padding:0 1px}
+.hs-more{min-height:44px;padding:10px 18px;font:inherit;font-size:15.5px;font-weight:700;color:var(--blue-d);background:#fff;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.hs-more:hover{border-color:#9fb0c6}
 .harticle{margin:0 0 20px;padding:26px 28px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 0 rgba(15,34,64,.03);scroll-margin-top:18px;overflow-wrap:anywhere}
 .hhead{display:flex;align-items:baseline;gap:8px;margin:0 0 4px}
 .harticle h3{margin:0;font-size:clamp(23px,2.5vw,29px);line-height:1.15;letter-spacing:-.02em;color:var(--navy)}
@@ -489,6 +510,12 @@ section.band.help{padding:36px 0 64px}
 .harticle dl.msgs{margin:0 0 12px}
 .harticle dl.msgs dt{margin:14px 0 0;padding:6px 12px;background:#f1f5fa;border-radius:8px;font-weight:700;color:var(--navy);font-size:16px;line-height:1.4}
 .harticle dl.msgs dd{margin:6px 0 0 12px;font-size:16px}
+.harticle dl.glossary{margin:0 0 12px}
+.harticle dl.glossary dt{margin:16px 0 0;font-weight:700;color:var(--navy);font-size:16.5px;line-height:1.35;scroll-margin-top:18px}
+.harticle dl.glossary dd{margin:4px 0 0;font-size:16px;line-height:1.55;color:#26364b}
+.harticle dl.glossary dt:target{background:var(--gold-soft);border-radius:6px;padding:2px 6px}
+.harticle .eg{display:block;margin-top:3px;font-size:15px;color:#5b6a7f}
+.alias{display:block;height:0;overflow:hidden;scroll-margin-top:18px}
 .totop{margin:20px 0 0;font-size:14.5px}
 .harticle .totop a,.hgroup-end a{font-weight:600;text-decoration:none;color:var(--blue-d)}
 .harticle:target,details.faq:target{box-shadow:0 0 0 3px var(--gold)}
@@ -516,61 +543,35 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
   .harticle p,.harticle li,.harticle dd,.faq-body p,.faq-body li{font-size:16px}
 }
 @media print{
-  header.top,.close,.help-toc,.hsearch,.totop,.hgroup-end,.skip,dialog{display:none!important}
+  header.top,.close,.help-toc,.hsearch,.totop,.hgroup-end,.skip,dialog,.hresults,.hempty{display:none!important}
+  mark.hs-mark{background:none}
   .phero{padding:0}.phero:before{display:none}
 }
 `;
 
 /* The search box and the contents list. Without JavaScript the search box stays hidden, everything is shown, and the
-   contents list is an ordinary open list of links. With it: typing filters the guide and the questions, and on a
-   narrow screen the contents list folds away until it is wanted. */
+   contents list is an ordinary open list of links. With it, the shared search (/help-search.js, the same file the
+   spectators' Help uses) shows a ranked list of the matching articles and questions; only a clear winner opens by
+   itself. The synonyms come from scripts/help-content.js as JSON. On a narrow screen the contents list folds away
+   until it is wanted. */
+const json = (o) => JSON.stringify(o).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
 const HELP_SCRIPT = `
+<script src="/help-search.js"></script>
+<script type="application/json" id="helpSearchData">${json({ synonyms: help.search.synonyms, noAnswer: help.search.noAnswer })}</script>
 <script>
 (function(){
 var form=document.getElementById('helpSearch'),input=document.getElementById('helpQ');
-if(!form||!input)return;
-var count=document.getElementById('helpCount'),empty=document.getElementById('helpEmpty'),emptyQ=document.getElementById('helpEmptyQ');
-var items=[].slice.call(document.querySelectorAll('[data-item]'));
-var heads=[].slice.call(document.querySelectorAll('[data-group-head]'));
-var tocItems=[].slice.call(document.querySelectorAll('[data-toc]'));
-var texts=items.map(function(el){return (String(el.textContent||'')+' '+String(el.getAttribute('data-keywords')||'')).toLowerCase().replace(/\\s+/g,' ')});
-form.hidden=false;
-function terms(q){return String(q||'').toLowerCase().split(/\\s+/).filter(Boolean)}
-function apply(){
-  var ts=terms(input.value),shown=0,vis={},perGroup={};
-  items.forEach(function(el,i){
-    var ok=ts.every(function(t){return texts[i].indexOf(t)>=0});
-    el.hidden=!ok;
-    vis[el.getAttribute('id')]=ok;
-    if(ok){shown++;var g=el.getAttribute('data-group');perGroup[g]=(perGroup[g]||0)+1}
-    if(el.getAttribute('data-kind')==='faq'){
-      if(ts.length&&ok&&!el.open){el.open=true;el.__bySearch=true}
-      else if((!ts.length||!ok)&&el.__bySearch){el.open=false;el.__bySearch=false}
-    }
-  });
-  heads.forEach(function(h){h.hidden=!perGroup[h.getAttribute('data-group-head')]});
-  tocItems.forEach(function(li){
-    var id=li.getAttribute('data-toc');
-    li.hidden=!(id in vis?vis[id]:!!perGroup[id]);
-  });
-  if(count)count.textContent=ts.length?(shown+(shown===1?' result':' results')):'';
-  if(empty){empty.hidden=!(ts.length&&!shown);if(emptyQ)emptyQ.textContent=String(input.value).replace(/^\\s+|\\s+$/g,'')}
+if(form&&input&&typeof HelpSearch!=='undefined'){
+  var data={};try{data=JSON.parse(document.getElementById('helpSearchData').textContent)}catch(e){}
+  var items=[].slice.call(document.querySelectorAll('[data-item]'));
+  var idsOf=function(g){return items.filter(function(i){return i.getAttribute('data-group')===g}).map(function(i){return i.id})};
+  var groups=[].slice.call(document.querySelectorAll('[data-group-head],[data-group-end]')).map(function(h){return{el:h,ids:idsOf(h.getAttribute('data-group-head')||h.getAttribute('data-group-end'))}});
+  var tocs=[].slice.call(document.querySelectorAll('[data-toc]')).map(function(li){var id=li.getAttribute('data-toc'),own=idsOf(id);return{el:li,ids:own.length?own:[id]}});
+  HelpSearch.attach({input:input,form:form,reveal:form,status:document.getElementById('helpCount'),results:document.getElementById('helpResults'),
+    empty:document.getElementById('helpEmpty'),emptyQ:document.getElementById('helpEmptyQ'),say:document.getElementById('helpSay'),
+    items:items,groups:groups,tocs:tocs,data:data,
+    nearCount:function(n){return 'No direct answer. '+n+(n===1?' close match':' close matches')}});
 }
-input.addEventListener('input',apply);
-input.addEventListener('keydown',function(e){if(e.key==='Escape'&&input.value){input.value='';apply()}});
-form.addEventListener('submit',function(e){e.preventDefault()});
-function itemOf(el){while(el&&!(el.getAttribute&&el.getAttribute('data-item')!==null))el=el.parentNode;return el}
-function onHash(){
-  var id=String((typeof location!=='undefined'&&location.hash)||'').slice(1);
-  if(!id)return;
-  var el=document.getElementById(id);
-  var it=itemOf(el);
-  if(!it)return;
-  if(it.hidden){input.value='';apply();if(el.scrollIntoView)el.scrollIntoView()}
-  if(it.getAttribute('data-kind')==='faq'&&!it.open)it.open=true;
-}
-window.addEventListener('hashchange',onHash);
-onHash();
 var toc=document.getElementById('helpToc'),mq=window.matchMedia?window.matchMedia('(min-width: 961px)'):null;
 if(toc&&mq){
   var sum=toc.querySelector('summary');
@@ -585,17 +586,20 @@ if(toc&&mq){
 
 /* Search keywords: plain words in an attribute (never shown), so they need only the attribute escapes. */
 const kwAttr = (it) => it.keywords ? ` data-keywords="${String(it.keywords).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}"` : '';
-const helpArticle = (it) => `
-    <article class="harticle" id="${it.id}" data-item data-group="guide" data-kind="guide"${kwAttr(it)}>
+/* Old ids that still have to work as #anchors after the outline moved (help-content.js `aliases`): an empty element with
+   that id. Inside an article it is the article's first child, so the search script finds the article from it. */
+const aliasSpans = (x) => (x.aliases || []).map((id) => `<span class="alias" id="${id}"></span>`).join('');
+const helpArticle = (sec) => (it) => `
+    <article class="harticle" id="${it.id}" data-item data-group="${sec.id}" data-kind="guide"${kwAttr(it)}>${aliasSpans(it)}
       <div class="hhead"><h3>${it.title}</h3><a class="anchor" href="#${it.id}" aria-label="Link to this section">#</a></div>
       ${it.summary ? `<p class="sum">${it.summary}</p>` : ''}
       <div class="hbody">${it.body}</div>
       <p class="totop"><a href="#top">Back to top &uarr;</a></p>
     </article>`;
-const helpQuestion = (it) => `
-    <details class="faq" id="${it.id}" data-item data-group="faq" data-kind="faq"${kwAttr(it)}>
+const helpQuestion = (sec) => (it) => `
+    <details class="faq" id="${it.id}" data-item data-group="${sec.id}" data-kind="faq"${kwAttr(it)}>
       <summary>${it.title}</summary>
-      <div class="faq-body">${it.body}</div>
+      <div class="faq-body">${aliasSpans(it)}${it.body}</div>
     </details>`;
 
 function helpPage() {
@@ -610,8 +614,10 @@ function helpPage() {
           <li data-toc="${sec.id}"><a href="#${sec.id}">${sec.title} (${sec.items.length})</a></li>
         </ol>`).join('\n        ');
   const main = help.sections.map((sec) => `
-    <h2 class="hgroup" id="${sec.id}" data-group-head="${sec.id}">${sec.title}</h2>${sec.items.map(sec.kind === 'guide' ? helpArticle : helpQuestion).join('')}
-    ${sec.kind === 'faq' ? '<p class="hgroup-end"><a href="#top">Back to top &uarr;</a></p>' : ''}`).join('\n');
+    ${aliasSpans(sec)}<h2 class="hgroup" id="${sec.id}" data-group-head="${sec.id}">${sec.title}</h2>${sec.items.map(sec.kind === 'guide' ? helpArticle(sec) : helpQuestion(sec)).join('')}
+    ${sec.kind === 'faq' ? `<p class="hgroup-end" data-group-end="${sec.id}"><a href="#top">Back to top &uarr;</a></p>` : ''}`).join('\n');
+  const titleOf = (id) => { for (const sec of help.sections) for (const it of sec.items) if (it.id === id) return it.title; return ''; };
+  const popular = help.search.popular.map((p) => `<li><a href="#${p.id}">${p.label || titleOf(p.id)}</a></li>`).join('');
   return `
 <section class="phero" aria-labelledby="helpH"><div class="wrap">
   <p class="eyebrow">Help</p>
@@ -619,7 +625,7 @@ function helpPage() {
   <p class="lede">${help.lede}</p>
   <form class="hsearch" id="helpSearch" role="search" hidden>
     <label for="helpQ">Search the help</label>
-    <input id="helpQ" type="search" placeholder="Try &ldquo;no-show&rdquo;, &ldquo;print&rdquo; or &ldquo;pop-up&rdquo;" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <input id="helpQ" type="search" maxlength="120" placeholder="Try &ldquo;no-show&rdquo;, &ldquo;wrong score&rdquo; or &ldquo;print&rdquo;" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="helpCount" aria-controls="helpResults">
     <p class="hcount" id="helpCount" aria-live="polite"></p>
   </form>
 </div></section>
@@ -634,11 +640,21 @@ function helpPage() {
     </details>
   </nav>
   <div class="help-main">
+    <div class="hintro hstart">
+      <p>New to DartDraw? Start with the <a href="#quick-start">Quick start</a>. Not sure what a word means? See <a href="#glossary">Words you will see</a>. Something not working? See <a href="#troubleshooting">When something goes wrong</a>.</p>
+    </div>
     <div class="hintro">
       <p>Following an event as a spectator? The public results site has its own <a href="${help.VIEWER_HELP_URL}" target="_blank" rel="noopener">help page for spectators</a>.</p>
       <a class="btn sm" href="/login.html" data-login>Log in to DartDraw</a>
     </div>
-    <p class="hempty" id="helpEmpty" hidden>Nothing matches &ldquo;<span id="helpEmptyQ"></span>&rdquo;. Try fewer or different words, such as &ldquo;score&rdquo;, &ldquo;print&rdquo; or &ldquo;knockout&rdquo;.</p>
+    <div class="hempty" id="helpEmpty" hidden>
+      <p class="hempty-h">No answer for &ldquo;<span id="helpEmptyQ"></span>&rdquo;.</p>
+      <p class="hempty-say" id="helpSay" hidden></p>
+      <p>Try fewer words, or a different word. Or start with one of these:</p>
+      <ul class="hsuggest">${popular}</ul>
+      <p class="hempty-end">${help.search.stuck}</p>
+    </div>
+    <div class="hresults" id="helpResults" hidden></div>
 ${main}
   </div>
 </div></section>

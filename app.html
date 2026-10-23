@@ -80,6 +80,33 @@ body.admin-mode .step{display:none}
 .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .help-link{font-size:12px;font-weight:700;color:var(--navy);text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:99px;padding:8px 14px}
 .help-link:hover{background:#f3f5f7;border-color:#cad5e0}
+/* Contextual Help: a small "?" beside a step title or a word the app uses, opening that part of /help in a new tab.
+   The ring is 22px (the circle) inside a 28px hit area; touch screens get 36px (see the pointer:coarse block). */
+.help-q{position:relative;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin:0 0 0 6px;vertical-align:middle;flex-shrink:0;border-radius:50%;border:1.5px solid #9fb0c6;background:#fff;color:#33475e;font-size:12px;font-weight:800;line-height:1;text-decoration:none;text-transform:none;letter-spacing:0;cursor:pointer}
+.help-q::after{content:"";position:absolute;inset:-6px}
+.help-q:hover,.help-q:focus-visible{border-color:var(--navy);color:var(--navy);background:#eef3fa}
+.help-q:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+.help-q[hidden]{display:none}
+.page-title-row{display:flex;align-items:center;gap:2px}
+.help-hint a{color:var(--navy);font-weight:700;text-decoration:underline}
+.modal-help{margin:-4px 0 12px;font-size:12px}
+.modal-help a,.stale-help,.save-help{color:var(--navy);font-weight:700}
+.save-help{display:block;font-size:11px;margin:-6px 0 10px;color:#cbd8e6}
+.save-help[hidden]{display:none}
+.stale-help{white-space:nowrap;font-size:12px;color:inherit;text-decoration:underline}
+/* First run (no saved events): the Get started card, and the banner over a sample event */
+.gs-card h2{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gs-steps{list-style:none;margin:6px 0 14px;padding:0;counter-reset:gs}
+.gs-steps li{counter-increment:gs;display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13px;line-height:1.45}
+.gs-steps li:first-child{border-top:0}
+.gs-steps li::before{content:counter(gs);flex-shrink:0;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#fdf8e9;border:1px solid var(--gold);color:#6b4d00;font-weight:800;font-size:12px}
+.gs-steps .gs-text{flex:1;min-width:0}
+.gs-steps .gs-how{flex-shrink:0;font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap;padding:2px 0}
+.gs-hide{background:none;border:0;padding:6px 2px;font:inherit;font-size:12px;color:var(--muted);text-decoration:underline;cursor:pointer}
+.sample-banner{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;background:#fff8e5;border:1px solid #e8c86e;color:#4d3b0f;border-radius:12px;padding:12px 16px;margin-bottom:16px}
+.sample-banner b{display:block;font-size:14px;color:#3d2e05}
+.sample-banner span{font-size:12px}
+.sample-banner .buttonrow{margin:0}
 .topbar h1{font-size:23px;margin:0}
 .topbar p{margin:5px 0 0;color:var(--muted);font-size:13px}
 .tag{background:#e5eefc;color:#1956ad;border-radius:99px;font-size:12px;padding:8px 12px;font-weight:700}
@@ -109,6 +136,11 @@ textarea{height:auto;min-height:60px;resize:vertical}
 input[type="checkbox"],input[type="radio"]{all:revert;width:16px;height:16px;flex-shrink:0;cursor:pointer}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+/* A grid cell may shrink below its content, and iOS Safari draws date/time boxes at their own width and height unless the
+   native look is switched off: without this the Tournament date box was taller than its neighbour and ran under it. */
+.grid2>*,.grid3>*{min-width:0}
+input[type="date"],input[type="time"],input[type="datetime-local"]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;line-height:18px}
+input[type="date"]::-webkit-date-and-time-value,input[type="time"]::-webkit-date-and-time-value{text-align:left;min-height:18px}
 .options{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .choice{border:1px solid #cad5e0;border-radius:8px;padding:11px 12px;cursor:pointer}
 .choice.selected{border:2px solid var(--blue);background:#f2f7ff;padding:10px 11px}
@@ -399,7 +431,10 @@ body.mko-popout .compact-bar{display:none !important}
   .picker-row{min-height:44px}
   .preview-modal-close{width:40px;height:40px}
   .phone-banner-close{min-height:40px}
+  .help-q{width:26px;height:26px;font-size:14px}
+  .help-q::after{inset:-7px}
 }
+.compact-bar .help-q{margin:0;width:30px;height:30px;border-color:#3b536f;background:transparent;color:#cbd8e6;font-size:14px}
 @media(max-width:1100px){.app{grid-template-columns:250px 1fr}.main{padding:24px}}
 /* Compact layout: a narrow window (any device), or a phone (body.is-phone, set by applyDeviceGate from the SCREEN size,
    the same test as the phone banner, so a tablet's on-screen keyboard shrinking the window never flips the layout). */
@@ -565,6 +600,7 @@ svg.kb-conn{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;
 <div class="stale-banner" id="staleBanner" role="alert" hidden>
   <span><b>Updated elsewhere — reload to get the latest.</b> This event was changed in another window, tab or device. Your last change here was not saved. Reload, then enter it again if it is missing.</span>
   <button class="btn" onclick="reloadStale()">Reload</button>
+  <a class="stale-help" href="/help#troubleshooting-save" target="_blank" rel="noopener">What does this mean?</a>
 </div>
 <div class="phone-banner" id="phoneBanner" hidden><span>DartDraw works best on a tablet, laptop or desktop.</span><button class="phone-banner-close" onclick="dismissPhoneBanner()" aria-label="Dismiss">×</button></div>
 <div class="device-gate" id="deviceGate" role="dialog" aria-modal="true" aria-labelledby="deviceGateMsg" hidden>
@@ -578,6 +614,7 @@ svg.kb-conn{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;
 <header class="compact-bar" id="compactBar">
   <span class="brand-mark" aria-hidden="true">D</span>
   <button class="compact-stage" id="compactStageBtn" onclick="toggleCompactMenu()" aria-expanded="false" aria-controls="compactMenu"><span id="compactStageName">Loading…</span><span aria-hidden="true">▾</span></button>
+  <a class="help-q" id="compactStageHelp" href="/help#how-dartdraw-works" target="_blank" rel="noopener" aria-label="Help for this step (opens in a new tab)" hidden>?</a>
   <span class="save-status compact-save" id="saveStatusCompact" role="status"></span>
   <a class="compact-link" href="/help" target="_blank" rel="noopener">Help</a>
   <button class="compact-link" onclick="logout()">Log out</button>
@@ -594,6 +631,7 @@ svg.kb-conn{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;
     <div class="organizer-bar" id="organizerBar"></div>
     <div id="adminNav"></div>
     <div class="save-status" id="saveStatus"></div>
+    <a class="save-help" id="saveStatusHelp" href="/help#troubleshooting-save" target="_blank" rel="noopener" hidden>What does this mean?</a>
     <button class="new-tournament" onclick="newTournament()">+ New tournament</button>
     <button class="open-btn" onclick="scrollToLibrary()">Open saved tournament</button>
     <div class="step" id="navstep1" onclick="goStage(1)"><h3>1. Event creation</h3><p>Identity, category and entry count.</p></div>
@@ -613,7 +651,7 @@ svg.kb-conn{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;
   </aside>
   <main class="main">
     <div class="topbar">
-      <div><h1 id="pageTitle">Loading…</h1><p id="pageSub">Fetching your tournaments.</p></div>
+      <div><div class="page-title-row"><h1 id="pageTitle">Loading…</h1><a class="help-q" id="pageHelp" href="/help#how-dartdraw-works" target="_blank" rel="noopener" aria-label="Help for this step (opens in a new tab)" hidden>?</a></div><p id="pageSub">Fetching your tournaments.</p></div>
       <span class="topbar-right"><a class="help-link" href="/help" target="_blank" rel="noopener">Help</a><span class="tag">Synced to your account</span></span>
     </div>
     <div id="stageArea"><div class="card"><h2>Loading…</h2><p class="intro" style="margin:0">Fetching your tournaments…</p></div></div>
@@ -1000,7 +1038,7 @@ function checkInCardHTML(){
   const total = active.length, checkedCount = active.filter(e=>e.checkedIn).length;
   const allChecked = checkedCount===total;
   const unitWord = unitWordFor(state.eventCreation.competitionUnit).toLowerCase();
-  return '<div class="card"><h2>Check-in</h2><p class="intro">Tick off each '+unitWord+' as they arrive on the day. This is just a record for you — it doesn\'t stop you confirming, printing or starting.</p>'+
+  return '<div class="card"><h2>Check-in'+helpQHTML('check-in', 'check-in')+'</h2><p class="intro">Tick off each '+unitWord+' as they arrive on the day. This is just a record for you — it doesn\'t stop you confirming, printing or starting.</p>'+
     '<div class="buttonrow" style="margin:0 0 10px;align-items:center">'+
       '<button class="btn ghost" '+(allChecked?'disabled':'')+' onclick="checkInAll()">Check in all</button>'+
       '<span class="hint" style="margin:0">'+checkedCount+' of '+total+' checked in</span>'+
@@ -3088,6 +3126,9 @@ function paintSaveStatus(){
     /* 'error' = the saved copy is newer than this tab's (a real conflict): reload it. 'failed' = the save did not reach the server (network or server error): try the save again. */
     el.onclick = status==='error' ? ()=>{ reloadStale(); } : status==='failed' ? ()=>{ flushSave(); } : null;
   });
+  /* A problem message gets a "What does this mean?" link to the Help topic about saving (sidebar only: the phone bar has no room) */
+  const helpEl = document.getElementById('saveStatusHelp');
+  if(helpEl) helpEl.hidden = !(status==='error' || status==='failed' || status==='gone');
   renderStaleBanner();
 }
 /* ---------- Stale windows ("Updated elsewhere") ----------
@@ -3147,6 +3188,8 @@ async function reloadStale(){
    nothing is saved; the saved copy is reloaded instead, discarding the edit. */
 function persist(){
   if(!state) return;
+  /* A sample event (state.isSample, see openSampleEvent) is never saved: keep its derived data fresh for the screen only. */
+  if(state.isSample){ normalizeForSave(); return; }
   if(lockedIds.has(state.id)){ reloadLockedTournament(); return; }
   /* While "Accept & finalize" is waiting for the server nothing else may be saved (the finalize PUT carries the data
      that was checked). A dropped edit is sorted out when finalizing ends (see runFinalize). */
@@ -3298,9 +3341,9 @@ function saveTarget(){
   for(const id of pendingSaves.keys()){
     if(staleIds.has(id) || lockedIds.has(id) || goneIds.has(id)) continue;   // can never be sent
     const t = (state && state.id===id) ? state : tournamentsCache[id];
-    if(t) return { id, t };
+    if(t && !t.isSample) return { id, t };
   }
-  if(!state || !state.id) return null;
+  if(!state || !state.id || state.isSample) return null;   // a sample event is never sent (see openSampleEvent)
   return { id: state.id, t: state };
 }
 function clearPendingSave(id){
@@ -3386,6 +3429,7 @@ async function flushSaveOnce(){
   if(!tg) return false;
   const id = tg.id, payload = tg.t;
   const isOpen = ()=> !!(state && state.id===id);
+  if(payload && payload.isSample) return false;   // a sample event is never sent
   if(lockedIds.has(id)) return false;
   if(staleIds.has(id)){ if(isOpen()) setSaveStatus('error'); return false; }   // out of date: never sent (see staleIds)
   if(goneIds.has(id)){ clearPendingSave(id); if(isOpen()) setSaveStatus('gone'); return false; }
@@ -3464,7 +3508,7 @@ async function flushSaveOnce(){
    unsaved is sent again (see resumeSaving). */
 function flushSaveNow(){
   const tg = saveTarget();
-  if(!tg || unsendable(tg.id)) return;   // a stale (or finalized, or deleted) event's copy is never sent, not even on close
+  if(!tg || unsendable(tg.id) || (tg.t && tg.t.isSample)) return;   // a stale (or finalized, or deleted) event's copy is never sent, not even on close; nor a sample
   /* Only an edit that no save has carried yet needs this. Sending the same copy again would change the stored version
      stamp behind this tab's back, and the tab's next save would then be refused as "updated elsewhere". */
   if(!savePending || saveInFlight || keepaliveSave) return;
@@ -3576,6 +3620,7 @@ function anyModalOpen(){
 /* '' when a silent refresh may run now, else the reason it may not. */
 function silentRefreshBlocked(){
   if(!state || !state.id) return 'no event';
+  if(state.isSample) return 'sample';
   const id = state.id;
   if(!dbUpdatedAtCache[id]) return 'not saved yet';
   if(staleIds.has(id)) return 'stale';
@@ -3755,7 +3800,7 @@ function eventComplete(t){
 }
 function finalizeCardHTML(){
   if(!state) return '';
-  const head = '<div class="card" id="finalizeCard"><h2>Accept results &amp; finalize</h2>';
+  const head = '<div class="card" id="finalizeCard"><h2>Accept results &amp; finalize'+helpQHTML('accept', 'Accept & finalize')+'</h2>';
   if(isLocked(state)){
     const when = finalizedWhenText(state);
     return head+'<div class="confirm-box finalized-note" style="margin:0"><b>Results finalized</b>'+(when?escapeHtml(when)+'. ':'')+'Only an Admin can reopen or edit this event.</div></div>';
@@ -3781,6 +3826,7 @@ async function reloadServerCopy(id){
   if(state && state.id===id){ currentStage = stage; render(); }
 }
 function finalizeResults(){
+  if(isSampleOpen()){ sampleBlockModal('finalize it'); return; }
   if(!state || isLocked(state) || finalizing || !eventComplete(state)) return;
   const t = state;
   openModal({
@@ -4010,6 +4056,7 @@ function goStage(n){
    winners bracket and the Plate pool can each be run from a different
    screen at the same time. */
 function openInNewWindow(section){
+  if(isSampleOpen()){ sampleBlockModal('open it in a new window'); return; }
   if(!state || !state.id){
     openModal({title:'Save first', body:'Save this tournament (Event Creation → Save) before opening it in a new window.', confirmLabel:'OK', confirmClass:'primary', onConfirm:()=>{}});
     return;
@@ -4047,6 +4094,119 @@ function startNewTournament(){
   state = blankTournament();
   currentStage = 1;
   render();
+}
+
+/* ---------- First run: the Get started card and the sample event ----------
+   While an organiser has no saved events, the welcome screen shows the seven Quick start steps (each with a "How?"
+   link into Help) and "Try a sample event". "Hide this card" is remembered in this browser only (localStorage, the
+   one thing this feature stores; nothing is stored on the server).
+   The SAMPLE EVENT lives only in this window: state.isSample. It is never saved by any path: persist() does nothing for
+   it, saveTarget() never returns it (so flushSave, the close/hide keepalive save, retries and the sign-out stash have
+   nothing to send), silentRefresh skips it, and it is never put in tournamentsCache (so it is not in Saved tournaments,
+   and Rename / Duplicate / Delete cannot reach it). Publishing, finalizing and the full-page window are refused with a
+   box that offers "Save as my event". Opening another event, starting a new one, logging out or closing the page simply
+   drops it: there is nothing unsaved to warn about. "Save as my event" clears the flag and saves it through the normal
+   path (one PUT with no stamp, which creates the row); "Close sample" goes back to the welcome screen. */
+const GET_STARTED_HIDDEN_KEY = 'dartdraw.getStartedHidden';
+function getStartedHidden(){ try{ return window.localStorage.getItem(GET_STARTED_HIDDEN_KEY)==='1'; }catch(e){ return false; } }
+function setGetStartedHidden(on){
+  try{ if(on) window.localStorage.setItem(GET_STARTED_HIDDEN_KEY, '1'); else window.localStorage.removeItem(GET_STARTED_HIDDEN_KEY); }catch(e){}
+  render();
+}
+function hasSavedEvents(){ return Object.keys(tournamentsCache).some(id=> !foreignOpenIds.has(id)); }
+/* The seven Quick start steps (help.html#quick-start-step-N), in the words of the app. */
+const GET_STARTED_STEPS = [
+  '<b>Create the event.</b> Click <b>+ New tournament</b>, give it a name, choose Singles, Doubles or Teams and the number of entries.',
+  '<b>Choose the format.</b> Round robin, knockout, or groups then a knockout; the best of legs and the number of boards.',
+  '<b>Type the names and draw the groups</b> with <b>Random draw</b>.',
+  '<b>Confirm the charts and print the blank pack.</b> If spectators will follow on their phones, publish first so the QR codes print.',
+  '<b>Start all games</b> and click a match to enter its score.',
+  '<b>Run the knockout</b> once every group is finished.',
+  '<b>Finish</b> with <b>Accept &amp; finalize</b> at the bottom of step 5.'
+];
+function getStartedCardHTML(){
+  return '<div class="card gs-card" id="getStartedCard"><h2>Get started'+helpQHTML('quick-start', 'Quick start')+'</h2>'+
+    '<p class="intro">Your first event in seven steps. Each &ldquo;How?&rdquo; opens that step of the Quick start in Help, in a new tab.</p>'+
+    '<ol class="gs-steps">'+GET_STARTED_STEPS.map((s, i)=>
+      '<li><span class="gs-text">'+s+'</span><a class="gs-how" href="'+helpHref('quick-start-step-'+(i+1))+'" target="_blank" rel="noopener" aria-label="How? Step '+(i+1)+' in the Quick start (opens in a new tab)">How?</a></li>').join('')+'</ol>'+
+    '<div class="buttonrow" style="margin-top:0">'+
+      '<button class="btn primary" onclick="newTournament()">+ New tournament</button>'+
+      '<button class="btn secondary" onclick="openSampleEvent()">Try a sample event</button>'+
+      '<a class="btn ghost" href="'+helpHref('quick-start')+'" target="_blank" rel="noopener">Read the Quick start ↗</a>'+
+    '</div>'+
+    '<p class="hint" style="margin:10px 0 0">The sample is a practice event with 12 players, groups then a knockout. Nothing in it is saved unless you choose to keep it.</p>'+
+    '<button class="gs-hide" onclick="setGetStartedHidden(true)">Hide this card</button>'+
+  '</div>';
+}
+function welcomeHTML(){
+  const plain = '<div class="card"><h2>No tournament open</h2><p class="intro">Click "New tournament" in the sidebar to begin, or choose a saved tournament.</p>';
+  if(hasSavedEvents()) return plain+'</div>';
+  if(getStartedHidden()) return plain+'<button class="gs-hide" onclick="setGetStartedHidden(false)">Show the Get started steps</button></div>';
+  return getStartedCardHTML();
+}
+function isSampleOpen(){ return !!(state && state.isSample); }
+function todayISO(){
+  const d = new Date(), p = n=> String(n).padStart(2, '0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
+/* 12 Singles, round robin then knockout, steps 1 and 2 done and the names typed: it opens on step 3, ready to draw. */
+function buildSampleEvent(){
+  const t = blankTournament();
+  t.isSample = true;
+  Object.assign(t.eventCreation, { tournamentName:'Sample tournament', eventName:'Sample Singles', eventType:'Open', competitionUnit:'Singles', date: todayISO(), entries:12, boards:4, saved:true });
+  Object.assign(t.format, { formatType:'rrknockout', bestOfLegs:3, maxPerGroup:4, qualifiersPerGroup:2, advanceMode:'seeded', losersPool:false, saved:true });
+  ensureEntries(t);
+  t.entriesList.forEach((e, i)=>{ e.name = 'Sample player '+(i+1); e.autoName = false; });
+  return t;
+}
+function openSampleEvent(){
+  if(state && !isSampleOpen()) return;   // only from the welcome screen: never replaces a real event
+  teamSegDraft = null;
+  adminState.view = null; adminEditing = null;
+  state = buildSampleEvent();
+  currentStage = 3;
+  if(lastSaveStatus && lastSaveStatus!=='saving') setSaveStatus('');   // a status about another event means nothing here
+  render();
+  try{ window.scrollTo(0, 0); }catch(e){}
+}
+/* Throws the sample away (nothing was saved) and goes back to the welcome screen. */
+function closeSample(){
+  if(!isSampleOpen()) return;
+  state = null; currentStage = 1; teamSegDraft = null;
+  render();
+}
+let sampleSaving = false;
+/* Keeps the sample as an ordinary event: the flag goes, and the normal save path creates its row (one PUT, no stamp).
+   Resolves true once the server has it. If that save fails it is an ordinary unsaved event ("Couldn't save"). */
+async function saveSampleAsMine(){
+  if(!isSampleOpen() || sampleSaving) return false;
+  const t = state;
+  const active = t.entriesList.filter(e=>!e.withdrawn).length;
+  if(entryGrowthBlocked(active, 0)){ showEntryLimitModal(); return false; }
+  sampleSaving = true;
+  delete t.isSample;
+  t.createdAt = Date.now();
+  let ok = false;
+  try{
+    persist();
+    clearTimeout(saveTimer); saveTimer = null;   // send it now, not after the usual delay
+    ok = await flushSave();
+  }catch(e){ ok = false; }
+  finally{ sampleSaving = false; }
+  if(state===t) render();
+  if(ok) showInfoToast('Saved as your event. It is in Saved tournaments.');
+  return ok;
+}
+function sampleBannerHTML(){
+  return '<div class="sample-banner" role="status" id="sampleBanner"><div><b>This is a sample event. Nothing is saved.</b>'+
+    '<span>Try every step. Keep it with Save as my event, or throw it away with Close sample.</span></div>'+
+    '<div class="buttonrow"><button class="btn primary" onclick="saveSampleAsMine()">Save as my event</button>'+
+    '<button class="btn secondary" onclick="closeSample()">Close sample</button>'+helpQHTML('sample-event', 'the sample event')+'</div></div>';
+}
+/* A sample cannot be published, finalized or opened in a full-page window: say why, and offer to keep it. */
+function sampleBlockModal(what){
+  openModal({ title:'This is a sample event', body:'A sample event is never saved, so you can&rsquo;t '+what+'. Click <b>Save as my event</b> to keep it as one of your events first.',
+    confirmLabel:'Save as my event', confirmClass:'primary', onConfirm:()=>{ saveSampleAsMine(); } });
 }
 function scrollToLibrary(){ document.getElementById('libraryLabel').scrollIntoView({behavior:'smooth'}); }
 
@@ -4398,6 +4558,7 @@ function migrateLogoIfNeeded(t){
 function deleteTournament(id, ev){
   ev.stopPropagation();
   if(foreignOpenIds.has(id)) return;   // someone else's event: use the Admin Events tab
+  if(isSampleOpen() && state.id===id){ closeSample(); return; }   // a sample has no saved copy to delete: just close it
   if(isFinalizedId(id)){ finalizedBlockModal('deleted'); return; }
   openModal({
     title:'Delete tournament?',
@@ -4511,15 +4672,80 @@ async function duplicateTournament(id, ev){
   await openTournament(copy.id);
 }
 
+/* ---------- Contextual Help (links into /help) ----------
+   Every link opens the public Help page (help.html, built from scripts/help-content.js) at one anchor, in a new tab
+   (rel noopener), so the event on screen is never left. The anchors are plain ids that exist on that page;
+   tests/help-site.test.js checks each one used here. They are plain links (no onclick), so a finalized event's lock
+   (applyFinalizedLock) leaves them working. */
+const HELP_PATH = '/help';
+function helpHref(anchor){ return HELP_PATH + (anchor ? '#'+String(anchor).replace(/[^a-z0-9-]/g, '') : ''); }
+/* A small "?" beside a step title or a word the app uses. label names the topic for screen readers. */
+function helpQHTML(anchor, label){
+  const name = 'Help: '+String(label||'')+' (opens in a new tab)';
+  return '<a class="help-q" href="'+helpHref(anchor)+'" target="_blank" rel="noopener" aria-label="'+escText(name)+'" title="'+escText('Help: '+String(label||''))+'">?</a>';
+}
+/* A one-line hint that is a link into Help (under a choice, where a "?" inside the label would be in the way). */
+function helpHintHTML(anchor, text){
+  return '<div class="hint help-hint"><a href="'+helpHref(anchor)+'" target="_blank" rel="noopener">'+escText(text)+' ↗</a></div>';
+}
+/* The Help topic for each step (the "?" beside the step title, and on the phone bar). Step 3 depends on the format. */
+function stageHelpAnchor(n, t){
+  if(n===3){
+    const ft = t && t.format && t.format.formatType;
+    return ft==='podknockout' ? 'group-boards' : ft==='knockout' ? 'entries-and-check-in' : 'draw-the-groups';
+  }
+  return ({1:'creating-an-event', 2:'choosing-a-format', 4:'draws-and-printing', 5:'managing-the-tournament', 6:'review', 7:'review'})[n] || '';
+}
+function renderStageHelp(){
+  const on = !!(state && !popoutMode && !adminViewActive() && STAGE_TITLES[currentStage]);
+  const anchor = on ? stageHelpAnchor(currentStage, state) : '';
+  ['pageHelp', 'compactStageHelp'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.hidden = !on;
+    if(!on) return;
+    if(el.setAttribute){
+      el.setAttribute('href', helpHref(anchor));
+      el.setAttribute('aria-label', 'Help: step '+currentStage+', '+STAGE_TITLES[currentStage]+' (opens in a new tab)');
+      el.setAttribute('title', 'Help: '+STAGE_TITLES[currentStage]);
+    }
+  });
+}
+/* Boxes that explain a refusal or a problem get a "Learn more in Help" link, found by the start of their title.
+   openModal({ help: 'anchor' }) picks one directly, help:false shows none. */
+const MODAL_HELP = [
+  ['Updated elsewhere', 'troubleshooting-save'], ['Last change not saved yet', 'troubleshooting-save'], ['Unsaved change not restored', 'troubleshooting-save'],
+  ['Event is finalized', 'reopening'], ['Not finalized', 'accept'],
+  ['Entry limit reached', 'faq-how-many-entries'],
+  ['Games have started in Group', 'player-leaves'], ['The knockout has been drawn', 'player-leaves'], ['The groups have been drawn', 'player-leaves'],
+  ['This no-show can no longer be undone', 'no-shows'],
+  ['Entries can no longer be swapped', 'faq-entries-locked'], ['The groups can no longer be redrawn', 'faq-entries-locked'], ['These entries are already playing', 'faq-entries-locked'],
+  ['Too many entries for one bracket', 'faq-byes'], ['Not enough entries', 'rr-knockout-draw'], ['Finish the round robin first', 'rr-knockout-draw'],
+  ['Resolve ties before continuing', 'faq-tie-breaks'], ['Scores are locked', 'start-games'],
+  ['New window blocked', 'fpw-popups'], ['Use an odd best of', 'legs'],
+  ['This bracket needs', 'bracket-sheets'], ['These brackets need', 'bracket-sheets'], ['No paper size fits', 'bracket-sheets'],
+  ['This is a sample event', 'sample-event']
+];
+function modalHelpFor(title){
+  const t = String(title||'');
+  for(const [start, anchor] of MODAL_HELP) if(t.indexOf(start)===0) return anchor;
+  return '';
+}
+function modalHelpHTML(anchor){
+  return anchor ? '<p class="modal-help"><a href="'+helpHref(anchor)+'" target="_blank" rel="noopener">Learn more in Help</a></p>' : '';
+}
+
 /* ---------- Modal ---------- */
 /* onConfirm (and the optional second action, onSecondary, shown as a third button between Cancel and the main one)
    may return { error } to keep the box open with a message, or { keepOpen:true } when it opened another box in its
-   place (for example a "this will clear later results" check), so that box is not closed straight away. */
-function openModal({title, body, bodyHTML, confirmLabel, confirmClass, onConfirm, secondaryLabel, secondaryClass, onSecondary}){
+   place (for example a "this will clear later results" check), so that box is not closed straight away.
+   help: a Help anchor for a "Learn more in Help" link (by default from the title, see MODAL_HELP); false for none. */
+function openModal({title, body, bodyHTML, confirmLabel, confirmClass, onConfirm, secondaryLabel, secondaryClass, onSecondary, help}){
   const backdrop = document.getElementById('modalBackdrop');
   const box = document.getElementById('modalBox');
   const second = secondaryLabel && typeof onSecondary==='function';
-  box.innerHTML = '<h3>'+title+'</h3>' + (bodyHTML ? bodyHTML : '<p>'+(body||'')+'</p>') +
+  const helpAnchor = help===false ? '' : (help || modalHelpFor(title));
+  box.innerHTML = '<h3>'+title+'</h3>' + (bodyHTML ? bodyHTML : '<p>'+(body||'')+'</p>') + modalHelpHTML(helpAnchor) +
     '<div id="modalErr" style="color:#c0392b;font-size:11px;margin:-8px 0 10px;display:none"></div>'+
     '<div class="buttonrow"><button class="btn secondary" onclick="closeModal()">Cancel</button>'+
       (second ? '<button class="btn '+(secondaryClass||'ghost')+'" id="modalSecondaryBtn">'+secondaryLabel+'</button>' : '')+
@@ -4584,7 +4810,7 @@ function renderSavedList(){
 /* ---------- Main render dispatcher ---------- */
 function render(){
   try{ renderPage(); }
-  finally{ renderStaleBanner(); renderCompactBar(); }
+  finally{ renderStaleBanner(); renderCompactBar(); try{ renderStageHelp(); }catch(e){} }
 }
 function renderPage(){
   if(currentStage!==2 || popoutMode) teamSegDraft = null;   // the segment draft lives only while step 2 is on screen
@@ -4595,7 +4821,7 @@ function renderPage(){
   if(!state){
     document.getElementById('pageTitle').textContent = 'Welcome to DartDraw';
     document.getElementById('pageSub').textContent = 'Start a new tournament or open a saved one from the left.';
-    document.getElementById('stageArea').innerHTML = '<div class="card"><h2>No tournament open</h2><p class="intro">Click "New tournament" in the sidebar to begin, or choose a saved tournament.</p></div>';
+    document.getElementById('stageArea').innerHTML = welcomeHTML();
     renderSavedList();
     return;
   }
@@ -4624,6 +4850,7 @@ function renderPage(){
   else if(currentStage===7) html += stage7();
   const locked = isLocked(state);
   if(locked) html = finalizedBannerHTML() + html;
+  if(isSampleOpen()) html = sampleBannerHTML() + html;
   html = adminEditBannerHTML() + html;
   area.innerHTML = html;
   if(locked) applyFinalizedLock(area);
@@ -4931,15 +5158,15 @@ function stage2(){
       card(f.formatType==='roundrobin', 'setFormatType(\'roundrobin\')')+'<strong>Round robin</strong><small>Play within assigned groups</small></div>'+
       card(isKo, 'chooseKnockoutFormat()')+'<strong>Knockout</strong><small>Direct elimination: one bracket, or Group Boards then finals</small></div>'+
       card(f.formatType==='rrknockout', 'setFormatType(\'rrknockout\')')+'<strong>Round robin → Knockout</strong><small>Group stage, then top finishers go to a bracket</small></div>'+
-    '</div>'+(fmtLocked ? '<div class="hint">Games have started, so the format of this Teams event can\'t change.</div>' : '')+'</div>'+
+    '</div>'+(fmtLocked ? '<div class="hint">Games have started, so the format of this Teams event can\'t change.</div>' : '')+helpHintHTML('which-format', 'Which format should I choose?')+'</div>'+
     (isKo ? '<div class="field"><label>Knockout type</label><div class="options">'+
       card(f.formatType==='knockout', 'setFormatType(\'knockout\')')+'<strong>Single bracket</strong><small>One elimination bracket, with byes added for you</small></div>'+
       card(f.formatType==='podknockout', 'setFormatType(\'podknockout\')')+'<strong>Group Boards, then finals</strong><small>Small knockout groups on their own boards; every group champion goes to a Finals bracket</small></div>'+
-    '</div></div>' : '');
+    '</div>'+helpHintHTML('group-boards', 'What is Group Boards?')+'</div>' : '');
   /* Teams: each segment sets its own legs, so there is no event-wide Best of legs and no knockout leg progression. */
   const teams = unit==='Teams';
   const bestOfLegsFieldHTML = teams ? '' :
-    '<div class="field"><label>Best of legs (odd numbers preferred)</label><input id="f_bestof" type="number" min="1" step="2" value="'+escText(f.bestOfLegs)+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>';
+    '<div class="field"><label>Best of legs (odd numbers preferred)'+helpQHTML('legs', 'legs and best of')+'</label><input id="f_bestof" type="number" min="1" step="2" value="'+escText(f.bestOfLegs)+'" oninput="warnBestOf(this);updateStage2Timing()"><div class="hint" id="bestOfHint"></div></div>';
   const koLegsHTML = (key, label)=> (advanced && !teams) ? knockoutLegsFieldsHTML(key, f.knockoutLegs[key], label) : '';
   const teamSectionHTML = teams ? teamSegmentsEditorHTML() : '';
   let formatSectionHTML;
@@ -4967,7 +5194,7 @@ function stage2(){
         koLegsHTML('main', 'Increase legs at each knockout stage (like WDF: early rounds → quarterfinal → semifinal → final)')+
       '</div>'+
       (advanced ?
-        '<div class="form-section"><div class="form-section-title">Plate pool</div>'+
+        '<div class="form-section"><div class="form-section-title">Plate pool'+helpQHTML('faq-plate', 'what a Plate pool is')+'</div>'+
           '<div class="toggle-row"><input type="checkbox" id="f_loserspool" '+(f.losersPool?'checked':'')+'> <label for="f_loserspool">Also run a Plate pool knockout bracket for entries that don\'t advance</label></div>'+
           '<div class="field" style="margin-top:8px;max-width:340px"><label>Plate entries per group <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional — only applies when the Plate pool is on)</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="Rest of group" value="'+escText(f.plateQualifiersPerGroup||'')+'"></div>'+
           '<div class="hint" style="margin-bottom:6px">Seeded placement keeps top finishers apart for as long as possible, and spreads same-group entries across the bracket where the numbers allow it. Leave Plate entries blank to send everyone who doesn\'t advance to the main bracket into the Plate pool (today\'s default); set a number to cap the Plate pool too, e.g. top 2 → winner bracket, next 2 → Plate pool, anyone below that eliminated. You\'ll generate the actual bracket once the round robin stage is confirmed.</div>'+
@@ -4981,7 +5208,7 @@ function stage2(){
         bestOfLegsFieldHTML+
         (f.formatType!=='knockout' ?
           '<div class="field"><label>Maximum entries per group</label><select id="f_maxgroup">'+ [3,4,5,6].map(v=>'<option value="'+v+'"'+(f.maxPerGroup==v?' selected':'')+'>'+v+' entries</option>').join('') +'</select></div>'
-          : '<div class="field"><label>Bracket size (auto)</label><input type="text" value="'+escText(bracket.size)+' ('+escText(bracket.byes)+' bye'+(bracket.byes===1?'':'s')+')" disabled></div>'
+          : '<div class="field"><label>Bracket size (auto)'+helpQHTML('faq-byes', 'how byes are decided')+'</label><input type="text" value="'+escText(bracket.size)+' ('+escText(bracket.byes)+' bye'+(bracket.byes===1?'':'s')+')" disabled></div>'
         )+
       '</div>'+
       (f.formatType!=='knockout' ?
@@ -6434,7 +6661,7 @@ function openNoShowPicker(groupId){
 function manageStandingsHTML(g){
   if(!g.gameStarted) return '';
   const standings = computeStandings(g);
-  return '<div style="margin-top:16px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Standings</div>'+
+  return '<div style="margin-top:16px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Standings'+helpQHTML('glossary-tables', 'the standings columns MP, MW, ML, LW, +/-, Pts and TB')+'</div>'+
     standingsTableHTML(g, standings)+tieNotesHTML(g, standings)+'</div>';
 }
 function openPositionOverridePicker(groupId){
@@ -6858,7 +7085,7 @@ function stage4(){
   const unconfirmedCount = state.groups.length - confirmed.length;
   const readyCount = state.groups.filter(g=>!g.confirmed && bulkSelected.has(g.id)).length;
   let html = competitionDurationSummaryHTML(state) + checkInCardHTML();
-  html += '<div class="entries-panel"><h2>Confirm each chart</h2><p class="intro">Check the board and entries for every group, then confirm it. Once confirmed, print the blank bracket pack below — you can keep editing and reprinting right up until you start games in Manage Tournament.</p>'+
+  html += '<div class="entries-panel"><h2>Confirm each chart</h2><p class="intro">Check the board and entries for every group, then confirm it. Once confirmed, print the blank bracket pack below — you can keep editing and reprinting right up until you start games in Manage Tournament.'+(isTeamsEvent(state) ? '' : ' Each chart&rsquo;s match list suggests a Marker, the person who keeps score.'+helpQHTML('glossary-marker', 'what a Marker is'))+'</p>'+
     '<div class="buttonrow" style="margin:0 0 8px;align-items:center">'+
       '<button class="btn primary" '+(unconfirmedCount?'':'disabled')+' onclick="confirmAllCharts()">'+(unconfirmedCount?'Confirm all '+state.groups.length+' charts':'All charts confirmed')+'</button>'+
       (unconfirmedCount>1 ? '<span style="color:var(--muted);font-size:11px">or confirm only some:</span>'+
@@ -6878,7 +7105,7 @@ function stage4(){
     }).join('')+
   '</div>';
   html += '<div class="card">'+
-    '<h2>Print bracket pack</h2><p class="intro">Prints the blank charts (no scores yet) so boards, times and entries are locked in on paper before play begins.</p>'+
+    '<h2>Print bracket pack'+helpQHTML('print-pack', 'printing the blank pack')+'</h2><p class="intro">Prints the blank charts (no scores yet) so boards, times and entries are locked in on paper before play begins.</p>'+
     '<div class="summary-grid" style="margin-bottom:12px">'+
       '<div><label>Format</label><strong>A4 landscape</strong></div>'+
       '<div><label>Charts included</label><strong>'+confirmed.length+' of '+state.groups.length+'</strong></div>'+
@@ -6981,7 +7208,7 @@ function knockoutDrawBlockModal(block){
 function stage5KnockoutSection(){
   const t = state;
   const block = knockoutDrawBlock(t);
-  let html = '<div class="card" id="stage5-ko-main"><h2>Knockout stage</h2>';
+  let html = '<div class="card" id="stage5-ko-main"><h2>Knockout stage'+helpQHTML('rr-knockout-draw', 'drawing the knockout from the groups')+'</h2>';
   if(!t.knockout){
     const plateNote = t.format.losersPool ? (t.format.plateQualifiersPerGroup ? ', next '+escText(t.format.plateQualifiersPerGroup)+' per group to the Plate pool, anyone below that eliminated' : ', everyone else to the Plate pool') : '';
     html += '<p class="intro">Draws the knockout bracket from each group\'s final standings once every group is finished ('+escText(t.format.qualifiersPerGroup)+' entr'+(t.format.qualifiersPerGroup==1?'y':'ies')+' per group, '+(t.format.advanceMode==='seeded'?'seeded by group position':'random draw')+plateNote+').</p>'+
@@ -7221,13 +7448,15 @@ function printQrHeaderAttr(qr){ return qr ? ' style="grid-template-columns:minma
    will print, or on a finalized event (its publishing can no longer change). */
 function publishForQrNoteHTML(){
   if(!state || isLocked(state)) return '';
+  if(isSampleOpen()) return '<div class="confirm-box" id="qrPublishNote"><b>A sample event prints without QR codes</b>It cannot be published. Save it as your event to publish it.</div>';
   const base = currentOrganizer && currentOrganizer.viewerUrl;
   if(state.published && base) return '';
   if(!base) return '<div class="confirm-box" id="qrPublishNote"><b>These sheets will print without QR codes</b>The address of the public results site isn\'t set up yet, so no QR code can be printed. Ask your admin. Everything else prints as normal.</div>';
   return '<div class="confirm-box" id="qrPublishNote"><b>Publishing is off, so these sheets will have no QR code</b>QR codes only print while Publish results is on (on Manage Tournament, step 5). If spectators will follow on their phones, publish first, then print. Anyone with the link can then see the draw and, later, the scores.'+
-    '<div class="buttonrow" style="margin:8px 0 0"><button class="btn secondary" onclick="publishResultsNow()">Publish results now</button></div></div>';
+    '<div class="buttonrow" style="margin:8px 0 0"><button class="btn secondary" onclick="publishResultsNow()">Publish results now</button>'+helpQHTML('qr-codes', 'QR codes on printed sheets')+'</div></div>';
 }
 function publishResultsNow(){
+  if(isSampleOpen()){ sampleBlockModal('publish it'); return; }
   if(!state || isLocked(state)){ finalizedBlockModal('changed'); return; }
   if(staleOpen()){ staleBlockModal(); return; }
   if(state.published){ render(); return; }
@@ -7235,6 +7464,7 @@ function publishResultsNow(){
   showInfoToast('Publishing… print the pack once the status says Saved, so the QR codes work.');
 }
 function setPublished(on){
+  if(isSampleOpen()){ render(); sampleBlockModal('publish it'); return; }
   const was = !!state.published;
   state.published = !!on;
   if(on && !state.publicSlug) state.publicSlug = newPublicSlug();
@@ -7243,6 +7473,7 @@ function setPublished(on){
 }
 /* "List on the public page": opt-in, only while results are published. The viewer's home page lists events with listed:true. */
 function setListed(on){
+  if(isSampleOpen()){ render(); sampleBlockModal('list it on the public page'); return; }
   state.listed = !!on && !!state.published;
   persist(); render();
 }
@@ -7262,8 +7493,9 @@ function listToggleHTML(){
     '<p class="intro" style="margin:4px 0 0;font-size:11px">'+note+'</p>';
 }
 function publicResultsCardHTML(){
+  if(isSampleOpen()) return '<div class="card"><h2>Public results'+helpQHTML('publish', 'Publish results')+'</h2><p class="intro">A sample event can&rsquo;t be published. Click <b>Save as my event</b> at the top to keep it; you can then publish it here.</p></div>';
   const url = publicResultsUrl();
-  return '<div class="card"><h2>Public results</h2>'+
+  return '<div class="card"><h2>Public results'+helpQHTML('publish', 'Publish results')+'</h2>'+
     '<p class="intro">Share a read-only page that shows live standings and the bracket. Anyone with the link can see entry names, scores and standings. Notes, the incident log and check-in details are never shared.</p>'+
     '<div class="toggle-row"><input type="checkbox" id="publishToggle" '+(state.published?'checked':'')+' onchange="setPublished(this.checked)"> <label for="publishToggle">Publish results</label></div>'+
     listToggleHTML()+

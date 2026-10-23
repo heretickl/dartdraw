@@ -112,7 +112,7 @@ const CHECKS = {
     try { assert.equal(dlg.onConfirm(), undefined, 'Save score still works'); } finally { app.document = DOC; }
   },
   'withdraw-guard': () => {
-    const t = say('entries-and-check-in');
+    const t = say('player-leaves');   // Release 5: withdrawals moved into "No-shows and players who leave"
     assert.match(t, /click Withdraw next to the entry on step 3\. You can do this until their group starts/);
     assert.match(t, /Once their group has started \(after Start all games\), once they have a result, or once a drawn bracket holds them, Withdraw is no longer possible/);
     assert.match(t, /offers Mark no-show instead/);
@@ -142,8 +142,8 @@ const CHECKS = {
     const faq = say('faq-entries-locked');
     assert.match(faq, /DartDraw refuses anything that would move or remove those entries, and says why: Withdraw, Swap with… and Random draw on step 3, and lowering Number of entries on step 1 when that would remove someone who is playing\. Before the games start all of these work as usual/);
     assert.match(say('creating-an-event'), /DartDraw refuses with "These entries are already playing" and saves nothing/);
-    assert.match(say('draws-and-printing'), /Once any group has started, Random draw is greyed out and Swap with… is no longer offered for entries in a started group/);
-    assert.match(say('entries-and-check-in'), /Until the knockout is drawn from the groups, the same box has an undo link\. After that a no-show can no longer be undone/);
+    assert.match(say('draw-the-groups'), /Once any group has started, Random draw is greyed out and Swap with… is no longer offered for entries in a started group/);
+    assert.match(say('player-leaves'), /Until the knockout is drawn from the groups, the same box has an undo link\. After that a no-show can no longer be undone/);
     // started: every one of them is refused, nothing changes
     reset(); const ev = rr(); const before = plain({ g: ev.groups, l: ev.entriesList });
     app.document = typedDoc({ f_entries: 6, f_tname: 'n' });
@@ -165,7 +165,7 @@ const CHECKS = {
     f('openNoShowPicker')(k.groups[0].id); assert.doesNotMatch(modals.pop().bodyHTML, /undoGroupNoShow/);
   },
   'checkin-warning': () => {
-    const t = say('entries-and-check-in');
+    const t = say('check-in-and-start');
     assert.match(t, /"Not everyone is checked in" when you click Start all games, when you click Generate bracket or Regenerate bracket in a Knockout, and when you draw or confirm Group Boards groups/);
     assert.match(t, /Drawing the knockout after a round robin \(Generate knockout bracket\) does not warn/);
     // Start all games
@@ -183,7 +183,7 @@ const CHECKS = {
     assert.match(fnBody(pods, 'podsCheckInGuard'), /noShowWarningHTML\(missing\)/);
   },
   'phone-bar': () => {
-    const t = say('getting-started');
+    const t = say('limits-and-facts');
     assert.match(t, /The bar is used on every phone \(a touch screen less than 600 pixels on its short side, whichever way you hold it\) and in any window narrower than about 700 pixels\. A tablet, and a laptop or desktop window that is wider than that, keep the menu at the side, even when the window is short/);
     // a phone on its side, even a wide one (812 x 375), is a phone: the compact bar replaces the menu
     const phone = { coarse: true, hoverNone: true, shortSide: 375, devicePortrait: false, viewportPortrait: false };
@@ -258,11 +258,12 @@ test('the old untrue sentences are gone from the Help', () => {
   assert.doesNotMatch(all, /Before play, in a round robin you can Withdraw them/);
 });
 
-test('the new article "A player leaves part-way" sits next to the no-show topics and covers every stage step by step', () => {
-  const guide = content.sections.find((s) => s.kind === 'guide').items.map((i) => i.id);
-  assert.equal(guide.indexOf('player-leaves'), guide.indexOf('entries-and-check-in') + 1);
+test('the article "No-shows and players who leave" holds the no-show topics, sits in "On the day", and covers every stage step by step', () => {
+  const day = content.sections.find((s) => s.id === 'on-the-day').items.map((i) => i.id);
+  assert.ok(day.includes('player-leaves'), 'in On the day');
+  assert.equal(day.indexOf('player-leaves'), day.indexOf('managing-the-tournament') + 1, 'right after entering scores');
   const body = items['player-leaves'].body;
-  ['leaves-before', 'leaves-groups', 'leaves-knockout', 'leaves-finalized'].forEach((id) => assert.match(body, new RegExp('<h4 id="' + id + '">')));
+  ['leaves-before', 'leaves-groups', 'leaves-knockout', 'leaves-finalized', 'no-shows', 'neither-showed', 'withdrawals'].forEach((id) => assert.match(body, new RegExp('<h4 id="' + id + '">')));
   assert.ok((body.match(/<ol>/g) || []).length >= 3, 'numbered steps');
   const help = fs.readFileSync(path.join(root, 'help.html'), 'utf8');
   assert.match(help, /<article class="harticle" id="player-leaves" data-item/);

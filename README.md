@@ -210,6 +210,14 @@ sites. The copies in the repo root are the source of truth. After changing
 them, run `npm run sync-viewer` to copy them into `viewer/`, and commit both.
 `npm run check-viewer` fails if the copies differ. Keep that code display-only.
 
+The Help search (`help-search.js`) is shared the same way: the organiser Help
+(`help.html`) and the spectators' Help (`viewer/help.html`) both load it, and
+`npm run sync-viewer` copies it into `viewer/`. Each page keeps its own words
+for it: the organiser synonyms and "no answer" topics are in
+`scripts/help-content.js` (`search`), the spectator ones in the JSON block in
+`viewer/help.html`. `tests/fixtures/help-search-*.json` holds the phrases real
+novices typed; `npm test` checks every one still finds its answer.
+
 ### What the public site can see
 
 `viewer/api/public/[slug].js` answers GET only, for published tournaments only,

@@ -7,7 +7,7 @@ const vm = require('node:vm');
 // The public Help page (/help): an organiser guide and FAQ. The words are in scripts/help-content.js, the layout in
 // scripts/build-landing.js, and help.html is generated (npm run build-landing). This file checks the page is in step with
 // its sources, that every header and footer links to it, that the app links to it, that the contents list and anchors
-// work, that the search filter works (the page script runs in a vm with a stub browser), that nothing forbidden is
+// work, that the search works on the real page (tests/lib/help-pages.js runs it in a small DOM), that nothing forbidden is
 // said, and that the exact button and message names the guide quotes still exist in app.html.
 const root = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
@@ -30,7 +30,7 @@ test('help.html is in the repo, and is exactly what the generator makes from scr
 
 test('help-content.js is plain data: sections of items, each with a unique id, a title and a body', () => {
   assert.ok(Array.isArray(content.sections) && content.sections.length >= 2);
-  const seen = new Set(['top', 'helpSearch', 'helpQ', 'helpCount', 'helpEmpty', 'helpEmptyQ', 'helpToc', 'main', 'loginDlg', 'loginFrame', 'closeH', 'helpH']);
+  const seen = new Set(['top', 'helpSearch', 'helpQ', 'helpCount', 'helpEmpty', 'helpEmptyQ', 'helpSay', 'helpResults', 'helpToc', 'main', 'loginDlg', 'loginFrame', 'closeH', 'helpH']);
   content.sections.forEach((sec) => {
     assert.match(sec.id, /^[a-z][a-z0-9-]*$/, 'section id ' + sec.id);
     assert.ok(['guide', 'faq'].includes(sec.kind), sec.id + ' kind');
@@ -116,8 +116,11 @@ test('every in-page link on the Help page points at an element that exists, and 
 test('the contents list has a link for every guide article and for the questions, and each data-toc points at a real item', () => {
   const toc = (help.match(/<nav class="help-toc"[\s\S]*?<\/nav>/) || [])[0];
   assert.ok(toc, 'contents nav');
-  const guide = content.sections.find((s) => s.kind === 'guide');
-  guide.items.forEach((it) => {
+  // Release 5: the guide is several sections (Start here, Set up an event, On the day, ...), each a heading in the list
+  const guides = content.sections.filter((s) => s.kind === 'guide');
+  assert.ok(guides.length >= 5, 'guide sections: ' + guides.length);
+  guides.forEach((sec) => assert.ok(toc.includes('<p class="toc-h">' + sec.title + '</p>'), sec.id + ' heading in contents'));
+  guides.reduce((a, s) => a.concat(s.items), []).forEach((it) => {
     assert.ok(toc.includes('<li data-toc="' + it.id + '"><a href="#' + it.id + '">'), it.id + ' in contents');
     assert.match(help, new RegExp('<article class="harticle" id="' + it.id + '" data-item'), it.id + ' article');
   });
@@ -162,30 +165,41 @@ test('the FAQ is a list of <details> accordions, each with a <summary> and an an
 // ---------- the guide ----------
 test('the guide covers the topics organisers need, each as an anchored article', () => {
   const need = {
-    'getting-started': ['Forgot password?', 'Change password', 'Event creation', 'Format & branding', 'Chart details', 'Confirm & Print Bracket', 'Manage Tournament', 'Finalize Standings', 'Print Final Chart', 'Basic setup', 'Advanced setup', 'Saved', 'Updated elsewhere', 'Couldn’t save'],
+    'getting-started': ['Forgot password?', 'Change password', 'No account yet?', 'Sign in'],
+    'how-dartdraw-works': ['Event creation', 'Format & branding', 'Chart details', 'Confirm & Print Bracket', 'Manage Tournament', 'Finalize Standings', 'Print Final Chart', 'Basic setup', 'Advanced setup', 'Saved', 'Updated elsewhere', 'Couldn’t save'],
     'creating-an-event': ['Singles', 'Doubles', 'Teams', 'pair', 'Team name', 'Number of entries', 'Tournament date'],
     'choosing-a-format': ['Round robin', 'Knockout', 'Knockout type', 'Single bracket', 'Group Boards, then finals', 'not offered with the round robin formats', 'Plate pool', 'Best of legs', 'Optional'.toLowerCase()],
-    'entries-and-check-in': ['Check-in', 'Withdraw', 'Mark no-show', 'Neither showed', 'Organisation', 'Seed', 'whether or not one of the tick boxes is on', 'keeping entries from the same group apart comes first', 'about a second of work at most'],
-    'draws-and-printing': ['Random draw', 'Print bracket pack', 'rules', 'sponsor', 'QR'],
-    'managing-the-tournament': ['Start all games', 'Save score', 'Boards', 'incident'],
+    'entries-and-check-in': ['Organisation', 'Seed', 'whether or not one of the tick boxes is on', 'keeping entries from the same group apart comes first', 'about a second of work at most'],
+    'check-in-and-start': ['Check-in', 'Start all games', 'Not everyone is checked in'],
+    'player-leaves': ['Withdraw', 'Mark no-show', 'Neither showed', 'walkover'],
+    'draw-the-groups': ['Random draw', 'Swap with…', 'marker'],
+    'draws-and-printing': ['Print bracket pack', 'rules', 'sponsor', 'QR'],
+    'managing-the-tournament': ['Save score', 'Clear result', 'incident'],
+    'running-the-knockout': ['Generate knockout bracket', 'Boards', 'Call'],
     'full-page-window': ['Open in new window', 'F11', 'pop-up'],
     'publishing-results': ['Publish results', 'List on the public page', 'every 20 seconds', 'entry names'],
     'teams': ['segment', 'Team match segments (played in order)', '+ Add segment', 'Singles', 'Doubles', 'Trios', 'Foursome', '301', '1001', 'A tie-breaker might be needed', 'Save score', 'at most 10 legs', '9, or 10 in a stage that uses the tie-breaker', 'draw', 'refused', 'never changes what you typed', 'Use a tie-breaker in round robin matches', 'Use a tie-breaker in knockout matches', 'locked', 'at most 8', 'Save format & branding', 'lineup', 'TOTAL POINTS', 'TIE-BREAKER', 'Basic and Advanced', 'one board', 'Start round', 'called to its board', 'never off', 'drawn result', 'deciding leg', 'must be odd', 'competition type (step 1) of a Teams event', 'when it is used', 'large space for the captain'],
     'finishing-the-event': ['Accept & finalize', 'Final results', 'Only an Admin can reopen'],
-    'troubleshooting': ['Save as PDF', 'pop-up', 'Updated elsewhere']
+    'troubleshooting': ['Save as PDF', 'pop-up', 'Updated elsewhere', 'I can’t find the finalize button', 'No QR codes', 'The wrong player is in the final', 'Couldn’t save', 'too small', 'rotate', 'not on the public page'],
+    'glossary': ['Entry', 'Bye', 'Walkover', 'No-show', 'Marker', 'TB', 'H2H', 'Segment', 'Plate pool', 'Group Boards', 'Qualifier', 'Standings', 'Finalize', 'Publish', 'QR code', 'Lineup sheet', 'Quarterfinal', '2-1', 'A1', 'Start round', 'Call to a board', 'Pts', 'MP']
   };
+  // Release 5: Teams was split in two (set up, and how a match is scored); its topics are checked across both
+  const joined = { teams: ['teams', 'teams-scoring'] };
   Object.keys(need).forEach((id) => {
-    const m = help.match(new RegExp('<article class="harticle" id="' + id + '"[\\s\\S]*?</article>'));
-    assert.ok(m, 'article ' + id);
-    const t = text(m[0]).toLowerCase();
+    const ms = (joined[id] || [id]).map((x) => help.match(new RegExp('<article class="harticle" id="' + x + '"[\\s\\S]*?</article>')));
+    ms.forEach((m, i) => assert.ok(m, 'article ' + (joined[id] || [id])[i]));
+    const t = ms.map((m) => text(m[0])).join(' ').toLowerCase();
     need[id].forEach((w) => assert.ok(t.includes(w.toLowerCase()), id + ' should mention "' + w + '"'));
   });
 });
 
 test('the full-page window section explains when, how, pop-ups, scoring, keeping windows in step and the empty states', () => {
+  // Release 5: split into the how-to (full-page-window) and "keeping windows in step" (full-page-window-sync)
   const sec = (help.match(/<article class="harticle" id="full-page-window"[\s\S]*?<\/article>/) || [])[0];
+  const sync = (help.match(/<article class="harticle" id="full-page-window-sync"[\s\S]*?<\/article>/) || [])[0];
   assert.ok(sec, 'full-page-window article');
-  const t = text(sec);
+  assert.ok(sync, 'full-page-window-sync article');
+  const t = text(sec) + ' ' + text(sync);
   assert.match(t, /Open in new window/);
   ['Round robin ↗', 'Winners bracket ↗', 'Plate pool ↗'].forEach((b) => assert.ok(t.includes(b), b));
   assert.match(t, /no left-hand menu and no top bar/);
@@ -315,7 +329,6 @@ test('Release 2: Quick start is the first guide article and first in the content
   // the search finds it by the words people type, and the keywords are never shown
   assert.match(qs, /data-keywords="[^"]*tutorial/);
   assert.match(help, /<article class="harticle" id="creating-an-event"[^>]*data-keywords="[^"]*\bpairs\b/);
-  assert.match(scripts(help)[0], /getAttribute\('data-keywords'\)/);
 });
 
 test('Release 2: "No account yet?" is the first heading of Getting started, with no address in it; the QR advice puts publishing first', () => {
@@ -353,184 +366,207 @@ test('the Help page has its own phone layout: one column, wrapping, no fixed wid
 });
 
 // ---------- the search ----------
-function stubDom({ hash = '', desktop = true } = {}) {
-  const calls = { hashchange: [], mqChange: [] };
-  const el = (id, attrs, txt) => {
-    const e = {
-      id, _a: Object.assign({}, attrs), textContent: txt || '', hidden: false, open: false, parentNode: null, value: '', handlers: {}, clicks: 0,
-      getAttribute(k) { return k === 'id' ? this.id : (k in this._a ? this._a[k] : null); },
-      addEventListener(t, fn) { this.handlers[t] = fn; },
-      scrollIntoView() { calls.scrolled = (calls.scrolled || 0) + 1; }
-    };
-    return e;
-  };
-  const item = (id, kind, group, txt) => el(id, { 'data-item': '', 'data-group': group, 'data-kind': kind }, txt);
-  const items = [
-    item('getting-started', 'guide', 'guide', 'Getting started Signing in Click Log in then Sign in. Forgot password? Change password.'),
-    item('troubleshooting', 'guide', 'guide', 'Printing tips and troubleshooting. Nothing opens when I click Open in new window: your browser blocked the pop-up.'),
-    item('full-page-window', 'guide', 'guide', 'Full-page window for a second screen. Mark no-show works in a bracket window.'),
-    item('faq-two-events', 'faq', 'faq', 'Can I run two events at once? Yes. Each event is separate.'),
-    item('faq-no-show', 'faq', 'faq', 'Someone did not turn up. What do I do? Use Mark no-show to give a walkover.'),
-    item('faq-offline', 'faq', 'faq', 'Can I use DartDraw offline? No, you need a connection.')
-  ];
-  const heads = [el('guide', { 'data-group-head': 'guide' }, 'Guide'), el('faq', { 'data-group-head': 'faq' }, 'Frequently asked questions')];
-  const toc = [
-    el('t1', { 'data-toc': 'getting-started' }), el('t2', { 'data-toc': 'troubleshooting' }), el('t3', { 'data-toc': 'full-page-window' }), el('t4', { 'data-toc': 'faq' })
-  ];
-  const byId = {};
-  items.concat(heads).forEach((e) => { byId[e.id] = e; });
-  const form = el('helpSearch', {}, ''); form.hidden = true;
-  const input = el('helpQ', {}, '');
-  const count = el('helpCount', {}, '');
-  const empty = el('helpEmpty', {}, ''); empty.hidden = true;
-  const emptyQ = el('helpEmptyQ', {}, '');
-  const tocBox = el('helpToc', {}, ''); tocBox.open = true;
-  const summary = el('sum', {}, '');
-  tocBox.querySelector = (s) => (s === 'summary' ? summary : null);
-  byId.helpSearch = form; byId.helpQ = input; byId.helpCount = count; byId.helpEmpty = empty; byId.helpEmptyQ = emptyQ; byId.helpToc = tocBox;
-  const mq = { matches: desktop, addEventListener(t, fn) { calls.mqChange.push(fn); } };
-  const lists = { '[data-item]': items, '[data-group-head]': heads, '[data-toc]': toc };
-  const win = { addEventListener: (t, fn) => { win.handlers[t] = fn; }, handlers: {}, matchMedia: () => mq };
-  const ctx = {
-    document: { getElementById: (id) => byId[id] || null, querySelectorAll: (s) => lists[s] || [] },
-    window: win,
-    location: { hash }
-  };
-  vm.createContext(ctx);
-  vm.runInContext(scripts(help)[0], ctx);
-  const type = (q) => { input.value = q; input.handlers.input(); };
-  return { ctx, items, heads, toc, form, input, count, empty, emptyQ, tocBox, summary, mq, win, calls, type, byId };
-}
-const shown = (els) => els.filter((e) => !e.hidden).map((e) => e.id);
+// The page runs the shared module (help-search.js) with its own inline script. tests/lib/help-pages.js loads the real
+// help.html into a small DOM and runs both, as the browser does. The module itself is tested in help-search.test.js and
+// the walkthrough phrases in help-search-fixtures.test.js; these check what the visitor sees on this page.
+const { loadHelp } = require('./lib/help-pages');
+const visibleItems = (pg) => pg.doc.querySelectorAll('[data-item]').filter((e) => !e.hidden).map((e) => e.id);
+const resultLinks = (pg) => pg.byId('helpResults').querySelectorAll('a').filter((a) => a.getAttribute('data-id'));
+const ALL_ITEMS = content.sections.reduce((n, s) => n + s.items.length, 0);
 
-test('search: the box appears once the script runs; with nothing typed everything shows', () => {
-  const d = stubDom();
-  assert.equal(d.form.hidden, false, 'the search form is revealed by the script');
-  assert.equal(shown(d.items).length, 6);
-  assert.deepEqual(shown(d.heads), ['guide', 'faq']);
-  assert.equal(d.toc.every((l) => !l.hidden), true);
-  assert.equal(d.count.textContent, '');
-  assert.equal(d.empty.hidden, true);
+test('search: the page loads the shared module, then its synonyms as JSON, then the script that wires them up', () => {
+  const i = help.indexOf('<script src="/help-search.js"></script>'), j = help.indexOf('<script type="application/json" id="helpSearchData">'), k = help.indexOf(scripts(help)[0]);
+  assert.ok(i > 0 && i < j && j < k, 'module, data, page script, in that order');
+  const data = JSON.parse(help.match(/<script type="application\/json" id="helpSearchData">([\s\S]*?)<\/script>/)[1]);
+  assert.deepEqual(data, { synonyms: content.search.synonyms, noAnswer: content.search.noAnswer }, 'the data is help-content.js search, as written');
+  assert.match(scripts(help)[0], /HelpSearch\.attach\(/);
+  assert.match(read('help-search.js'), /getAttribute\('data-keywords'\)/, 'keywords are read from the items');
 });
 
-test('search: typing filters guide articles and questions together, case-insensitively', () => {
-  const d = stubDom();
-  d.type('NO-SHOW');
-  assert.deepEqual(shown(d.items), ['full-page-window', 'faq-no-show']);
-  assert.equal(d.count.textContent, '2 results');
-  // the contents list follows: only matching articles, and the questions entry while any question matches
-  assert.deepEqual(d.toc.filter((l) => !l.hidden).map((l) => l.getAttribute('data-toc')), ['full-page-window', 'faq']);
-  d.type('pop-up');
-  assert.deepEqual(shown(d.items), ['troubleshooting']);
-  assert.equal(d.count.textContent, '1 result');
-  assert.deepEqual(d.toc.filter((l) => !l.hidden).map((l) => l.getAttribute('data-toc')), ['troubleshooting']);
+test('search: the box appears once the script runs; with nothing typed everything shows and no list is shown', () => {
+  const pg = loadHelp('organiser');
+  assert.equal(pg.byId('helpSearch').hidden, false, 'revealed by the script');
+  assert.equal(visibleItems(pg).length, ALL_ITEMS);
+  assert.equal(pg.byId('helpResults').hidden, true);
+  assert.equal(pg.byId('helpEmpty').hidden, true);
+  assert.equal(pg.byId('helpCount').textContent, '');
+  assert.equal(pg.byId('helpCount').getAttribute('aria-live'), 'polite');
 });
 
-test('search: every word must match (in any order); a group heading hides when nothing in it matches', () => {
-  const d = stubDom();
-  d.type('window open');
-  assert.deepEqual(shown(d.items), ['troubleshooting']);
-  d.type('walkover show');
-  assert.deepEqual(shown(d.items), ['faq-no-show']);
-  assert.deepEqual(shown(d.heads), ['faq'], 'the Guide heading is hidden when no guide article matches');
-  assert.equal(d.toc.find((l) => l.getAttribute('data-toc') === 'getting-started').hidden, true);
-  d.type('   ');
-  assert.equal(shown(d.items).length, 6, 'spaces alone are not a search');
-  assert.equal(d.count.textContent, '');
+test('search: results are a ranked list of titles with the matching section and a marked snippet, and the count is announced', () => {
+  const pg = loadHelp('organiser');
+  pg.type('withdraw');
+  const links = resultLinks(pg);
+  assert.ok(links.length >= 2);
+  assert.equal(pg.byId('helpCount').textContent, links.length + ' results');
+  const first = links[0];
+  assert.equal(first.getAttribute('href'), '#withdrawals', 'it links to the h4 section that matched, not the article top');
+  assert.equal(first.getAttribute('data-id'), 'player-leaves');
+  assert.equal(first.querySelector('.hs-title').textContent, 'No-shows and players who leave');
+  assert.equal(first.querySelector('.hs-head').textContent, 'Withdraw: when it works and when it is refused');
+  assert.match(first.querySelector('.hs-snip').textContent, /Withdraw/);
+  assert.ok(first.querySelectorAll('mark').length >= 1, 'the matched word is marked in the snippet');
+  // the list is made of real links in an ordered list, so Tab reaches every one
+  assert.equal(pg.byId('helpResults').querySelector('ol').children.length, links.length);
 });
 
-test('search: no match shows the empty message with what was typed (as text), and clearing brings everything back', () => {
-  const d = stubDom();
-  d.type('  <b>zzz</b> ');
-  assert.equal(shown(d.items).length, 0);
-  assert.deepEqual(shown(d.heads), []);
-  assert.equal(d.empty.hidden, false);
-  assert.equal(d.emptyQ.textContent, '<b>zzz</b>', 'set with textContent, never parsed as HTML');
-  assert.equal(d.count.textContent, '0 results');
-  assert.equal(d.toc.every((l) => l.hidden), true);
-  d.type('');
-  assert.equal(shown(d.items).length, 6);
-  assert.deepEqual(shown(d.heads), ['guide', 'faq']);
-  assert.equal(d.empty.hidden, true);
-  assert.equal(d.toc.every((l) => !l.hidden), true);
+test('search: a clear winner opens by itself with the words marked; a tie opens nothing and the reader chooses', () => {
+  const pg = loadHelp('organiser');
+  pg.type('byes');
+  const top = pg.byId('faq-byes');
+  assert.deepEqual(visibleItems(pg), ['faq-byes'], 'only the top hit shows');
+  assert.equal(top.open, true, 'and it is open');
+  assert.ok(top.querySelectorAll('mark').length >= 1, 'with the matched words marked');
+  assert.equal(resultLinks(pg)[0].getAttribute('aria-current'), 'true');
+  // "who won": several answers, none clearly best
+  pg.type('who won');
+  assert.deepEqual(visibleItems(pg), [], 'nothing opens: the list waits for a choice');
+  assert.equal(top.open, false, 'what the search opened, it closes');
+  assert.equal(top.querySelectorAll('mark').length, 0, 'and its marks are gone');
+  assert.ok(resultLinks(pg).length >= 3);
 });
 
-test('search: matching questions open to show their answer, and close again when the search is cleared (but not ones you opened yourself)', () => {
-  const d = stubDom();
-  const mine = d.byId['faq-offline'];
-  mine.open = true;                       // the visitor opened this one
-  d.type('offline');
-  assert.equal(mine.open, true);
-  d.type('turn up');
-  assert.equal(d.byId['faq-no-show'].open, true, 'a match opens');
+test('search: a long list shows the best 8, with a button for the rest; a new search starts short again', () => {
+  const pg = loadHelp('organiser');
+  pg.type('who won');
+  const total = pg.controller.search('who won').results.length;
+  assert.ok(total > 8, 'enough results to cap: ' + total);
+  assert.equal(resultLinks(pg).length, 8);
+  assert.equal(pg.byId('helpCount').textContent, total + ' results', 'the count is all of them');
+  const more = pg.byId('helpResults').querySelector('button');
+  assert.equal(more.textContent, 'Show all ' + total + ' results');
+  assert.equal(more.getAttribute('type'), 'button');
+  pg.click(more);
+  assert.equal(resultLinks(pg).length, total);
+  assert.equal(pg.doc.activeElement, resultLinks(pg)[8], 'focus moves to the first new one');
+  assert.equal(pg.byId('helpResults').querySelector('button'), null);
+  pg.type('start');
+  assert.equal(resultLinks(pg).length, 8);
+});
+
+test('search: choosing a result shows that item and its section; it stays open when the search is cleared', () => {
+  const pg = loadHelp('organiser');
+  pg.type('no show');
+  const link = resultLinks(pg).find((a) => a.getAttribute('data-id') === 'faq-no-show');
+  assert.ok(link, 'the FAQ is in the list');
+  pg.click(link.querySelector('.hs-title'));
+  pg.goTo(link.getAttribute('href'));
+  assert.deepEqual(visibleItems(pg), ['faq-no-show']);
+  assert.equal(pg.byId('faq-no-show').open, true);
+  assert.equal(link.getAttribute('aria-current'), 'true');
+  pg.key('Escape');
+  assert.equal(pg.input.value, '');
+  assert.equal(visibleItems(pg).length, ALL_ITEMS, 'Esc brings everything back');
+  assert.equal(pg.byId('faq-no-show').open, true, 'the reader chose it, so it stays open');
+  assert.equal(pg.doc.querySelectorAll('mark').length, 0, 'no marks left anywhere');
+  assert.equal(pg.byId('helpResults').hidden, true);
+});
+
+test('search: clearing closes only what the search opened, never a question the reader opened by hand', () => {
+  const pg = loadHelp('organiser');
+  const mine = pg.byId('faq-offline');
+  mine.open = true; pg.doc.flush();                     // the visitor opened this one
+  pg.type('paper size');                               // opens the paper-size question by itself
+  assert.equal(pg.byId('faq-paper-size').open, true);
+  pg.type('');
+  assert.equal(pg.byId('faq-paper-size').open, false, 'closed again');
   assert.equal(mine.open, true, 'still open: it was the visitor’s own');
-  d.type('');
-  assert.equal(d.byId['faq-no-show'].open, false, 'closed again');
-  assert.equal(mine.open, true);
-  assert.equal(d.byId['getting-started'].open, false);
+  // a question the search opened and the visitor then closed and opened again is theirs
+  pg.type('paper size');
+  const ps = pg.byId('faq-paper-size');
+  ps.open = false; pg.doc.flush(); ps.open = true; pg.doc.flush();
+  pg.type('');
+  assert.equal(ps.open, true);
 });
 
-test('search: Escape clears the box', () => {
-  const d = stubDom();
-  d.type('print');
-  assert.ok(shown(d.items).length < 6);
-  d.input.handlers.keydown({ key: 'Enter' });
-  assert.ok(shown(d.items).length < 6);
-  d.input.handlers.keydown({ key: 'Escape' });
-  assert.equal(d.input.value, '');
-  assert.equal(shown(d.items).length, 6);
+test('search: no answer shows the suggestions with what was typed (as text), the honest line, and popular topics', () => {
+  const pg = loadHelp('organiser');
+  pg.type('  <b>zzz</b> ');
+  assert.equal(pg.byId('helpEmpty').hidden, false);
+  assert.equal(pg.byId('helpEmptyQ').textContent, '<b>zzz</b>', 'set with textContent, never parsed as HTML');
+  assert.equal(pg.byId('helpCount').textContent, '0 results');
+  assert.equal(pg.byId('helpSay').hidden, true);
+  assert.deepEqual(visibleItems(pg), []);
+  const links = pg.byId('helpEmpty').querySelectorAll('a').map((a) => a.getAttribute('href'));
+  assert.deepEqual(links, content.search.popular.map((p) => '#' + p.id));
+  assert.ok(links.includes('#quick-start'));
+  assert.match(text(help), /Try fewer words, or a different word/);
+  assert.match(text(help), /Still stuck\? Ask your DartDraw admin\./);
+  pg.type('price');
+  assert.equal(pg.byId('helpSay').hidden, false);
+  assert.match(pg.byId('helpSay').textContent, /does not cover costs/);
+  // a popular topic link while searching clears the search so the target can show
+  pg.goTo('#player-leaves');
+  assert.equal(pg.input.value, '');
+  assert.equal(pg.byId('player-leaves').hidden, false);
+  assert.equal(pg.byId('helpEmpty').hidden, true);
+});
+
+test('search: the contents list follows the results; Enter opens the top result; ArrowDown moves into the list', () => {
+  const pg = loadHelp('organiser');
+  pg.type('lineup');
+  const tocShown = pg.doc.querySelectorAll('[data-toc]').filter((l) => !l.hidden).map((l) => l.getAttribute('data-toc'));
+  assert.ok(tocShown.includes('teams-scoring') && !tocShown.includes('quick-start'), tocShown.join());
+  pg.type('player quit');
+  const e = pg.key('Enter');
+  assert.equal(e.defaultPrevented, true, 'Enter does not reload the page');
+  assert.equal(pg.hash, '#' + resultLinks(pg)[0].getAttribute('href').slice(1));
+  assert.deepEqual(visibleItems(pg), ['player-leaves']);
+  pg.type('print');
+  pg.key('ArrowDown');
+  assert.equal(pg.doc.activeElement, resultLinks(pg)[0]);
   let prevented = false;
-  d.form.handlers.submit({ preventDefault() { prevented = true; } });
-  assert.equal(prevented, true, 'pressing Enter does not reload the page');
+  pg.byId('helpSearch').dispatchEvent({ type: 'submit', preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
 });
 
-test('anchors: a link to a hidden item clears the search; a link to a question opens it', () => {
-  const d = stubDom();
-  d.type('offline');
-  assert.equal(d.byId['getting-started'].hidden, true);
-  d.ctx.location.hash = '#getting-started';
-  d.win.handlers.hashchange();
-  assert.equal(d.input.value, '', 'the search was cleared so the target can show');
-  assert.equal(d.byId['getting-started'].hidden, false);
-  assert.ok(d.calls.scrolled >= 1, 'and scrolled to');
-  d.ctx.location.hash = '#faq-two-events';
-  d.win.handlers.hashchange();
-  assert.equal(d.byId['faq-two-events'].open, true);
-  const direct = stubDom({ hash: '#faq-offline' });
-  assert.equal(direct.byId['faq-offline'].open, true, 'opening the page at a question’s address shows its answer');
+test('anchors: an address opens its item on load; a link to an item outside the results clears the search', () => {
+  const direct = loadHelp('organiser', { hash: '#faq-offline' });
+  assert.equal(direct.byId('faq-offline').open, true, 'opening the page at a question’s address shows its answer');
+  const pg = loadHelp('organiser');
+  pg.type('lineup');
+  assert.equal(pg.byId('getting-started').hidden, true);
+  assert.ok(!pg.controller.search('lineup').results.some((r) => r.id === 'getting-started'), 'not a result');
+  pg.goTo('#getting-started');
+  assert.equal(pg.input.value, '', 'the search was cleared so the target can show');
+  assert.equal(pg.byId('getting-started').hidden, false);
+  assert.equal(pg.byId('helpResults').hidden, true);
+  assert.ok(pg.doc.scrolled.includes('getting-started'), 'and scrolled to');
+  pg.goTo('#faq-two-events');
+  assert.equal(pg.byId('faq-two-events').open, true);
+  pg.goTo('#no-account');                                // an h4 inside an article
+  assert.equal(pg.byId('getting-started').hidden, false);
 });
 
 test('contents list: open and fixed on a wide screen, folded on a phone and folding up again after a jump', () => {
-  const wide = stubDom({ desktop: true });
-  assert.equal(wide.tocBox.open, true);
-  let prevented = false;
-  wide.summary.handlers.click({ preventDefault() { prevented = true; } });
-  assert.equal(prevented, true, 'it cannot be folded away on a wide screen');
-
-  const phone = stubDom({ desktop: false });
-  assert.equal(phone.tocBox.open, false, 'folded away on a phone');
-  prevented = false;
-  phone.summary.handlers.click({ preventDefault() { prevented = true; } });
-  assert.equal(prevented, false, 'the summary toggles it as normal');
-  phone.tocBox.open = true;
-  phone.tocBox.handlers.click({ target: { tagName: 'SPAN' } });
-  assert.equal(phone.tocBox.open, true, 'a click that is not on a link leaves it open');
-  phone.tocBox.handlers.click({ target: { tagName: 'A' } });
-  assert.equal(phone.tocBox.open, false, 'choosing a topic folds the list away');
-  // widening the window opens it again
-  phone.mq.matches = true;
-  phone.calls.mqChange.forEach((fn) => fn());
-  assert.equal(phone.tocBox.open, true);
+  const ev = (t, target) => ({ type: t, target, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } });
+  const wide = loadHelp('organiser', { desktop: true });
+  const tw = wide.byId('helpToc');
+  assert.equal(tw.open, true);
+  const e1 = ev('click'); tw.querySelector('summary').dispatchEvent(e1);
+  assert.equal(e1.defaultPrevented, true, 'it cannot be folded away on a wide screen');
+  const phone = loadHelp('organiser', { desktop: false });
+  const tp = phone.byId('helpToc');
+  assert.equal(tp.open, false, 'folded away on a phone');
+  const e2 = ev('click'); tp.querySelector('summary').dispatchEvent(e2);
+  assert.equal(e2.defaultPrevented, false, 'the summary toggles it as normal');
+  tp.open = true;
+  tp.querySelector('a').dispatchEvent(ev('click', tp.querySelector('a')));
+  assert.equal(tp.open, false, 'choosing a topic folds the list away');
 });
 
-test('the page script runs even where matchMedia and the hash are missing', () => {
-  const d = stubDom();
-  const src = scripts(help)[0];
-  const ctx = vm.createContext({
-    document: { getElementById: (id) => d.byId[id] || null, querySelectorAll: (s) => ({ '[data-item]': d.items, '[data-group-head]': d.heads, '[data-toc]': d.toc }[s] || []) },
-    window: { addEventListener() {} }
-  });
-  assert.doesNotThrow(() => vm.runInContext(src, ctx));
+test('the page script does nothing harmful where the module failed to load (the box stays hidden, everything shows)', () => {
+  const { parse } = require('./lib/mini-dom');
+  const doc = parse(help);
+  const ctx = vm.createContext({ document: doc, window: { addEventListener() {} } });
+  assert.doesNotThrow(() => vm.runInContext(scripts(help)[0], ctx));
+  assert.equal(doc.getElementById('helpSearch').hidden, true);
+});
+
+test('search CSS: results, marks and the no-answer box are styled, and none of them prints', () => {
+  const css = (help.match(/<style>([\s\S]*?)<\/style>/) || [])[1];
+  ['.hs-link{', '.hs-title{', '.hs-snip{', 'mark.hs-mark{', '.hsuggest{'].forEach((s) => assert.ok(css.includes(s), s));
+  assert.match(css, /@media print\{[^}]*\.hresults,\.hempty\{display:none!important\}/);
 });
 
 // ---------- placement and context: the guide says WHERE things are, so check the code agrees ----------
@@ -563,7 +599,7 @@ test('Basic / Advanced: the labels on step 1 are Basic and Advanced, and the gui
   assert.match(s1, /<strong>Basic<\/strong>/);
   assert.match(s1, /<strong>Advanced<\/strong>/);
   assert.match(s1, /<label>Setup mode<\/label>/);
-  assert.match(articleText('getting-started'), /under Setup mode, you choose "Basic" or "Advanced"/);
+  assert.match(articleText('how-dartdraw-works'), /under Setup mode, you choose "Basic" or "Advanced"/);
   assert.match(text(help), /Setup mode: "Basic" or "Advanced"/);
 });
 
@@ -582,16 +618,16 @@ test('Group Boards check-in: the card is on step 4, the "Withdraw the N not chec
   assert.match(fnBody(podsUi, 'podsStage3'), /pods\.length \? podsCountWarningHTML\(\) \+ podsRosterWarningHTML\(\) : podsCheckInBoxHTML\(\)/, 'only before the draw');
   assert.match(fnBody(podsUi, 'podsCheckInBoxHTML'), /Withdraw the '\+s\.missing\.length\+' not checked in/);
   assert.match(fnBody(podsUi, 'podsCheckInBoxHTML'), /if\(!s\.checked\) return ''/, 'only once someone is ticked');
-  assert.match(articleText('entries-and-check-in'), /tick people in on step 4\. Then, on step 3, before you click Draw groups, a Withdraw the N not checked in button/);
+  assert.match(articleText('check-in-and-start'), /tick people in on step 4\. Then, on step 3, before you click Draw groups, a Withdraw the N not checked in button/);
 });
 
 test('Neither showed: knockout and Group Boards only. The round robin no-show picker has no such choice, and the guide and FAQ say so', () => {
   assert.doesNotMatch(fnBody(app, 'openNoShowPicker'), /Neither showed/);
   assert.match(fnBody(app, 'openKoNoShowPicker'), /Neither showed/);
-  assert.match(articleText('entries-and-check-in'), /This is for knockout and Group Boards matches only; a round robin has no such choice/);
+  assert.match(articleText('player-leaves'), /This is for knockout and Group Boards matches only; a round robin has no such choice/);
   assert.match(faqText('faq-no-show'), /If both are missing in a knockout or Group Boards match, choose Neither showed \(a round robin does not have that choice\)/);
   assert.match(read('viewer/index.html'), /NO-SHOW|Neither attended/);
-  assert.match(articleText('entries-and-check-in'), /Neither attended", or NO-SHOW in the bracket Chart view/);
+  assert.match(articleText('player-leaves'), /Neither attended", or NO-SHOW in the bracket Chart view/);
 });
 
 test('printing: the full-page window’s Print prints the chart it shows through the pack’s own sheets; the full pack comes from the main window', () => {
@@ -619,11 +655,11 @@ test('stale windows: the guide says the last change is not saved, to Reload befo
   // the app does what the guide says (tests/save-stale.test.js and tests/save-round2.test.js cover it in depth)
   assert.match(app, /<b>Updated elsewhere — reload to get the latest\.<\/b>[^<]*Your last change here was not saved\.[^<]*<\/span>\s*<button class="btn" onclick="reloadStale\(\)">Reload<\/button>/);
   // the guide
-  const gs = articleText('getting-started');
+  const gs = articleText('how-dartdraw-works');
   assert.match(gs, /A red banner also appears at the top of the page: "Updated elsewhere — reload to get the latest\."/);
   assert.match(gs, /Your last change in this window was not saved, and from now on this window saves nothing for this event, so it cannot write over the newer results/);
   assert.match(gs, /Click Reload on the banner \(or click the message\) to load the latest copy\. Then check it and enter your last change again/);
-  const sync = articleText('full-page-window');
+  const sync = articleText('full-page-window-sync');
   assert.match(sync, /If you score in a window that is out of date, that score is not saved/);
   assert.match(sync, /the full-page window too/);
   assert.match(sync, /click Reload before you enter anything else/);
@@ -670,7 +706,7 @@ test('stale windows, by behaviour: after a refused save (409) the window sends n
 
 test('silent refresh and the phone menu: the guide describes what the app does', () => {
   assert.match(fnBody(app, 'silentRefresh'), /showInfoToast\('Updated with the latest scores'\)/);
-  const sync = articleText('full-page-window');
+  const sync = articleText('full-page-window-sync');
   assert.match(sync, /The windows do not update each other while you look at them/);
   assert.match(sync, /When you switch to a window \(click into it, or bring it back on screen\), it checks for a newer copy of the event\. If there is one, it loads it, stays on the same step and shows "Updated with the latest scores"/);
   assert.match(sync, /It skips this while a change of yours is still being saved, while a box is open, while you are typing in a box or have typed something not yet saved, and on steps 1 to 3/);
@@ -679,13 +715,13 @@ test('silent refresh and the phone menu: the guide describes what the app does',
   // a switch is refused while the last change is unsaved, and the guide says so
   assert.match(fnBody(app, 'switchBlocked'), /Last change not saved yet/);
   assert.match(fnBody(app, 'switchBlocked'), /Leave without saving/);
-  assert.match(articleText('getting-started'), /Until then DartDraw will not open another event or start a new one: it keeps you on this one and says "Last change not saved yet"\. You can choose Leave without saving, but that change is then gone/);
+  assert.match(articleText('how-dartdraw-works'), /Until then DartDraw will not open another event or start a new one: it keeps you on this one and says "Last change not saved yet"\. You can choose Leave without saving, but that change is then gone/);
   assert.match(faqText('faq-offline'), /wait for Saved before you open another event/);
   // round 4: leaving, logging out, being signed out, deleted elsewhere, and the refresh limits in the FAQ
-  assert.match(articleText('getting-started'), /Log out waits for it the same way, and if you close or reload the page meanwhile, your browser asks you first/);
+  assert.match(articleText('how-dartdraw-works'), /Log out waits for it the same way, and if you close or reload the page meanwhile, your browser asks you first/);
   assert.match(fnBody(app, 'onBeforeUnload'), /e\.returnValue = ''/);
   assert.match(fnBody(app, 'logout'), /logoutBlocked\(\)/);
-  assert.match(articleText('getting-started'), /Deleted elsewhere — this event is no longer saved/);
+  assert.match(articleText('how-dartdraw-works'), /Deleted elsewhere — this event is no longer saved/);
   assert.ok(app.includes("'Deleted elsewhere — this event is no longer saved'"));
   assert.match(articleText('troubleshooting'), /If a change had not been saved yet, DartDraw keeps it in this browser and, after you sign in again, asks whether to restore it\. It can only be restored if the event has not changed in the meantime/);
   assert.match(fnBody(app, 'offerRecoveredChanges'), /Restore your unsaved change\?/);
@@ -697,8 +733,8 @@ test('silent refresh and the phone menu: the guide describes what the app does',
   assert.match(app, /new BroadcastChannel\('dartdraw-saves'\)/);
   assert.doesNotMatch(text(help), /every 20 seconds\.?\s*It checks|at most about every 20 seconds/);
   assert.match(faqText('faq-window-sync'), /Not while you are looking at it\.[\s\S]*Updated with the latest scores/);
-  assert.match(articleText('getting-started'), /on a phone or a narrow window, tap the step name in the bar at the top, then Change password/);
-  assert.match(articleText('getting-started'), /Rename, Duplicate and Delete for the open event, and Change password/);
+  assert.match(articleText('getting-started'), /[Oo]n a phone or a narrow window, tap the step name in the bar at the top, then Change password/);
+  assert.match(articleText('limits-and-facts'), /Rename, Duplicate and Delete for the open event, and Change password/);
   assert.match(fnBody(app, 'compactMenuHTML'), /Change password/);
 });
 
@@ -708,7 +744,7 @@ test('phones and tablets: the guide explains the landscape rule, the phone note 
   assert.match(app, /<span>DartDraw works best on a tablet, laptop or desktop\.<\/span>/);
   assert.match(fnBody(app, 'deviceGateState'), /if\(!\(o\.coarse && o\.hoverNone\)\) return 'none';/, 'laptops and desktops never see it');
   // the guide
-  const gs = articleText('getting-started');
+  const gs = articleText('limits-and-facts');
   assert.match(gs, /On a tablet or phone, hold it sideways \(landscape\)\. Held upright, DartDraw covers the screen with "Please rotate your device to landscape to use DartDraw\."/);
   assert.match(gs, /A phone on its side works too, with a note that DartDraw works best on a tablet, laptop or desktop/);
   assert.match(gs, /the left-hand menu becomes a bar at the top\. Tap the step name there for the steps, your events/);
@@ -752,5 +788,56 @@ test('the # link is beside each article heading, not inside it, so the heading�
   const heads = [...help.matchAll(/<h3>([\s\S]*?)<\/h3>/g)].map((m) => m[1]);
   assert.ok(heads.length >= 10);
   heads.forEach((h) => assert.doesNotMatch(h, /<a\b/, h));
-  assert.match(help, /<div class="hhead"><h3>Getting started<\/h3><a class="anchor" href="#getting-started" aria-label="Link to this section">#<\/a><\/div>/);
+  assert.match(help, /<div class="hhead"><h3>No account yet\? Signing in and passwords<\/h3><a class="anchor" href="#getting-started" aria-label="Link to this section">#<\/a><\/div>/);
+});
+
+// ---------- Release 4 and 5: words, context and the new outline ----------
+test('Release 5: every anchor the Help had before the new outline still works (moved items keep their ids; old group ids are aliases)', () => {
+  const before = ('guide quick-start getting-started creating-an-event choosing-a-format teams entries-and-check-in player-leaves draws-and-printing managing-the-tournament full-page-window publishing-results finishing-the-event troubleshooting faq '
+    + 'quick-start-step-1 quick-start-step-2 quick-start-step-3 quick-start-step-4 quick-start-step-5 quick-start-step-6 quick-start-step-7 no-account signing-in seven-steps setup-mode autosave singles-or-doubles boards-and-entries your-events format-types legs '
+    + 'round-robin-setup rr-ko-setup group-boards knockout-legs scheduling branding-and-rules team-segments team-tie-breaker teams-results teams-cap teams-level lineup-sheet ready-lineups naming-entries organisations seeds check-in withdrawals no-shows '
+    + 'neither-showed adjust-positions leaves-before leaves-groups leaves-knockout leaves-finalized draw confirm print-pack bracket-sheets logos-and-rules qr-codes start-games enter-scores correct-a-result standings rr-knockout-draw group-boards-day '
+    + 'incident-log finishing-up fpw-what fpw-when fpw-open fpw-popups fpw-scores fpw-sync fpw-print fpw-empty fpw-finalized publish listing what-spectators-see how-fast before-finalizing review accept what-it-locks reopening printing-tips fixes').split(' ');
+  const all = ids(help);
+  assert.deepEqual(before.filter((id) => !all.includes(id)), []);
+  assert.match(help, /<span class="alias" id="guide"><\/span><h2 class="hgroup" id="start-here"/, 'the old #guide lands on the first group');
+  // the new order: Quick start first, then sign-in, set-up, the day, finishing, Teams, troubleshooting, reference
+  assert.deepEqual(content.sections.map((s) => s.id), ['start-here', 'set-up', 'on-the-day', 'finish', 'teams-events', 'something-wrong', 'reference', 'faq']);
+  assert.ok(help.indexOf('id="publishing-results"') < help.indexOf('id="check-in-and-start"'), 'sharing comes before the day');
+  assert.ok(help.indexOf('id="full-page-window"') < help.indexOf('id="finishing-the-event"'), 'the full-page window is on the day, before finishing');
+  assert.ok(help.indexOf('id="troubleshooting"') < help.indexOf('id="glossary"'), 'reference comes last, before the questions');
+});
+
+test('Release 4: the glossary and the troubleshooting list are linked from the top of the guide and from Quick start', () => {
+  const top = (markup(help).match(/<div class="hintro hstart">[\s\S]*?<\/div>/) || [''])[0];
+  ['#quick-start', '#glossary', '#troubleshooting'].forEach((h) => assert.ok(top.includes('href="' + h + '"'), h));
+  const qs = (help.match(/<article class="harticle" id="quick-start"[\s\S]*?<\/article>/) || [''])[0];
+  assert.match(qs, /href="#glossary"/); assert.match(qs, /href="#troubleshooting"/);
+  assert.match(articleText('troubleshooting'), /^\s*When something goes wrong/);
+  // the glossary: one anchored term per word, grouped under headings
+  const g = (help.match(/<article class="harticle" id="glossary"[\s\S]*?<\/article>/) || [''])[0];
+  assert.ok((g.match(/<dt id="glossary-[a-z-]+">/g) || []).length >= 35, 'terms');
+  assert.ok((g.match(/<h4 id="glossary-[a-z-]+">/g) || []).length >= 5, 'groups');
+});
+
+test('Release 4: every Help anchor the organiser app links to exists on the Help page', () => {
+  const all = ids(help);
+  const used = new Set();
+  [/helpQHTML\('([a-z0-9-]+)'/g, /helpHintHTML\('([a-z0-9-]+)'/g, /helpHref\('([a-z0-9-]+)'\)/g, /\['[^']+', '([a-z0-9-]+)'\]/g, /href="\/help#([a-z0-9-]+)"/g].forEach((re) => {
+    for (const m of app.matchAll(re)) used.add(m[1]);
+  });
+  const stageMap = (fnBody(app, 'stageHelpAnchor').match(/'[a-z0-9-]+'/g) || []).map((s) => s.slice(1, -1)).filter((s) => s.includes('-') || ['review'].includes(s));
+  stageMap.forEach((a) => used.add(a));
+  for (let i = 1; i <= 7; i++) used.add('quick-start-step-' + i);   // the Get started card's "How?" links
+  assert.ok(used.size >= 30, 'anchors found: ' + used.size);
+  assert.deepEqual([...used].filter((a) => !all.includes(a)), [], 'app links to anchors the Help page does not have');
+  // every contextual link opens a new tab safely
+  for (const m of app.matchAll(/<a class="help-q"[^>]*>/g)) { assert.match(m[0], /target="_blank"/); assert.match(m[0], /rel="noopener"/); }
+  assert.match(fnBody(app, 'helpQHTML'), /target="_blank" rel="noopener" aria-label="'\+escText\(name\)\+'"/);
+});
+
+test('Release 5: the sample event and Get started card the Help describes exist in the app with those names', () => {
+  ['Get started', 'Try a sample event', 'This is a sample event. Nothing is saved.', 'Save as my event', 'Close sample', 'Hide this card'].forEach((q) => assert.ok(app.includes(q), q));
+  const t = articleText('quick-start');
+  ['Get started', 'Try a sample event', 'This is a sample event. Nothing is saved.', 'Save as my event', 'Close sample'].forEach((q) => assert.ok(t.includes(q), 'Help quotes ' + q));
 });
