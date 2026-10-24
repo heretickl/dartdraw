@@ -7,7 +7,8 @@ const { loadApp, run, useState } = require('./lib/helpers');
 // Touch phones and tablets: landscape only. Laptops and desktops: never a message. See deviceGateState() in app.html.
 const app = loadApp();
 const f = (n) => run(app, n);
-const src = fs.readFileSync(path.join(__dirname, '..', 'app.html'), 'utf8');
+// the words of the static markup as English source (i18n step 3 added data-i18n attributes; tests/lib/app-source.js)
+const src = require('./lib/app-source').englishSource('app.html');
 const gate = (o) => f('deviceGateState')(o);
 
 const PHONE = { coarse: true, hoverNone: true, shortSide: 390 };

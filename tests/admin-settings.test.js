@@ -165,7 +165,7 @@ for (const method of ['GET', 'PUT']) {
     assert.equal(none.statusCode, 401);
     const org = await call({ cookies: cookieFor(byId('org1')) });
     assert.equal(org.statusCode, 403);
-    assert.deepEqual(org.body, { error: 'Admin only.' });
+    assert.deepEqual(org.body, { code: 'admin_only', error: 'Admin only.' });
     assert.equal(db.tables.site_settings.length, 0);
   });
 

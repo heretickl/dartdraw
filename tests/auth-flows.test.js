@@ -29,8 +29,8 @@ let savedEnv;
 const REGISTER_MSG = { ok: true, message: 'If that email can be registered, we have sent a link to verify it.' };
 const FORGOT_MSG = { ok: true, message: 'If an account exists for that email, we have sent a link to reset your password.' };
 const RESEND_MSG = { ok: true, message: 'If that account can be verified, we have sent a new verification link.' };
-const VERIFY_FAILED = { error: 'This link is invalid, has expired, or the password is incorrect.' };
-const INVALID_LINK = { error: 'This link is invalid or has expired.' };
+const VERIFY_FAILED = { code: 'invalid_link_or_password', error: 'This link is invalid, has expired, or the password is incorrect.' };
+const INVALID_LINK = { code: 'invalid_link', error: 'This link is invalid or has expired.' };
 const HOUR = 60 * 60 * 1000;
 
 let HASH;
@@ -81,7 +81,7 @@ test('register: method other than POST is 405', async () => {
 });
 
 test('register is closed (403) when the flag is off, mail is unconfigured, or both', async () => {
-  const closed = { error: 'Sign-up is not open yet.' };
+  const closed = { code: 'signup_closed', error: 'Sign-up is not open yet.' };
   process.env.SIGNUP_OPEN = 'false';
   let r = await register(goodReg());
   assert.equal(r.statusCode, 403);
@@ -148,7 +148,7 @@ test('register: new email creates an unverified Basic organizer and mails a veri
   assert.equal(outbox().length, 1);
   const msg = outbox()[0];
   assert.equal(msg.to, 'bob@example.com');
-  assert.equal(msg.subject, 'Verify your DartDraw email');
+  assert.equal(msg.subject, 'Verify your DartDraw email / Sahkan e-mel DartDraw anda');   // bilingual since i18n step 5
   assert.match(linkIn(msg), /^https:\/\/app\.example\.test\/verify\.html\?token=[0-9a-f]{64}$/);
   assert.match(msg.text, /ignore/i);
 
@@ -172,7 +172,7 @@ test('register: existing unverified email takes the new name and password, gets 
   assert.equal(r.statusCode, 200);
   assert.deepEqual(r.body, REGISTER_MSG);
   assert.equal(outbox().length, 2);
-  assert.equal(outbox()[1].subject, 'Verify your DartDraw email');
+  assert.equal(outbox()[1].subject, 'Verify your DartDraw email / Sahkan e-mel DartDraw anda');   // bilingual since i18n step 5
   const o = byEmail('bob@example.com');
   assert.notEqual(o.password_hash, hashBefore);
   assert.ok(bcrypt.compareSync('a-different-password', o.password_hash));
@@ -223,7 +223,7 @@ test('register: existing verified email gets an "already have an account" mail a
   assert.equal(outbox().length, 1);
   const msg = outbox()[0];
   assert.equal(msg.to, 'a@example.com');
-  assert.equal(msg.subject, 'Your DartDraw account');
+  assert.equal(msg.subject, 'Your DartDraw account / Akaun DartDraw anda');
   assert.match(msg.text, /already have an account/i);
   assert.match(msg.text, /forgot password/i);
   assert.match(linkIn(msg), /^https:\/\/app\.example\.test\/forgot\.html$/);
@@ -295,7 +295,7 @@ test('register: throttled at 5 per hour per address and per email (429), then th
   }
   const blocked = await register(goodReg({ email: 'p9@example.com' }));
   assert.equal(blocked.statusCode, 429);
-  assert.deepEqual(blocked.body, { error: 'Too many attempts. Try again later.' });
+  assert.deepEqual(blocked.body, { code: 'rate_limited', error: 'Too many attempts. Try again later.' });
   assert.equal(byEmail('p9@example.com'), undefined);
   // another address is fine
   const other = await register(goodReg({ email: 'p9@example.com' }), { headers: { 'x-forwarded-for': '203.0.113.7' } });
@@ -433,7 +433,7 @@ test('verify: throttled at 10 attempts per 15 minutes per address (429), atomica
   for (let i = 0; i < 10; i++) assert.equal((await verify(raw, 'wrong-' + i + '-password')).statusCode, 400, 'attempt ' + (i + 1));
   const blocked = await verify(raw, 'longenough');
   assert.equal(blocked.statusCode, 429);
-  assert.deepEqual(blocked.body, { error: 'Too many attempts. Try again later.' });
+  assert.deepEqual(blocked.body, { code: 'rate_limited', error: 'Too many attempts. Try again later.' });
   assert.equal(byEmail('bob@example.com').email_verified_at, null);
   // another address is unaffected, and the window resets
   assert.equal((await post(verifyHandler, { token: raw, password: 'longenough' }, { headers: { 'x-forwarded-for': '203.0.113.77' } })).statusCode, 200);
@@ -463,7 +463,7 @@ test('resend-verification: unverified account gets a new link; old one dies', as
   assert.equal(r.statusCode, 200);
   assert.deepEqual(r.body, RESEND_MSG);
   assert.equal(outbox().length, 2);
-  assert.equal(outbox()[1].subject, 'Verify your DartDraw email');
+  assert.equal(outbox()[1].subject, 'Verify your DartDraw email / Sahkan e-mel DartDraw anda');   // bilingual since i18n step 5
   assert.equal(outbox()[1].to, 'bob@example.com');
   const second = tokenIn(outbox()[1]);
   assert.notEqual(first, second);
@@ -496,7 +496,7 @@ test('resend-verification: validation, 405 and throttle (5 per hour)', async () 
   for (let i = 0; i < 5; i++) assert.equal((await post(resendHandler, { email: 'x' + i + '@example.com' })).statusCode, 200);
   const blocked = await post(resendHandler, { email: 'x9@example.com' });
   assert.equal(blocked.statusCode, 429);
-  assert.deepEqual(blocked.body, { error: 'Too many attempts. Try again later.' });
+  assert.deepEqual(blocked.body, { code: 'rate_limited', error: 'Too many attempts. Try again later.' });
   // per email
   const other = { headers: { 'x-forwarded-for': '203.0.113.50' } };
   for (let i = 0; i < 5; i++) assert.equal((await post(resendHandler, { email: 'same@example.com' }, { headers: { 'x-forwarded-for': '203.0.113.' + (60 + i) } })).statusCode, 200);
@@ -520,7 +520,7 @@ test('forgot: existing account gets a reset link (hashed, 1 hour), generic answe
   assert.equal(outbox().length, 1);
   const msg = outbox()[0];
   assert.equal(msg.to, 'a@example.com');
-  assert.equal(msg.subject, 'Reset your DartDraw password');
+  assert.equal(msg.subject, 'Reset your DartDraw password / Tetapkan semula kata laluan DartDraw anda');
   assert.match(linkIn(msg), /^https:\/\/app\.example\.test\/reset\.html\?token=[0-9a-f]{64}$/);
   assert.match(msg.text, /ignore/i);
   const t = db.tables.auth_tokens[0];
@@ -566,7 +566,7 @@ test('forgot: validation, 405, works while sign-up is closed, throttle 429', asy
   for (let i = 0; i < 4; i++) assert.equal((await post(forgotHandler, { email: 'a@example.com' })).statusCode, 200);
   const blocked = await post(forgotHandler, { email: 'a@example.com' });
   assert.equal(blocked.statusCode, 429);
-  assert.deepEqual(blocked.body, { error: 'Too many attempts. Try again later.' });
+  assert.deepEqual(blocked.body, { code: 'rate_limited', error: 'Too many attempts. Try again later.' });
 });
 
 test('forgot: does nothing when mail is not configured, still the same answer', async () => {

@@ -182,8 +182,8 @@ test('the module is plain ES5 with no dependencies, and runs in a page (vm) as w
 // ---------- the viewer's copy (a separate Vercel project) ----------
 test('sync: help-search.js is in the sync list, the viewer copy is identical, and check-viewer passes', () => {
   const sync = fs.readFileSync(path.join(ROOT, 'scripts', 'sync-viewer.js'), 'utf8');
-  assert.match(sync, /const FILES = \['render\.js', 'render\.css', 'help-search\.js'\];/);
-  ['render.js', 'render.css', 'help-search.js'].forEach((f) => assert.ok(fs.readFileSync(path.join(ROOT, f)).equals(fs.readFileSync(path.join(ROOT, 'viewer', f))), 'viewer/' + f + ' is a copy of ' + f));
+  assert.match(sync, /const FILES = \['render\.js', 'render\.css', 'help-search\.js', 'i18n\/render\.ms\.js'\];/);
+  ['render.js', 'render.css', 'help-search.js', 'i18n/render.ms.js'].forEach((f) => assert.ok(fs.readFileSync(path.join(ROOT, f)).equals(fs.readFileSync(path.join(ROOT, 'viewer', f))), 'viewer/' + f + ' is a copy of ' + f));
   const out = execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'sync-viewer.js'), '--check'], { encoding: 'utf8' });
   assert.match(out, /ok\s+render\.js/); assert.match(out, /ok\s+render\.css/); assert.match(out, /ok\s+help-search\.js/);
   // both Help pages load their own copy from their own site root
@@ -195,7 +195,8 @@ test('sync: --check fails (exit 1) when the viewer copy differs, and names the f
   const tmp = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'dd-sync-'));
   fs.mkdirSync(path.join(tmp, 'scripts')); fs.mkdirSync(path.join(tmp, 'viewer'));
   fs.copyFileSync(path.join(ROOT, 'scripts', 'sync-viewer.js'), path.join(tmp, 'scripts', 'sync-viewer.js'));
-  ['render.js', 'render.css', 'help-search.js'].forEach((f) => { fs.copyFileSync(path.join(ROOT, f), path.join(tmp, f)); fs.copyFileSync(path.join(ROOT, f), path.join(tmp, 'viewer', f)); });
+  fs.mkdirSync(path.join(tmp, 'i18n')); fs.mkdirSync(path.join(tmp, 'viewer', 'i18n'));
+  ['render.js', 'render.css', 'help-search.js', 'i18n/render.ms.js'].forEach((f) => { fs.copyFileSync(path.join(ROOT, f), path.join(tmp, f)); fs.copyFileSync(path.join(ROOT, f), path.join(tmp, 'viewer', f)); });
   fs.appendFileSync(path.join(tmp, 'help-search.js'), '\n// changed\n');
   const r = spawnSync(process.execPath, [path.join(tmp, 'scripts', 'sync-viewer.js'), '--check'], { encoding: 'utf8' });
   assert.equal(r.status, 1);

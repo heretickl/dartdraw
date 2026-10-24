@@ -1,6 +1,7 @@
 /* Simulates ONE event end to end with the app's real functions (see README.md) and writes
    docs/design/simulation/<type>-<format>/{pre-game.html, completed.html, facts.json}.
-   usage: node scripts/sim/run-event.js <Singles|Doubles|Teams> <knockout|rrknockout|podknockout|roundrobin> [outRoot] */
+   usage: node scripts/sim/run-event.js <Singles|Doubles|Teams> <knockout|rrknockout|podknockout|roundrobin> [outRoot] [en|ms]
+   The last argument is the event's Printed sheets language (i18n step 4; default English). The screens stay English. */
 const fs = require('fs');
 const path = require('path');
 const { createApp, run, ROOT } = require('./lib/appvm');
@@ -20,7 +21,7 @@ const TIME_CAP_MS = 60000;
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 
-function runEvent(unit, formatType, outRoot) {
+function runEvent(unit, formatType, outRoot, lang) {
   const fmt = FORMATS[formatType];
   if (!fmt) throw new Error('unknown format ' + formatType);
   const key = unit.toLowerCase() + '-' + fmt.slug;
@@ -37,11 +38,13 @@ function runEvent(unit, formatType, outRoot) {
   const boards = formatType === 'podknockout' ? POD_COUNT : 4;
   const player = makePlayer('sim|' + key);
   const facts = { key, unit, formatType, formatLabel: fmt.label, entries: ENTRIES, boards, errors: [], notes: [] };
+  if (lang === 'ms') facts.sheetLang = 'ms';
   const name = (id) => { const e = sim.state().entriesList.find((x) => x.id === id); return e ? e.name : '?'; };
 
   /* ---------- 1. set the event up exactly as the screens do ---------- */
   const t = f('blankTournament')(); sim.setState(t);
   t.id = 't_sim_' + key;
+  if (lang === 'ms') t.printSettings.sheetLang = 'ms';   // i18n step 4: every sheet of this event prints in Bahasa Malaysia
   /* Step 1: event details, then Save */
   sim.withDoc({ f_tname: 'DartDraw Simulation Open', f_ename: unit + ' ' + fmt.short, f_etype: 'Open', f_unit: unit, f_date: '2026-11-07', f_entries: String(ENTRIES) }, () => f('saveStage1')());
   /* Scheduling box: the number of boards */
@@ -388,13 +391,13 @@ function runEvent(unit, formatType, outRoot) {
   ];
   if (facts.groupCount) common.push([formatType === 'podknockout' ? 'Groups (Group Boards)' : 'Round robin groups', facts.groupCount + ' (sizes ' + facts.groupSizes.join(' / ') + ')']);
   if (isTeams) common.push(['Team match', call('teamMatchShortLabel', S(), null)]);
-  writePage(path.join(outDir, 'pre-game.html'), {
+  writePage(path.join(outDir, 'pre-game.html'), { lang,
     title: unit + ' ' + fmt.slug + ' pre-game', heading: unit + ' - ' + fmt.label + ' - PRE-GAME print pack', stageName: 'Pre-game print pack (before any game)',
     facts: common.concat([['Sheets in the pack', pre.sheetsTotal + ' (' + Object.keys(pre.byType).map((k) => k + ' ' + pre.byType[k]).join(', ') + ')'],
       ['Brackets', pre.brackets.length ? brText(pre.brackets) : (pre.projected ? 'projected only: ' + pre.projected.qualifiers + ' qualifiers in a ' + pre.projected.slots + '-slot bracket, ' + pre.projected.byes + ' byes, ' + pre.projected.matches + ' matches' : 'none')]]),
     sections: prePack.sections, backLink: '../index.html',
   });
-  writePage(path.join(outDir, 'completed.html'), {
+  writePage(path.join(outDir, 'completed.html'), { lang,
     title: unit + ' ' + fmt.slug + ' completed', heading: unit + ' - ' + fmt.label + ' - COMPLETED print pack', stageName: 'Completed (every result entered)',
     facts: common.concat([['Sheets in the pack', completed.sheetsTotal + ' (' + Object.keys(completed.byType).map((k) => k + ' ' + completed.byType[k]).join(', ') + ')'],
       ['Result', facts.champion ? 'Champion: ' + facts.champion : (facts.groupWinners ? 'Group winners: ' + facts.groupWinners.length : '')], ['Event complete (app check)', String(facts.eventComplete)], ['Results typed in', results]]),
@@ -402,7 +405,7 @@ function runEvent(unit, formatType, outRoot) {
   });
 
   if (paperSections) {
-    writePage(path.join(outDir, 'paper-sizes.html'), {
+    writePage(path.join(outDir, 'paper-sizes.html'), { lang,
       title: unit + ' ' + fmt.slug + ' paper sizes', heading: unit + ' - ' + fmt.label + (formatType === 'rrknockout' ? ' - the projected brackets of a 200-entry event on the recommended paper' : ' - the same bracket: kept on A4, split over A4, and on A3, A2, A1'), stageName: formatType === 'rrknockout' ? 'Projected brackets, 200 entries' : 'Paper choices (pre-game bracket)',
       facts: common.concat([['Paper dialog on the pre-game print', facts.paperDialogs.length ? facts.paperDialogs[0].title + ' | options: ' + facts.paperDialogs[0].options.join(' / ') + ' | answered: ' + facts.paperDialogs[0].answer : 'not shown (legible on A4)'],
         ['On A4', 'names ' + facts.paperAdvice.a4NamePt + ' pt; recommended ' + facts.paperAdvice.recommended + (facts.paperAdvice.splitSheets ? '; split: ' + facts.paperAdvice.splitSheets + ' A4 sheets' : '')],
@@ -417,10 +420,10 @@ function runEvent(unit, formatType, outRoot) {
 }
 
 if (require.main === module) {
-  const [unit, formatType, outRoot] = process.argv.slice(2);
+  const [unit, formatType, outRoot, lang] = process.argv.slice(2);
   const out = outRoot || path.join(ROOT, 'docs', 'design', 'simulation');
   let facts;
-  try { facts = runEvent(unit, formatType, out); } catch (e) {
+  try { facts = runEvent(unit, formatType, out, lang); } catch (e) {
     const key = unit.toLowerCase() + '-' + (FORMATS[formatType] || { slug: formatType }).slug;
     fs.mkdirSync(path.join(out, key), { recursive: true });
     fs.writeFileSync(path.join(out, key, 'facts.json'), JSON.stringify({ key, unit, formatType, errors: [String(e && e.stack || e)], failed: true }, null, 2));

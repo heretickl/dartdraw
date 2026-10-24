@@ -1,13 +1,33 @@
-// Generates the public site: index.html (landing, served at /), features.html (/features), how-it-works.html
-// (/how-it-works) and help.html (/help), from shared parts (CSS, icon sprite, header, closing band, login pop-up).
-// The words on the Help page live in scripts/help-content.js (data only); this file lays them out.
-//   node scripts/build-landing.js     writes the four pages into the repo root
+// Generates the public site in two languages, from shared parts (CSS, icon sprite, header, closing band, login pop-up,
+// the EN | BM switch):
+//   English            index.html (/), features.html (/features), how-it-works.html (/how-it-works), help.html (/help)
+//   Bahasa Malaysia    ms/index.html (/ms), ms/features.html (/ms/features), ms/how-it-works.html, ms/help.html
+// This file lays the pages out; the words are data:
+//   scripts/i18n/en/landing.js and scripts/i18n/ms/landing.js       landing, Features, How it works, the Help frame
+//   scripts/help-content.js and scripts/i18n/ms/help-content.js     the organiser Help articles and FAQ
+// Both languages have the same keys, item ids and anchors (tests/i18n-pages.test.js). Vocabulary: docs/i18n/glossary.md.
+//   node scripts/build-landing.js     writes the eight pages (ms/ is created if needed)
 //   npm run build-landing             same
 // Do not edit the generated pages by hand: tests/landing-site.test.js fails when they differ from this script's output.
 // The organiser app itself is app.html (served at /app); the sign-in form is login.html, shown in the pop-up.
 const fs = require('fs'), path = require('path');
 const OUT = path.join(__dirname, '..');
-const help = require('./help-content');
+const HELP = { en: require('./help-content'), ms: require('./i18n/ms/help-content') };
+const WORDS = { en: require('./i18n/en/landing'), ms: require('./i18n/ms/landing') };
+const LANGS = ['en', 'ms'];
+
+/* The address of this site, for the canonical and hreflang links (search engines want full addresses there). Change it
+   here when the site gets its own domain. */
+const SITE_URL = 'https://dartdraw.vercel.app';
+/* Where each page lives in each language: the clean URL (what links and the switch use) and the file it is built into. */
+const ROUTES = {
+  en: { landing: '/', features: '/features', how: '/how-it-works', help: '/help' },
+  ms: { landing: '/ms', features: '/ms/features', how: '/ms/how-it-works', help: '/ms/help' }
+};
+const FILES = {
+  en: { landing: 'index.html', features: 'features.html', how: 'how-it-works.html', help: 'help.html' },
+  ms: { landing: 'ms/index.html', features: 'ms/features.html', how: 'ms/how-it-works.html', help: 'ms/help.html' }
+};
 
 const CSS = `
 :root{--navy:#0f2240;--navy-2:#0a1a33;--ink:#142133;--muted:#566578;--line:#dfe6ee;--bg:#f3f6fb;--white:#fff;--gold:#c8941a;--gold-big:#c08a12;--gold-soft:#fbf1d6;--blue:#1769e0;--blue-d:#1257bd}
@@ -185,6 +205,31 @@ body:has(dialog[open]){overflow:hidden}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 `;
 
+/* The EN | BM switch in the header (two links, so it works without JavaScript) and the "Bahasa Malaysia tersedia" note.
+   Phone widths: at 400 px and below the logo shrinks so logo, switch and Log in stay on one row ("Log masuk" is wider
+   than "Log in"); below 375 px the switch moves to the end of the row of page links, and at 340 px and below those
+   links tighten a little so the switch still fits on that row. Checked at 320, 360, 375 and 390. */
+const LANG_CSS = `
+.langsw{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1.5px solid #c3cfdf;border-radius:11px;background:#fff;flex:none}
+.langsw a{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:38px;padding:0 10px;border-radius:8px;color:#2b3a50;font:700 14px/1 Inter,"Segoe UI",system-ui,Arial,sans-serif;letter-spacing:.04em;text-decoration:none}
+.langsw a:hover{background:#eef3fa;color:var(--navy)}
+.langsw a[aria-current="true"]{background:var(--navy);color:#fff}
+.nav .langsw{margin-right:-18px}
+.vh{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.langbar{background:var(--gold-soft);border-bottom:1px solid #ecd9a4;color:#3b2c06;font-size:15px}
+.langbar .wrap{display:flex;align-items:center;gap:10px;min-height:48px;padding-top:4px;padding-bottom:4px}
+.langbar p{margin:0;flex:1 1 auto;min-width:0}
+.langbar a{display:inline-block;padding:8px 2px;font-weight:700;color:var(--blue-d)}
+.langbar-x{flex:none;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:#5a4a1c;font-size:24px;line-height:1;cursor:pointer}
+.langbar-x:hover{background:#f5e3b3}
+@media (max-width:640px){.nav .langsw{margin-right:-6px}.langsw a{min-width:40px;padding:0 8px}}
+@media (max-width:480px){.nav .langsw{margin:0}.langsw a{min-width:34px;min-height:36px;padding:0 6px;font-size:13px}.nav .btn.sm{padding:10px 12px}}
+@media (max-width:400px){.brand{font-size:20px;gap:8px}.mark{width:30px;height:30px;font-size:15px}.nav{gap:0 8px}}
+@media (max-width:374px){.nav-links{flex:1 1 auto;gap:14px}.nav .langsw{order:4;margin-left:auto}}
+@media (max-width:340px){.nav-links{gap:10px}.nav-links a{font-size:13px}}
+@media print{.langbar,.langsw{display:none!important}}
+`;
+
 const ICONS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
 <symbol id="i-users" viewBox="0 0 48 48"><circle cx="24" cy="15" r="6"/><circle cx="11" cy="19" r="4.5"/><circle cx="37" cy="19" r="4.5"/><path d="M13 38c0-7 5-11 11-11s11 4 11 11"/><path d="M3 35c0-5 3-8 8-8M45 35c0-5-3-8-8-8"/></symbol>
 <symbol id="i-trophy" viewBox="0 0 48 48"><path d="M14 8h20v10c0 6-4 10-10 10s-10-4-10-10z"/><path d="M14 11H7c0 6 3 9 8 9M34 11h7c0 6-3 9-8 9"/><path d="M24 28v8M16 41h16M19 36h10"/></symbol>
@@ -210,36 +255,118 @@ const ICONS = `<svg width="0" height="0" style="position:absolute" aria-hidden="
 const ic = (id, cls) => `<svg class="ico${cls ? ' ' + cls : ''}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
 const arrow = '<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-arrow"/></svg>';
 
-const header = (page) => `
-<a class="skip" href="#main">Skip to content</a>
+/* ctx: { lang, key (landing | features | how | help), R (this language's routes), twin (the same page in the other
+   language) }. The switch is two plain links: the current language is marked aria-current, the other one goes to the
+   twin page. A click also saves the choice (the dd-lang-ui script); with no JavaScript the links still work. */
+const langSwitch = (T, ctx) => {
+  const href = (l) => (l === ctx.lang ? ROUTES[l][ctx.key] : ctx.twin);
+  const link = (l, label) => `<a href="${href(l)}" lang="${l}" hreflang="${l}" aria-label="${T.switcher[l]}" data-lang-set="${l}"${l === ctx.lang ? ' aria-current="true"' : ''}>${label}</a>`;
+  return `<div class="langsw" role="group" aria-label="${T.switcher.group}">${link('en', 'EN')}${link('ms', 'BM')}</div>`;
+};
+/* English pages only: shown by the dd-lang-ui script when nothing is saved and the browser's first language is Malay. */
+const langBar = (ctx) => ctx.lang !== 'en' ? '' : `
+<div class="langbar" id="langBar" lang="ms" hidden><div class="wrap"><p>Bahasa Malaysia tersedia &mdash; <a href="${ctx.twin}" hreflang="ms" data-lang-set="ms" title="Switch to Bahasa Malaysia">Tukar ke BM<span class="vh" lang="en"> (Switch to Bahasa Malaysia)</span></a></p><button class="langbar-x" type="button" data-langbar-close aria-label="Tutup" title="Close">&times;</button></div></div>`;
+
+const header = (T, ctx) => `
+<a class="skip" href="#main">${T.common.skip}</a>${langBar(ctx)}
 <header class="top"><div class="wrap nav">
-  <a class="brand" href="/" aria-label="DartDraw home"><span class="mark" aria-hidden="true">D</span>DartDraw</a>
-  <nav class="nav-links" aria-label="Main">
-    <a href="/features"${page === 'features' ? ' aria-current="page"' : ''}>Features</a>
-    <a href="/how-it-works"${page === 'how' ? ' aria-current="page"' : ''}>How it works</a>
-    <a href="/help"${page === 'help' ? ' aria-current="page"' : ''}>Help</a>
+  <a class="brand" href="${ctx.R.landing}" aria-label="${T.common.homeLabel}"><span class="mark" aria-hidden="true">D</span>DartDraw</a>
+  <nav class="nav-links" aria-label="${T.common.mainNav}">
+    <a href="${ctx.R.features}"${ctx.key === 'features' ? ' aria-current="page"' : ''}>${T.common.features}</a>
+    <a href="${ctx.R.how}"${ctx.key === 'how' ? ' aria-current="page"' : ''}>${T.common.how}</a>
+    <a href="${ctx.R.help}"${ctx.key === 'help' ? ' aria-current="page"' : ''}>${T.common.help}</a>
   </nav>
   <span class="spacer"></span>
-  <a class="btn sm" href="/login.html" data-login>Log in</a>
+  ${langSwitch(T, ctx)}
+  <a class="btn sm" href="/login.html" data-login>${T.common.logIn}</a>
 </div></header>`;
 
-const closing = (headline) => `
+const closing = (T, ctx, headline) => `
 <section class="close" aria-labelledby="closeH"><div class="wrap">
   <h2 id="closeH">${headline}</h2>
-  <a class="btn" href="/login.html" data-login>Log in ${arrow}</a>
-  <nav class="foot-nav" aria-label="Footer">
-    <a href="/features">Features</a>
-    <a href="/how-it-works">How it works</a>
-    <a href="/help">Help</a>
+  <a class="btn" href="/login.html" data-login>${T.common.logIn} ${arrow}</a>
+  <nav class="foot-nav" aria-label="${T.common.footerNav}">
+    <a href="${ctx.R.features}">${T.common.features}</a>
+    <a href="${ctx.R.how}">${T.common.how}</a>
+    <a href="${ctx.R.help}">${T.common.help}</a>
   </nav>
-  <div class="foot"><a class="brand" href="/"><span class="mark" aria-hidden="true">D</span>DartDraw</a><span class="sep" aria-hidden="true"></span><span>Tournament charts, made simple.</span></div>
+  <div class="foot"><a class="brand" href="${ctx.R.landing}"><span class="mark" aria-hidden="true">D</span>DartDraw</a><span class="sep" aria-hidden="true"></span><span>${T.common.tagline}</span></div>
 </div></section>`;
 
-const dialog = `
-<dialog id="loginDlg" aria-label="Log in to DartDraw">
+/* The language choice, before the page draws (head). Saved choice: localStorage "dartdraw.lang" ("en" | "ms"), read and
+   written inside try/catch, so a browser that blocks storage just stays on the page it opened.
+   - ?lang=ms|en on any page: saves that choice, then goes to that language's version of this page (the parameter is
+     dropped; the rest of the address, ?from= and #anchor included, is kept).
+   - A saved choice that is not this page's language sends the visitor to the twin page with location.replace, but only
+     when the address has no #anchor: a shared link to a section stays where it points. The one exception is the
+     English Help page with "ms" saved: the organiser app's "?" links open /help#anchor, so they go to /ms/help#anchor.
+   - Nothing is ever decided from the browser's language (shared links and search engines must see what the link says);
+     that only shows the note on the English pages (dd-lang-ui). */
+const langHead = (ctx) => `
+<script id="dd-lang">
+(function(){
+var L=${JSON.stringify(ctx.lang)},TWIN=${JSON.stringify(ctx.twin)},HASHOK=${ctx.lang === 'en' && ctx.key === 'help' ? 'true' : 'false'},KEY='dartdraw.lang';
+var q=String(location.search||''),h=String(location.hash||''),m=/[?&]lang=(en|ms)(?=&|$)/.exec(q);
+if(m){
+  try{localStorage.setItem(KEY,m[1])}catch(e){}
+  var rest=q.replace(/([?&])lang=(en|ms)(&|$)/,function(a,b,c,d){return d?b:''}).replace(/[?&]$/,'');
+  if(m[1]!==L){location.replace(TWIN+rest+h);return}
+  try{history.replaceState(null,'',location.pathname+rest+h)}catch(e){}
+  return;
+}
+var s=null;try{s=localStorage.getItem(KEY)}catch(e){}
+if((s==='en'||s==='ms')&&s!==L&&(!h||(HASHOK&&s==='ms')))location.replace(TWIN+q+h);
+})();
+</script>`;
+
+/* After the page (end of body): a click on EN / BM (or on the note's link) saves the choice and, on the new page, puts
+   the focus back on the switch. The links are kept pointing at the same place in the twin page (query and #anchor).
+   viewer/help.html and viewer/ms/help.html carry a copy of this script and of langHead (tests/i18n-switch.test.js
+   checks the copies stay the same). The note: English pages only, when nothing is saved, the browser's first language
+   starts with "ms" and the note was not closed before (dartdraw.lang.note = "closed"). */
+const langUi = (ctx) => `
+<script id="dd-lang-ui">
+(function(){
+var KEY='dartdraw.lang',NOTE='dartdraw.lang.note',FOCUS='dartdraw.lang.focus';
+function get(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function put(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+/* the other language's link keeps this address's query (?from=...) and #anchor, so the twin opens at the same place */
+function keep(){return String(location.search||'').replace(/([?&])lang=(en|ms)(&|$)/,function(a,b,c,d){return d?b:''}).replace(/[?&]$/,'')+String(location.hash||'')}
+function sync(){[].forEach.call(document.querySelectorAll('[data-lang-set]'),function(a){
+  if(a.getAttribute('aria-current')==='true')return;
+  var b=a.getAttribute('data-base')||String(a.getAttribute('href')||'').split(/[?#]/)[0];
+  a.setAttribute('data-base',b);a.setAttribute('href',b+keep());
+})}
+sync();
+window.addEventListener('hashchange',sync);
+[].forEach.call(document.querySelectorAll('[data-lang-set]'),function(a){
+  a.addEventListener('click',function(e){
+    var l=a.getAttribute('data-lang-set');
+    put(KEY,l);
+    try{sessionStorage.setItem(FOCUS,'1')}catch(x){}
+    if(a.getAttribute('aria-current')==='true')e.preventDefault();
+  });
+});
+try{if(sessionStorage.getItem(FOCUS)){sessionStorage.removeItem(FOCUS);var cur=document.querySelector('.langsw [aria-current="true"]');if(cur&&cur.focus)cur.focus()}}catch(e){}
+var bar=document.getElementById('langBar');
+if(bar){
+  var n=String((navigator.languages&&navigator.languages[0])||navigator.language||'');
+  var saved=get(KEY);
+  if(saved!=='en'&&saved!=='ms'&&/^ms/i.test(n)&&get(NOTE)!=='closed')bar.hidden=false;
+  var x=bar.querySelector('[data-langbar-close]');
+  if(x)x.addEventListener('click',function(){bar.hidden=true;put(NOTE,'closed')});
+}
+})();
+</script>`;
+
+/* The sign-in pop-up. The BM pages pass their language to the sign-in page (login.html?embed=1&lang=ms, i18n/auth-i18n.js);
+   the English pages keep the plain address (the sign-in page follows the page around it). */
+const loginSrc = (ctx) => '/login.html?embed=1' + (ctx.lang === 'en' ? '' : '&amp;lang=' + ctx.lang);
+const dialog = (T, ctx) => `
+<dialog id="loginDlg" aria-label="${T.common.dialogLabel}">
   <div class="dlg">
-    <button class="x" type="button" aria-label="Close" data-close>&times;</button>
-    <iframe id="loginFrame" title="Log in to DartDraw" data-src="/login.html?embed=1"></iframe>
+    <button class="x" type="button" aria-label="${T.common.close}" data-close>&times;</button>
+    <iframe id="loginFrame" title="${T.common.dialogLabel}" data-src="${loginSrc(ctx)}"></iframe>
   </div>
 </dialog>
 <script>
@@ -301,146 +428,148 @@ window.__ddSignedIn=fetch('/api/auth/me',{credentials:'same-origin',cache:'no-st
 })();
 </script>`;
 
-const page = (title, desc, pageKey, body, headline, extraCss) => `<!doctype html>
-<html lang="en">
+/* Canonical and the language versions of this page, for search engines (full addresses, see SITE_URL). */
+const hreflang = (ctx) => {
+  const url = (l) => SITE_URL + ROUTES[l][ctx.key];
+  return `
+<link rel="canonical" href="${url(ctx.lang)}">
+<link rel="alternate" hreflang="en" href="${url('en')}">
+<link rel="alternate" hreflang="ms" href="${url('ms')}">
+<link rel="alternate" hreflang="x-default" href="${url('en')}">`;
+};
+
+const page = (T, ctx, body, headline, extraCss) => `<!doctype html>
+<html lang="${ctx.lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title}</title>
-<meta name="description" content="${desc}">
+<title>${T.meta[ctx.key].title}</title>
+<meta name="description" content="${T.meta[ctx.key].desc}">${hreflang(ctx)}${langHead(ctx)}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>${CSS}${extraCss || ''}</style>${pageKey === 'landing' ? signedInRedirect : ''}
+<style>${CSS}${LANG_CSS}${extraCss || ''}</style>${ctx.key === 'landing' ? signedInRedirect : ''}
 </head>
 <body id="top">
 ${ICONS}
-${header(pageKey)}
+${header(T, ctx)}
 <main id="main">
 ${body}
 </main>
-${closing(headline)}
-${dialog}
+${closing(T, ctx, headline)}
+${langUi(ctx)}
+${dialog(T, ctx)}
 </body>
 </html>
 `;
 
 /* ---------------- landing ---------------- */
-const landing = `
+const landing = (T, ctx) => {
+  const W = T.landing, P = W.preview;
+  return `
 <section class="hero" aria-labelledby="heroH"><div class="wrap hero-grid">
   <div>
-    <p class="eyebrow">Built for tournament organisers</p>
-    <h1 id="heroH">Your tournament.<br>Every draw, <em>organised.</em></h1>
-    <p class="lede">Create draws, organise groups and prepare branded tournament charts &mdash; all in one place.</p>
+    <p class="eyebrow">${W.eyebrow}</p>
+    <h1 id="heroH">${W.h1}</h1>
+    <p class="lede">${W.lede}</p>
     <div class="cta-row">
-      <a class="btn big" href="/login.html" data-login>Log in ${arrow}</a>
-      <a class="btn ghost big" href="/features">Explore the features</a>
+      <a class="btn big" href="/login.html" data-login>${T.common.logIn} ${arrow}</a>
+      <a class="btn ghost big" href="${ctx.R.features}">${W.explore}</a>
     </div>
-    <p class="cta-note">No account yet? Accounts are created by the site admin.</p>
-    <ul class="tags" aria-label="Competition types"><li>Singles</li><li>Doubles</li><li>Teams</li></ul>
+    <p class="cta-note">${W.ctaNote}</p>
+    <ul class="tags" aria-label="${W.typesLabel}">${W.types.map((t) => `<li>${t}</li>`).join('')}</ul>
   </div>
   <div class="preview" aria-hidden="true">
     <div class="win">
       <div class="side">
         <div class="logo"><i>D</i>DartDraw</div>
-        <small>Tournament workspace</small>
-        <div class="it">Overview</div><div class="it on">Charts &amp; print</div><div class="it">Groups</div><div class="it">Knockout</div><div class="it">Players</div><div class="it">Event settings</div>
+        <small>${P.workspace}</small>
+        ${P.menu.map((m, i) => `<div class="it${i === 1 ? ' on' : ''}">${m}</div>`).join('')}
       </div>
       <div class="main-pane">
-        <h4>DartDraw Open</h4><div class="s">Tournament workspace</div>
-        <div class="tabs"><span class="on">Round robin</span><span>Knockout</span><span>Charts</span><span>Branding</span><span>Event details</span></div>
+        <h4>DartDraw Open</h4><div class="s">${P.workspace}</div>
+        <div class="tabs">${P.tabs.map((t, i) => `<span${i === 0 ? ' class="on"' : ''}>${t}</span>`).join('')}</div>
       </div>
     </div>
     <div class="chart">
-      <div class="row1"><div><h5>DartDraw Open</h5><div class="sub">Round Robin &middot; Best of 3</div></div><div><span class="pill">A4 print preview</span><div class="grp">GROUP A<small>BOARD 01</small></div></div></div>
-      <table class="grid"><thead><tr><th>#</th><th>Player</th><th>1</th><th>2</th><th>3</th><th>4</th><th>Won</th><th>Legs</th><th>Position</th></tr></thead><tbody>
+      <div class="row1"><div><h5>DartDraw Open</h5><div class="sub">${P.sub}</div></div><div><span class="pill">${P.pill}</span><div class="grp">${P.group}</div></div></div>
+      <table class="grid"><thead><tr>${P.heads.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>
         <tr><td>1</td><td class="n">Alex Turner</td><td class="x"></td><td>2 - 1</td><td>0 - 2</td><td>2 - 0</td><td>2</td><td>4 - 3</td><td>2</td></tr>
         <tr><td>2</td><td class="n">Sam Collins</td><td>1 - 2</td><td class="x"></td><td>2 - 1</td><td>2 - 0</td><td>2</td><td>5 - 3</td><td>1</td></tr>
         <tr><td>3</td><td class="n">Jamie Brooks</td><td>2 - 0</td><td>1 - 2</td><td class="x"></td><td>0 - 2</td><td>1</td><td>3 - 4</td><td>3</td></tr>
         <tr><td>4</td><td class="n">Chris Hall</td><td>0 - 2</td><td>0 - 2</td><td>2 - 0</td><td class="x"></td><td>1</td><td>2 - 4</td><td>4</td></tr>
       </tbody></table>
-      <div class="mo"><div><b>MATCH ORDER</b>1. 1 v 2 &nbsp; 3. 1 v 3 &nbsp; 5. 1 v 4<br>2. 3 v 4 &nbsp; 4. 2 v 4 &nbsp; 6. 2 v 3</div><span style="flex:1"></span><span class="ph">YOUR LOGO HERE</span><span class="ph">SPONSOR LOGO HERE</span></div>
+      <div class="mo"><div><b>${P.matchOrder}</b>${P.orderText}</div><span style="flex:1"></span><span class="ph">${P.logo}</span><span class="ph">${P.sponsor}</span></div>
     </div>
   </div>
 </div></section>
 
-<section class="strip" aria-label="What DartDraw covers"><div class="wrap">
-  <h2>One workspace.<br>Every stage of your draw.</h2>
-  <div class="it">${ic('users')}Round robin</div>
-  <div class="it">${ic('trophy')}Knockout</div>
-  <div class="it">${ic('image')}Custom branding</div>
-  <div class="it">${ic('doc')}A4 PDF charts</div>
+<section class="strip" aria-label="${W.stripLabel}"><div class="wrap">
+  <h2>${W.stripH}</h2>
+  ${['users', 'trophy', 'image', 'doc'].map((icon, i) => `<div class="it">${ic(icon)}${W.strip[i]}</div>`).join('\n  ')}
 </div></section>
 
 <section class="band" id="steps" aria-labelledby="stepsH"><div class="wrap">
-  <h2 class="sec" id="stepsH">From event setup to the first throw.</h2>
+  <h2 class="sec" id="stepsH">${W.stepsH}</h2>
   <div class="steps">
-    <div class="step"><span class="num">01</span><span class="disc">${ic('edit', 'sm')}</span><div><h3>Set up your event</h3><p>Add tournament details, event type and entries.</p></div></div>
-    <div class="step"><span class="num">02</span><span class="disc">${ic('grid', 'sm')}</span><div><h3>Build your charts</h3><p>Choose your format, groups and board numbers.</p></div></div>
-    <div class="step"><span class="num">03</span><span class="disc">${ic('printer', 'sm')}</span><div><h3>Review. Save. Print.</h3><p>Confirm your layout and prepare your A4 charts.</p></div></div>
+    ${['edit', 'grid', 'printer'].map((icon, i) => `<div class="step"><span class="num">0${i + 1}</span><span class="disc">${ic(icon, 'sm')}</span><div><h3>${W.steps[i].h}</h3><p>${W.steps[i].p}</p></div></div>`).join('\n    ')}
   </div>
-  <p style="margin:34px 0 0"><a class="btn ghost" href="/how-it-works" style="padding-left:0">See how it works in detail ${arrow}</a></p>
+  <p style="margin:34px 0 0"><a class="btn ghost" href="${ctx.R.how}" style="padding-left:0">${W.detail} ${arrow}</a></p>
 </div></section>`;
+};
 
 /* ---------------- features ---------------- */
-const features = `
+const FORMAT_ICONS = ['users', 'bracket', 'layers'];
+const CARD_ICONS = ['target', 'shield', 'check', 'target', 'users', 'printer', 'qr', 'clock', 'monitor'];
+const features = (T) => {
+  const W = T.features;
+  const card = (c, i) => `<div class="card fcard"><span class="disc">${ic(CARD_ICONS[i], 'sm')}</span><div><h3>${c.h}</h3>${c.p ? `<p>${c.p}</p>` : ''}${c.li ? `<ul>${c.li.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}${c.chip ? `<div class="mini"><span class="chip">${c.chip}</span></div>` : ''}</div></div>`;
+  return `
 <section class="phero" aria-labelledby="fH"><div class="wrap">
-  <p class="eyebrow">Features</p>
-  <h1 id="fH">Everything you need to <em>run the draw.</em></h1>
-  <p class="lede">From the first group to the final chart, DartDraw handles the sums, the boards and the paperwork.</p>
+  <p class="eyebrow">${W.eyebrow}</p>
+  <h1 id="fH">${W.h1}</h1>
+  <p class="lede">${W.lede}</p>
 </div></section>
 
 <section class="band" aria-labelledby="fmtH"><div class="wrap">
-  <h2 class="sec" id="fmtH">Three ways to run an event</h2>
+  <h2 class="sec" id="fmtH">${W.fmtH}</h2>
   <div class="fmt">
-    <div class="card">${ic('users')}<h3>Round robin</h3><p>Everyone plays within their group, with live standings as scores go in.</p></div>
-    <div class="card">${ic('bracket')}<h3>Knockout</h3><p>A straight elimination bracket, with byes added for you. Or Group Boards first: small knockout groups, then a finals bracket.</p></div>
-    <div class="card">${ic('layers')}<h3>Round robin &rarr; Knockout</h3><p>Group stage first, then the top finishers go through to a bracket. Entries that don&rsquo;t advance can play a Plate pool.</p></div>
+    ${W.formats.map((f, i) => `<div class="card">${ic(FORMAT_ICONS[i])}<h3>${f.h}</h3><p>${f.p}</p></div>`).join('\n    ')}
   </div>
 </div></section>
 
 <section class="band alt" aria-labelledby="moreH"><div class="wrap">
-  <h2 class="sec" id="moreH">Built around how a tournament day really runs</h2>
+  <h2 class="sec" id="moreH">${W.moreH}</h2>
   <div class="fgrid">
-    <div class="card fcard"><span class="disc">${ic('target', 'sm')}</span><div><h3>A champion for every group &mdash; Group Boards</h3><p>Want a group champion before the finals? Choose Knockout, then Group Boards: the field is split into small knockout groups, each on its own boards. Every group crowns a champion, and the champions meet in a Finals bracket.</p><div class="mini"><span class="chip">Optional</span></div></div></div>
-    <div class="card fcard"><span class="disc">${ic('shield', 'sm')}</span><div><h3>Fair draws, built for you</h3><ul><li>Groups are built and balanced automatically</li><li>Keep entries from the same organisation apart, in a group or in the first knockout round</li><li>Seeded or random placement into the bracket, with board numbers for each group</li></ul></div></div>
-    <div class="card fcard"><span class="disc">${ic('check', 'sm')}</span><div><h3>Scoring that does the sums</h3><ul><li>Enter scores straight onto the chart; standings update as you go</li><li>Tie-breaks by head-to-head, leg difference, legs won, then your decision &mdash; and DartDraw flags any tie that needs one</li><li>No-shows, walkovers, withdrawals and check-in</li></ul></div></div>
-    <div class="card fcard"><span class="disc">${ic('target', 'sm')}</span><div><h3>Legs your way</h3><p>Set best-of legs for the whole event, or vary them by knockout round: early rounds, quarter-finals, semi-finals and the final.</p></div></div>
-    <div class="card fcard"><span class="disc">${ic('users', 'sm')}</span><div><h3>Singles, doubles and teams</h3><p>Run singles, doubles or team events. A pair or a team is simply its name on the charts, results and live page. A team match is made of segments (singles, doubles, trios or a foursome, with an optional tie-breaker), and you enter one result: the total legs each team won.</p></div></div>
-    <div class="card fcard"><span class="disc">${ic('printer', 'sm')}</span><div><h3>Your branding, ready to print</h3><ul><li>Your logo, sponsor logos and a rules or footer line</li><li>An A4 pack of blank charts before the day, and the final chart with every result afterwards</li><li>A QR code on the group charts and bracket sheets that opens the live page, once results are published</li></ul></div></div>
-    <div class="card fcard"><span class="disc">${ic('qr', 'sm')}</span><div><h3>Live results for everyone</h3><ul><li>Share one link: players see their group, their next match and the bracket, and can follow friends</li><li>The page refreshes by itself, and shows &ldquo;Final results&rdquo; when it&rsquo;s done</li><li>Events can also appear on a public home page</li></ul></div></div>
-    <div class="card fcard"><span class="disc">${ic('clock', 'sm')}</span><div><h3>Tools for the day</h3><ul><li>Estimated start times, breaks and a board plan</li><li>Open the round robin and the knockout in separate windows for several screens</li><li>A private incident log, and accepted results lock the final standings</li></ul></div></div>
-    <div class="card fcard"><span class="disc">${ic('monitor', 'sm')}</span><div><h3>Safe, and always with you</h3><p>Sign in from any device and your events are saved to your account. Only you and the Admin can change them.</p></div></div>
+    ${W.cards.map(card).join('\n    ')}
   </div>
 </div></section>`;
+};
 
 /* ---------------- how it works ---------------- */
-const how = `
+const STEP_ICONS = ['edit', 'layers', 'grid', 'printer', 'target', 'check', 'trophy'];
+const NOTE_ICONS = ['monitor', 'link', 'shield'];
+const how = (T) => {
+  const W = T.how;
+  return `
 <section class="phero" aria-labelledby="hH"><div class="wrap">
-  <p class="eyebrow">How it works</p>
-  <h1 id="hH">From event setup to <em>the first throw.</em></h1>
-  <p class="lede">Seven steps, in the order you&rsquo;ll do them. The app guides you through each one.</p>
+  <p class="eyebrow">${W.eyebrow}</p>
+  <h1 id="hH">${W.h1}</h1>
+  <p class="lede">${W.lede}</p>
 </div></section>
 
-<section class="band" aria-label="The seven steps"><div class="wrap">
+<section class="band" aria-label="${W.stepsLabel}"><div class="wrap">
   <ol class="tl">
-    <li><span class="num">1</span><div><h3>Event creation</h3><p>Name it, choose the category and Singles, Doubles or Teams, set the date and the number of entries: players, pairs or teams.</p></div><span class="disc">${ic('edit', 'sm')}</span></li>
-    <li><span class="num">2</span><div><h3>Format &amp; branding</h3><p>Pick the format and best-of legs, including a knockout with Group Boards if you want a champion for every group before the finals. Add your logo, sponsors and footer. Basic setup keeps things simple; Advanced adds scheduling, per-round legs and the Plate pool.</p></div><span class="disc">${ic('layers', 'sm')}</span></li>
-    <li><span class="num">3</span><div><h3>Chart details</h3><p>Add your entries. DartDraw builds balanced groups and gives each its boards, and you can adjust anything by hand.</p></div><span class="disc">${ic('grid', 'sm')}</span></li>
-    <li><span class="num">4</span><div><h3>Confirm &amp; Print Bracket</h3><p>Check each chart, confirm it, and print the blank A4 pack. Want QR codes on the sheets? Publish the results first: this step offers a button for it.</p></div><span class="disc">${ic('printer', 'sm')}</span></li>
-    <li><span class="num">5</span><div><h3>Manage Tournament</h3><p>Run the day: start the games, enter scores and watch standings update. When the groups are done, draw the knockout. Share the live link so players can follow along. When the final is in, click Accept &amp; finalize at the bottom of this step: the live page then shows &ldquo;Final results&rdquo;.</p></div><span class="disc">${ic('target', 'sm')}</span></li>
-    <li><span class="num">6</span><div><h3>Finalize Standings</h3><p>Review the final tables and placings. This step is read-only: to fix a score, go back to Manage Tournament.</p></div><span class="disc">${ic('check', 'sm')}</span></li>
-    <li><span class="num">7</span><div><h3>Print Final Chart</h3><p>Print the completed chart with every result, or save it as a PDF.</p></div><span class="disc">${ic('trophy', 'sm')}</span></li>
+    ${W.steps.map((s, i) => `<li><span class="num">${i + 1}</span><div><h3>${s.h}</h3><p>${s.p}</p></div><span class="disc">${ic(STEP_ICONS[i], 'sm')}</span></li>`).join('\n    ')}
   </ol>
 </div></section>
 
 <section class="band alt" aria-labelledby="gtkH"><div class="wrap">
-  <h2 class="sec" id="gtkH">Good to know</h2>
+  <h2 class="sec" id="gtkH">${W.gtkH}</h2>
   <div class="notes">
-    <div class="note">${ic('monitor', 'sm')}<p><b>Saved as you go</b>Everything saves to your account, so you can pick up on any device.</p></div>
-    <div class="note">${ic('link', 'sm')}<p><b>Live pages update themselves</b>Players don&rsquo;t need to refresh to see new results.</p></div>
-    <div class="note">${ic('shield', 'sm')}<p><b>Accepted results are locked</b>Once you accept them with Accept &amp; finalize, only the Admin can reopen them.</p></div>
+    ${W.notes.map((n, i) => `<div class="note">${ic(NOTE_ICONS[i], 'sm')}<p><b>${n.b}</b>${n.p}</p></div>`).join('\n    ')}
   </div>
 </div></section>`;
+};
 
 /* ---------------- help ---------------- */
 const HELP_CSS = `
@@ -549,15 +678,21 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 }
 `;
 
+
 /* The search box and the contents list. Without JavaScript the search box stays hidden, everything is shown, and the
    contents list is an ordinary open list of links. With it, the shared search (/help-search.js, the same file the
    spectators' Help uses) shows a ranked list of the matching articles and questions; only a clear winner opens by
-   itself. The synonyms come from scripts/help-content.js as JSON. On a narrow screen the contents list folds away
-   until it is wanted. */
+   itself. The page data (JSON) holds the synonyms and noAnswer lines of the page's help content, the sentences the
+   search shows (T.helpPage.search) and, in BM, lang "ms" (no English stemming; see help-search.js). The English page
+   also gets "alias": the BM words people may type there, read as their English meaning (scripts/i18n/ms/help-content.js
+   search.toEnglish). On a narrow screen the contents list folds away until it is wanted. */
 const json = (o) => JSON.stringify(o).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
-const HELP_SCRIPT = `
+const searchData = (T, lang, help) => lang === 'ms'
+  ? { lang: 'ms', synonyms: help.search.synonyms, noAnswer: help.search.noAnswer, strings: T.helpPage.search }
+  : { synonyms: help.search.synonyms, noAnswer: help.search.noAnswer, strings: T.helpPage.search, alias: HELP.ms.search.toEnglish };
+const HELP_SCRIPT = (data) => `
 <script src="/help-search.js"></script>
-<script type="application/json" id="helpSearchData">${json({ synonyms: help.search.synonyms, noAnswer: help.search.noAnswer })}</script>
+<script type="application/json" id="helpSearchData">${json(data)}</script>
 <script>
 (function(){
 var form=document.getElementById('helpSearch'),input=document.getElementById('helpQ');
@@ -569,8 +704,7 @@ if(form&&input&&typeof HelpSearch!=='undefined'){
   var tocs=[].slice.call(document.querySelectorAll('[data-toc]')).map(function(li){var id=li.getAttribute('data-toc'),own=idsOf(id);return{el:li,ids:own.length?own:[id]}});
   HelpSearch.attach({input:input,form:form,reveal:form,status:document.getElementById('helpCount'),results:document.getElementById('helpResults'),
     empty:document.getElementById('helpEmpty'),emptyQ:document.getElementById('helpEmptyQ'),say:document.getElementById('helpSay'),
-    items:items,groups:groups,tocs:tocs,data:data,
-    nearCount:function(n){return 'No direct answer. '+n+(n===1?' close match':' close matches')}});
+    items:items,groups:groups,tocs:tocs,data:data});
 }
 var toc=document.getElementById('helpToc'),mq=window.matchMedia?window.matchMedia('(min-width: 961px)'):null;
 if(toc&&mq){
@@ -589,12 +723,12 @@ const kwAttr = (it) => it.keywords ? ` data-keywords="${String(it.keywords).repl
 /* Old ids that still have to work as #anchors after the outline moved (help-content.js `aliases`): an empty element with
    that id. Inside an article it is the article's first child, so the search script finds the article from it. */
 const aliasSpans = (x) => (x.aliases || []).map((id) => `<span class="alias" id="${id}"></span>`).join('');
-const helpArticle = (sec) => (it) => `
+const helpArticle = (T, sec) => (it) => `
     <article class="harticle" id="${it.id}" data-item data-group="${sec.id}" data-kind="guide"${kwAttr(it)}>${aliasSpans(it)}
-      <div class="hhead"><h3>${it.title}</h3><a class="anchor" href="#${it.id}" aria-label="Link to this section">#</a></div>
+      <div class="hhead"><h3>${it.title}</h3><a class="anchor" href="#${it.id}" aria-label="${T.helpPage.linkToSection}">#</a></div>
       ${it.summary ? `<p class="sum">${it.summary}</p>` : ''}
       <div class="hbody">${it.body}</div>
-      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+      <p class="totop"><a href="#top">${T.helpPage.backToTop}</a></p>
     </article>`;
 const helpQuestion = (sec) => (it) => `
     <details class="faq" id="${it.id}" data-item data-group="${sec.id}" data-kind="faq"${kwAttr(it)}>
@@ -602,38 +736,39 @@ const helpQuestion = (sec) => (it) => `
       <div class="faq-body">${aliasSpans(it)}${it.body}</div>
     </details>`;
 
-function helpPage() {
+function helpPage(T, ctx) {
+  const help = HELP[ctx.lang], H = T.helpPage;
   const guideLinks = (sec) => sec.items.map((it) => `<li data-toc="${it.id}"><a href="#${it.id}">${it.title}</a></li>`).join('\n          ');
   const toc = help.sections.map((sec) => sec.kind === 'guide'
     ? `<p class="toc-h">${sec.title}</p>
         <ol>
           ${guideLinks(sec)}
         </ol>`
-    : `<p class="toc-h">Quick answers</p>
+    : `<p class="toc-h">${H.quickAnswers}</p>
         <ol>
           <li data-toc="${sec.id}"><a href="#${sec.id}">${sec.title} (${sec.items.length})</a></li>
         </ol>`).join('\n        ');
   const main = help.sections.map((sec) => `
-    ${aliasSpans(sec)}<h2 class="hgroup" id="${sec.id}" data-group-head="${sec.id}">${sec.title}</h2>${sec.items.map(sec.kind === 'guide' ? helpArticle(sec) : helpQuestion(sec)).join('')}
-    ${sec.kind === 'faq' ? `<p class="hgroup-end" data-group-end="${sec.id}"><a href="#top">Back to top &uarr;</a></p>` : ''}`).join('\n');
+    ${aliasSpans(sec)}<h2 class="hgroup" id="${sec.id}" data-group-head="${sec.id}">${sec.title}</h2>${sec.items.map(sec.kind === 'guide' ? helpArticle(T, sec) : helpQuestion(sec)).join('')}
+    ${sec.kind === 'faq' ? `<p class="hgroup-end" data-group-end="${sec.id}"><a href="#top">${H.backToTop}</a></p>` : ''}`).join('\n');
   const titleOf = (id) => { for (const sec of help.sections) for (const it of sec.items) if (it.id === id) return it.title; return ''; };
   const popular = help.search.popular.map((p) => `<li><a href="#${p.id}">${p.label || titleOf(p.id)}</a></li>`).join('');
   return `
 <section class="phero" aria-labelledby="helpH"><div class="wrap">
-  <p class="eyebrow">Help</p>
+  <p class="eyebrow">${H.eyebrow}</p>
   <h1 id="helpH">${help.title}</h1>
   <p class="lede">${help.lede}</p>
   <form class="hsearch" id="helpSearch" role="search" hidden>
-    <label for="helpQ">Search the help</label>
-    <input id="helpQ" type="search" maxlength="120" placeholder="Try &ldquo;no-show&rdquo;, &ldquo;wrong score&rdquo; or &ldquo;print&rdquo;" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="helpCount" aria-controls="helpResults">
+    <label for="helpQ">${H.searchLabel}</label>
+    <input id="helpQ" type="search" maxlength="120" placeholder="${H.placeholder}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="helpCount" aria-controls="helpResults">
     <p class="hcount" id="helpCount" aria-live="polite"></p>
   </form>
 </div></section>
 
-<section class="band alt help" aria-label="Help articles and questions"><div class="wrap help-layout">
-  <nav class="help-toc" aria-label="Help contents">
+<section class="band alt help" aria-label="${H.articlesLabel}"><div class="wrap help-layout">
+  <nav class="help-toc" aria-label="${H.contentsLabel}">
     <details id="helpToc" open>
-      <summary><span class="s-desk">Contents</span><span class="s-mob">Jump to a topic</span></summary>
+      <summary><span class="s-desk">${H.contents}</span><span class="s-mob">${H.jump}</span></summary>
       <div>
         ${toc}
       </div>
@@ -641,16 +776,16 @@ function helpPage() {
   </nav>
   <div class="help-main">
     <div class="hintro hstart">
-      <p>New to DartDraw? Start with the <a href="#quick-start">Quick start</a>. Not sure what a word means? See <a href="#glossary">Words you will see</a>. Something not working? See <a href="#troubleshooting">When something goes wrong</a>.</p>
+      <p>${H.start}</p>
     </div>
     <div class="hintro">
-      <p>Following an event as a spectator? The public results site has its own <a href="${help.VIEWER_HELP_URL}" target="_blank" rel="noopener">help page for spectators</a>.</p>
-      <a class="btn sm" href="/login.html" data-login>Log in to DartDraw</a>
+      <p>${H.spectatorBefore}<a href="${help.VIEWER_HELP_URL}" target="_blank" rel="noopener">${H.spectatorLink}</a>${H.spectatorAfter}</p>
+      <a class="btn sm" href="/login.html" data-login>${H.logInTo}</a>
     </div>
     <div class="hempty" id="helpEmpty" hidden>
-      <p class="hempty-h">No answer for &ldquo;<span id="helpEmptyQ"></span>&rdquo;.</p>
+      <p class="hempty-h">${H.noAnswerBefore}<span id="helpEmptyQ"></span>${H.noAnswerAfter}</p>
       <p class="hempty-say" id="helpSay" hidden></p>
-      <p>Try fewer words, or a different word. Or start with one of these:</p>
+      <p>${H.tryFewer}</p>
       <ul class="hsuggest">${popular}</ul>
       <p class="hempty-end">${help.search.stuck}</p>
     </div>
@@ -658,25 +793,34 @@ function helpPage() {
 ${main}
   </div>
 </div></section>
-${HELP_SCRIPT}`;
+${HELP_SCRIPT(searchData(T, ctx.lang, help))}`;
 }
 
-const SHARED_HEADLINE = 'Less time on charts. <em>More time on the oche.</em>';
-
-/* The four pages as { file name: html }. Pure: no file access, so the tests can compare it with what is on disk. */
-function render() {
-  return {
-    'index.html': page('DartDraw – Your tournament. Every draw, organised.', 'Create draws, organise groups and prepare branded darts tournament charts – all in one place.', 'landing', landing, SHARED_HEADLINE),
-    'features.html': page('Features – DartDraw', 'Round robin, knockout, group boards, live results and branded A4 charts – everything you need to run a darts draw.', 'features', features, SHARED_HEADLINE),
-    'how-it-works.html': page('How it works – DartDraw', 'Seven steps from event setup to the final chart: create the event, choose a format, add entries, print, run the day and accept the results, review, print the final chart.', 'how', how, 'Ready to run your <em>next draw?</em>'),
-    'help.html': page('Help for organisers – DartDraw', 'Step-by-step guides and answers to common questions for DartDraw organisers: setting up an event, running the day, printing, live results and finishing.', 'help', helpPage(), 'Ready to run your <em>next draw?</em>', HELP_CSS)
-  };
+/* The pages of one language (or both) as { file path: html }, the path relative to the repo root (ms/ for BM).
+   Pure: no file access, so the tests can compare it with what is on disk. */
+const PAGE_KEYS = ['landing', 'features', 'how', 'help'];
+function renderLang(lang) {
+  const T = WORDS[lang], other = lang === 'en' ? 'ms' : 'en', out = {};
+  PAGE_KEYS.forEach((key) => {
+    const ctx = { lang, key, R: ROUTES[lang], twin: ROUTES[other][key] };
+    const body = key === 'landing' ? landing(T, ctx) : key === 'features' ? features(T) : key === 'how' ? how(T) : helpPage(T, ctx);
+    const headline = key === 'landing' || key === 'features' ? T.common.headlineShared : T.common.headlineNext;
+    out[FILES[lang][key]] = page(T, ctx, body, headline, key === 'help' ? HELP_CSS : '');
+  });
+  return out;
+}
+function render(lang) {
+  if (lang) return renderLang(lang);
+  return Object.assign({}, renderLang('en'), renderLang('ms'));
 }
 
-module.exports = { render };
+module.exports = { render, ROUTES, FILES, SITE_URL, LANGS, langHead, langUi };
 
 if (require.main === module) {
   const pages = render();
-  Object.keys(pages).forEach((name) => fs.writeFileSync(path.join(OUT, name), pages[name]));
+  Object.keys(pages).forEach((name) => {
+    fs.mkdirSync(path.dirname(path.join(OUT, name)), { recursive: true });
+    fs.writeFileSync(path.join(OUT, name), pages[name]);
+  });
   console.log('written', Object.keys(pages).join(', '));
 }

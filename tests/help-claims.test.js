@@ -10,7 +10,8 @@ const content = require('../scripts/help-content');
    statement true, and the words the statement quotes must be in the Help item and in the app. Add a tag and its
    check together. (help-site.test.js checks the page is generated, the anchors, search and forbidden words.) */
 const root = path.join(__dirname, '..');
-const appHtml = fs.readFileSync(path.join(root, 'app.html'), 'utf8');
+// The app's words live in i18n/app.en.js since i18n step 3: englishSource writes them back into the source.
+const appHtml = require('./lib/app-source').englishSource('app.html');
 const appText = appHtml.replace(/&amp;/g, '&').replace(/\\'/g, "'").replace(/&hellip;/g, '…');
 const plainText = (h) => String(h || '').replace(/<\/?(b|em|strong|a|code)\b[^>]*>/g, '').replace(/<[^>]+>/g, ' ').replace(/&ldquo;|&rdquo;/g, '"').replace(/&rsquo;/g, '’').replace(/&hellip;/g, '…').replace(/&amp;/g, '&').replace(/&ndash;/g, '–').replace(/\s+/g, ' ').trim();
 const items = {};
@@ -178,7 +179,7 @@ const CHECKS = {
     reset(); const ev = rr({ played: true, unchecked: true }); f('confirmGenerateKnockoutFromRR')();
     assert.equal(modals.length, 0); assert.ok(ev.knockout);
     // Group Boards: drawing and confirming check it (pods-ui.js)
-    const pods = fs.readFileSync(path.join(root, 'pods-ui.js'), 'utf8');
+    const pods = require('./lib/app-source').englishSource('pods-ui.js');
     assert.match(fnBody(pods, 'podsDrawClick'), /noShowWarningHTML\(missing\)/);
     assert.match(fnBody(pods, 'podsCheckInGuard'), /noShowWarningHTML\(missing\)/);
   },
@@ -210,6 +211,45 @@ const CHECKS = {
     assert.equal(modals.pop().body, 'Finalized events can only be deleted by an Admin.');
     assert.doesNotMatch(fnBody(appHtml, 'duplicateTournament'), /isFinalizedId|finalizedBlockModal/, 'Duplicate is not blocked');
     assert.match(fnBody(appHtml, 'renderSavedList'), /onclick="renameTournament\(/, 'the sidebar buttons are ordinary buttons (not greyed)');
+  },
+  'language-switch': () => {
+    const t = say('languages');
+    assert.match(t, /In the organiser app the EN \| BM switch is at the top right, next to Help\. On a narrow screen it is in the bar at the top, or in the menu that opens from the step name, under "Bahasa:"/);
+    assert.match(t, /Switching saves nothing and changes nothing in your event/);
+    assert.match(t, /DartDraw remembers your choice in this browser\. The organiser app, the public pages \(this Help too\) and the sign-in page share it/);
+    // the switch sits before Help in the top bar and the compact bar; below 680 px it is the menu's "Bahasa:" row
+    assert.match(appHtml, /<span class="topbar-right"><div class="langsw"[\s\S]*?<\/div><a class="help-link"/);
+    assert.match(appHtml, /<span class="compact-lang"><div class="langsw"/);
+    assert.match(fs.readFileSync(path.join(root, 'i18n/app-i18n.js'), 'utf8'), /<span class="langsw-label" lang="ms">Bahasa:<\/span>/);
+    assert.match(appHtml, /\.compact-bar \.compact-lang\{display:none\}\s*\.compact-menu-lang\{display:block/);
+    // one remembered choice for the app, the sign-in pages and the public pages (the same origin, the same key)
+    ['i18n/app-i18n.js', 'i18n/auth-i18n.js', 'index.html', 'help.html'].forEach((p) => assert.match(fs.readFileSync(path.join(root, p), 'utf8'), /dartdraw\.lang/, p));
+    // a switch saves nothing: no persist, the event as it was
+    reset(); const ev = rr(); const before = JSON.stringify(ev);
+    let saved = 0; app.persist = () => { saved++; };
+    f('ddSetLang')('ms'); f('ddSetLang')('en');
+    assert.equal(saved, 0); assert.equal(JSON.stringify(ev), before);
+  },
+  'sheet-language': () => {
+    const t = say('languages');
+    assert.match(t, /Printed sheets language sits with the other print settings on step 4, Confirm & Print Bracket, and on step 7, Print Final Chart: choose English or Bahasa Malaysia/);
+    assert.match(t, /A new event starts with the language your screen shows when you create it\. Events made before this setting existed print in English\. A duplicated event keeps the setting\./);
+    assert.match(t, /On a finalized event the setting is locked, like the other print settings\./);
+    // the row is on steps 4 and 7 (both formats, and Group Boards)
+    ['stage4', 'stage4Knockout', 'stage7', 'stage7Knockout'].forEach((n) => assert.match(fnBody(appHtml, n), /sheetLangRowHTML\(\)/, n));
+    assert.equal(f("T('pr.set.label')"), 'Printed sheets language');
+    // a new event takes the screen language; an event without the setting prints in English; a duplicate is a full copy
+    reset();
+    assert.equal(f('blankTournament')().printSettings.sheetLang, 'en');
+    run(app, "DD_I18N.lang = 'ms'");
+    try { assert.equal(f('blankTournament')().printSettings.sheetLang, 'ms'); } finally { run(app, "DD_I18N.lang = 'en'"); }
+    assert.equal(f('ddPrintLang')({ printSettings: {} }), 'en');
+    assert.match(fnBody(appHtml, 'duplicateTournament'), /JSON\.parse\(JSON\.stringify\(src\)\)/);
+    // a finalized event refuses the change
+    const ev = rr(); ev.printSettings.sheetLang = 'en'; ev.finalized = { at: '2026-10-23T10:00:00.000Z' };
+    assert.equal(f('isLocked')(ev), true);
+    f('setSheetLang')('ms');
+    assert.equal(ev.printSettings.sheetLang, 'en');
   },
   'print-order': () => {
     const t = say('draws-and-printing');
@@ -256,6 +296,10 @@ test('the old untrue sentences are gone from the Help', () => {
   assert.doesNotMatch(all, /Controls are greyed out\. That includes/);
   assert.doesNotMatch(all, /Your screen is narrow or short/);
   assert.doesNotMatch(all, /Before play, in a round robin you can Withdraw them/);
+  // the organiser app is in English and Bahasa Malaysia (i18n step 3): no Help, page or search line says otherwise
+  const ms = require('../scripts/i18n/ms/help-content');
+  [JSON.stringify(content), JSON.stringify(ms), fs.readFileSync(path.join(root, 'help.html'), 'utf8'), fs.readFileSync(path.join(root, 'ms', 'help.html'), 'utf8')]
+    .forEach((s) => assert.doesNotMatch(s, /app itself is in English|in English for now|masih dalam bahasa Inggeris|bahasa Inggeris buat masa ini/));
 });
 
 test('the article "No-shows and players who leave" holds the no-show topics, sits in "On the day", and covers every stage step by step', () => {

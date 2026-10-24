@@ -21,7 +21,7 @@ module.exports = async (req, res) => {
 
     if (req.method === 'PUT') {
       const checked = validateSettings(req.body);
-      if (!checked.ok) { res.status(400).json({ error: checked.error }); return; }
+      if (!checked.ok) { res.status(400).json({ code: checked.code, error: checked.error }); return; }
       const v = checked.value;
       const withContact = typeof v.adminContact === 'string';
       try {
@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
         }
       } catch (e) {
         if (e && e.code === '42P01') {
-          res.status(500).json({ error: 'The settings table does not exist yet. Run migrations/2026-10-14-admin.sql in Neon, then try again.' });
+          res.status(500).json({ code: 'settings_table_missing', error: 'The settings table does not exist yet. Run migrations/2026-10-14-admin.sql in Neon, then try again.' });
           return;
         }
         throw e;
@@ -53,8 +53,8 @@ module.exports = async (req, res) => {
       return;
     }
 
-    res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' });
   } catch (e) {
-    res.status(500).json({ error: 'Could not complete that request.' });
+    res.status(500).json({ code: 'request_failed', error: 'Could not complete that request.' });
   }
 };

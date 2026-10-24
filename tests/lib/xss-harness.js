@@ -104,8 +104,8 @@ function parseLeaks(html) {
 }
 
 /* ---------- apps and tournaments ---------- */
-function freshApp() {
-  const app = loadApp();
+function freshApp(lang) {
+  const app = loadApp(lang ? { lang } : undefined);   // lang 'ms': the translated app (tests/app-i18n.test.js)
   app.document = doc; app.window = win; app.requestAnimationFrame = () => {}; app.setTimeout = () => 0; app.alert = () => {}; app.confirm = () => false; app.prompt = () => null;
   app.location = win.location; app.navigator = { clipboard: { writeText: () => ({ then() {} }) } };
   app.persist = () => {}; app.apiFetch = async () => ({ ok: true, status: 200, json: async () => ({}) });
@@ -135,8 +135,8 @@ function scoreAll(app, t, drawTie) {
 // kind: rr | rrtie (unresolved tie) | rrko (round robin + knockout with a Plate pool) | ko (knockout with seeds) | pods (Group Boards with
 // finals and a board plan) | teams (segments + tie-breaker, with an older roster left in the data) | doubles
 const KINDS = ['rr', 'rrtie', 'rrko', 'ko', 'pods', 'teams', 'doubles'];
-function build(kind) {
-  const app = freshApp();
+function build(kind, lang) {
+  const app = freshApp(lang);
   let t;
   if (kind === 'pods') {
     t = makeTournament(app, 12, { pods: 3, boards: 3, seeding: true, numSeeds: 4 });

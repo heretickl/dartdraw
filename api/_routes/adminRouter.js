@@ -16,7 +16,7 @@
 //   settings                          -> settings
 //
 // The route is read from req.url, not from the platform's query, and :id is decoded with decodeURIComponent (a bad
-// escape or an empty id is a 404). Anything else answers 404 { error: 'Not found.' }.
+// escape or an empty id is a 404). Anything else answers 404 { code: 'not_found', error: 'Not found.' }.
 const H = {
   organizersIndex: () => require('./admin/organizers/index'),
   organizerItem: () => require('./admin/organizers/[id]'),
@@ -59,7 +59,7 @@ module.exports = async (req, res) => {
   try { url = new URL(String(req.url || ''), 'http://x'); } catch (e) { url = null; }
   const hit = url && match(url.pathname);
   if (!hit) {
-    res.status(404).json({ error: 'Not found.' });
+    res.status(404).json({ code: 'not_found', error: 'Not found.' });
     return;
   }
   if (!req.query) req.query = {};

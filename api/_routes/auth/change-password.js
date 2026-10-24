@@ -17,12 +17,12 @@ const NOT_AVAILABLE = 'Changing the password is not available for this account.'
 // (requireAuth compares the token's tv); this browser gets a fresh cookie carrying the new tv and stays signed in.
 // Passwords and hashes are never logged or returned.
 module.exports = async (req, res) => {
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (req.method !== 'POST') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
 
   const organizer = await requireAuth(req, res);
   if (!organizer) return;
   // In the shared Public fallback everyone is the one disabled-password row: nothing to change.
-  if (process.env.REQUIRE_LOGIN !== 'true') { res.status(403).json({ error: NOT_AVAILABLE }); return; }
+  if (process.env.REQUIRE_LOGIN !== 'true') { res.status(403).json({ code: 'password_change_unavailable', error: NOT_AVAILABLE }); return; }
 
   const accountKey = 'chpw:org:' + organizer.id;
   const ipKey = 'chpw:ip:' + clientIp(req);
@@ -33,37 +33,37 @@ module.exports = async (req, res) => {
     const accountOver = await hit(accountKey, ACCOUNT_LIMIT, WINDOW_MS);
     const ipOver = await hit(ipKey, IP_LIMIT, WINDOW_MS);
     if (accountOver || ipOver) {
-      res.status(429).json({ error: TOO_MANY });
+      res.status(429).json({ code: 'rate_limited', error: TOO_MANY });
       return;
     }
 
     const { currentPassword, newPassword } = req.body || {};
     if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword) {
-      res.status(400).json({ error: 'Enter your current password and a new password.' });
+      res.status(400).json({ code: 'passwords_required', error: 'Enter your current password and a new password.' });
       return;
     }
     if (newPassword.length < MIN_PASSWORD) {
-      res.status(400).json({ error: 'The new password must be at least ' + MIN_PASSWORD + ' characters.' });
+      res.status(400).json({ code: 'new_password_too_short', error: 'The new password must be at least ' + MIN_PASSWORD + ' characters.' });
       return;
     }
     if (newPassword.length > MAX_NEW_PASSWORD) {
-      res.status(400).json({ error: 'The new password must be at most ' + MAX_NEW_PASSWORD + ' characters.' });
+      res.status(400).json({ code: 'new_password_too_long', error: 'The new password must be at most ' + MAX_NEW_PASSWORD + ' characters.' });
       return;
     }
     if (newPassword === currentPassword) {
-      res.status(400).json({ error: 'Choose a new password that is different from the current one.' });
+      res.status(400).json({ code: 'new_password_same', error: 'Choose a new password that is different from the current one.' });
       return;
     }
 
     const row = await findById(organizer.id);
     if (!row || !row.password_hash || row.password_hash === 'disabled') {
-      res.status(403).json({ error: NOT_AVAILABLE });
+      res.status(403).json({ code: 'password_change_unavailable', error: NOT_AVAILABLE });
       return;
     }
     const matched = currentPassword.length <= MAX_CURRENT_PASSWORD
       && await bcrypt.compare(currentPassword, row.password_hash);
     if (!matched) {
-      res.status(400).json({ error: 'The current password is incorrect.' });
+      res.status(400).json({ code: 'current_password_incorrect', error: 'The current password is incorrect.' });
       return;
     }
 
@@ -75,7 +75,7 @@ module.exports = async (req, res) => {
       RETURNING token_version
     `;
     if (!rows.length) {
-      res.status(409).json({ error: 'Your password was changed just now from somewhere else. Please try again.' });
+      res.status(409).json({ code: 'password_changed_elsewhere', error: 'Your password was changed just now from somewhere else. Please try again.' });
       return;
     }
 
@@ -86,6 +86,6 @@ module.exports = async (req, res) => {
     }));
     res.status(200).json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: 'Could not change your password.' });
+    res.status(500).json({ code: 'password_change_failed', error: 'Could not change your password.' });
   }
 };

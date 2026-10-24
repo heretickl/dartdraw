@@ -15,9 +15,10 @@ Open the deployed URL for the public site, then log in (or go straight to `/app`
 | `/how-it-works` | `how-it-works.html` | Public how-it-works page. |
 | `/help` | `help.html` | Public Help page for organisers: a step-by-step guide and an FAQ, with search. The public results site has its own, separate help for spectators at its `/help`. |
 | `/app` | `app.html` | The organiser app (the tournament editor). Signed-out visitors are sent to `/?login=1`. |
+| `/ms`, `/ms/features`, `/ms/how-it-works`, `/ms/help` | `ms/index.html`, `ms/features.html`, `ms/how-it-works.html`, `ms/help.html` | The same four public pages in Bahasa Malaysia (see [Languages](#languages-english-and-bahasa-malaysia)). |
 | (pop-up) | `login.html` | The sign-in form. The public pages show it in a pop-up (`login.html?embed=1` in an iframe); `/?login=1` or `/#login` opens that pop-up. `login.html` may only be framed by this site. |
 
-The clean URLs are rewrites in `vercel.json`. The four public pages are **generated** by `scripts/build-landing.js`
+The clean URLs are rewrites in `vercel.json`. The eight public pages (four in English, their BM twins under `ms/`) are **generated** by `scripts/build-landing.js`
 (shared styles, header, footer links, closing band and login pop-up live there). Do not edit `index.html`, `features.html`,
 `how-it-works.html` or `help.html` by hand: change the script (or, for Help, the content file below) and regenerate with
 `npm run build-landing`. The pages are committed, so Vercel still has no build step, and `npm test` fails if they are out of
@@ -36,6 +37,203 @@ guide items, a `summary`. `scripts/build-landing.js` lays them out (search box, 
 guide quotes the app's real button and message names (a quoted name that no longer exists in `app.html` fails the test, so update
 the guide when you rename a button), and that the page says nothing about plans or tiers, other competition types or contact
 emails. The link to the spectators' help is built from `VIEWER_URL` at the top of `scripts/help-content.js`.
+
+### Languages: English and Bahasa Malaysia
+
+The public pages (landing, Features, How it works, the organiser Help), the spectators' Help and the public results site's
+home and event pages (see [Viewer languages](#viewer-languages-en--bm)) and the organiser app (see
+[Organiser languages](#organiser-languages-en--bm)) exist in English and in Bahasa Malaysia (BM), and so do the sign-in and
+account pages, the server's error messages and the account e-mails (see
+[Sign-in pages, server messages and e-mails](#sign-in-pages-server-messages-and-e-mails-en--bm)). The Admin panel stays
+English. Printed sheets use each event's own **Printed sheets language** (see
+[Printed sheets language](#printed-sheets-language-en--bm)).
+
+| What | English | Bahasa Malaysia |
+| --- | --- | --- |
+| Landing, Features, How it works, the Help page frame (words) | `scripts/i18n/en/landing.js` | `scripts/i18n/ms/landing.js` |
+| Organiser Help articles and FAQ | `scripts/help-content.js` | `scripts/i18n/ms/help-content.js` |
+| Generated organiser-site pages | `index.html`, `features.html`, `how-it-works.html`, `help.html` | `ms/index.html`, `ms/features.html`, `ms/how-it-works.html`, `ms/help.html` |
+| Spectators' Help (public results site, hand-written) | `viewer/help.html` (`/help`) | `viewer/ms/help.html` (`/ms/help`, rewrite in `viewer/vercel.json`) |
+| Public results site: home and event pages | `viewer/i18n/en.js` | `viewer/i18n/ms.js` |
+| Standings, tie notes and charts (`render.js`, shared) | `DD_RENDER_EN` inside `render.js` | `i18n/render.ms.js` (copied to `viewer/i18n/` by `npm run sync-viewer`) |
+
+**The switch.** Every one of these pages has an **EN | BM** control in its header: two plain links (they work without
+JavaScript) to the same page in the other language, keeping the `?query` and `#anchor`. A click also saves the choice in
+`localStorage["dartdraw.lang"]` (`en` or `ms`, inside try/catch). The public site and the organiser app share one saved
+choice; the results site is another origin and keeps its own. Rules (the `dd-lang` script in the head, written by
+`langHead` in `scripts/build-landing.js`; the two viewer Help pages carry the same script, and a test keeps the copies equal):
+
+- `?lang=ms` or `?lang=en` on any page saves that choice and opens that language's version of the page.
+- A saved choice sends a page to its twin with `location.replace` only when the address has no `#anchor` (a shared link to a
+  section stays where it points). Exception: `/help#anchor` with `ms` saved goes to `/ms/help#anchor`, so the organiser app's
+  **?** links (which open `/help#...`) land on the same section in BM.
+- The browser language never redirects anyone. When nothing is saved and `navigator.languages[0]` starts with `ms`, the English
+  pages show a small note, "Bahasa Malaysia tersedia — Tukar ke BM", that can be closed (remembered as `dartdraw.lang.note`).
+- The viewer's home and event pages switch in place (no reload, see below); their Help links open `/ms/help` in BM
+  (`hmLangHref` in `viewer/home.js`, used by `helpHref` in `viewer/index.html`), keeping `?from=` so Help can go back.
+- Each page has `<html lang>`, its own title and description, a canonical link and `hreflang` en / ms / x-default links. The
+  full addresses come from `SITE_URL` in `scripts/build-landing.js` (change it when the site gets its own domain) and
+  `VIEWER_URL` in `scripts/help-content.js`.
+
+**Editing or translating.** Change the English and the BM in the same commit. The two files of a pair have the same keys,
+the same section and item ids, the same `<h4 id>` anchors, aliases and `#links` (`tests/i18n-pages.test.js` fails otherwise);
+then run `npm run build-landing` and `npm test`. For the spectators' Help, edit both `viewer/help.html` and
+`viewer/ms/help.html`. BM follows `docs/i18n/glossary.md` (terms, register, dates) and `docs/i18n/style-rules.md` (the
+proofreader's 13 rules and the owner's bracket / board decisions). The test also rejects the glossary's forbidden words
+(*bagan*, *papan*, *mengundi*, *dua belah*, *keputusan seri* for a tie and others) and any paragraph that is still English.
+Mark a sentence you are unsure of with a `// PROOFREAD:` comment next to the item, for the BM proofreader.
+
+**Button and label names.** When the Help quotes a button in `<b>`, the BM Help uses that label's BM from
+`docs/i18n/ui-strings-ms.js` (the UI string table, the draft for the app step); the test checks every one. A label the table
+does not have yet: add it to the "Added in i18n step 1" block of that file and list it in `docs/i18n/ui-strings-needed.md`.
+Since step 3 the organiser Help's BM quotes are also checked against the real app strings (`i18n/app.ms.js`,
+`tests/app-i18n.test.js`), so a quoted label must be exactly what the BM app shows.
+The spectators' BM Help is checked against the real viewer strings instead (`viewer/i18n/ms.js`, `i18n/render.ms.js` and the
+BM screens: `tests/viewer-i18n.test.js`), so a quoted label must be exactly what the BM viewer shows.
+
+#### Viewer languages (EN | BM)
+
+The public results site (`viewer/`) draws its home page, event pages, tables, grids and brackets in English or BM.
+
+- **The choice.** `?lang=ms` or `?lang=en` wins, is saved and is taken out of the address (`history.replaceState`, the
+  `#route` stays). Otherwise the saved `localStorage["dartdraw.lang"]` (the same key the viewer's Help switch saves; the
+  results site is its own origin, so its own choice), otherwise English. Never chosen from the browser language: a browser
+  whose first language is `ms` with nothing saved gets the closable "Bahasa Malaysia tersedia — Tukar ke BM" note on the
+  home and event pages (`#langBar`, closed for good as `dartdraw.lang.note`). QR codes stay language-neutral.
+- **The switch.** Event page: an **EN | BM** pair left of the Auto / Light / Dark pill (at 480 px and below the header's top
+  row wraps: the tournament name gets the whole line). Home page: the pair from 481 px; on a phone one button showing the
+  other language. A switch sets `<html lang>`, the title and every word at once, with no reload: the tab, the `#route`,
+  the group or player shown, open keys, the bracket view and round, Me / Following and the scroll position stay.
+- **The code.** `viewer/i18n/i18n.js` holds `T(key, vars)` (English fallback plus one console warning per missing key),
+  `TU(key, team, vars)` for sentences with a Teams twin (`key.team` / `key.player`), `ddOrdinal`, `ddClock` and
+  `ddDateNum` (`Intl.DateTimeFormat` `ms-MY` / `en-GB`: `7:10 PTG` / `7:10 pm`; dates `dd/mm/yyyy` in BM, while the English
+  page keeps the stored date as it always showed it), the switch and the note. Static markup carries `data-i18n="key"` or
+  `data-i18n-attr="placeholder:key;aria-label:key"`; everything built in JavaScript calls `T()`. Pages register their redraw
+  with `ddOnLang(fn)` (`relang()` in `viewer/index.html`, `hmRelang()` in `viewer/home.js`).
+- **render.js** is shared with the organiser app. Its words have stable keys (`r.*`): the English table `DD_RENDER_EN` is
+  inside `render.js`, so the organiser (which defines no `DD_T`) draws byte-identical English (`tests/golden/render-en.json`);
+  the viewer defines `DD_T` and gets BM from `i18n/render.ms.js`. Round names wider than any English one (BM
+  *Pusingan 16 terakhir*) may wrap onto two lines in the chart header; "LWN" is drawn a little smaller than "VS".
+- **The server sends codes, not words.** `viewer/api/_lib/listView.js` sends `progress.stage` (`groups` | `knockout` |
+  `finals`), `round` (`final` | `semifinals` | `quarterfinals` | `r<N>`), `next` (`awaiting` | `knockout` | `finals`), and
+  `event: ''` for an unnamed event; `viewer/home.js` turns them into words. Stored values (`eventType`, `competitionUnit`,
+  `formatType`, tie-break rule ids) stay English codes and are shown through the tables (`cat.Open`, `unit.Singles`,
+  `fmt.knockout`, `r.rule.h2h`). The organiser's own text (names) is never translated.
+
+**Adding or changing a viewer string.** Never glue pieces: a sentence is one key with `{placeholders}` (`'{a} v {b}'` /
+`'{a} lwn {b}'`, `'{unit} {cat}'` in BM, `'Round of {n}'` / `'Pusingan {n} terakhir'`, `'{n} of {m}'` counters, ordinals
+`ke-{n}`). English plurals are `{ one, other }` (picked by `n`); BM has one string. Add the key to `viewer/i18n/en.js` and
+`viewer/i18n/ms.js` (or, for `render.js`, to `DD_RENDER_EN` and `i18n/render.ms.js`, then `npm run sync-viewer`), and use
+`T('key', {...})` in the code, escaping the values you fill in (`escapeHtml` / `hmEsc`). `tests/viewer-i18n.test.js` checks:
+the same keys and placeholders in both tables (a value deliberately the same in both goes in its `SAME` list), no English on
+any BM screen of the mock events (`tests/lib/viewer-events.js`, rendered by `tests/lib/viewer-screens.js`), the English
+screens unchanged (`tests/golden/viewer-en.json`; after an intended English change rerun with `UPDATE_GOLDEN=1`), the BM
+Help quotes, the switch, dates and plurals. List new BM labels for the proofreader in `docs/i18n/ui-strings-needed.md`.
+
+#### Organiser languages (EN | BM)
+
+The organiser app (`/app`: `app.html`, `pods-ui.js`, `boardplan-ui.js`, messages in `pods.js`) draws every stage, box and
+message in English or BM. The Admin panel stays English; printed sheets follow the event's Printed sheets language (below).
+
+- **The choice.** `?lang=ms` / `?lang=en` wins, is saved and is taken out of the address (other parameters and the `#hash`
+  stay). Otherwise the saved `localStorage["dartdraw.lang"]` (shared with the public pages: the Help switch and the app
+  switch save the same choice), otherwise English. Never chosen from the browser language: a first browser language `ms`
+  with nothing saved shows the closable "Bahasa Malaysia tersedia" note under the top bar (`#langBar`, closed for good as
+  `dartdraw.lang.note`).
+- **The switch.** An **EN | BM** pair (`aria-pressed`, `lang` on each button, one group labelled "Language / Bahasa") before
+  **Help** in the top bar and in the compact bar (wider than 680 px); below that the compact menu has a "Bahasa: EN | BM"
+  row. A switch sets `<html lang>`, the title and every word with no reload, through `ddOnLang(appRelang)`: the event, the
+  stage, the scroll position, an open box, typed but unsaved fields and the sample event all stay; nothing is saved and
+  nothing is marked unsaved. Help links open `/help#...` or `/ms/help#...`; the viewer links (**Open ↗**, **All events ↗**)
+  carry `?lang=` so spectators' pages open in the same language.
+- **The code.** `i18n/app-i18n.js` holds `T(key, vars)` (English fallback plus one console warning per missing key, plurals
+  `{ one, other }` picked by `n`), `DD_T` (so `render.js` draws BM from `i18n/render.ms.js`), `ddOrdinal`, `ddList`,
+  `ddClockMs` / `ddDateTime` / `ddDateNum` (`Intl` `ms-MY` / `en-GB`; BM dates dd/mm/yyyy, times `7:10 PTG`, durations
+  `3 jam 30 min`; English keeps what it showed), `ddHelpPath`, the switch and the note. Static markup carries
+  `data-i18n="key"`, `data-i18n-html` or `data-i18n-attr="aria-label:key"`. Stored values (`eventType`, `competitionUnit`,
+  `formatType`, tie-break rule ids) stay English codes shown through `cat.*`, `unit.*`, `fmt.*`; names are never translated.
+  Automatic entry names ("Player A1" / "Pemain A1") are made in the screen language and never renamed by a switch.
+- **Print language.** Every print builder runs inside `ddWithLang(ddPrintLang(), ...)`: the paper is in the event's Printed
+  sheets language whatever the screen shows (see [Printed sheets language](#printed-sheets-language-en--bm)).
+- **Adding a string.** Add the key to `i18n/app.en.js` and `i18n/app.ms.js` (the English value is exactly what the screen
+  showed, HTML included), use `T('key', {...})` and escape the values you fill in. `tests/app-i18n.test.js` checks the two
+  tables (keys, placeholders, tags, glossary), no English on any BM screen, box or message of the mock events
+  (`tests/lib/app-states.js`, drawn by `tests/lib/app-screens.js`), the English output unchanged per call
+  (`tests/golden/app-en.json`; rerun with `UPDATE_GOLDEN=1` after an intended English change), print sheets identical in both
+  screen languages, the switch, the BM Help quotes against `i18n/app.ms.js`, XSS in BM and the coverage scan
+  (`node scripts/i18n/scan-strings.js app.html` lists English literals left outside `T()`). List coined BM labels in
+  `docs/i18n/ui-strings-needed.md`.
+
+#### Printed sheets language (EN | BM)
+
+Every printed sheet (rules & format, running order, group charts, bracket sheets and their split / shrunk forms, projected
+brackets, Group Boards charts, Players A–Z and Boards, Teams lineup sheets and the empty emergency sheet, the QR caption,
+the sponsor footer and the "Generated with DartDraw" credit) is printed in the event's own language, not the screen's.
+
+- **The setting.** `printSettings.sheetLang` (`'en'` | `'ms'`), shown as **Printed sheets language** (*Bahasa helaian
+  bercetak*) with the other print settings of steps 4 and 7 (every format, `sheetLangRowHTML`). A new event gets the
+  organiser's screen language (`blankTournament`); Duplicate keeps it; `tournament-sanitize.js` turns any other value into
+  `'en'`; an event saved before the setting existed has no field and prints in English, byte for byte as before. A finalized
+  event's setting is locked like its other print settings (`setSheetLang` refuses, `applyFinalizedLock` disables the box).
+  Changing it redraws the print previews of steps 3 and 4 (`chartPreviewHTML`), which show the paper as it will print; the
+  score grids of Manage Tournament stay in the screen language. A tournament's paper never changes language because a
+  different person prints it, and switching the screen language never changes the setting.
+- **The words.** The sheets' own words are in `i18n/print.en.js` / `i18n/print.ms.js` (keys `pr.*`, merged into the same
+  `T()` table by `i18n/app-i18n.js`); words the sheets share with the screens stay in `i18n/app.*.js` (`sheet.*`,
+  `grp.label`, `noun.*`, `seg.*`, `credit`, `qr.block`) and `render.js` (round names, BYE, CHAMPION). Dates print
+  dd/mm/yyyy and times 12-hour (`7:00 PTG`) in BM; English keeps the stored date. Stored labels (`Bracket`, `Main bracket`,
+  `Plate pool`, `Finals`, a Group Boards group's `Group N`) are printed through the table (`printBracketLabel`).
+- **Automatic entry names** ("Player A1" / "Pemain A1", "Entry 3") are stored in the language the screen had when they
+  were made and print as stored: they are the event's data, also on the public page, and are never translated on paper.
+- **bracket-print.js** takes its words (BYE, JUARA, the WO / TIDAK HADIR marks, the section exits, "Nama penuh:", short
+  round names) from the table in the print language (`model.words`). Round labels shrink to their box, never under 4.6 pt;
+  English then falls back to R128 / QF / SF as before, BM (no abbreviations: glossary) first wraps the label onto two lines
+  ("Pusingan 128 / terakhir") and only then uses the approved short form P128. A word never widens the layout beyond the
+  English one (TIDAK HADIR stacks on two lines, the exits are measured against the English width), so the paper
+  recommendation and the split are the same in both languages.
+- **Tests.** `tests/print-i18n.test.js` (tables, the setting, independence from the screen, no English on any BM sheet of
+  the mock events drawn by `tests/lib/print-sheets.js`, English byte-identical to the app before step 4:
+  `tests/golden/print-en.json`, made with `UPDATE_GOLDEN=1 GOLDEN_PRINT_DIR=<copy of the app before step 4>`; round labels
+  at A4 / A3 for 8–128 slots, the same paper recommendation, the print font's glyphs, XSS). `node scripts/sim/run-simulation.js`
+  makes the 12 simulated events twice, with English sheets (`docs/design/simulation/`) and BM sheets
+  (`docs/design/simulation-ms/`), and audits both (`--lang en|ms` for one).
+
+#### Sign-in pages, server messages and e-mails (EN | BM)
+
+- **The pages.** `login.html` (also the pop-up, `login.html?embed=1`), `forgot.html`, `register.html`, `reset.html` and
+  `verify.html` load `i18n/auth.en.js`, `i18n/auth.ms.js`, `i18n/errors.en.js`, `i18n/errors.ms.js` and `i18n/auth-i18n.js`
+  before their own script. The choice works as in the app: `?lang=` wins, is saved and leaves the address (a `?token=`
+  stays), then the saved `dartdraw.lang`, otherwise English (never the browser language). On its own each page has a
+  compact **EN | BM** pair in the card's top row (`aria-pressed`, `lang` on each button, group "Language / Bahasa"); a press
+  redraws every word, the title and `<html lang>` with no reload and keeps what was typed. In BM the **Sign in** links go to
+  `/ms?login=1` and the links between the account pages carry `?lang=ms`.
+- **The pop-up** has no switch: the dialog's close button sits where it would go. It follows the page around it: the BM
+  public pages frame `login.html?embed=1&lang=ms` (`scripts/build-landing.js`; the English pages are unchanged), otherwise it
+  reads the parent page's `<html lang>`.
+- **The words.** Static markup carries `data-i18n="key"`; the page scripts keep their English sentences and show them through
+  `I18N.put(el, english, { code, vars, after })`, which maps the English to its key and shows the current language. The
+  Admin's contact line under "No account yet?" is shown as the Admin wrote it.
+- **Server messages.** Every error answer in `api/**` is `{ code, error }` (plus fields such as `limit` or `finalized`):
+  `error` is the English text exactly as before, `code` is stable. `i18n/errors.en.js` lists every code; `i18n/errors.ms.js`
+  has BM for every code people can see (Admin-only codes, listed in `DD_ERR_ADMIN_ONLY`, stay English). A BM page shows
+  `err.<code>` filled from the answer's own fields and falls back to the English `error`; an English page shows `error` as
+  sent. The organiser app does the same through `ddApiError(body, fallback)` in `i18n/app-i18n.js` (the error tables
+  are merged into its `T()` tables); today only Change password shows a server text. A new error answer needs a code: `tests/api-error-codes.test.js` scans `api/**` and fails without one, and checks the
+  code is in both tables (or in the Admin-only list).
+- **E-mails.** The verify, reset and "already have an account" e-mails (`api/_lib/authflow.js`) and the Admin's invite and
+  reset-link e-mails are bilingual, English first and then BM, in one message with a plain-text and an HTML part
+  (`api/_lib/emails.js`; subjects such as "Verify your DartDraw email / Sahkan e-mel DartDraw anda"). No language is stored
+  on the account. Only the invite greets by name (the name the Admin typed, escaped in the HTML); self-service e-mails carry
+  no name, because whoever fills in the sign-up form chooses it.
+- **Tests.** `tests/auth-i18n.test.js` (tables, no English left on the five pages in BM, the switch, `?lang`, the pop-up, the
+  links, codes shown in BM, XSS), `tests/api-error-codes.test.js` and `tests/auth-emails.test.js`.
+
+**Search.** `help-search.js` takes the page's language from its data: `lang: "ms"` switches English stemming off (BM affixes
+change the meaning), uses BM stop words and reads chat short forms (`tak`, `utk`). Every sentence the search shows comes from
+the page data (`strings`), so a language's wording goes there, not in the module. The BM synonym groups (`search.synonyms` in
+`scripts/i18n/ms/help-content.js`, the JSON block in `viewer/ms/help.html`) list each form people type, in BM and in the English
+they mix in; `search.toEnglish` (and `alias` in `viewer/help.html`) lets a BM word typed on the English Help search for its
+English meaning. Real BM phrases are regression-tested in `tests/fixtures/help-search-ms-*.json`.
 
 ## Deployment
 
@@ -205,8 +403,8 @@ published ones.
 
 ### Keeping the shared display code in step
 
-The standings and bracket drawing (`render.js`, `render.css`) are used by both
-sites. The copies in the repo root are the source of truth. After changing
+The standings and bracket drawing (`render.js`, `render.css`, and render.js's BM words
+`i18n/render.ms.js`) are used by both sites. The copies in the repo root are the source of truth. After changing
 them, run `npm run sync-viewer` to copy them into `viewer/`, and commit both.
 `npm run check-viewer` fails if the copies differ. Keep that code display-only.
 
@@ -413,7 +611,7 @@ does. The public results page shows "Neither attended" for such a match.
   `UPDATE_GOLDEN=1 npm test`.
 - `node tests/dev/mock-organiser.js` serves the organiser app (`app.html`) at http://localhost:5393 (or `/app`) with
   in-memory storage and no login, for trying the screens in a browser.
-- `npm run build-landing` regenerates the public pages (`index.html`, `features.html`, `how-it-works.html`, `help.html`).
+- `npm run build-landing` regenerates the public pages (`index.html`, `features.html`, `how-it-works.html`, `help.html`, and their BM twins in `ms/`).
 - `node tests/dev/make-sample-view.js 40 8 3` then `node tests/dev/mock-viewer.js` serves the public page for a
   sample Group Boards event at http://localhost:5392/live/testslug12.
 

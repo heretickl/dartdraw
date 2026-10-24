@@ -26,7 +26,7 @@ const COOKIE = '__Host-session';
 const ENV_KEYS = ['SESSION_SECRET', 'REQUIRE_LOGIN'];
 const OLD = 'old password 1';
 const NEW = 'brand new password 2';
-const WRONG_MSG = { error: 'The current password is incorrect.' };
+const WRONG_MSG = { code: 'current_password_incorrect', error: 'The current password is incorrect.' };
 let savedEnv;
 let HASH;
 
@@ -143,7 +143,7 @@ test('new password too short: 400 with the message, nothing changes', async () =
   for (const pw of ['', 'short', '1234567']) {
     const r = await change(good({ newPassword: pw }));
     assert.equal(r.statusCode, 400, JSON.stringify(pw));
-    assert.deepEqual(r.body, { error: 'The new password must be at least 8 characters.' });
+    assert.deepEqual(r.body, { code: 'new_password_too_short', error: 'The new password must be at least 8 characters.' });
   }
   assert.equal((await change(good({ newPassword: '12345678' }))).statusCode, 200);   // exactly 8 is fine
   assert.equal(stored().token_version, 1);
@@ -152,7 +152,7 @@ test('new password too short: 400 with the message, nothing changes', async () =
 test('new password too long: 400 above 200 characters, exactly 200 is accepted', async () => {
   const tooLong = await change(good({ newPassword: 'x'.repeat(201) }));
   assert.equal(tooLong.statusCode, 400);
-  assert.deepEqual(tooLong.body, { error: 'The new password must be at most 200 characters.' });
+  assert.deepEqual(tooLong.body, { code: 'new_password_too_long', error: 'The new password must be at most 200 characters.' });
   assert.equal(stored().token_version, 0);
   assert.equal((await change(good({ newPassword: 'y'.repeat(200) }))).statusCode, 200);
 });
@@ -160,7 +160,7 @@ test('new password too long: 400 above 200 characters, exactly 200 is accepted',
 test('new password the same as the current one: 400, nothing changes', async () => {
   const r = await change(good({ newPassword: OLD }));
   assert.equal(r.statusCode, 400);
-  assert.deepEqual(r.body, { error: 'Choose a new password that is different from the current one.' });
+  assert.deepEqual(r.body, { code: 'new_password_same', error: 'Choose a new password that is different from the current one.' });
   assert.equal(stored().password_hash, HASH);
   assert.equal(stored().token_version, 0);
 });
@@ -186,7 +186,7 @@ test('non-string or missing fields: 400, nothing changes', async () => {
 test('unauthenticated: 401, nothing changes', async () => {
   const none = await callHandler(handler, { method: 'POST', body: good() });
   assert.equal(none.statusCode, 401);
-  assert.deepEqual(none.body, { error: 'Not authenticated' });
+  assert.deepEqual(none.body, { code: 'not_authenticated', error: 'Not authenticated' });
   const forged = await callHandler(handler, { method: 'POST', body: good(), cookies: { [COOKIE]: jwt.sign({ sub: 'org1', tv: 0 }, 'some other secret') } });
   assert.equal(forged.statusCode, 401);
   const stale = await callHandler(handler, { method: 'POST', body: good(), cookies: sessionCookie(stored(), 7) });
@@ -217,7 +217,7 @@ test('Public fallback (REQUIRE_LOGIN not true): 403, nothing is written', async 
     auth._resetPublicOrganizerCache();
     const r = await callHandler(handler, { method: 'POST', body: good() });
     assert.equal(r.statusCode, 403, String(value));
-    assert.deepEqual(r.body, { error: 'Changing the password is not available for this account.' });
+    assert.deepEqual(r.body, { code: 'password_change_unavailable', error: 'Changing the password is not available for this account.' });
     assert.equal(r.headers['set-cookie'], undefined);
   }
   const pub = db.tables.organizers.find((o) => o.email === 'public@dartdraw.local');
@@ -229,7 +229,7 @@ test('an account whose stored password is "disabled": 403, nothing is written', 
   stored().password_hash = 'disabled';
   const r = await change(good());
   assert.equal(r.statusCode, 403);
-  assert.deepEqual(r.body, { error: 'Changing the password is not available for this account.' });
+  assert.deepEqual(r.body, { code: 'password_change_unavailable', error: 'Changing the password is not available for this account.' });
   assert.equal(r.headers['set-cookie'], undefined);
   assert.equal(stored().password_hash, 'disabled');
   assert.equal(stored().token_version, 0);
@@ -244,7 +244,7 @@ test('throttle: five wrong attempts are answered 400, the sixth is 429 even with
   assert.equal(throttleRow('chpw:org:org1').count, 5);
   const blocked = await change(good());
   assert.equal(blocked.statusCode, 429);
-  assert.deepEqual(blocked.body, { error: 'Too many attempts. Try again later.' });
+  assert.deepEqual(blocked.body, { code: 'rate_limited', error: 'Too many attempts. Try again later.' });
   assert.equal(blocked.headers['set-cookie'], undefined);
   assert.equal(stored().password_hash, HASH);
   assert.equal(stored().token_version, 0);

@@ -1,0 +1,1306 @@
+// Bahasa Malaysia twin of scripts/help-content.js: the organiser Help at /ms/help. DATA only; scripts/build-landing.js
+// lays it out (npm run build-landing).
+//
+// Rules (README.md "Languages", docs/i18n/glossary.md and docs/i18n/style-rules.md):
+//   - The SAME sections, item ids, h4 ids, aliases and #links as the English file, in the same order
+//     (tests/i18n-pages.test.js fails otherwise). Never translate an id.
+//   - Button and label names in <b>bold</b> are the app's BM UI strings (docs/i18n/ui-strings-ms.js, from the
+//     proofread table); a label the table does not have yet is listed in docs/i18n/ui-strings-needed.md.
+//   - Polite "anda"; bracket, board, seed, bye, leg, walkover (WO), round robin, Plate, H2H, TB stay English, lower case.
+//     First running-text mention of bracket in each article: "bracket (carta kalah mati)".
+//     A tie on points is "sama mata", never "keputusan seri"; making the draw is "membuat undian", never "mengundi".
+//   - keywords: BM words a Malaysian organiser types, plus the English words people mix in (never shown).
+//   - When the English changes, change this file in the same commit. Lines marked "PROOFREAD:" are new since the
+//     2026-10-23 proofread (docs/design/i18n-preview) and wait for the BM proofreader.
+// The draft came from docs/design/i18n-preview/src/help-content.ms.js (proofread 2026-10-23, before Releases 1 to 5);
+// text whose English did not change since then is kept word for word.
+
+/* The public results site; its BM Help is at /ms/help on that site. */
+const VIEWER_URL = 'https://dartdraw-viewer.vercel.app';
+const VIEWER_HELP_URL = VIEWER_URL + '/ms/help';
+
+const sections = [
+  {
+    id: 'start-here',
+    title: 'Mula di sini',
+    kind: 'guide',
+    aliases: ['guide'],
+    items: [
+      {
+        id: 'quick-start',
+        title: 'Mula pantas: jalankan acara pertama anda dalam kira-kira 10 minit',
+        summary: 'Tujuh langkah untuk acara pertama: 24 pemain, perseorangan, 4 board, kumpulan kemudian kalah mati.',
+        keywords: 'mula pantas panduan tutorial contoh pertama kali baru pemula bermula cara mula cara guna langkah demi langkah acara pertama acara baharu 24 pemain latihan cuba quick start tutorial beginner first event how to start',
+        body: `
+<p>Contohnya: 24 pemain, satu malam, 4 board. Semua bermain dalam kumpulan berisi 4 pemain, kemudian 2 teratas setiap kumpulan bermain kalah mati. Ikut langkah dalam menu sebelah kiri dari atas ke bawah. Setiap langkah dibuka apabila langkah sebelumnya disimpan. Perkataan baharu diterangkan dalam <a href="#glossary">Istilah yang akan anda lihat</a>.</p>
+<ol class="qsteps">
+<li id="quick-start-step-1"><b>Cipta acara.</b> Klik <b>+ Kejohanan baharu</b>. Taip <b>Nama kejohanan</b> dan <b>Nama acara</b>, dan biarkan <b>Jenis pertandingan</b> pada <b>Perseorangan</b>. Tetapkan <b>Tarikh kejohanan</b> dan taip 24 dalam <b>Bilangan peserta</b>. Klik <b>Simpan butiran acara &rarr;</b>.
+<span class="see">Anda akan melihat: langkah 2, <b>Format &amp; penjenamaan</b>. Baca lanjut: <a href="#creating-an-event">Cipta acara</a>.</span></li>
+<li id="quick-start-step-2"><b>Pilih format.</b> Klik <b>Format</b> untuk membukanya, pilih <b>Round robin &rarr; Kalah mati</b> dan tetapkan <b>Leg (terbaik daripada)</b> kepada 3. Biarkan <b>Maksimum peserta setiap kumpulan</b> pada 4 dan <b>Peserta setiap kumpulan (mara ke kalah mati)</b> pada 2. Di bawah <b>Penjadualan</b>, pastikan bilangan board ialah 4 (acara baharu bermula dengan 4; <b>Edit tetapan penjadualan</b> mengubahnya). Kemudian klik <b>Simpan format &amp; penjenamaan &rarr;</b>.
+<span class="see">Anda akan melihat: langkah 3, <b>Butiran carta</b>, dengan 24 peserta bernama &ldquo;Peserta 1&rdquo; hingga &ldquo;Peserta 24&rdquo;. Kotak biru mungkin mencadangkan pembahagian lain; itu hanya cadangan. Baca lanjut: <a href="#choosing-a-format">Pilih format</a>.</span></li>
+<li id="quick-start-step-3"><b>Taip nama dan buat undian kumpulan.</b> Taip nama setiap pemain menggantikan &ldquo;Peserta 1&rdquo;, &ldquo;Peserta 2&rdquo; dan seterusnya, kemudian klik <b>Undian rawak</b>. Klik <b>Semak set cetakan &rarr;</b>.
+<span class="see">Anda akan melihat: enam kumpulan, A hingga F, setiap satu dengan 4 pemain dan satu board. Kumpulan yang berkongsi board bermain secara bergilir-gilir. Baca lanjut: <a href="#draw">Membuat undian kumpulan</a>.</span></li>
+<li id="quick-start-step-4"><b>Sahkan, terbitkan, cetak.</b> Di langkah 4, klik <b>Sahkan kesemua 6 carta</b>. Jika penonton akan mengikuti acara melalui telefon, klik <b>Terbitkan keputusan sekarang</b> dalam nota di atas butang cetak <em>terlebih dahulu</em>, supaya kod QR turut dicetak. Kemudian klik <b>Cetak set bracket</b> dan pilih pencetak atau <b>Simpan sebagai PDF</b>.
+<span class="see">Anda akan melihat: tetingkap cetak pelayar anda dengan susunan perlawanan dan satu carta bagi setiap kumpulan. Baca lanjut: <a href="#print-pack">Mencetak set kosong</a> dan <a href="#qr-codes">Kod QR</a>.</span></li>
+<li id="quick-start-step-5"><b>Mainkan peringkat kumpulan.</b> Di langkah 5, <b>Urus Kejohanan</b>, klik <b>Mulakan semua perlawanan</b> dan sahkan dalam kotak yang dibuka. Kemudian klik kotak tempat dua pemain bertemu, taip leg yang dimenangi setiap pemain (contohnya 2 dan 1) dan klik <b>Simpan skor</b>.
+<span class="see">Anda akan melihat: kedudukan di bawah carta itu dikemas kini serta-merta. Baca lanjut: <a href="#enter-scores">Memasukkan skor</a>.</span></li>
+<li id="quick-start-step-6"><b>Kendalikan kalah mati.</b> Apabila setiap kumpulan selesai, klik <b>Jana bracket kalah mati</b> dalam kad <b>Peringkat kalah mati</b>. Masukkan setiap perlawanan kalah mati dengan cara yang sama: klik perlawanan, taip leg dan klik <b>Simpan skor</b>.
+<span class="see">Anda akan melihat: 2 teratas setiap kumpulan, iaitu 12 pemain, dalam bracket (carta kalah mati). Empat daripada mereka bermula di pusingan 2 (bye). Setiap pemenang mara secara automatik. Baca lanjut: <a href="#rr-knockout-draw">Membuat undian kalah mati daripada round robin</a>.</span></li>
+<li id="quick-start-step-7"><b>Tamatkan.</b> Apabila keputusan perlawanan akhir sudah dimasukkan, pergi ke bahagian bawah langkah 5 dan klik <b>Terima &amp; muktamadkan</b>. Kemudian klik <b>Terima &amp; muktamadkan</b> sekali lagi dalam kotak &ldquo;Terima keputusan sebagai muktamad?&rdquo;. Tindakan ini tidak boleh dibuat asal; hanya Pentadbir boleh membuka semula acara itu.
+<span class="see">Anda akan melihat: &ldquo;Keputusan dimuktamadkan&rdquo;, dan halaman awam memaparkan <b>Keputusan muktamad</b>. Langkah 7, <b>Cetak Carta Akhir</b>, mencetak keputusan. Baca lanjut: <a href="#finishing-the-event">Tamatkan acara</a>.</span></li>
+</ol>
+<h4 id="sample-event">Cuba dahulu dengan acara contoh</h4>
+<p>Selagi anda belum mempunyai acara yang disimpan, skrin alu-aluan memaparkan kad <b>Bermula</b> dengan tujuh langkah ini. Butang <b>Cuba acara contoh</b> pada kad itu membuka acara latihan: 12 pemain, round robin kemudian kalah mati, dengan nama sudah ditaip. Anda boleh mengubah apa-apa di dalamnya. Sepanduk menyatakan &ldquo;Ini acara contoh. Tiada apa-apa yang akan disimpan.&rdquo;</p>
+<ul>
+<li><b>Simpan sebagai acara saya</b> menyimpannya: selepas itu, ia menjadi acara biasa dalam <b>Kejohanan yang disimpan</b>.</li>
+<li><b>Tutup acara contoh</b> membuangnya. Begitu juga jika anda membuka acara lain, memulakan acara baharu atau log keluar.</li>
+</ul>
+<p>Acara contoh tidak boleh diterbitkan, dimuktamadkan atau dibuka dalam tetingkap skrin penuh sehingga anda menyimpannya sebagai acara anda.</p>
+<p>Ada masalah? Lihat <a href="#troubleshooting">Apabila berlaku masalah</a>, <a href="#glossary">Istilah yang akan anda lihat</a> atau <a href="#faq">soalan lazim</a>. Belum ada akaun? Lihat <a href="#no-account">Belum ada akaun?</a></p>
+`
+      },
+      {
+        id: 'getting-started',
+        title: 'Belum ada akaun? Log masuk dan kata laluan',
+        summary: 'Cara mendapatkan akaun, log masuk, dan menukar atau menetapkan semula kata laluan anda.',
+        keywords: 'log masuk logmasuk masuk akaun daftar pendaftaran buat akaun akaun baharu jemputan pentadbir kata laluan lupa kata laluan tukar kata laluan tidak boleh log masuk login log in sign in sign up register account password admin',
+        body: `
+<h4 id="no-account">Belum ada akaun?</h4>
+<p>Akaun dibuka oleh pentadbir laman, biasanya orang yang mengendalikan DartDraw untuk kelab atau liga anda. Melainkan kotak log masuk memaparkan pautan <b>Daftar</b>, anda tidak boleh membuat akaun sendiri: minta pentadbir anda membukanya. Anda kemudian menerima pautan untuk memilih kata laluan, dan anda log masuk seperti di bawah.</p>
+<p>Halaman log masuk dan e-mel akaun ditulis dalam bahasa Inggeris dan Bahasa Malaysia: lihat <a href="#languages">Bahasa Inggeris atau Bahasa Malaysia</a>.</p>
+<p>Kotak log masuk menyatakan perkara yang sama di bawah <b>Log masuk</b>: &ldquo;Belum ada akaun? Akaun dibuka oleh pentadbir laman.&rdquo; Pentadbir anda boleh menambah satu baris di bawahnya yang menyatakan siapa yang perlu dihubungi dan caranya. Jika kelab anda belum mempunyai pentadbir, orang yang menyediakan DartDraw untuk anda boleh membuka akaun pentadbir. Lihat juga <a href="#faq-admin">Siapakah Pentadbir, dan bagaimana saya menghubunginya?</a></p>
+
+<h4 id="signing-in">Log masuk</h4>
+<p>Pentadbir laman anda akan membuka akaun anda dan menghantar pautan untuk memilih kata laluan. Selepas itu:</p>
+<ol>
+<li>Klik <b>Log masuk</b> di bahagian atas mana-mana halaman awam.</li>
+<li>Taip e-mel dan kata laluan anda, kemudian klik <b>Log masuk</b>.</li>
+<li>Anda akan tiba di aplikasi penganjur, tempat semua acara anda disimpan. Baru menggunakannya? Mulakan dengan <a href="#quick-start">Mula pantas</a>.</li>
+</ol>
+<p>Lupa kata laluan? Cara paling pasti ialah meminta pautan set semula daripada pentadbir anda. Anda juga boleh klik <b>Lupa kata laluan?</b> di bawah borang log masuk dan menaip e-mel anda. Jika pautan diterima, ikut pautan itu. Jika tiada apa-apa diterima, hubungi pentadbir anda.</p>
+<p>Untuk menukar kata laluan semasa anda log masuk, klik <b>Tukar kata laluan</b> di sebelah <b>Log keluar</b> dalam menu sebelah kiri. Pada telefon atau tetingkap yang sempit, ketik nama langkah pada bar di bahagian atas, kemudian <b>Tukar kata laluan</b>. Taip <b>Kata laluan semasa</b>, kemudian <b>Kata laluan baharu</b> dua kali. Kata laluan mestilah sekurang-kurangnya 8 aksara. Selepas kata laluan ditukar, anda akan dilog keluar pada peranti lain, tetapi tidak pada peranti yang sedang anda gunakan.</p>
+`
+      },
+      {
+        id: 'how-dartdraw-works',
+        title: 'Cara DartDraw berfungsi: tujuh langkah dan simpanan',
+        summary: 'Tujuh langkah dalam menu sebelah kiri, persediaan Asas atau Lanjutan, dan maksud mesej simpanan.',
+        keywords: 'langkah tujuh langkah gambaran keseluruhan menu asas lanjutan mod persediaan simpan simpanan disimpan simpan automatik bermula steps basic advanced save saving autosave',
+        body: `
+<h4 id="seven-steps">Tujuh langkah</h4>
+<p>Menu sebelah kiri menyenaraikan tujuh langkah. Ikut senarai itu dari atas ke bawah. Anda tidak boleh melangkau: langkah 2 dibuka selepas langkah 1 disimpan, dan langkah 3 dibuka selepas langkah 2 disimpan. Tajuk setiap langkah mempunyai <b>?</b> kecil di sebelahnya yang membuka bahagian Bantuan ini yang berkaitan.</p>
+<ol>
+<li><b>Cipta acara</b>: namakan acara dan nyatakan bilangan peserta.</li>
+<li><b>Format &amp; penjenamaan</b>: pilih format, leg, board, logo dan peraturan.</li>
+<li><b>Butiran carta</b>: nama, seed, organisasi dan undian.</li>
+<li><b>Sahkan &amp; Cetak Bracket</b>: semak setiap carta, sahkan, dan cetak set kosong.</li>
+<li><b>Urus Kejohanan</b>: mulakan perlawanan, masukkan skor, kongsi keputusan langsung dan tamatkan acara dengan <b>Terima &amp; muktamadkan</b> di bahagian bawah.</li>
+<li><b>Muktamadkan Kedudukan</b>: paparan baca sahaja bagi kedudukan akhir. Langkah ini tidak menutup acara.</li>
+<li><b>Cetak Carta Akhir</b>: cetak set dengan semua keputusan diisi.</li>
+</ol>
+
+<h4 id="setup-mode">Persediaan Asas atau Lanjutan</h4>
+<p>Di bahagian atas langkah 1, di bawah <b>Mod persediaan</b>, anda memilih &ldquo;Asas&rdquo; atau &ldquo;Lanjutan&rdquo;. Dalam panduan ini ia dipanggil persediaan Asas dan persediaan Lanjutan.</p>
+<ul>
+<li>&ldquo;Asas&rdquo; mengandungi perkara penting sahaja: format, kumpulan dan skor. Acara baharu bermula di sini.</li>
+<li>&ldquo;Lanjutan&rdquo; menambah butiran penjadualan (tahap permainan, masa mula dan rehat) dan bilangan leg (terbaik daripada) yang berbeza bagi setiap pusingan kalah mati. Ia juga menambah saingan Plate, logo penaja dengan baris kaki halaman, dan susunan pemecah seri anda sendiri.</li>
+</ul>
+<p>Anda boleh bertukar pada bila-bila masa, di langkah 1 atau melalui pautan <b>Tukar ke Lanjutan</b> di bahagian atas langkah 2. Bertukar tidak akan memadam apa-apa yang telah anda tetapkan.</p>
+
+<h4 id="autosave">Menyimpan kerja anda</h4>
+<p>Di langkah 1 dan 2, apa yang anda taip disimpan apabila anda klik butang di bahagian bawah borang: <b>Simpan butiran acara &rarr;</b> atau <b>Simpan format &amp; penjenamaan &rarr;</b>. Selepas itu, setiap perubahan disimpan ke akaun anda secara automatik, sejurus selepas anda membuatnya. Nama disimpan apabila anda klik di luar kotak atau menekan Tab.</p>
+<p>Status simpanan terletak dalam menu sebelah kiri, di bawah nama anda. Pada skrin yang sempit ia berada dalam bar di bahagian atas, dan dalam tetingkap skrin penuh ia berada di pengepala. Status itu boleh berbunyi:</p>
+<dl class="msgs">
+<dt>Menyimpan&hellip;</dt>
+<dd>Perubahan anda sedang dihantar ke akaun anda.</dd>
+<dt>Disimpan</dt>
+<dd>Semuanya baik. Perubahan anda telah disimpan, dan perubahan itu dipaparkan pada mana-mana peranti tempat anda log masuk.</dd>
+<dt>Gagal disimpan &mdash; klik untuk cuba lagi</dt>
+<dd>Perubahan tidak sampai ke pelayan, biasanya kerana sambungan terputus. Semak internet anda, kemudian klik mesej itu untuk mencuba lagi. Biarkan halaman terbuka sehingga ia menunjukkan <b>Disimpan</b>. Sebelum itu, DartDraw tidak akan membuka acara lain atau memulakan acara baharu: anda kekal pada acara ini dan DartDraw memaparkan &ldquo;Perubahan terakhir belum disimpan&rdquo;. Anda boleh memilih <b>Keluar tanpa menyimpan</b>, tetapi perubahan itu akan hilang. <b>Log keluar</b> juga menunggu dengan cara yang sama, dan jika anda menutup atau memuat semula halaman pada masa itu, pelayar anda akan bertanya dahulu.</dd>
+<dt>Dikemas kini di tempat lain &mdash; klik untuk muat semula</dt>
+<dd>Salinan acara ini yang lebih baharu telah disimpan dalam tab, tetingkap atau peranti lain, jadi salinan pada skrin anda sudah lapuk. Sepanduk merah juga dipaparkan di bahagian atas halaman: &ldquo;Dikemas kini di tempat lain &mdash; muat semula untuk mendapatkan versi terkini.&rdquo; Perubahan terakhir anda dalam tetingkap ini tidak disimpan, dan mulai sekarang tetingkap ini tidak menyimpan apa-apa untuk acara ini, supaya ia tidak menulis ganti keputusan yang lebih baharu. Klik <b>Muat semula</b> pada sepanduk (atau klik mesej itu) untuk memuatkan salinan terkini. Kemudian semak dan masukkan semula perubahan terakhir anda.</dd>
+<dt>Dipadam di tempat lain &mdash; acara ini tidak lagi disimpan</dt>
+<dd>Acara ini telah dipadam (atau dipindahkan kepada penganjur lain) dalam tetingkap atau peranti lain. Apa-apa yang anda ubah di sini tidak dapat disimpan. Buka acara lain.</dd>
+<dt>Memuktamadkan&hellip;</dt>
+<dd>Anda telah menerima keputusan dan DartDraw sedang menutup acara. Tunggu sehingga selesai.</dd>
+<dt>Acara ini telah dimuktamadkan &mdash; hanya Pentadbir boleh mengubahnya</dt>
+<dd>Acara telah ditutup. Lihat <a href="#finishing-the-event">Tamatkan acara</a>.</dd>
+</dl>
+<p>Acara contoh tidak akan disimpan, jadi ia tidak memaparkan status simpanan. Lihat <a href="#sample-event">Cuba dahulu dengan acara contoh</a>.</p>
+`
+      },
+      {
+        id: 'languages',
+        title: 'Bahasa Inggeris atau Bahasa Malaysia: skrin, helaian bercetak dan e-mel',
+        summary: 'Suis EN | BM, bahasa cetakan setiap acara, dan sebab e-mel akaun ditulis dalam kedua-dua bahasa.',
+        claims: ['language-switch', 'sheet-language'],
+        // PROOFREAD: new article (i18n review fixes, 2026-10-25), listed in docs/i18n/ui-strings-needed.md.
+        keywords: 'bahasa tukar bahasa menukar bahasa bahasa inggeris inggeris bahasa malaysia bahasa melayu melayu bm en terjemah terjemahan suis bahasa bahasa skrin bahasa cetakan bahasa helaian bercetak helaian bercetak cetak dalam bahasa inggeris cetak dalam bm e-mel e mel emel dwibahasa dua bahasa kedua-dua bahasa language languages english malay translate translation switch printed sheets language print language email emails bilingual',
+        body: `
+<h4 id="language-switch">Suis EN | BM</h4>
+<p>DartDraw tersedia dalam bahasa Inggeris dan Bahasa Malaysia. Dalam aplikasi penganjur, suis EN | BM terletak di bahagian atas sebelah kanan, di sebelah <b>Bantuan</b>. Pada skrin yang sempit, suis itu berada dalam bar di bahagian atas, atau dalam menu yang dibuka daripada nama langkah, di bawah &ldquo;Bahasa:&rdquo;. Halaman awam dan halaman log masuk mempunyai suis yang sama di bahagian atas (kotak log masuk yang dibuka di atas halaman awam mengikut bahasa halaman itu).</p>
+<p>Satu klik menukar setiap perkataan pada skrin serta-merta. Menukar bahasa tidak menyimpan dan tidak mengubah apa-apa dalam acara anda: anda kekal pada langkah yang sama, kotak yang terbuka kekal terbuka, dan apa yang anda taip kekal dalam kotaknya.</p>
+<p>DartDraw mengingati pilihan anda dalam pelayar ini. Aplikasi penganjur, halaman awam (termasuk Bantuan ini) dan halaman log masuk berkongsi pilihan itu: pilih BM pada satu halaman, dan halaman yang lain juga dibuka dalam BM. Pautan <b>Bantuan</b> dan pautan <b>?</b> membuka Bantuan ini dalam bahasa pada skrin anda. Laman keputusan awam, tempat penonton mengikuti acara anda, mempunyai suis EN | BM sendiri dan mengingati pilihannya sendiri: ia tidak mengubah bahasa skrin anda, dan pilihan anda tidak mengubah bahasa skrin mereka.</p>
+
+<h4 id="sheet-language">Bahasa helaian bercetak</h4>
+<p>Bahasa kertas ialah tetapan bagi setiap acara, berasingan daripada bahasa pada skrin anda. <b>Bahasa helaian bercetak</b> terletak bersama tetapan cetakan yang lain di langkah 4, <b>Sahkan &amp; Cetak Bracket</b>, dan di langkah 7, <b>Cetak Carta Akhir</b>: pilih <b>English</b> atau <b>Bahasa Malaysia</b>.</p>
+<ul>
+<li>Setiap helaian acara itu menggunakannya: carta dan bracket (carta kalah mati), susunan perlawanan, helaian peraturan, borang barisan, helaian Pemain A&ndash;Z dan Board, serta pratonton cetakan di langkah 4 dan 7.</li>
+<li>Tetapan ini milik acara itu, jadi kertasnya sama tidak kira siapa yang mencetaknya dan apa bahasa skrinnya. Contohnya, skrin anda boleh dalam BM manakala helaian dicetak dalam bahasa Inggeris.</li>
+<li>Acara baharu bermula dengan bahasa yang dipaparkan pada skrin anda semasa acara itu dicipta. Acara yang dibuat sebelum tetapan ini wujud dicetak dalam bahasa Inggeris. Acara yang disalin mengekalkan tetapan ini.</li>
+<li>Nama, dan semua yang anda taip (nama acara, peraturan, kaki halaman penaja), dicetak seperti yang anda taip. Nama automatik seperti &ldquo;Pemain A1&rdquo; disimpan dalam bahasa skrin semasa nama itu dibuat.</li>
+<li>Bagi acara yang telah dimuktamadkan, tetapan ini dikunci, sama seperti tetapan cetakan yang lain.</li>
+</ul>
+
+<h4 id="bilingual-emails">E-mel dalam kedua-dua bahasa</h4>
+<p>DartDraw tidak tahu bahasa yang anda baca apabila ia menghantar e-mel kepada anda, jadi setiap e-mel akaun ditulis dalam kedua-dua bahasa: bahasa Inggeris dahulu, kemudian Bahasa Malaysia, dalam mesej yang sama, dan baris subjeknya mengandungi kedua-duanya. Ini termasuk e-mel untuk mengesahkan alamat e-mel anda, e-mel dengan pautan untuk menetapkan semula kata laluan anda, dan e-mel yang anda terima apabila pentadbir membuka akaun untuk anda atau menghantar pautan kata laluan baharu. Pautannya sama dalam kedua-dua bahagian.</p>
+`
+      }
+    ]
+  },
+  {
+    id: 'set-up',
+    title: 'Sediakan acara',
+    kind: 'guide',
+    items: [
+      {
+        id: 'creating-an-event',
+        title: 'Cipta acara (langkah 1)',
+        summary: 'Namakan acara, pilih Perseorangan, Beregu atau Berpasukan, tetapkan tarikh dan bilangan peserta (pemain, pasangan atau pasukan).',
+        keywords: 'cipta acara acara baharu kejohanan baharu tambah pemain berapa pemain bilangan peserta bilangan pasangan bilangan pasukan perseorangan beregu berpasukan tarikh kategori board bilangan board players pairs teams entries new event new tournament date',
+        body: `
+<p>Klik <b>+ Kejohanan baharu</b> di bahagian atas menu sebelah kiri. Langkah 1 dipanggil <b>Cipta acara</b>. Isikan:</p>
+<ol>
+<li><b>Mod persediaan</b>: &ldquo;Asas&rdquo; atau &ldquo;Lanjutan&rdquo;. Lihat <a href="#setup-mode">Persediaan Asas atau Lanjutan</a>.</li>
+<li><b>Nama kejohanan</b>: hari atau pertandingan itu, contohnya Terbuka Selangor 2026. Ia dicetak pada setiap helaian.</li>
+<li><b>Nama acara</b>: pertandingan dalam kejohanan itu, contohnya Perseorangan Terbuka.</li>
+<li><b>Kategori acara</b>: <b>Terbuka</b>, <b>Wanita</b> atau <b>Belia</b>. Ia dicetak pada carta.</li>
+<li><b>Jenis pertandingan</b>: <b>Perseorangan</b>, <b>Beregu</b> atau <b>Berpasukan</b>.</li>
+<li><b>Tarikh kejohanan</b>: dipaparkan pada carta. Halaman utama awam juga menggunakannya untuk menyenaraikan acara mendatang.</li>
+<li><b>Bilangan peserta</b>: sekurang-kurangnya 2. Peserta ialah seorang pemain dalam Perseorangan, satu pasangan dalam Beregu dan satu pasukan dalam Berpasukan. Kotak itu menyatakannya: dalam acara Beregu ia dipanggil <b>Bilangan pasangan</b>, dan dalam acara Berpasukan <b>Bilangan pasukan</b>.</li>
+</ol>
+<p>Klik <b>Simpan butiran acara &rarr;</b> untuk ke langkah 2.</p>
+
+<h4 id="singles-or-doubles">Perseorangan, Beregu atau Berpasukan</h4>
+<p>Dalam <b>Perseorangan</b>, seorang peserta ialah seorang pemain.</p>
+<p>Dalam <b>Beregu</b>, setiap peserta ialah satu <b>pasangan</b> dua pemain. Bilangan peserta ialah bilangan pasangan, jadi 24 pemain menjadi 12 pasangan: taip 12 dalam <b>Bilangan pasangan</b>. Di langkah 3 setiap pasangan mempunyai satu kotak, iaitu <b>Nama pasangan</b>. Carta, keputusan dan halaman awam memaparkan nama pasangan, jadi pilih nama yang dikenali oleh kedua-dua pemain, seperti gabungan nama mereka (contohnya &ldquo;Hakim / Iskandar&rdquo;).</p>
+<p>Dalam <b>Berpasukan</b>, setiap peserta ialah satu <b>pasukan</b>, dan di langkah 3 ia mempunyai satu kotak, iaitu <b>Nama pasukan</b>. Tiada senarai pemain untuk diisi: kapten menulis barisan pemain pada hari kejohanan. Perlawanan pasukan terdiri daripada segmen yang anda tetapkan di langkah 2. Lihat <a href="#teams">Sediakan acara berpasukan</a>.</p>
+
+<h4 id="boards-and-entries">Board dan bilangan peserta</h4>
+<p>Tiada kotak board di langkah 1. Anda menetapkan bilangan board di langkah 2, di bawah Penjadualan.</p>
+<p>Anda boleh menukar bilangan peserta kemudian: klik <b>Edit</b> pada kad ringkasan di bahagian atas sesuatu langkah, tukar nombor itu dan simpan. Menaikkannya menambah peserta kosong seperti &ldquo;Peserta 9&rdquo;. Menurunkannya membuang peserta dari hujung senarai, jadi lakukannya sebelum anda menaip nama atau membuat undian kumpulan.</p>
+<p>Apabila salah satu peserta itu sudah bermain (kumpulannya telah bermula, peserta itu sudah mempunyai keputusan, atau ia berada dalam bracket (carta kalah mati) yang telah diundi), DartDraw menolak dengan &ldquo;Peserta ini sudah mula bermain&rdquo; dan tidak menyimpan apa-apa. Tindakan itu akan memadam keputusan yang telah dimainkan. Lihat <a href="#faq-entries-locked">Mengapa saya tidak boleh menukar peserta selepas perlawanan bermula?</a></p>
+<p>Jika anda melihat mesej bahawa akaun anda membenarkan bilangan peserta tertentu sahaja bagi setiap acara, hubungi pentadbir anda.</p>
+
+<h4 id="your-events">Acara yang anda simpan</h4>
+<p>Acara anda disenaraikan di bawah <b>Kejohanan yang disimpan</b> dalam menu sebelah kiri. Klik satu acara untuk membukanya. Setiap acara mempunyai tiga butang kecil:</p>
+<ul>
+<li><b>Namakan semula</b> menukar nama kejohanan.</li>
+<li><b>Salin</b> membuat salinan bernama &ldquo;&hellip; (salinan)&rdquo; dengan semua kandungannya. Salinan itu tidak diterbitkan, tidak disenaraikan dan tidak dimuktamadkan, jadi anda boleh mengeditnya.</li>
+<li><b>Padam</b> membuang acara daripada akaun anda secara kekal. Tindakan ini tidak boleh dibuat asal.</li>
+</ul>
+<p>Di langkah 1, <b>Buang / Kejohanan baharu</b> membuang borang dan memulakan acara baharu. Acara yang telah dimuktamadkan tidak boleh dinamakan semula atau dipadam oleh anda.</p>
+`
+      },
+      {
+        id: 'choosing-a-format',
+        title: 'Pilih format (langkah 2)',
+        summary: 'Format yang sesuai dengan bilangan peserta anda, kemudian round robin, kalah mati (satu bracket, atau Group Boards kemudian peringkat akhir) atau round robin kemudian kalah mati, serta leg, board, penjenamaan dan peraturan.',
+        keywords: 'format format mana pilih format round robin kalah mati knockout leg terbaik daripada board peringkat kumpulan berapa pemain liga sistem pertandingan which format best of legs group stage',
+        body: `
+<p>Langkah 2 ialah <b>Format &amp; penjenamaan</b>. Ia mempunyai empat bahagian: <b>Format</b>, <b>Penjadualan</b>, <b>Penjenamaan &amp; cetakan</b> dan <b>Peraturan</b>. Klik tajuk bahagian untuk membuka atau menutupnya. Klik <b>Simpan format &amp; penjenamaan &rarr;</b> apabila selesai.</p>
+
+<h4 id="which-format">Format mana yang patut saya pilih?</h4>
+<dl class="msgs">
+<dt>Peserta tidak ramai, dan ada masa untuk setiap peserta bertemu semua peserta lain dalam kumpulannya</dt>
+<dd><b>Round robin</b>. Semua mendapat bilangan perlawanan yang sama, dan jadual kedudukan menentukan tempat setiap peserta.</dd>
+<dt>Peserta ramai dan masa terhad</dt>
+<dd><b>Kalah mati</b>, <b>Satu bracket</b>. Format ini mempunyai perlawanan paling sedikit: kalah sekali dan anda tersingkir.</dd>
+<dt>Satu malam, semua bermain beberapa perlawanan, kemudian perlawanan akhir</dt>
+<dd><b>Round robin &rarr; Kalah mati</b>. Kumpulan dahulu, kemudian peserta teratas setiap kumpulan bermain kalah mati. <a href="#quick-start">Mula pantas</a> menggunakannya untuk 24 pemain.</dd>
+<dt>Peserta sangat ramai, dengan banyak board</dt>
+<dd><b>Kalah mati</b>, kemudian <b>Group Boards, kemudian peringkat akhir</b>. Setiap kumpulan pemain mempunyai board sendiri dan bracket (carta kalah mati) kecil sendiri, dan para juara kumpulan bertemu di Peringkat Akhir.</dd>
+<dt>Pertandingan berpasukan</dt>
+<dd>Pilih <b>Berpasukan</b> sebagai <b>Jenis pertandingan</b> di langkah 1, kemudian mana-mana format di atas. Lihat <a href="#teams">Sediakan acara berpasukan</a>.</dd>
+</dl>
+<p>Tidak pasti berapa lama masa diperlukan? Dengan masa mula ditetapkan (persediaan Lanjutan), DartDraw menganggarkannya secara automatik. Lihat <a href="#scheduling">Penjadualan</a>.</p>
+
+<h4 id="format-types">Format</h4>
+<p>Di bawah <b>Format pertandingan</b> pilih satu daripada tiga:</p>
+<ul>
+<li><b>Round robin</b>: peserta bermain dalam kumpulan masing-masing. Setiap peserta dalam kumpulan bertemu setiap peserta lain dalam kumpulan itu sekali.</li>
+<li><b>Kalah mati</b>: penyingkiran terus. Kalah dan anda tersingkir. Di bawah <b>Jenis kalah mati</b> pilih satu daripada dua:
+<ul>
+<li><b>Satu bracket</b>: pilihan biasa. Ia ialah satu bracket. Jika bilangan peserta tidak memenuhinya, aplikasi menambah bye dalam pusingan 1 dan memberikannya kepada seed terbaik.</li>
+<li><b>Group Boards, kemudian peringkat akhir</b>: kumpulan kalah mati kecil dahulu, setiap satu di board sendiri, supaya setiap kumpulan mempunyai juara sebelum peringkat akhir. Lihat di bawah.</li>
+</ul></li>
+<li><b>Round robin &rarr; Kalah mati</b>: peringkat kumpulan dahulu, kemudian peserta teratas mara ke bracket.</li>
+</ul>
+
+<h4 id="legs">Leg terbaik daripada</h4>
+<p>Kotak <b>Leg (terbaik daripada)</b> menetapkan panjang sesuatu perlawanan. Leg ialah satu permainan dart. Nombor ganjil paling sesuai. Terbaik daripada 5 bermaksud yang pertama memenangi 3 leg akan menang. Apabila anda memasukkan keputusan, pemenang mesti mempunyai tepat bilangan leg itu dan yang kalah kurang daripadanya. Nombor genap akan memaparkan amaran, kerana perlawanan boleh berakhir seri.</p>
+<p>Acara berpasukan tidak mempunyai kotak <b>Leg (terbaik daripada)</b>: setiap segmen perlawanan pasukan mempunyai tetapannya sendiri. Lihat <a href="#teams">Sediakan acara berpasukan</a>.</p>
+
+<h4 id="round-robin-setup">Round robin</h4>
+<p>Pilih <b>Maksimum peserta setiap kumpulan</b> (3 hingga 6). Kotak biru di bawahnya menunjukkan pembahagian yang disyorkan oleh DartDraw, contohnya berapa kumpulan dan berapa perlawanan yang dimainkan oleh setiap kumpulan. DartDraw mengimbangkan kumpulan semasa membuat undian.</p>
+
+<h4 id="rr-ko-setup">Round robin &rarr; Kalah mati</h4>
+<ul>
+<li><b>Peserta setiap kumpulan (mara ke kalah mati)</b>: berapa peserta dari setiap kumpulan yang mara ke bracket.</li>
+<li><b>Cara peserta diletakkan dalam bracket</b>: <b>Seed ikut kedudukan kumpulan (disyorkan)</b> meletakkan juara kumpulan di hadapan naib juara. Ia juga memisahkan peserta dari kumpulan yang sama selama mungkin. <b>Undian rawak</b> mencampurkan mereka.</li>
+<li><b>Saingan Plate</b> (persediaan Lanjutan): tandakan <b>Adakan juga bracket kalah mati saingan Plate untuk peserta yang tidak mara</b>. Biarkan <b>Peserta Plate setiap kumpulan</b> kosong untuk menghantar semua yang tidak mara ke saingan Plate. Taip nombor untuk menghadkannya, jadi sesiapa yang berada di bawah kedudukan itu tersingkir.</li>
+</ul>
+<p>Undian bracket tidak dibuat sehingga setiap kumpulan selesai. Anda membuat undian itu di langkah 5. Lihat <a href="#running-the-knockout">Kendalikan kalah mati</a>.</p>
+
+<h4 id="group-boards">Group Boards, kemudian peringkat akhir (pilihan Kalah mati)</h4>
+<p>Pilih <b>Kalah mati</b>, kemudian <b>Group Boards, kemudian peringkat akhir</b>. Ia sesuai apabila peserta ramai dan untuk sesiapa yang mahukan juara kumpulan sebelum peringkat akhir. Sebagai ganti satu bracket besar, anda menetapkan beberapa kumpulan kecil, dan setiap kumpulan ialah kalah mati kecil di board sendiri. Setiap kumpulan berakhir dengan seorang juara, dan para juara bertemu dalam bracket <b>Peringkat Akhir</b>. Anda tidak wajib menggunakannya, dan ia tidak ditawarkan bersama format round robin.</p>
+<ul>
+<li><b>Bilangan kumpulan</b>: sekurang-kurangnya 2, paling banyak 128. Setiap kumpulan memerlukan sekurang-kurangnya 2 pemain dan memuatkan paling banyak 128 (satu kumpulan ialah satu bracket kalah mati). DartDraw memberitahu anda jika nombor itu tidak sesuai. Memindahkan pemain atau meletakkan peserta lewat ke dalam kumpulan yang sudah ada 128 pemain akan ditolak; sebaliknya, tukarkan dua pemain.</li>
+<li><b>Leg (terbaik daripada) dalam setiap kumpulan</b> boleh berbeza daripada Peringkat Akhir. Peringkat Akhir menggunakan <b>Leg (terbaik daripada)</b> (atau tetapan leg kalah mati anda dalam persediaan Lanjutan).</li>
+<li>Di langkah 3 anda klik <b>Buat undian kumpulan</b>. Pemain seed diagihkan satu bagi setiap kumpulan, dan kumpulan boleh diubah secara manual sehingga anda mengesahkannya.</li>
+<li>Carta Peringkat Akhir dibina sebaik sahaja kumpulan terakhir disahkan, dengan slot seperti &ldquo;Pemenang Kumpulan 3&rdquo;.</li>
+</ul>
+
+<h4 id="knockout-legs">Lebih banyak leg dalam pusingan kemudian</h4>
+<p>Dalam persediaan Lanjutan, kalah mati mempunyai kotak tanda yang menambah leg dalam pusingan kemudian. (Acara berpasukan tidak mempunyainya: setiap pusingan menggunakan segmen yang sama.) Tandakannya dan anda boleh menetapkan <b>Pusingan awal</b>, <b>Suku akhir</b>, <b>Separuh akhir</b> dan <b>Akhir</b> secara berasingan. Setiap pusingan sebelum suku akhir menggunakan <b>Pusingan awal</b>. Saingan Plate mempunyai tetapannya sendiri yang berasingan.</p>
+
+<h4 id="scheduling">Penjadualan</h4>
+<p>Klik <b>Edit tetapan penjadualan</b>. <b>Bilangan board tersedia</b> menentukan pilihan board kemudian. Dalam persediaan Lanjutan anda juga boleh menetapkan <b>Tahap permainan</b> (Profesional, Amatur atau Novis), <b>Jangkaan masa mula</b> dan waktu rehat. DartDraw menggunakannya untuk menganggarkan tempoh acara dan memaparkan &ldquo;Menepati jadual&rdquo; atau &ldquo;Ketinggalan jadual&rdquo; semasa permainan. Ini hanya panduan kasar dan tidak dicetak.</p>
+
+<h4 id="branding-and-rules">Penjenamaan dan peraturan</h4>
+<ul>
+<li><b>Logo kejohanan</b>: paling baik dalam format PNG segi empat sama atau hampir segi empat sama. DartDraw mengubah saiznya secara automatik.</li>
+<li><b>Logo penaja</b> dan <b>Teks peraturan / kaki halaman cetakan (pilihan)</b> (persediaan Lanjutan): logo penaja dicetak di kaki halaman carta. Pilih segi empat tepat atau segi empat sama bagi setiap logo.</li>
+<li><b>Walkover, tatakelakuan &amp; peraturan lain</b>: teks bebas yang dicetak pada helaian peraturan.</li>
+<li><b>Susunan pemecah seri</b> (persediaan Lanjutan): gerakkan peraturan ke atas atau ke bawah. Lihat <a href="#faq-tie-breaks">Bagaimana pemecah seri berfungsi?</a></li>
+</ul>
+`
+      },
+      {
+        id: 'entries-and-check-in',
+        title: 'Tambah peserta, seed dan organisasi (langkah 3)',
+        summary: 'Menamakan peserta (pemain, pasangan atau pasukan), organisasi dan seed.',
+        keywords: 'pemain nama nama pemain tambah pemain taip nama seed seeding peserta pilihan kelab persatuan organisasi peserta pasangan pasukan players names seed seeding club organisation entries',
+        body: `
+<p>Mencari daftar masuk, tarik diri atau ketidakhadiran? Lihat <a href="#check-in-and-start">Daftar masuk peserta dan mulakan perlawanan</a> dan <a href="#player-leaves">Ketidakhadiran dan pemain yang meninggalkan acara</a>.</p>
+
+<h4 id="naming-entries">Menamakan peserta</h4>
+<p>Peserta bermula dengan nama sementara seperti &ldquo;Peserta 1&rdquo;. Selepas kumpulan diundi, peserta yang belum diberi nama dilabel mengikut kedudukan, contohnya &ldquo;Pemain A1&rdquo; atau &ldquo;Pasangan A1&rdquo;. Taip nama dalam kotak dan nama itu kekal.</p>
+<p>Pasangan atau pasukan hanyalah namanya: tiada kotak untuk pemain di dalamnya. Letakkan apa yang anda mahu orang lihat pada carta dan halaman awam dalam nama itu, contohnya nama kedua-dua pemain bagi sesuatu pasangan.</p>
+
+<h4 id="organisations">Organisasi</h4>
+<p>Gunakan kotak <b>Organisasi (pilihan)</b> untuk nama kelab atau organisasi. Kemudian tandakan kotak yang memisahkan mereka:</p>
+<ul>
+<li><b>Round robin:</b> kotak <b>Organisasi (pilihan)</b> sentiasa ada di langkah 3. Tandakan <b>Elakkan pertembungan sesama organisasi</b>. Ia juga merombak pertembungan sedia ada jika boleh. Dalam persediaan Lanjutan pilihan yang sama terdapat di bawah Peraturan di langkah 2.</li>
+<li><b>Kalah mati dan Group Boards:</b> kotak <b>Organisasi (pilihan)</b> disembunyikan pada mulanya. Ia muncul selepas anda menanda <b>Rekodkan organisasi (elakkan pertemuan sesama organisasi dalam pusingan pertama)</b> di langkah 3.</li>
+</ul>
+<p>Ini dilakukan setakat yang boleh. Jika tiada pertukaran yang selamat, pertembungan itu dibiarkan.</p>
+<p>Dalam setiap bracket (carta kalah mati), peserta yang organisasinya diisi dipisahkan selama mungkin, sama ada kotak tanda dihidupkan atau tidak. Ini termasuk kalah mati, kalah mati selepas round robin, saingan Plate dan kumpulan Group Boards. Apabila bracket datang daripada round robin, memisahkan peserta dari kumpulan yang sama diutamakan, dan organisasi yang sama kedua.</p>
+<p>Setiap undian diberi paling lama kira-kira satu saat. Dalam bracket besar (dari kira-kira 30 peserta) dengan ramai peserta dari satu atau dua organisasi, hasilnya ialah yang terbaik ditemui DartDraw dalam masa itu. Peserta masih diagihkan, tetapi kurang sekata sedikit berbanding carian yang jauh lebih lama. Sekali-sekala sepasang peserta bertemu satu pusingan lebih awal daripada yang mungkin. Jadi bracket unjuran yang dicetak sebelum round robin boleh berbeza daripada undian sebenar apabila organisasi diisi.</p>
+
+<h4 id="seeds">Seed</h4>
+<p>Dalam <b>Kalah mati</b>, langkah 3 memaparkan <b>Peserta &amp; Seed</b> (seed ialah peserta pilihan). Seed dimatikan secara lalai, bermakna undian rawak baharu setiap kali anda menjana bracket. Tandakan <b>Gunakan seed untuk bracket ini</b>, kemudian gunakan anak panah atas dan bawah untuk menyusun peserta. <b>Bilangan seed</b> (4, 8, 16, 32 atau 64) menetapkan berapa ramai peserta teratas yang memaparkan nombor seed pada carta bercetak. Semua peserta tetap diletakkan mengikut susunan anda. Seed 1 dan 2 hanya boleh bertemu di perlawanan akhir, dan seed terbaik mendapat bye.</p>
+<p>Dalam <b>Round robin &rarr; Kalah mati</b>, seed datang daripada keputusan kumpulan. Peserta memaparkan label seperti &ldquo;A1&rdquo; (kumpulan A, tempat pertama). Dalam <b>Group Boards</b>, senarai seed yang sama digunakan dan seed diagihkan satu bagi setiap kumpulan.</p>
+`
+      },
+      {
+        id: 'draw-the-groups',
+        title: 'Buat undian kumpulan atau bracket (langkah 3)',
+        summary: 'Undian rawak, pertukaran, board bagi setiap kumpulan, dan di mana undian kalah mati atau Group Boards dibuat.',
+        claims: ['roster-lock'],
+        keywords: 'undian buat undian undian rawak undian semula cabutan kumpulan tukar tempat pindah board kocok rawak draw random draw redraw groups swap move shuffle',
+        body: `
+<h4 id="draw">Membuat undian kumpulan</h4>
+<p>Dalam round robin, langkah 3 dipanggil <b>Undian &amp; kumpulan</b>. Peserta kekal &ldquo;Belum diundi&rdquo; sehingga anda klik <b>Undian rawak</b>. Klik sekali lagi untuk mengagihkan semua peserta semula; DartDraw bertanya dahulu kerana ia membuang pertukaran manual anda. Sebaik sahaja mana-mana kumpulan bermula, <b>Undian rawak</b> menjadi kelabu dan <b>Tukar dengan&hellip;</b> tidak lagi ditawarkan untuk peserta dalam kumpulan yang telah bermula. Memindahkan peserta pada masa itu akan meninggalkan keputusan pada orang yang tidak memainkannya.</p>
+<ul>
+<li>Tukar antara <b>Senarai penuh</b> dan <b>Paparan kumpulan</b>. Senarai penuh mempunyai kotak carian untuk nama atau organisasi.</li>
+<li><b>Tukar dengan&hellip;</b> membuka senarai kumpulan dan kedudukan. Pilih satu. Jika ia sudah diisi, dua peserta bertukar tempat. Jika ia kosong, peserta berpindah ke situ.</li>
+<li>Setiap kumpulan mempunyai board. Dalam Paparan kumpulan anda menanda <b>Board</b>. Kumpulan di board yang sama bermain secara bergilir-gilir. Tandakan lebih daripada satu board untuk berkongsi perlawanan sesuatu kumpulan antara board itu.</li>
+</ul>
+<p>Perlawanan pertama pada setiap carta ialah 1 lwn 2. Setiap carta juga menyenaraikan susunan perlawanan dan mencadangkan pencatat skor (marker) bagi setiap perlawanan, dipilih daripada peserta lain dalam kumpulan. Acara berpasukan tidak mempunyai pencatat skor: setiap pasukan mencatat skor perlawanannya sendiri pada borang barisan.</p>
+
+<h4 id="draw-knockout">Membuat undian bracket kalah mati</h4>
+<p><b>Kalah mati</b> tidak mempunyai kumpulan untuk diundi. Tetapkan seed di langkah 3 jika anda mahu (lihat <a href="#seeds">Seed</a>), kemudian klik <b>Jana bracket</b> di langkah 4. Bye diberikan kepada seed terbaik; lihat <a href="#faq-byes">Bagaimana bye ditentukan dalam kalah mati?</a></p>
+<p>Dalam <b>Group Boards</b>, klik <b>Buat undian kumpulan</b> di langkah 3. Lihat <a href="#group-boards">Group Boards, kemudian peringkat akhir</a>.</p>
+`
+      },
+      {
+        id: 'draws-and-printing',
+        title: 'Semak dan cetak set kosong (langkah 4)',
+        summary: 'Sahkan carta, kemudian cetak set kosong: carta, helaian peraturan, logo dan kod QR.',
+        claims: ['print-order'],
+        // PROOFREAD: "L1, R1" are the section codes the split sheets print today (English letters for left/right);
+        // revisit when the printed sheets are translated (a later step). "Terbitkan keputusan sekarang" and
+        // "Penerbitan dimatikan, jadi kod QR tidak akan dicetak pada helaian ini" are coined (docs/i18n/ui-strings-needed.md).
+        keywords: 'cetak mencetak cetakan set kosong set bracket kod qr sahkan pengesahan saiz kertas a3 a4 pdf simpan pdf helaian peraturan susunan perlawanan logo penaja print printing blank pack qr confirm paper size',
+        body: `
+<h4 id="confirm">Mengesahkan</h4>
+<p>Langkah 4 ialah <b>Sahkan &amp; Cetak Bracket</b>. Semak setiap kumpulan, kemudian klik <b>Sahkan carta ini</b>, atau <b>Sahkan kesemua N carta</b>. Kotak pengesahan memberi amaran tentang masalah seperti peserta yang tiada atau dua nama yang sama. Jika kemudian anda mengubah siapa yang berada dalam kumpulan yang telah disahkan, pengesahannya dibatalkan secara automatik dengan nota &ldquo;Pengesahan dibatalkan secara automatik&rdquo;. Sahkan semula.</p>
+<p>Untuk Kalah mati, langkah 4 mempunyai <b>Jana bracket</b> (atau <b>Jana semula bracket</b>). Menjana semula selepas ada keputusan akan memadam keputusan itu, jadi DartDraw bertanya dahulu.</p>
+
+<h4 id="print-pack">Mencetak set kosong</h4>
+<p>Klik <b>Cetak set bracket</b>. Set ini bersaiz A4 melintang dan boleh mengandungi, mengikut urutan ini:</p>
+<ul>
+<li>helaian peraturan &amp; format, sentiasa halaman pertama apabila ia ditanda (kotak tanda pada skrin yang sama);</li>
+<li>susunan induk perlawanan, terus selepas helaian peraturan (atau pertama, jika anda tidak menyertakan helaian peraturan). Ia mempunyai satu lajur bagi setiap board (sehingga 8 pada satu helaian) dan menyenaraikan kumpulan setiap board mengikut urutan bermain, dengan kotak tanda bagi setiap perlawanan. Board yang mempunyai lebih banyak kumpulan daripada yang muat bersambung ke helaian seterusnya. Kumpulan tidak akan dipecahkan;</li>
+<li>satu carta bagi setiap kumpulan yang disahkan;</li>
+<li>bracket (carta kalah mati), atau bracket unjuran dengan label seperti A1 sebelum kumpulan dimainkan;</li>
+<li>dalam Group Boards, helaian <b>Pemain A&ndash;Z</b>, helaian <b>Board</b>, satu helaian bagi setiap kumpulan dan helaian Peringkat Akhir;</li>
+<li>dalam acara berpasukan, borang barisan bagi setiap perlawanan jika anda menanda kotaknya. Lihat <a href="#lineup-sheet">Borang barisan</a>.</li>
+</ul>
+<p>Tetingkap cetak pelayar anda dibuka. Pilih pencetak, atau pilih <b>Simpan sebagai PDF</b> untuk membuat fail. Cetak set kosong sebelum anda memulakan perlawanan; DartDraw mengingatkan anda tentangnya apabila anda memulakan perlawanan.</p>
+<p class="callout"><b>Mahukan kod QR pada helaian?</b> Terbitkan sebelum anda mencetak. Semasa penerbitan dimatikan, langkah 4 memaparkan nota di atas butang cetak: &ldquo;Penerbitan dimatikan, jadi kod QR tidak akan dicetak pada helaian ini&rdquo;. Klik <b>Terbitkan keputusan sekarang</b> dalam nota itu (sama seperti menanda <b>Terbitkan keputusan</b> di langkah 5), kemudian cetak. Helaian yang dicetak lebih awal tidak mempunyai kod QR; cetak semula selepas menerbitkan untuk mendapatkannya.</p>
+
+<h4 id="bracket-sheets">Helaian bracket kalah mati dan saiz kertas</h4>
+<p>Setiap bracket kalah mati dicetak sebagai satu carta dua bahagian pada satu helaian: bracket utama, saingan Plate dan bracket unjuran. Separuh kiri dan separuh kanan menuju ke perlawanan Akhir di tengah, dengan tajuk di atasnya dan kotak Juara di bawahnya. Peserta yang mendapat bye pusingan pertama bermula di pusingan 2 dengan tag BYE kecil. Nama sehingga 24 aksara dicetak penuh. Nama yang lebih panjang dipotong dengan nombor kecil, dan nama penuh dicetak di kaki helaian. Group Boards mengekalkan cartanya sendiri.</p>
+<p>Pilih <b>Saiz kertas bracket kalah mati</b> (A4, A3, A2 atau A1) di langkah 4 atau langkah 7. Di bawahnya, semakan muat menunjukkan saiz nama yang dicetak bagi setiap saiz kertas. Nama boleh dibaca mulai 7 pt. Apabila nama akan dicetak antara 7 dan 8 pt, nota mencadangkan saiz yang memberikan 8 pt atau lebih, dengan butang untuk menukar acara ke saiz itu. Ia tidak akan menghalang anda daripada mencetak.</p>
+<p>Apabila bracket terlalu besar untuk dicetak dengan jelas pada saiz yang anda pilih, pencetakan bertanya dahulu apa yang perlu dilakukan:</p>
+<ul>
+<li><b>Guna A3 (disyorkan)</b> (atau saiz yang diperlukan): saiz kertas yang disimpan untuk acara bertukar ke saiz itu dan bracket dicetak pada satu helaian saiz itu. Tetapkan pencetak kepada saiz yang sama.</li>
+<li><b>Pecahkan kepada N helaian A4</b>, jika bracket boleh dipecahkan. Pusingan luar setiap bahagian bracket dicetak sebagai seksyen pada helaian A4: L1, L2 &hellip; untuk bahagian kiri dan R1, R2 &hellip; untuk bahagian kanan, bernombor dari atas ke bawah. Helaian Akhir memuatkan pusingan terakhir. Semuanya menggunakan skala yang sama dan boleh dibaca. Setiap seksyen menunjukkan ke mana pemenangnya pergi (&ldquo;ke Akhir 5-1&rdquo;). Setiap kotak pertama pada helaian Akhir menunjukkan dari mana pesertanya datang: &ldquo;L1 &middot; 4-1&rdquo; ialah pemenang perlawanan 4-1 di seksyen L1. Tanda + kecil menunjukkan di mana pemenang keluar dari seksyen dan masuk ke helaian Akhir. Pada pencetak pejabat biasa, inilah pilihan yang biasanya paling sesuai.</li>
+<li><b>Kekalkan A4</b> (saiz anda): seluruh carta dikecilkan supaya muat satu helaian, dengan bentuknya dikekalkan. Nama mungkin terlalu kecil untuk dibaca apabila dicetak, jadi nota pada skrin cetakan menyatakannya dan menawarkan saiz yang disyorkan. Nota itu tidak akan dicetak.</li>
+</ul>
+<p>Jika tiada saiz kertas sehingga A1 yang dapat memuatkan bracket pada 7 pt, kotak itu menyatakan bahawa A1 pun perlu mengecilkannya. Ia kemudian hanya menawarkan pilihan pecah dan kecilkan.</p>
+<p>Jawapan anda diingati untuk acara itu. Anda akan ditanya semula apabila ia tidak lagi muat: apabila anda memilih saiz kertas lain, atau selepas undian lain yang memerlukan saiz berbeza.</p>
+
+<h4 id="logos-and-rules">Logo, penaja dan helaian peraturan</h4>
+<p>Logo kejohanan anda diletakkan di pengepala setiap helaian. Logo penaja (persediaan Lanjutan) dicetak di kaki halaman apabila <b>Sertakan kaki halaman penaja pada carta bercetak</b> ditanda. Helaian peraturan dijana secara automatik berdasarkan tetapan anda: format, sistem mata, berapa ramai yang mara dan susunan pemecah seri. Ia menambah apa-apa yang anda taip dalam <b>Walkover, tatakelakuan &amp; peraturan lain</b>.</p>
+
+<h4 id="qr-codes">Kod QR</h4>
+<p>Hanya sesetengah helaian mempunyai kod QR, dengan alamat langsung di sebelahnya: carta kumpulan round robin, helaian bracket kalah mati dan Peringkat Akhir, helaian kumpulan Group Boards, dan dalam Group Boards helaian <b>Board</b> dan <b>Pemain A&ndash;Z</b>. Kod itu terletak di pengepala, kecuali pada bracket kalah mati dua bahagian, iaitu di bawah kotak Juara. Helaian peraturan dan susunan perlawanan tidak mempunyainya.</p>
+<p>Setiap kod membuka halaman helaian itu sendiri. Carta kumpulan membuka kumpulan itu, helaian bracket membuka bracket, helaian Board membuka tab Board, dan Pemain A&ndash;Z membuka acara. Kod dijana dalam pelayar anda, jadi pencetakan tidak memerlukan internet tambahan.</p>
+<p>Kod hanya muncul apabila <b>Terbitkan keputusan</b> dihidupkan <em>dan</em> alamat laman awam telah ditetapkan. Penerbitan terletak di langkah 5, selepas cetakan di langkah 4. Jadi langkah 4 mengingatkan anda: semasa penerbitan dimatikan, nota di atas butang cetak menyatakan bahawa helaian tidak akan mempunyai kod QR. Nota itu mempunyai butang <b>Terbitkan keputusan sekarang</b>: klik butang itu sebelum anda mencetak. Jika nota itu sebaliknya menyatakan alamat laman keputusan awam belum ditetapkan, tanya pentadbir anda. Helaian kemudian dicetak tanpa kod QR.</p>
+`
+      },
+      {
+        id: 'publishing-results',
+        title: 'Kongsi keputusan langsung dengan penonton',
+        summary: 'Terbitkan keputusan, senaraikan acara di halaman utama awam, dan ketahui apa yang dilihat penonton.',
+        keywords: 'kongsi pautan penonton halaman awam keputusan langsung kod qr terbit terbitkan penerbitan senaraikan halaman utama telefon penyokong share link spectators public live results publish listing home page',
+        body: `
+<h4 id="publish">Menerbitkan</h4>
+<p>Di bahagian bawah langkah 5 terdapat kad <b>Keputusan awam</b>.</p>
+<ol>
+<li>Tandakan <b>Terbitkan keputusan</b>.</li>
+<li>Pautan dipaparkan. Klik <b>Salin pautan</b> untuk berkongsi, <b>Buka &#8599;</b> untuk melihatnya, atau <b>Semua acara &#8599;</b> untuk halaman utama awam.</li>
+<li>Nyahtanda <b>Terbitkan keputusan</b> pada bila-bila masa untuk menjadikan halaman itu luar talian.</li>
+</ol>
+<p>Anda juga boleh menerbitkan dari langkah 4. Semasa penerbitan dimatikan, nota di atas butang cetak mempunyai butang <b>Terbitkan keputusan sekarang</b>, supaya kod QR dicetak pada set kosong. Ia sama seperti menanda kotak di sini.</p>
+<p>Jika kad menyatakan alamat laman awam belum ditetapkan, maklumkan kepada pentadbir anda.</p>
+
+<h4 id="listing">Disenaraikan di halaman utama</h4>
+<p>Laman keputusan awam (DartDraw Live) mempunyai halaman utama yang menyenaraikan acara. Acara anda hanya ada di situ jika anda menanda <b>Senaraikan di halaman awam</b>, di bawah <b>Terbitkan keputusan</b>. Ia dimatikan secara lalai. Senarai itu memaparkan nama acara dan kejohanan, tarikh, format, bilangan peserta dan, apabila selesai, pemenang. Pautan peribadi anda tetap berfungsi dalam kedua-dua keadaan.</p>
+<ul>
+<li>Menyahtanda <b>Terbitkan keputusan</b> juga membuang penyenaraian itu, dan menandanya semula tidak mengembalikan penyenaraian itu.</li>
+<li>Acara yang disalin bermula tanpa diterbitkan dan tanpa disenaraikan.</li>
+<li>Halaman utama mempunyai tiga tab. <b>Langsung</b> untuk acara yang sedang dimainkan, <b>Mendatang</b> untuk acara yang belum bermula, dan <b>Keputusan</b> untuk acara yang telah dimuktamadkan.</li>
+</ul>
+
+<h4 id="what-spectators-see">Apa yang dilihat penonton</h4>
+<p>Sesiapa yang mempunyai pautan dapat melihat kedudukan, keputusan dan bracket (carta kalah mati), serta boleh mencari pemain. Acara Group Boards juga mempunyai tab <b>Board</b>. Mereka melihat nama peserta (nama pasangan atau nama pasukan) dan organisasi. Mereka tidak akan melihat nota anda, log insiden, butiran daftar masuk, atau logo dan penaja anda.</p>
+<p>Penonton mempunyai halaman bantuan sendiri di <a href="${VIEWER_HELP_URL}" target="_blank" rel="noopener">laman keputusan awam</a>. Kongsikan dengan sesiapa yang bertanya cara mengikuti acara.</p>
+
+<h4 id="how-fast">Seberapa pantas ia dikemas kini</h4>
+<p>Halaman acara dimuat semula secara automatik kira-kira setiap 20 saat dan mendapat skor sejurus selepas ia disimpan. Perubahan pada senarai halaman utama boleh mengambil masa kira-kira setengah minit untuk dipaparkan.</p>
+
+<h4 id="before-finalizing">Sebelum anda memuktamadkan</h4>
+<p>Tetapkan <b>Terbitkan keputusan</b> dan <b>Senaraikan di halaman awam</b> mengikut kehendak anda terlebih dahulu. Kedua-duanya tidak boleh diubah selepas acara dimuktamadkan.</p>
+`
+      }
+    ]
+  },
+  {
+    id: 'on-the-day',
+    title: 'Pada hari kejohanan',
+    kind: 'guide',
+    items: [
+      {
+        id: 'check-in-and-start',
+        title: 'Daftar masuk peserta dan mulakan perlawanan',
+        summary: 'Tandakan peserta apabila mereka tiba, kemudian mulakan perlawanan (round robin) atau terus bermain (kalah mati).',
+        claims: ['checkin-warning'],
+        keywords: 'daftar masuk kehadiran sudah sampai tiba hadir mulakan perlawanan mulakan semua perlawanan mula main skor dikunci kunci check in checkin arrived start games start all games locked scores',
+        body: `
+<h4 id="check-in">Daftar masuk</h4>
+<p>Di langkah 4 terdapat kad <b>Daftar masuk</b>. Tandakan setiap peserta apabila mereka tiba, atau klik <b>Daftar masuk semua</b>. Gunakan kotak carian, atau tandakan <b>Tunjukkan yang belum daftar masuk sahaja</b>.</p>
+<p>Daftar masuk hanyalah rekod untuk anda. Ia tidak akan menghalang anda daripada mengesahkan, mencetak atau memulakan. Anda mendapat amaran kuning &ldquo;Belum semua peserta mendaftar masuk&rdquo; apabila anda klik <b>Mulakan semua perlawanan</b>, apabila anda klik <b>Jana bracket</b> atau <b>Jana semula bracket</b> dalam Kalah mati, dan apabila anda membuat undian atau mengesahkan kumpulan Group Boards. Anda boleh meneruskan. Membuat undian kalah mati selepas round robin (<b>Jana bracket kalah mati</b>) tidak memberi amaran, kerana pada masa itu semua peserta sudah bermain dalam kumpulan.</p>
+<p>Dalam Group Boards, tandakan daftar masuk di langkah 4. Kemudian, di langkah 3, sebelum anda klik <b>Buat undian kumpulan</b>, butang <b>Keluarkan N yang belum daftar masuk</b> (N ialah nombor) membuang semua yang tidak ditanda. Ia hanya muncul selepas sekurang-kurangnya satu peserta ditanda, dan hanya sebelum undian.</p>
+
+<h4 id="start-games">Mulakan semua perlawanan</h4>
+<p>Dalam round robin atau Round robin &rarr; Kalah mati, skor dikunci sehingga anda klik <b>Mulakan semua perlawanan</b> di langkah 5. Semua carta yang disahkan bermula serentak; anda tidak boleh memulakannya satu demi satu. Sebelum anda bermula, kotak skor berlorek dan mengkliknya memaparkan &ldquo;Skor dikunci&rdquo;. Kalah mati tidak mempunyai butang mula: klik perlawanan apabila ia dimainkan.</p>
+<p>Kotak yang dibuka mungkin menyatakan <b>Cadangan: cetak set dahulu</b>. Anda boleh memilih <b>Cetak set dahulu</b> atau <b>Mulakan tanpa mencetak</b>. Ia juga menyenaraikan sesiapa yang belum daftar masuk.</p>
+`
+      },
+      {
+        id: 'managing-the-tournament',
+        title: 'Masukkan dan betulkan skor (langkah 5)',
+        summary: 'Masukkan skor, betulkan atau kosongkan keputusan, baca jadual kedudukan, laraskan kedudukan dan simpan log insiden peribadi.',
+        claims: ['ko-cascade', 'clear-result', 'rr-clear-after-draw'],
+        keywords: 'skor markah masukkan skor isi skor keputusan perlawanan hari perlawanan salah taip silap skor salah betulkan kosongkan keputusan pemenang urus kejohanan jadual kedudukan insiden scores score enter scores results typo mistake wrong score clear result winner manage',
+        body: `
+<p>Langkah 5 ialah <b>Urus Kejohanan</b>. Di sinilah anda menghabiskan hari perlawanan. Untuk memulakan perlawanan, lihat <a href="#start-games">Mulakan semua perlawanan</a>.</p>
+
+<h4 id="enter-scores">Memasukkan skor</h4>
+<p><b>Round robin:</b> klik kotak tempat dua peserta bertemu. Taip leg setiap pihak dan klik <b>Simpan skor</b>. Pemenang mesti mempunyai tepat bilangan leg yang diperlukan untuk tetapan terbaik daripada anda, dan yang kalah kurang daripadanya. Kedudukan, mata dan jumlah leg dikemas kini serta-merta dalam jadual kedudukan di bawah setiap carta.</p>
+<p><b>Kalah mati:</b> klik perlawanan, taip leg dan klik <b>Simpan skor</b>. Tiada keputusan seri. Pemenang mara ke pusingan seterusnya.</p>
+<p><b>Berpasukan:</b> taip jumlah leg yang dimenangi setiap pasukan sepanjang perlawanan. Lihat <a href="#teams-results">Memasukkan keputusan pasukan</a>.</p>
+
+<h4 id="correct-a-result">Membetulkan atau mengosongkan keputusan</h4>
+<ul>
+<li><b>Untuk membetulkan skor</b>, klik skor itu sekali lagi, taip leg yang betul dan klik <b>Simpan skor</b>.</li>
+<li><b>Untuk mengosongkan keputusan</b>, contohnya skor yang ditaip pada perlawanan yang salah, klik perlawanan itu dan pilih <b>Kosongkan keputusan</b>. DartDraw bertanya &ldquo;Kosongkan keputusan ini?&rdquo; dahulu: klik <b>Kosongkan keputusan</b> sekali lagi, atau <b>Batal</b>. Perlawanan itu kembali berstatus belum dimainkan, dan kedudukan round robin dikira semula. Walkover boleh dikosongkan dengan cara yang sama. Perlawanan yang ditanda <b>Kedua-dua tidak hadir</b> mempunyai <b>Batalkan</b> sebagai gantinya.</li>
+<li><b>Dalam kalah mati</b>, jika anda menukar pemenang sesuatu perlawanan, atau mengosongkannya, setiap perlawanan berikutnya yang telah dicapai oleh pemenang lama turut dikosongkan, hingga ke perlawanan akhir, termasuk juara. Anda kemudian memasukkan semula keputusan itu. Jika mana-mana perlawanan berikutnya itu sudah ada keputusan, DartDraw bertanya dahulu dan menyenaraikannya. Contohnya: &ldquo;Menukar keputusan ini akan mengosongkan 2 keputusan berikutnya, dan anda perlu memasukkannya semula&rdquo;, serta juara jika ada. Klik <b>Tukar keputusan</b> untuk meneruskan, atau <b>Batal</b> untuk membiarkan semuanya seperti sebelumnya. Membetulkan skor sahaja, dengan pemenang yang sama, tidak mengubah perlawanan berikutnya dan DartDraw tidak bertanya apa-apa. Ini berfungsi dengan cara yang sama dalam saingan Plate, kalah mati berpasukan, Peringkat Akhir Group Boards dan tetingkap skrin penuh. Dalam sesuatu kumpulan Group Boards, pemenang baharu mengosongkan perlawanan berikutnya dalam kumpulan itu dengan cara yang sama tanpa bertanya. Ia ditolak jika perlawanan Peringkat Akhir yang bergantung padanya sudah mempunyai skor.</li>
+<li><b>Selepas undian kalah mati dibuat daripada round robin</b>, keputusan kumpulan masih boleh dibetulkan dengan <b>Simpan skor</b>, tetapi tidak boleh dikosongkan lagi. Kumpulan itu akan menjadi belum selesai, sedangkan undian kalah mati hanya dibuat daripada kumpulan yang telah selesai. Jika pembetulan mengubah siapa yang mara, gunakan <b>Jana semula daripada kedudukan semasa</b> (ia membuang mana-mana keputusan kalah mati, dan bertanya dahulu).</li>
+<li>Acara yang telah dimuktamadkan tidak boleh diubah. Lihat <a href="#reopening">Mengubah acara yang dimuktamadkan</a>.</li>
+</ul>
+
+<h4 id="standings">Kedudukan</h4>
+<p>Jadual kedudukan memaparkan <b>Main</b> (perlawanan dimainkan), <b>M</b> (menang), <b>K</b> (kalah), <b>LM</b> (leg dimenangi), <b>+/-</b> (beza leg) dan <b>Mata</b>. Lencana kecil <b>TB</b> menunjukkan pemecah seri mana yang memisahkan dua peserta. Tanda <b>?</b> bermaksud mereka masih sama mata. Pautan kecil <b>?</b> di sebelah perkataan Kedudukan membuka <a href="#glossary-tables">istilah jadual</a>. Lihat juga <a href="#faq-tie-breaks">Bagaimana pemecah seri berfungsi?</a></p>
+
+<h4 id="adjust-positions">Melaraskan kedudukan</h4>
+<p>Jika peserta yang sama mata dalam round robin memerlukan keputusan anda, klik <b>Laraskan kedudukan&hellip;</b> pada kumpulan dalam Urus Kejohanan. Taip kedudukan yang anda mahu bagi setiap peserta dan klik <b>Simpan</b>. Kedudukan manual mendapat tanda bintang (*) pada carta. <b>Set semula semua</b> mengembalikan susunan automatik.</p>
+
+<h4 id="incident-log">Log insiden</h4>
+<p>Di bahagian bawah langkah 5, <b>+ Catat insiden</b> merekodkan amaran, pertikaian atau kejadian lain: peserta, apa yang berlaku dan tindakan yang diambil. Ia untuk anda sahaja. Ia tidak akan dicetak dan tidak akan dipaparkan di halaman awam.</p>
+
+<h4 id="finishing-up">Apabila permainan tamat</h4>
+<p>Gunakan kad <b>Terima keputusan &amp; muktamadkan</b> di bahagian bawah langkah 5. Lihat <a href="#finishing-the-event">Tamatkan acara</a>. Untuk menggunakan skrin kedua semasa bermain, lihat <a href="#full-page-window">Skrin kedua atau projektor</a>.</p>
+`
+      },
+      {
+        id: 'player-leaves',
+        title: 'Ketidakhadiran dan pemain yang meninggalkan acara',
+        summary: 'Apa yang perlu dilakukan apabila peserta tidak datang atau terpaksa berhenti: sebelum kumpulannya bermula, semasa peringkat kumpulan, semasa kalah mati, dan selepas acara dimuktamadkan.',
+        claims: ['withdraw-guard', 'no-show-route'],
+        // Proofread 2026-10-24: "Tandakan tidak hadir sebagai gantinya" (Mark no-show instead) is final (docs/i18n/ui-strings-needed.md).
+        keywords: 'tidak hadir tak hadir tak datang tidak datang tidak muncul ponteng berhenti pemain berhenti tinggalkan meninggalkan balik awal cedera kecederaan tarik diri menarik diri tengah jalan pertengahan walkover kalah walkover quit leaves left retire injured drop out pulled out no show noshow withdraw',
+        body: `
+<p>Pada peringkat mana pun anda berada, keputusan yang telah dimainkan tidak akan dibuang. Apa yang anda klik bergantung pada sejauh mana acara telah berjalan.</p>
+
+<h4 id="leaves-before">Sebelum undian, atau sebelum kumpulan mereka bermula</h4>
+<ol>
+<li>Pergi ke langkah 3, <b>Butiran carta</b>.</li>
+<li>Klik <b>Tarik diri</b> di sebelah peserta itu.</li>
+<li>Sebelum undian, peserta itu hanya dibuang daripada senarai. Selepas undian, taip nama pengganti untuk mengisi slot itu, atau biarkan kotak kosong untuk bye, kemudian klik <b>Tarik diri</b>.</li>
+<li>Jika kumpulan mereka telah disahkan, pengesahannya dibatalkan. Semak kumpulan itu di langkah 4 dan klik <b>Sahkan carta ini</b> sekali lagi.</li>
+</ol>
+<p>Acara Kalah mati atau Group Boards tidak mempunyai butang Tarik diri di langkah 3. Selepas bracket (carta kalah mati) diundi, gunakan langkah kalah mati di bawah.</p>
+
+<h4 id="leaves-groups">Semasa round robin</h4>
+<p>Jangan gunakan Tarik diri: selepas kumpulan bermula, ia ditolak, kerana ia akan membuang keputusan yang telah dimainkan. Sebaliknya:</p>
+<ol>
+<li>Di langkah 5, <b>Urus Kejohanan</b>, klik <b>Tandakan tidak hadir&hellip;</b> pada carta kumpulan mereka.</li>
+<li>Pilih peserta itu.</li>
+</ol>
+<p>Setiap perlawanan yang belum mereka mainkan dalam kumpulan itu menjadi kalah walkover, ditanda <b>WO</b>, jadi lawan mereka mendapat mata. Anda juga boleh bermula dari langkah 3: klik <b>Tandakan tidak hadir&hellip;</b> di sebelah nama mereka, kemudian <b>Tandakan tidak hadir sebagai gantinya</b>. Untuk membatalkannya, gunakan pautan <b>buat asal</b> dalam kotak tidak hadir. Pautan itu hanya ada sehingga undian kalah mati dibuat daripada kumpulan; selepas itu, masukkan skor sebenar pada kotak WO sebagai gantinya.</p>
+
+<h4 id="leaves-knockout">Semasa kalah mati</h4>
+<ol>
+<li>Cari perlawanan seterusnya mereka dalam bracket di langkah 5 (atau dalam tetingkap skrin penuh).</li>
+<li>Klik <b>Tandakan tidak hadir&hellip;</b> di bawah perlawanan itu dan pilih mereka.</li>
+</ol>
+<p>Lawan mereka mara melalui walkover, ditanda <b>WO</b>. Jika perlawanan seterusnya mereka belum ada lawan, tunggu sehingga ada, kemudian lakukan perkara yang sama. Selepas round robin, <b>Tandakan tidak hadir&hellip;</b> di sebelah nama mereka di langkah 3 melakukannya secara automatik apabila perlawanan itu sedia. Keputusan kumpulan kekal seperti sedia ada dan undian kalah mati tidak dibuat semula. Dalam Group Boards ia berfungsi dengan cara yang sama di dalam setiap kumpulan dan di Peringkat Akhir.</p>
+
+<h4 id="leaves-finalized">Selepas acara dimuktamadkan</h4>
+<p>Tiada apa-apa yang boleh diubah lagi. Hanya Pentadbir boleh membuka semula acara itu. Lihat <a href="#reopening">Mengubah acara yang dimuktamadkan</a>.</p>
+
+<h4 id="no-shows">Ketidakhadiran dan walkover</h4>
+<p>Dalam <b>round robin</b>, selepas perlawanan bermula, klik <b>Tandakan tidak hadir&hellip;</b> pada carta kumpulan dan pilih peserta itu. Setiap perlawanan yang belum mereka mainkan dalam kumpulan itu diisi sebagai kalah walkover dan ditanda <b>WO</b>. Walkover ialah kemenangan dengan leg yang cukup untuk menang berbanding sifar (contohnya 2&ndash;0 dalam terbaik daripada 3), dan ia dikira sebagai perlawanan yang telah dimainkan. Keputusan sebenar yang telah anda masukkan tidak akan ditulis ganti. Sehingga undian kalah mati dibuat daripada kumpulan, kotak yang sama mempunyai pautan <b>buat asal</b>. Selepas itu, ketidakhadiran tidak boleh dibuat asal lagi (kumpulan itu akan menjadi belum selesai). Memasukkan skor sebenar pada kotak WO masih menggantikannya.</p>
+<p>Dalam perlawanan <b>kalah mati</b> atau <b>Group Boards</b>, klik <b>Tandakan tidak hadir&hellip;</b> di bawah perlawanan dan pilih siapa yang tidak hadir. Pihak lawan menang walkover dan mara, ditanda <b>WO</b>.</p>
+
+<h4 id="neither-showed">Kedua-dua tidak hadir</h4>
+<p>Ini untuk perlawanan kalah mati dan Group Boards sahaja; round robin tidak mempunyai pilihan ini. Jika kedua-dua pihak tidak hadir, pilih <b>Kedua-dua tidak hadir</b> dalam kotak yang sama. Tiada siapa mara dan lawan seterusnya mendapat bye. Jika perlawanan itu ialah perlawanan akhir sesuatu kumpulan dalam Group Boards, kumpulan itu tamat tanpa pemenang. Slot Peringkat Akhirnya berbunyi &ldquo;Kumpulan N: tiada pemenang&rdquo;, yang menjadi bye. Untuk membuat asal, buka perlawanan dan klik <b>Batalkan</b>, atau masukkan sahaja skor. Di halaman awam perlawanan itu berbunyi &ldquo;Kedua-dua tidak hadir&rdquo;, atau TIDAK HADIR dalam paparan Carta bracket.</p>
+
+<h4 id="withdrawals">Tarik diri: bila ia berfungsi dan bila ia ditolak</h4>
+<p>Dalam round robin, klik <b>Tarik diri</b> di sebelah peserta di langkah 3. Anda boleh berbuat demikian sehingga kumpulan mereka bermula. Sebelum undian ia hanya membuang mereka. Selepas undian anda boleh menaip nama pengganti untuk mengisi slot itu, atau membiarkannya kosong untuk bye. Kumpulan yang pesertanya berubah dibatalkan pengesahannya supaya anda boleh menyemaknya semula.</p>
+<p>Selepas kumpulan mereka bermula (selepas <b>Mulakan semua perlawanan</b>), selepas mereka mempunyai keputusan, atau selepas bracket yang telah diundi memuatkan mereka, Tarik diri tidak lagi boleh digunakan. Ia akan membuang keputusan yang sudah ada dan mengubah jadual. Di langkah 3, butang <b>Tarik diri</b> kemudian digantikan dengan <b>Tandakan tidak hadir&hellip;</b>. Selepas mereka ditanda, tag <b>Tidak hadir</b> dipaparkan sebagai gantinya, dan tiada butang dipaparkan apabila mereka tidak lagi mempunyai perlawanan untuk dimainkan. Klik butang itu dan DartDraw menerangkan sebabnya serta menawarkan <b>Tandakan tidak hadir sebagai gantinya</b>. Dalam kumpulan, baki perlawanan mereka menjadi kalah walkover. Dalam kalah mati, mereka kalah walkover dalam perlawanan seterusnya dan lawan mara. Keputusan yang telah dimainkan kekal.</p>
+<p>Senarai Kalah mati di langkah 3 tidak mempunyai butang Tarik diri. Jika seseorang tidak datang, gunakan <b>Tandakan tidak hadir&hellip;</b> pada perlawanan mereka selepas bracket diundi.</p>
+`
+      },
+      {
+        id: 'running-the-knockout',
+        title: 'Kendalikan kalah mati',
+        summary: 'Buat undian kalah mati daripada kumpulan, mulakan pusingan, dan kendalikan kumpulan serta Peringkat Akhir sesuatu kalah mati besar pada hari kejohanan.',
+        keywords: 'kalah mati bracket undian kalah mati jana bracket kalah mati jana semula peringkat akhir panggil batal panggil mulakan pusingan board utama knockout bracket draw knockout generate finals call uncall start round regenerate',
+        body: `
+<h4 id="rr-knockout-draw">Membuat undian kalah mati daripada round robin</h4>
+<p>Dalam Round robin &rarr; Kalah mati, kad <b>Peringkat kalah mati</b> mempunyai <b>Jana bracket kalah mati</b>. Ia kekal kelabu sehingga setiap kumpulan selesai, dan menyatakan &ldquo;Undian kalah mati hanya boleh dibuat selepas semua kumpulan selesai&rdquo;. Jika ada peserta yang sama mata pada garisan kelayakan, anda juga perlu menyelesaikannya dahulu dengan <b>Laraskan kedudukan&hellip;</b>. <b>Jana semula daripada kedudukan semasa</b> membina semula bracket (carta kalah mati). Jika sudah ada keputusan kalah mati, keputusan itu dibuang, jadi ia bertanya dahulu. Bracket saingan Plate diundi pada masa yang sama.</p>
+<p>Klik <b>Mulakan pusingan</b> apabila pusingan bermula jika anda mahu DartDraw membandingkan jam dengan anggarannya.</p>
+
+<h4 id="group-boards-day">Group Boards</h4>
+<p>Group Boards memaparkan <b>Semua kumpulan</b> sebagai kad (tapis dengan <b>Semua</b>, <b>Belum selesai</b> dan <b>Selesai</b>). Klik kumpulan untuk membuka bracket kumpulan itu dan memasukkan keputusan. Setiap pemenang kumpulan mara ke Peringkat Akhir secara automatik. Apabila Peringkat Akhir dibina, butang <b>Peringkat Akhir</b> dipaparkan.</p>
+<p>Kad <b>Board</b> menunjukkan, bagi setiap board, perlawanan yang sedang berlangsung dan yang seterusnya. <b>Panggil</b> memberitahu pemain di halaman keputusan awam supaya pergi ke board mereka (<b>Batal panggil</b> mengosongkannya). <b>Masukkan keputusan</b> dan <b>Tidak hadir</b> juga ada. <b>Board Peringkat Akhir</b> membolehkan anda meletakkan perlawanan Peringkat Akhir di board utama (feature board).</p>
+`
+      },
+      {
+        id: 'full-page-window',
+        title: 'Skrin kedua atau projektor (tetingkap skrin penuh)',
+        summary: 'Buka Round robin, bracket Pemenang atau saingan Plate dalam tetingkapnya sendiri untuk projektor atau monitor kedua, dan terus mencatat skor.',
+        keywords: 'skrin kedua projektor monitor tv televisyen tetingkap baharu tetingkap skrin penuh skrin penuh paparan besar tetingkap timbul disekat f11 second screen projector monitor pop out window full screen full page window',
+        body: `
+<h4 id="fpw-what">Apakah ia</h4>
+<p>Ia ialah Urus Kejohanan dengan semua elemen lain dibuang. Tiada menu sebelah kiri dan tiada bar atas. Tetingkap itu mempunyai pengepala dengan logo anda (jika ditambah), nama kejohanan, nama acara, dan nama bracket (carta kalah mati) beserta statusnya (&ldquo;Sedang berlangsung&rdquo; atau &ldquo;Juara: &hellip;&rdquo;). Ia juga memaparkan logo penaja anda, status simpanan (seperti <b>Disimpan</b>) dan butang <b>Cetak</b>. Tetingkap round robin memaparkan &ldquo;Round robin&rdquo; dan bilangan carta sebaliknya. Di bawahnya ialah carta.</p>
+<ul>
+<li><b>Bracket</b> diskalakan supaya muat skrin anda, dan dilaraskan semula jika anda mengubah saiz tetingkap.</li>
+<li><b>Round robin</b> memaparkan satu kad bagi setiap kumpulan yang disahkan, setiap satu dengan carta dan kedudukannya. Ia boleh ditatal.</li>
+</ul>
+<p>Ia interaktif. Anda boleh memasukkan skor terus di situ.</p>
+
+<h4 id="fpw-when">Bila menggunakannya</h4>
+<p>Gunakannya untuk monitor kedua, projektor atau TV yang dilihat pemain semasa anda bekerja pada komputer riba. Anda juga boleh memberikan skrin tersendiri kepada round robin, bracket Pemenang dan saingan Plate.</p>
+
+<h4 id="fpw-open">Cara membukanya</h4>
+<p>Pergi ke langkah 5, <b>Urus Kejohanan</b>. Butang terletak di bahagian atas sebelah kanan kad Urus kejohanan.</p>
+<ul>
+<li><b>Round robin</b>: <b>Buka dalam tetingkap baharu &#8599;</b></li>
+<li><b>Kalah mati</b>: <b>Buka dalam tetingkap baharu &#8599;</b>. Ia muncul selepas bracket dijana.</li>
+<li><b>Round robin &rarr; Kalah mati</b>: sehingga tiga butang. <b>Round robin &#8599;</b> dan <b>Bracket pemenang &#8599;</b>, serta <b>Saingan Plate &#8599;</b> jika acara mempunyai saingan Plate dan bracket saingan itu sudah wujud.</li>
+</ul>
+<p>Acara Group Boards tidak mempunyai tetingkap ini. Gunakan kad Board sebaliknya, dan tab Board dengan paparan TV di halaman awam.</p>
+<p>Tetingkap dibuka sebagai tab atau tetingkap pelayar baharu. Seret tetingkap itu ke skrin lain jika perlu. Untuk paparan skrin penuh sebenar, tekan <b>F11</b> dalam kebanyakan pelayar. Itu ciri pelayar, bukan sebahagian daripada DartDraw.</p>
+
+<h4 id="fpw-popups">Jika tiada apa-apa berlaku</h4>
+<p>DartDraw membuka tetingkap melalui pelayar anda, dan pelayar boleh menyekatnya. Apabila ia disekat, DartDraw memaparkan &ldquo;Pelayar anda menyekat tetingkap baharu &mdash; benarkan tetingkap timbul untuk laman ini, kemudian klik butang sekali lagi.&rdquo; Cari ikon &ldquo;tetingkap timbul disekat&rdquo; dalam bar alamat, pilih untuk membenarkan tetingkap timbul bagi laman ini, kemudian klik butang sekali lagi. Sesetengah pelayar menyekatnya tanpa memberitahu DartDraw; jika tiada apa-apa dibuka dan tiada mesej dipaparkan, lakukan perkara yang sama.</p>
+
+<h4 id="fpw-scores">Memasukkan skor di situ</h4>
+<p>Klik kotak skor atau perlawanan sama seperti dalam tetingkap utama. Dalam tetingkap bracket, <b>Tandakan tidak hadir&hellip;</b> juga berfungsi. Berhati-hati sebelum mencatat skor di situ: baca <a href="#fpw-sync">Memastikan tetingkap selaras</a> dahulu. Beberapa perkara hanya ada dalam tetingkap utama:</p>
+<ul>
+<li><b>Mulakan semua perlawanan</b> (kotak round robin dikunci sehingga anda menekannya di situ);</li>
+<li><b>Tandakan tidak hadir&hellip;</b> dan <b>Laraskan kedudukan&hellip;</b> untuk kumpulan round robin;</li>
+<li>penerbitan dan pemuktamadan.</li>
+</ul>
+
+<h4 id="fpw-print">Mencetak</h4>
+<p>Butang <b>Cetak</b> dalam tetingkap skrin penuh hanya mencetak apa yang dipaparkan tetingkap itu: helaian bracket, atau carta kumpulan round robin. Helaian itu sama seperti dalam set penuh, dengan semakan kertas yang sama (lihat <a href="#bracket-sheets">Helaian bracket kalah mati dan saiz kertas</a>). Dalam acara berpasukan, tetingkap bracket juga mempunyai butang <b>Borang barisan</b> untuk borang barisan kalah mati yang sedia dan borang kosong. Untuk set penuh (helaian peraturan, susunan perlawanan dan setiap carta), cetak dari tetingkap utama, di langkah 4 (<b>Cetak set bracket</b>) atau langkah 7 (<b>Cetak carta akhir &mdash; Simpan PDF A4 resolusi tinggi</b>).</p>
+`
+      },
+      {
+        id: 'full-page-window-sync',
+        title: 'Tetingkap skrin penuh: memastikan tetingkap selaras, dan mesejnya',
+        summary: 'Tetingkap tidak saling mengemas kini semasa anda melihatnya. Catat skor dalam satu tetingkap pada satu masa, dan ketahui apa yang dinyatakan tetingkap apabila sesuatu tiada.',
+        keywords: 'dua tetingkap tetingkap kedua lapuk muat semula segar semula selaras kemas kini tetingkap f5 tetingkap skrin penuh dimuktamadkan tiada bracket two windows second window out of date reload refresh sync update windows full page window',
+        body: `
+<h4 id="fpw-sync">Memastikan tetingkap selaras</h4>
+<p>Perkara ini penting, jadi bacalah sekali.</p>
+<ul>
+<li>Setiap tetingkap memuatkan acara anda yang disimpan apabila ia dibuka, dan menyimpan apa yang anda lakukan di dalamnya ke akaun anda.</li>
+<li><b>Tetingkap tidak saling mengemas kini semasa anda melihatnya.</b> Skor yang anda masukkan dalam satu tetingkap tidak terus muncul dalam tetingkap lain.</li>
+<li>Apabila anda beralih ke sesuatu tetingkap (klik di dalamnya, atau bawanya kembali ke skrin), ia menyemak sama ada terdapat salinan acara yang lebih baharu. Jika ada, ia memuatkannya, kekal pada langkah yang sama dan memaparkan &ldquo;Dikemas kini dengan skor terkini&rdquo;. Ia tidak berbuat demikian semasa perubahan anda masih sedang disimpan, semasa kotak dibuka, semasa anda menaip dalam kotak atau telah menaip sesuatu yang belum disimpan, dan di langkah 1 hingga 3. Jadi semak skor sebelum anda memasukkan skor seterusnya. Tetingkap dalam pelayar yang sama saling memberitahu apabila menyimpan, jadi tetingkap yang anda beralih kepadanya terus mendapat skor dari tetingkap lain. Jika tidak (contohnya perubahan yang dibuat pada peranti lain), ia menyemak paling kerap setiap beberapa saat.</li>
+<li>Jika anda mencatat skor dalam tetingkap yang lapuk, skor itu <b>tidak disimpan</b>. DartDraw menolaknya supaya ia tidak menulis ganti keputusan yang lebih baharu. Sepanduk merah &ldquo;Dikemas kini di tempat lain &mdash; muat semula untuk mendapatkan versi terkini&rdquo; dipaparkan dalam tetingkap itu (termasuk tetingkap skrin penuh). Sehingga anda memuat semula, tetingkap itu tidak menyimpan apa-apa.</li>
+<li>Apabila anda melihat sepanduk itu, klik <b>Muat semula</b> <b>sebelum anda memasukkan apa-apa lagi</b>. Kemudian semak skor dan masukkan semula skor terakhir anda.</li>
+<li>Jadi gunakan <b>satu tetingkap bagi setiap acara pada satu masa</b> untuk memasukkan skor, dan gunakan yang lain untuk melihat sahaja. Buka tetingkap skrin penuh pada <b>satu peranti</b> sahaja. Jangan buka acara yang sama pada peranti kedua atau dalam tab kedua dan mencatat skor di situ juga.</li>
+<li>Jika anda tidak pasti sesuatu tetingkap terkini, tekan <b>F5</b> di dalamnya sebelum mencatat skor. Dalam tetingkap utama anda juga boleh klik acara dalam <b>Kejohanan yang disimpan</b>.</li>
+<li>Tetingkap skrin penuh memaparkan status simpanannya di pengepala. Selepas anda memasukkan skor di situ, pastikan ia menunjukkan <b>Disimpan</b>. Jika ia menunjukkan &ldquo;Gagal disimpan &mdash; klik untuk cuba lagi&rdquo;, semak sambungan anda dan klik mesej itu.</li>
+</ul>
+<p>Tabiat paling mudah: catat skor dalam satu tetingkap, dan gunakan yang lain untuk paparan.</p>
+
+<h4 id="fpw-empty">Apabila ia menyatakan sesuatu tiada</h4>
+<ul>
+<li>&ldquo;Belum ada bracket &mdash; jana bracket dalam Sahkan &amp; Cetak Bracket, kemudian buka semula tetingkap ini.&rdquo; Jana bracket (carta kalah mati) dalam tetingkap utama, kemudian buka tetingkap itu semula atau muat semula.</li>
+<li>&ldquo;Belum ada carta yang disahkan &mdash; sahkan sekurang-kurangnya satu kumpulan dalam Sahkan &amp; Cetak Bracket, kemudian buka semula tetingkap ini.&rdquo; Tetingkap round robin memerlukan sekurang-kurangnya satu kumpulan yang disahkan.</li>
+<li>&ldquo;Tiada kejohanan dibuka.&rdquo; Tiada acara untuk dipaparkan. Tutup tetingkap dan buka semula dari Urus Kejohanan.</li>
+</ul>
+
+<h4 id="fpw-finalized">Acara yang dimuktamadkan</h4>
+<p>Acara yang telah dimuktamadkan dibuka untuk paparan sahaja. Kotak skor dan perlawanan tidak berfungsi. Kadangkala tetingkap yang tidak tahu acara itu telah dimuktamadkan cuba menyimpan perubahan. Notis kemudian dipaparkan di bahagian atas: &ldquo;Acara ini telah dimuktamadkan. Perubahan anda tidak disimpan; hanya Pentadbir boleh mengubahnya.&rdquo;</p>
+`
+      }
+    ]
+  },
+  {
+    id: 'finish',
+    title: 'Menamatkan acara',
+    kind: 'guide',
+    items: [
+      {
+        id: 'finishing-the-event',
+        title: 'Tamatkan acara: muktamadkan, cetak carta akhir, guna semula',
+        summary: 'Semak kedudukan akhir, cetak carta akhir, terima keputusan, dan salin acara untuk kali seterusnya.',
+        claims: ['finalized-sidebar'],
+        // Proofread 2026-10-24: "Pergi ke sana" (Go there) and the quoted step 6/7 sentence are final.
+        keywords: 'tamat tamatkan menamatkan selesai tutup acara kunci terima keputusan muktamad muktamadkan memuktamadkan pemenang juara siapa menang kedudukan akhir pdf carta akhir guna semula kali seterusnya finish finished end close lock accept finalise finalize winner champion who won final chart reuse',
+        body: `
+<h4 id="review">Semak dan cetak</h4>
+<p>Langkah 6, <b>Muktamadkan Kedudukan</b>, ialah paparan baca sahaja bagi jadual atau kedudukan akhir. Jika anda mendapati kesilapan, klik <b>Kembali ke Urus Kejohanan</b> dan betulkan skor. Langkah 7, <b>Cetak Carta Akhir</b>, mencetak set dengan semua keputusan. Kedua-dua langkah ini tidak menutup acara: kedua-duanya menyatakan &ldquo;Untuk menamatkan acara, gunakan Terima &amp; muktamadkan di bahagian bawah langkah 5&rdquo;, dengan pautan <b>Pergi ke sana</b>. Klik <b>Cetak carta akhir &mdash; Simpan PDF A4 resolusi tinggi</b>, dan pilih <b>Simpan sebagai PDF</b> dalam tetingkap cetak jika anda mahukan fail.</p>
+<p>Jika dua peserta masih sama mata selepas setiap peraturan pemecah seri, kotak bertajuk &ldquo;Selesaikan kedudukan sama mata sebelum meneruskan&rdquo; menghalang anda di langkah 6 dan 7. Tentukan susunan mereka, kemudian gunakan <b>Laraskan kedudukan&hellip;</b>.</p>
+
+<h4 id="accept">Menerima keputusan</h4>
+<p>Di bahagian bawah langkah 5, kad <b>Terima keputusan &amp; muktamadkan</b> menyatakan &ldquo;Tersedia selepas semua perlawanan dimainkan&rdquo; sehingga keputusan terakhir dimasukkan. Kemudian:</p>
+<ol>
+<li>Klik <b>Terima &amp; muktamadkan</b>.</li>
+<li>Baca kotak &ldquo;Terima keputusan sebagai muktamad?&rdquo; dan klik <b>Terima &amp; muktamadkan</b> sekali lagi.</li>
+</ol>
+<p>Jika berlaku masalah, kotak menyatakan <b>Tidak dimuktamadkan</b> dan memberitahu sebabnya. Contohnya, simpanan terakhir tidak berjaya, atau acara telah diubah di tempat lain. Betulkannya dan cuba lagi.</p>
+
+<h4 id="what-it-locks">Apa yang dikunci</h4>
+<ul>
+<li>Halaman awam memaparkan <b>Keputusan muktamad</b>, dan acara berpindah ke <b>Keputusan</b> di halaman utama jika ia disenaraikan.</li>
+<li>Tiada apa-apa dalam acara boleh diedit, dinamakan semula atau dipadam dari aplikasi penganjur. Kawalan pada setiap langkah menjadi kelabu, termasuk tetapan penerbitan dan penyenaraian.</li>
+<li>Butang <b>Namakan semula</b> dan <b>Padam</b> di bawah acara dalam <b>Kejohanan yang disimpan</b> kelihatan sama seperti sebelumnya, tetapi ia juga dikunci: mengklik salah satunya hanya menerangkan sebabnya, contohnya &ldquo;Acara yang telah dimuktamadkan hanya boleh dinamakan semula oleh Pentadbir.&rdquo; <b>Salin</b> masih berfungsi dan membuat salinan baharu yang boleh anda edit.</li>
+<li>Anda masih boleh melihat setiap langkah, mencetak, menyalin pautan awam, membuka acara lain dan menukar kata laluan anda.</li>
+</ul>
+
+<h4 id="reopening">Mengubah acara yang dimuktamadkan</h4>
+<p><b>Hanya Pentadbir boleh membuka semula atau mengedit acara yang telah dimuktamadkan.</b> Hubungi pentadbir anda. Selepas ia dibuka semula, muat semula acara, buat perubahan anda, dan terima keputusan sekali lagi.</p>
+<p>Acara yang dimuktamadkan kekal dalam tab Keputusan di halaman utama untuk tempoh terhad yang ditetapkan oleh pentadbir anda. Selepas itu ia tidak lagi disenaraikan. Acara itu kekal dalam akaun anda.</p>
+
+<h4 id="reuse">Menggunakan semula acara untuk kali seterusnya</h4>
+<p>Klik <b>Salin</b> di bawah acara dalam <b>Kejohanan yang disimpan</b>. Salinan itu mengekalkan peserta, tetapan dan apa-apa skor, dan ia bermula tanpa diterbitkan, tanpa disenaraikan dan terbuka untuk diedit. Lihat <a href="#faq-duplicate">Bolehkah saya menggunakan semula acara untuk kali seterusnya?</a></p>
+`
+      }
+    ]
+  },
+  {
+    id: 'teams-events',
+    title: 'Acara berpasukan',
+    kind: 'guide',
+    items: [
+      {
+        id: 'teams',
+        title: 'Sediakan acara berpasukan',
+        summary: 'Sediakan perlawanan pasukan sebagai segmen, dan pilih di mana pemecah seri digunakan.',
+        keywords: 'pasukan berpasukan acara berpasukan liga segmen kapten pemecah seri perlawanan pasukan berempat trio team league segment segments captain tie breaker team match',
+        body: `
+<p>Dalam acara berpasukan, setiap perlawanan antara dua pasukan terdiri daripada <b>segmen</b> yang dimainkan berturut-turut. Contohnya: segmen berempat, kemudian permainan perseorangan dan beregu. Anda menetapkan segmen sekali sahaja, di langkah 2. Setiap perlawanan dalam acara menggunakannya, sama ada dalam kumpulan, setiap pusingan kalah mati, saingan Plate atau Group Boards. Pasukan hanyalah namanya. DartDraw tidak menyimpan senarai pemain. Untuk memasukkan keputusan dan mencetak borang barisan, lihat <a href="#teams-scoring">Cara skor perlawanan pasukan dikira</a>.</p>
+
+<h4 id="team-segments">Menyediakan segmen</h4>
+<p>Buka bahagian <b>Format</b> di langkah 2. Di bawah <b>Segmen perlawanan pasukan (dimainkan mengikut urutan)</b> setiap baris ialah satu segmen, dengan:</p>
+<ul>
+<li>jenis: <b>Perseorangan</b>, <b>Beregu</b>, <b>Trio</b> atau <b>Berempat</b>;</li>
+<li>skor permulaan: <b>301</b>, <b>501</b>, <b>701</b> atau <b>1001</b>;</li>
+<li>bilangan leg <b>terbaik daripada</b>. Ia mesti ganjil (1, 3, 5&hellip;). Nombor genap memaparkan amaran, dan <b>Simpan format &amp; penjenamaan &rarr;</b> menolaknya, kerana perlawanan boleh berakhir seri. Perkara yang sama berlaku pada pemecah seri apabila ia digunakan.</li>
+</ul>
+<p>Klik <b>+ Tambah segmen</b> untuk baris lain. Gunakan anak panah untuk menggerakkan segmen ke atas atau ke bawah, dan <b>&#10005;</b> untuk membuangnya. Sentiasa ada sekurang-kurangnya satu, dan paling banyak 8, supaya borang barisan muat pada satu halaman. Editor ini ada dalam persediaan Asas dan Lanjutan. Acara berpasukan tidak mempunyai kotak <b>Leg (terbaik daripada)</b> dan tiada leg tambahan untuk pusingan kemudian, kerana setiap segmen menetapkan legnya sendiri.</p>
+<p>Seperti setiap tetapan lain di langkah 2, perubahan anda hanya disimpan apabila anda klik <b>Simpan format &amp; penjenamaan &rarr;</b>. Tinggalkan langkah ini tanpa menyimpan dan segmen kekal seperti sebelumnya.</p>
+<p>Sebaik sahaja perlawanan bermula, segmen dikunci dan dipaparkan baca sahaja. Perlawanan dikira telah bermula selepas <b>Mulakan semua perlawanan</b> atau <b>Mulakan pusingan</b>, sebaik sahaja perlawanan dipanggil ke board, atau sebaik sahaja ada keputusan. Mulai saat itu, format dan jenis pertandingan (langkah 1) acara berpasukan juga tidak boleh diubah lagi, kerana setiap perlawanan dalam acara mesti dimainkan dengan cara yang sama.</p>
+<p>Acara berpasukan baharu bermula dengan lima segmen:</p>
+<ul>
+<li>Berempat 1001, terbaik daripada 1;</li>
+<li>Perseorangan 501, terbaik daripada 3;</li>
+<li>Beregu 501, terbaik daripada 3;</li>
+<li>Perseorangan 501, terbaik daripada 3;</li>
+<li>Beregu 501, terbaik daripada 3.</li>
+</ul>
+<p>Ubah suai mengikut keperluan liga anda.</p>
+
+<h4 id="team-tie-breaker">Pemecah seri</h4>
+<p>Di bawah <b>Pemecah seri mungkin diperlukan</b> anda memilih di mana pemecah seri digunakan: <b>Gunakan pemecah seri dalam perlawanan round robin</b>, <b>Gunakan pemecah seri dalam perlawanan kalah mati</b>, atau kedua-duanya. Hanya tanda yang sesuai dengan format anda dipaparkan. Round robin mempunyai yang pertama, kalah mati (termasuk Group Boards) yang kedua, dan Round robin &rarr; Kalah mati kedua-duanya. Apabila satu ditanda, baris <b>Pemecah seri</b> dipaparkan di hujung dengan jenis, skor permulaan dan bilangan leg (terbaik daripada) tersendiri. Ia hanya dimainkan apabila kedua-dua pasukan memenangi bilangan leg yang sama selepas segmen utama. Acara baharu mempunyai kedua-duanya ditanda, dengan Berempat 1001, terbaik daripada 1.</p>
+<p>Setiap tanda dikunci sebaik sahaja peringkatnya sendiri bermula, bukan sebelum itu. Dalam Round robin &rarr; Kalah mati anda masih boleh memilih pemecah seri kalah mati semasa kumpulan sedang dimainkan. Walaupun selepas sesuatu peringkat bermula, anda boleh <b>menghidupkan</b> pemecah serinya (tetapi tidak boleh mematikannya semula): yang kalah mati pada bila-bila masa, dan yang round robin selagi tiada keputusan seri disimpan. Jenis, skor permulaan dan terbaik daripada bagi pemecah seri boleh diubah selagi tiada peringkat yang telah bermula menggunakannya.</p>
+`
+      },
+      {
+        id: 'teams-scoring',
+        title: 'Cara skor perlawanan pasukan dikira, dan borang barisan',
+        summary: 'Masukkan satu keputusan bagi setiap perlawanan pasukan, ketahui jumlah paling banyak yang boleh dimenangi pasukan dan apa yang berlaku apabila jumlahnya sama, dan cetak borang barisan.',
+        // Proofread 2026-10-24: "fixture" = "perlawanan" (glossary), glossed "(fixture)" once in the lineup-sheet text.
+        keywords: 'keputusan pasukan skor pasukan jumlah leg borang barisan barisan pemain kad skor kapten tandatangan seri jumlah sama pemecah seri cetak borang team result team score lineup lineups scorecard captain sheet total legs level draw tie breaker fixture',
+        body: `
+<h4 id="teams-results">Memasukkan keputusan pasukan</h4>
+<p>Anda memasukkan satu keputusan untuk keseluruhan perlawanan, bukan satu bagi setiap segmen. Klik perlawanan seperti biasa. Dalam setiap kotak, taip <b>jumlah leg yang dimenangi pasukan itu dalam semua segmen</b>, termasuk leg pemecah seri jika ia dimainkan. Kemudian klik <b>Simpan skor</b>. Kedudukan, beza leg dan bracket (carta kalah mati) semuanya menggunakan jumlah itu.</p>
+<p>Contohnya, ambil lima segmen lalai. Satu pasukan memenangi segmen berempat (1 leg) dan satu perseorangan 2&ndash;1, dan kalah tiga segmen lain 1&ndash;2. Pasukan itu mempunyai 1 + 2 + 1 + 1 + 1 = 6 leg, dan pasukan lawan mempunyai 0 + 1 + 2 + 2 + 2 = 7.</p>
+
+<h4 id="teams-cap">Leg paling banyak yang boleh dimenangi</h4>
+<p>Dalam setiap segmen, pasukan boleh memenangi paling banyak leg yang diperlukan untuk memenanginya: 1 dalam terbaik daripada 1, 2 dalam terbaik daripada 3, 3 dalam terbaik daripada 5. Jika dicampurkan bagi semua segmen, itulah jumlah paling banyak yang boleh dimiliki pasukan dalam satu perlawanan. Dengan lima segmen lalai jumlahnya 9, atau 10 dalam peringkat yang menggunakan pemecah seri. Kotak keputusan memaparkan &ldquo;Satu pasukan boleh memenangi paling banyak 10 leg.&rdquo; Ia menolak nombor yang lebih besar dengan mesej: ia tidak akan mengubah apa yang anda taip. Keputusan yang disimpan sebelum ini sentiasa boleh disimpan semula tanpa perubahan.</p>
+
+<h4 id="teams-level">Apabila jumlahnya sama</h4>
+<ul>
+<li><b>Jika pemecah seri digunakan</b>, jumlah yang sama tidak boleh disimpan. Mainkan pemecah seri dan masukkan legnya dalam jumlah.</li>
+<li><b>Round robin tanpa pemecah seri</b> (termasuk peringkat kumpulan Round robin &rarr; Kalah mati): jumlah yang sama dibenarkan. Ia dikira seri, 1 mata setiap pasukan.</li>
+<li><b>Kalah mati tanpa pemecah seri</b> (termasuk Group Boards): jumlah yang sama tetap ditolak (&ldquo;Ini perlawanan kalah mati &mdash; ia tidak boleh berakhir seri.&rdquo;), kerana kalah mati memerlukan pemenang. Mesej itu mencadangkan anda menanda <b>Gunakan pemecah seri dalam perlawanan kalah mati</b> (boleh dibuat pada bila-bila masa). Atau mainkan satu leg penentu lagi dan masukkannya dalam jumlah. Satu leg lagi sentiasa muat: jumlah yang sama sentiasa di bawah jumlah paling banyak yang boleh dimenangi.</li>
+</ul>
+<p>Ketidakhadiran diuruskan seperti dalam mana-mana acara: <b>Tandakan tidak hadir&hellip;</b> memberikan semua segmen utama kepada pasukan lawan, iaitu 9&ndash;0 dengan tetapan lalai.</p>
+
+<h4 id="lineup-sheet">Borang barisan</h4>
+<p>Borang barisan (lineup sheet) ialah helaian tempat kapten menulis nama pemain bagi setiap segmen. Di langkah 4 atau langkah 7, tandakan <b>Cetak juga borang barisan/kad skor bagi setiap perlawanan, untuk diisi oleh kapten pada hari kejohanan</b>. Di sini, setiap perlawanan (fixture) ialah satu perlawanan pasukan penuh: satu pasukan menentang satu pasukan lain. Set cetakan kemudian mendapat satu halaman bagi setiap perlawanan yang pasukannya sudah diketahui, dengan kedua-dua pasukan bersebelahan. Setiap pihak mempunyai:</p>
+<ul>
+<li>bar gelap untuk setiap segmen, seperti <b>Perseorangan 1</b>, dengan skor permulaan, legnya dan kotak Mata. Bar perseorangan separuh tinggi bar lain;</li>
+<li>baris bernombor untuk nama pemain: satu untuk perseorangan, dua untuk beregu, tiga untuk trio, empat untuk berempat;</li>
+<li>bar <b>PEMECAH SERI</b>, apabila perlawanan itu menggunakannya;</li>
+<li>kotak <b>JUMLAH MATA</b> yang padat untuk semua mata, termasuk pemecah seri;</li>
+<li>dan, pada baki halaman, ruang besar untuk tandatangan kapten.</li>
+</ul>
+<p>Dalam kalah mati, cetak semula apabila pusingan tamat untuk mendapatkan borang perlawanan seterusnya.</p>
+<p>Borang barisan memaparkan bar <b>PEMECAH SERI</b> hanya untuk perlawanan dalam peringkat yang menggunakannya. Helaian peraturan &amp; format menyenaraikan segmen dan menyatakan di mana pemecah seri digunakan. Anggaran masa mengira setiap leg bagi setiap segmen, termasuk pemecah seri dalam peringkat yang menggunakannya. Setiap perlawanan pasukan ialah satu perlawanan di satu board: segmennya dimainkan berturut-turut dan tidak akan dijadualkan berasingan.</p>
+
+<h4 id="ready-lineups">Borang barisan kalah mati sepanjang pusingan</h4>
+<p>Dalam kalah mati, borang barisan sesuatu perlawanan sedia sebaik sahaja kedua-dua pasukannya diketahui. Itu ialah pusingan pertama apabila undian bracket dibuat, dan perlawanan berikutnya sebaik sahaja kedua-dua pasukannya telah mara. Di langkah 5 (<b>Urus Kejohanan</b>) kad <b>Borang barisan</b> menyenaraikan setiap perlawanan yang sedia dan belum dimainkan. Klik <b>Cetak borang</b> pada satu perlawanan, atau <b>Cetak semua borang barisan yang sedia</b> untuk mencetak setiap borang sedia yang belum anda cetak. DartDraw mengingati borang yang telah dicetak dan menandakannya <b>Dicetak</b>. (Borang dikira dicetak untuk dua pasukan yang tertera semasa dicetak.) <b>Cetak semula</b> mencetak satu lagi. Tetingkap skrin penuh bracket mempunyai senarai yang sama di sebalik butang <b>Borang barisan</b>. Perlawanan round robin mengekalkan borangnya dalam set cetakan.</p>
+<p>Untuk perlawanan yang ditambah pada hari kejohanan, atau borang yang rosak, <b>Cetak borang barisan kosong</b> mencetak borang kosong. Ia mempunyai nama dan logo acara, segmen, bar pemecah seri seperti yang ditetapkan, <b>JUMLAH MATA</b> dan ruang tandatangan. Kotak Kumpulan, Board, Perlawanan, Bil. (nombor perlawanan) dan nama pasukan dibiarkan kosong. Pilih 1 hingga 10 salinan di sebelah butang. Ia terdapat di langkah cetakan (4 dan 7) dan dalam Urus Kejohanan, dan boleh digunakan sebelum apa-apa diundi.</p>
+`
+      }
+    ]
+  },
+  {
+    id: 'something-wrong',
+    title: 'Apabila berlaku masalah',
+    kind: 'guide',
+    items: [
+      {
+        id: 'troubleshooting',
+        title: 'Apabila berlaku masalah',
+        summary: 'Mulakan dengan apa yang anda lihat: setiap masalah menyatakan apa yang perlu dilakukan dan tempat untuk membaca lanjut. Kemudian simpanan, cetakan dan mesej lain.',
+        // Proofread 2026-10-24: "Kosongkan keputusan" (Clear result) is final (docs/i18n/ui-strings-needed.md).
+        keywords: 'masalah tidak berfungsi tak jalan rosak ralat tersekat tak boleh tidak boleh cetak semula cetak lagi pdf simpan sebagai pdf muat turun eksport salah tiada hilang pemain salah kod qr tiada gagal disimpan sepanduk merah problem not working error stuck reprint print again fix download troubleshooting wrong missing broken',
+        body: `
+<h4 id="symptoms">Apa yang anda lihat, dan apa yang perlu dilakukan</h4>
+<dl class="msgs">
+<dt>Saya tidak dapat mencari butang muktamadkan</dt>
+<dd>Butang itu berada di bahagian bawah langkah 5, <b>Urus Kejohanan</b>: <b>Terima &amp; muktamadkan</b>. Langkah 6 dan 7 hanya untuk menyemak dan mencetak; kedua-duanya menyatakan di mana butang itu, dengan pautan <b>Pergi ke sana</b>. Baca lanjut: <a href="#accept">Menerima keputusan</a>.</dd>
+<dt>Tiada kod QR pada helaian yang dicetak</dt>
+<dd>Penerbitan dimatikan semasa anda mencetak. Klik <b>Terbitkan keputusan sekarang</b> di langkah 4 (atau tandakan <b>Terbitkan keputusan</b> di langkah 5), kemudian cetak semula. Jika langkah 4 menyatakan alamat laman keputusan awam belum ditetapkan, tanya pentadbir anda. Baca lanjut: <a href="#qr-codes">Kod QR</a>.</dd>
+<dt>Pemain yang salah berada dalam perlawanan akhir (atau pusingan kemudian)</dt>
+<dd>Ada keputusan lebih awal yang salah. Buka perlawanan itu dan simpan skor yang betul, atau klik <b>Kosongkan keputusan</b>. DartDraw mengosongkan setiap perlawanan berikutnya yang dicapai oleh pemenang lama, bertanya dahulu jika ada yang sudah mempunyai keputusan, dan anda memasukkannya semula. Selepas round robin, keputusan kumpulan yang dibetulkan tidak membuat undian kalah mati semula: gunakan <b>Jana semula daripada kedudukan semasa</b>. Baca lanjut: <a href="#correct-a-result">Membetulkan atau mengosongkan keputusan</a>.</dd>
+<dt>Saya tersilap menaip skor pada perlawanan yang salah</dt>
+<dd>Klik perlawanan itu dan pilih <b>Kosongkan keputusan</b>, kemudian masukkan skor di tempat yang betul. Baca lanjut: <a href="#correct-a-result">Membetulkan atau mengosongkan keputusan</a>.</dd>
+<dt>Pemain meninggalkan acara, atau tidak hadir</dt>
+<dd>Gunakan <b>Tandakan tidak hadir&hellip;</b> selepas kumpulan atau perlawanan mereka bermula. Gunakan <b>Tarik diri</b> hanya sebelum kumpulan mereka bermula. Baca lanjut: <a href="#player-leaves">Ketidakhadiran dan pemain yang meninggalkan acara</a>.</dd>
+<dt>Saya tidak boleh menukar peserta, bertukar tempat atau membuat undian semula selepas perlawanan bermula</dt>
+<dd>Itu memang disengajakan: keputusan milik peserta yang memainkannya. Gunakan <b>Tandakan tidak hadir&hellip;</b> untuk mengeluarkan seseorang. Baca lanjut: <a href="#faq-entries-locked">Mengapa saya tidak boleh menukar peserta selepas perlawanan bermula?</a></dd>
+<dt>Sepanduk merah &ldquo;Dikemas kini di tempat lain&rdquo;</dt>
+<dd>Acara telah diubah dalam tetingkap, tab atau peranti lain. Klik <b>Muat semula</b>, kemudian masukkan semula perubahan terakhir anda. Baca lanjut: <a href="#troubleshooting-save">Simpanan dan &ldquo;Dikemas kini di tempat lain&rdquo;</a>.</dd>
+<dt>&ldquo;Gagal disimpan &mdash; klik untuk cuba lagi&rdquo;</dt>
+<dd>Semak sambungan internet anda dan klik mesej itu. Jangan tutup halaman sehingga ia menunjukkan <b>Disimpan</b>.</dd>
+<dt>Keputusan tiada di halaman awam</dt>
+<dd>Tandakan <b>Terbitkan keputusan</b> di langkah 5. Untuk dipaparkan di halaman utama awam juga, tandakan <b>Senaraikan di halaman awam</b>. Halaman acara dimuat semula kira-kira setiap 20 saat. Baca lanjut: <a href="#faq-not-on-home-page">Mengapa acara saya tiada di halaman utama awam?</a></dd>
+<dt>Helaian bercetak terlalu kecil, terlalu besar atau terpotong</dt>
+<dd>Tetapkan pencetak kepada saiz kertas yang digunakan DartDraw (A4 melintang, atau saiz kertas bracket (carta kalah mati)) dan kekalkan skala pada tetapan lalai. Untuk bracket besar pada pencetak biasa, pilih <b>Pecahkan kepada N helaian A4</b> apabila DartDraw bertanya. Baca lanjut: <a href="#bracket-sheets">Helaian bracket kalah mati dan saiz kertas</a>.</dd>
+<dt>&ldquo;Bracket ini memerlukan kertas A3&rdquo; (atau A2, A1)</dt>
+<dd>Bracket itu terlalu besar untuk dicetak dengan jelas pada kertas anda. Pilih kertas yang lebih besar, <b>Pecahkan kepada N helaian A4</b>, atau kekalkan saiz anda dan kecilkannya. Baca lanjut: <a href="#bracket-sheets">Helaian bracket kalah mati dan saiz kertas</a>.</dd>
+<dt>Telefon atau tablet saya memaparkan &ldquo;Sila putarkan peranti anda ke mod melintang untuk menggunakan DartDraw.&rdquo;</dt>
+<dd>Pada tablet atau telefon, DartDraw hanya berfungsi apabila dipegang melintang. Putarkan peranti; mesej itu hilang secara automatik dan tiada kerja anda yang hilang. Baca lanjut: <a href="#screen-size">Telefon, tablet dan saiz skrin</a>.</dd>
+<dt>Saya klik sesuatu langkah dan tiada apa-apa berlaku</dt>
+<dd>Langkah dibuka mengikut urutan. Simpan langkah yang sedang anda buka dahulu: langkah 2 dibuka selepas langkah 1 disimpan, langkah 3 selepas langkah 2 disimpan.</dd>
+<dt>Carta menyatakan &ldquo;Pengesahan dibatalkan secara automatik&rdquo;</dt>
+<dd>Pesertanya berubah selepas anda mengesahkannya. Semak carta itu di langkah 4 dan klik <b>Sahkan carta ini</b> sekali lagi.</dd>
+<dt>Tanda <b>?</b> di sebelah peserta dalam jadual kedudukan</dt>
+<dd>Mereka masih sama mata selepas setiap peraturan pemecah seri. Selesaikannya (perlawanan penentuan atau keputusan anda), kemudian gunakan <b>Laraskan kedudukan&hellip;</b>. Baca lanjut: <a href="#faq-tie-breaks">Bagaimana pemecah seri berfungsi?</a></dd>
+<dt>&ldquo;Cuba acara contoh&rdquo; tiada pada skrin saya</dt>
+<dd>Kad <b>Bermula</b> hanya dipaparkan selagi anda belum mempunyai acara yang disimpan, dan anda boleh menyembunyikannya. Baca lanjut: <a href="#sample-event">Cuba dahulu dengan acara contoh</a>.</dd>
+<dt>Halaman log masuk tidak membenarkan saya masuk</dt>
+<dd>Gunakan <b>Lupa kata laluan?</b>, atau minta pautan set semula daripada pentadbir anda. Baca lanjut: <a href="#signing-in">Log masuk</a>.</dd>
+</dl>
+
+<h4 id="troubleshooting-save">Simpanan dan &ldquo;Dikemas kini di tempat lain&rdquo;</h4>
+<p>DartDraw menyimpan setiap perubahan ke akaun anda sejurus selepas anda membuatnya. Status simpanan menyatakan apa yang sedang berlaku; lihat <a href="#autosave">Menyimpan kerja anda</a> untuk setiap mesej.</p>
+<dl class="msgs">
+<dt>&ldquo;Dikemas kini di tempat lain &mdash; klik untuk muat semula&rdquo;</dt>
+<dd>Acara yang sama telah diubah pada peranti, tab atau tetingkap lain. Sepanduk merah di bahagian atas menyatakan &ldquo;Dikemas kini di tempat lain &mdash; muat semula untuk mendapatkan versi terkini&rdquo;. Perubahan terakhir anda dalam tetingkap ini tidak disimpan, dan tetingkap ini tidak menyimpan apa-apa lagi untuk acara itu sehingga anda memuat semula. Dengan cara itu ia tidak dapat menulis ganti keputusan yang lebih baharu. Klik <b>Muat semula</b> sebelum anda memasukkan apa-apa lagi, kemudian masukkan semula perubahan terakhir anda. Untuk mengelakkannya, kerjakan setiap acara dalam satu tetingkap pada satu masa. Lihat <a href="#fpw-sync">Memastikan tetingkap selaras</a>.</dd>
+<dt>&ldquo;Gagal disimpan &mdash; klik untuk cuba lagi&rdquo;</dt>
+<dd>Semak sambungan internet anda dan klik mesej itu. Jangan tutup halaman sehingga ia menunjukkan <b>Disimpan</b>.</dd>
+<dt>Saya dihantar semula ke kotak log masuk</dt>
+<dd>Sesi anda telah tamat. Sesi tidak kekal selama-lamanya, dan ia juga tamat jika kata laluan anda ditukar atau akaun anda digantung. Log masuk semula. Jika ada perubahan yang belum disimpan, DartDraw menyimpannya dalam pelayar ini dan, selepas anda log masuk semula, bertanya sama ada mahu memulihkannya. Ia hanya boleh dipulihkan jika acara tidak berubah dalam tempoh itu; jika berubah, ia akan memberitahu anda, dan anda perlu memasukkan perubahan itu semula.</dd>
+<dt>Halaman kelihatan lapuk</dt>
+<dd>Tekan <b>F5</b> untuk memuat semula. Salinan yang disimpan sentiasa betul.</dd>
+</dl>
+
+<h4 id="printing-tips">Masalah cetakan</h4>
+<ul>
+<li>Pencetakan menggunakan tetingkap cetak pelayar anda. Untuk membuat PDF, pilih <b>Simpan sebagai PDF</b> sebagai pencetak.</li>
+<li>Helaian bersaiz A4 melintang, kecuali bracket kalah mati. Bracket mengikut <b>Saiz kertas bracket kalah mati</b> yang anda pilih (atau dipecahkan kepada helaian A4, jika itu pilihan anda). Tetapkan pencetak kepada saiz kertas yang sama, atau bracket akan dikecilkan sekali lagi oleh pencetak.</li>
+<li>Lihat pratonton sebelum mencetak. Jika halaman terpotong, semak saiz kertas dan pastikan skala pada tetapan lalai.</li>
+<li>Cetak set kosong <em>sebelum</em> anda memulakan perlawanan. Anda boleh mencetak semula pada bila-bila masa.</li>
+<li>Terbitkan sebelum mencetak jika anda mahukan kod QR pada carta kumpulan dan helaian bracket. Klik <b>Terbitkan keputusan sekarang</b> dalam nota di langkah 4, atau tandakan <b>Terbitkan keputusan</b> di langkah 5.</li>
+<li>Cetak set penuh dari tetingkap utama: <b>Cetak set bracket</b> di langkah 4, <b>Cetak carta akhir &mdash; Simpan PDF A4 resolusi tinggi</b> di langkah 7. Butang <b>Cetak</b> dalam tetingkap skrin penuh hanya mencetak carta yang dipaparkan tetingkap itu.</li>
+</ul>
+
+<h4 id="fixes">Mesej lain</h4>
+<dl class="msgs">
+<dt>Tiada apa-apa dibuka apabila saya klik Buka dalam tetingkap baharu</dt>
+<dd>Pelayar anda menyekat tetingkap timbul. DartDraw biasanya menyatakannya: &ldquo;Pelayar anda menyekat tetingkap baharu &mdash; benarkan tetingkap timbul untuk laman ini, kemudian klik butang sekali lagi.&rdquo; Benarkan tetingkap timbul untuk laman ini dan klik sekali lagi. Lihat <a href="#full-page-window">Skrin kedua atau projektor</a>.</dd>
+<dt>&ldquo;Skor dikunci&rdquo;</dt>
+<dd>Perlawanan belum bermula. Pergi ke Urus Kejohanan dan klik <b>Mulakan semua perlawanan</b>.</dd>
+<dt>Mulakan semua perlawanan atau Cetak menjadi kelabu</dt>
+<dd>Anda belum mempunyai carta yang disahkan. Sahkan sekurang-kurangnya satu dalam Sahkan &amp; Cetak Bracket.</dd>
+<dt>&ldquo;Undian kalah mati hanya boleh dibuat selepas semua kumpulan selesai&rdquo;</dt>
+<dd>Selesaikan setiap kumpulan dahulu. Jika ada peserta yang sama mata pada garisan kelayakan, selesaikannya dengan <b>Laraskan kedudukan&hellip;</b>.</dd>
+<dt>Butang Tarik diri hilang, dan Tandakan tidak hadir&hellip; dipaparkan sebagai gantinya</dt>
+<dd>Kumpulan peserta itu telah bermula, atau undian kalah mati telah dibuat. Tarik diri sekarang akan membuang keputusan yang sudah ada, jadi gunakan <b>Tandakan tidak hadir sebagai gantinya</b>. Lihat <a href="#player-leaves">Ketidakhadiran dan pemain yang meninggalkan acara</a>.</dd>
+<dt>&ldquo;Selesaikan kedudukan sama mata sebelum meneruskan&rdquo;</dt>
+<dd>Dua atau lebih peserta masih sama mata selepas setiap peraturan pemecah seri. Tentukan susunan (perlawanan penentuan atau keputusan anda) dan tetapkannya dengan <b>Laraskan kedudukan&hellip;</b>.</dd>
+<dt>Menu sebelah kiri tiada</dt>
+<dd>Anda menggunakan telefon, atau tetingkap lebih sempit daripada kira-kira 700 piksel, jadi menu diganti dengan bar di bahagian atas. Ketik nama langkah dalam bar itu untuk memilih langkah atau acara lain. Untuk ruang yang lebih luas, gunakan komputer riba, komputer meja atau tablet, atau besarkan tetingkap.</dd>
+</dl>
+`
+      }
+    ]
+  },
+  {
+    id: 'reference',
+    title: 'Rujukan',
+    kind: 'guide',
+    items: [
+      {
+        id: 'glossary',
+        title: 'Istilah yang akan anda lihat',
+        summary: 'Setiap perkataan dan label pendek yang dipaparkan aplikasi, dalam bahasa mudah, dengan contoh di mana anda melihatnya.',
+        // PROOFREAD: the printed-sheet quotes ("* Kedudukan ditetapkan secara manual oleh penganjur", "Bracket utama
+        // (unjuran)") are the BM sheets' own words (an event whose Printed sheets language is Bahasa Malaysia prints them).
+        // PROOFREAD: the two entries "Bahasa helaian bercetak" and "EN | BM" are new (i18n review fixes, 2026-10-25).
+        keywords: 'istilah glosari maksud makna perkataan singkatan definisi apa maksud terangkan label legenda petunjuk glossary words terms meaning jargon abbreviation definition what does mean key legend',
+        body: `
+<p>Dikumpulkan mengikut topik. Setiap istilah menyatakan maksudnya, kemudian di mana anda melihatnya, dalam warna kelabu.</p>
+
+<h4 id="glossary-entries">Peserta dan undian</h4>
+<dl class="glossary">
+<dt id="glossary-entry">Peserta (pemain, pasangan atau pasukan)</dt>
+<dd>Satu pihak dalam acara: seorang pemain dalam Perseorangan, satu pasangan dalam Beregu, satu pasukan dalam Berpasukan. &ldquo;24 peserta&rdquo; dalam Beregu bermaksud 24 pasangan. <span class="eg">Langkah 1: <b>Bilangan peserta</b>, <b>Bilangan pasangan</b> atau <b>Bilangan pasukan</b>; langkah 3: &ldquo;Peserta 1&rdquo;, <b>Nama pasangan</b>, <b>Nama pasukan</b>.</span></dd>
+<dt id="glossary-group">Kumpulan</dt>
+<dd>Sekumpulan kecil peserta yang semuanya bertemu sesama sendiri (round robin). Setiap kumpulan dicetak sebagai satu carta. Dalam Group Boards, kumpulan ialah kalah mati kecil. <span class="eg">&ldquo;Kumpulan A &middot; Board 2&rdquo; di langkah 4 dan langkah 5.</span></dd>
+<dt id="glossary-board">Board</dt>
+<dd>Board dart tempat perlawanan dimainkan. Setiap kumpulan bermain di satu atau beberapa board sendiri; kumpulan yang berkongsi board bermain secara bergilir-gilir. <span class="eg">Langkah 2: <b>Bilangan board tersedia</b>; langkah 3: <b>Board</b>.</span></dd>
+<dt id="glossary-draw">Undian</dt>
+<dd>Siapa masuk ke kumpulan mana, atau siapa bertemu siapa dalam bracket (carta kalah mati). <span class="eg">Langkah 3: <b>Undian rawak</b>, &ldquo;Belum diundi&rdquo;, <b>Buat undian kumpulan</b>.</span></dd>
+<dt id="glossary-seed">Seed</dt>
+<dd>Peserta kuat yang diletakkan supaya peserta terkuat tidak bertemu terlalu awal (seed ialah peserta pilihan). Seed 1 dan 2 hanya boleh bertemu di perlawanan akhir. <span class="eg">Langkah 3: <b>Gunakan seed untuk bracket ini</b>, <b>Bilangan seed</b>.</span></dd>
+<dt id="glossary-labels">A1, B2 dan label kedudukan lain</dt>
+<dd>Satu huruf dan satu nombor: kumpulan, kemudian tempat dalam kumpulan itu. &ldquo;A1&rdquo; ialah juara Kumpulan A, dan &ldquo;A2&rdquo; naib juaranya. Sebelum undian, peserta tanpa nama boleh tertulis &ldquo;Pemain A1&rdquo;. <span class="eg">Bracket unjuran, dan kalah mati yang diundi daripada round robin.</span></dd>
+<dt id="glossary-bye">Bye</dt>
+<dd>Mara terus ke pusingan seterusnya tanpa bermain, kerana tiada lawan. Ia berlaku apabila bilangan peserta tidak memenuhi bracket (4, 8, 16, 32, 64 atau 128). <span class="eg">Langkah 2: &ldquo;Saiz bracket (automatik)&rdquo; dengan bilangan bye; tag BYE kecil pada bracket bercetak.</span></dd>
+<dt id="glossary-check-in">Daftar masuk</dt>
+<dd>Tanda bagi setiap peserta yang telah tiba. Ia hanyalah rekod untuk anda. <span class="eg">Langkah 4: kad <b>Daftar masuk</b>, <b>Daftar masuk semua</b>, &ldquo;10 daripada 12 telah daftar masuk&rdquo;.</span></dd>
+<dt id="glossary-withdraw">Tarik diri</dt>
+<dd>Mengeluarkan peserta sebelum kumpulan mereka bermula, dengan atau tanpa pengganti. <span class="eg">Langkah 3: <b>Tarik diri</b>.</span></dd>
+<dt id="glossary-confirm">Sahkan</dt>
+<dd>Anda telah menyemak carta dan ia sedia untuk dicetak dan dimainkan. <span class="eg">Langkah 4: <b>Sahkan carta ini</b>, &ldquo;Pengesahan dibatalkan secara automatik&rdquo;.</span></dd>
+</dl>
+
+<h4 id="glossary-matches">Perlawanan dan keputusan</h4>
+<dl class="glossary">
+<dt id="glossary-leg">Leg, dan terbaik daripada</dt>
+<dd>Leg ialah satu permainan dart. Perlawanan ialah &ldquo;terbaik daripada&rdquo; sejumlah leg: dalam terbaik daripada 5, yang pertama memenangi 3 leg memenangi perlawanan. Anda menaip leg yang dimenangi setiap pihak, contohnya 3 dan 1. <span class="eg">Langkah 2: <b>Leg (terbaik daripada)</b>; carta bercetak: &ldquo;Terbaik daripada 5 Leg&rdquo;.</span></dd>
+<dt id="glossary-marker">Pencatat skor (marker)</dt>
+<dd>Orang yang mencatat skor di board bagi sesuatu perlawanan, biasanya peserta lain dari kumpulan yang sama yang tidak bermain. DartDraw mencadangkan seorang bagi setiap perlawanan; acara berpasukan tidak mempunyainya. <span class="eg">Senarai perlawanan pada setiap carta: &ldquo;Perlawanan 1 &middot; 1 lwn 2 &middot; Pencatat: 3&rdquo; (nombor ialah tempat dalam kumpulan).</span></dd>
+<dt id="glossary-start">Mulakan semua perlawanan, Mulakan pusingan</dt>
+<dd><b>Mulakan semua perlawanan</b> membuka pencatatan skor bagi setiap kumpulan yang disahkan serentak. <b>Mulakan pusingan</b> dalam kalah mati memberitahu DartDraw bila sesuatu pusingan bermula, supaya ia boleh membandingkan jam dengan anggarannya. Dalam acara berpasukan, memulakan perlawanan juga mengunci segmen. <span class="eg">Langkah 5.</span></dd>
+<dt id="glossary-walkover">Walkover (WO)</dt>
+<dd>Kemenangan yang diberikan kerana lawan tidak hadir. Ia dikira sebagai perlawanan yang telah dimainkan. <span class="eg">Tag WO pada carta atau bracket.</span></dd>
+<dt id="glossary-no-show">Tidak hadir</dt>
+<dd>Peserta yang tidak datang atau telah meninggalkan acara. Menandakan mereka memberikan walkover kepada lawan mereka. <span class="eg"><b>Tandakan tidak hadir&hellip;</b> di langkah 5; tag <b>Tidak hadir</b> di langkah 3.</span></dd>
+<dt id="glossary-neither">Kedua-dua tidak hadir</dt>
+<dd>Kedua-dua pihak dalam perlawanan kalah mati tidak hadir. Tiada siapa mara daripada perlawanan itu. <span class="eg">Kotak <b>Tandakan tidak hadir&hellip;</b>; halaman awam menyatakan &ldquo;Kedua-dua tidak hadir&rdquo;.</span></dd>
+<dt id="glossary-codes">Kod perlawanan: 2-1, P2-1, G3&middot;1-2</dt>
+<dd>Perlawanan mana dalam bracket: pusingan, kemudian perlawanan dalam pusingan itu. &ldquo;2-1&rdquo; ialah pusingan 2, perlawanan 1. &ldquo;P&rdquo; di hadapan ialah saingan Plate; &ldquo;G3&middot;&rdquo; di hadapan ialah Kumpulan 3 dalam Group Boards. <span class="eg">Tag kecil pada setiap perlawanan bracket; helaian yang dipecahkan menyatakan &ldquo;ke Akhir 5-1&rdquo;.</span></dd>
+<dt id="glossary-rounds">Nama pusingan</dt>
+<dd>Pusingan kalah mati dinamakan dari hujung: Akhir, Separuh akhir, Suku akhir, dan sebelum itu &ldquo;Pusingan 16 terakhir&rdquo;, &ldquo;Pusingan 32 terakhir&rdquo; dan seterusnya (bilangan tempat dalam pusingan itu, termasuk bye). <span class="eg">Tajuk bracket; leg kalah mati di langkah 2.</span></dd>
+<dt id="glossary-call">Panggil ke board</dt>
+<dd>Dalam Group Boards, memberitahu pemain di halaman keputusan awam supaya pergi ke board mereka sekarang. <span class="eg">Kad <b>Board</b>: <b>Panggil</b>, <b>Batal panggil</b>, &ldquo;Dipanggil&rdquo;.</span></dd>
+</dl>
+
+<h4 id="glossary-tables">Jadual dan pemecah seri</h4>
+<dl class="glossary">
+<dt id="glossary-standings">Kedudukan</dt>
+<dd>Jadual di bawah setiap carta kumpulan: siapa di tempat mana, dikira daripada keputusan. <span class="eg">Langkah 5: &ldquo;Kedudukan&rdquo;; langkah 6: <b>Muktamadkan Kedudukan</b>.</span></dd>
+<dt id="glossary-columns">Ked., Main, M, K, S, LM, +/-, Mata</dt>
+<dd>Kedudukan; perlawanan dimainkan; perlawanan dimenangi; perlawanan kalah; perlawanan seri (hanya round robin berpasukan boleh ada seri); leg dimenangi; beza leg (leg dimenangi tolak leg kalah); mata. Menang bernilai 2 mata, seri 1, kalah 0. <span class="eg">Jadual kedudukan; carta bercetak: &ldquo;Mata: Menang 2 &middot; Seri 1 &middot; Kalah 0&rdquo;.</span></dd>
+<dt id="glossary-tb">TB, H2H, BL, LM dan ?</dt>
+<dd>Lajur TB menunjukkan pemecah seri mana yang memisahkan dua peserta yang sama mata: H2H (head-to-head, iaitu keputusan perlawanan sesama mereka), BL (beza leg) atau LM (leg dimenangi). &ldquo;3 hala&rdquo; bermaksud tiga peserta sama mata. Tanda <b>?</b> bermaksud mereka masih sama mata selepas setiap peraturan: anda yang menentukan. <span class="eg">Lajur TB dalam jadual kedudukan.</span></dd>
+<dt id="glossary-tie-break">Susunan pemecah seri</dt>
+<dd>Susunan peraturan tersebut. Anda boleh mengubahnya dalam persediaan Lanjutan. <span class="eg">Langkah 2: <b>Susunan pemecah seri</b>; carta bercetak: &ldquo;Pemecah seri: 1) Keputusan perlawanan sesama mereka&hellip;&rdquo;.</span></dd>
+<dt id="glossary-manual">* (bintang)</dt>
+<dd>Kedudukan yang anda tetapkan secara manual. <span class="eg"><b>Laraskan kedudukan&hellip;</b>; carta bercetak: &ldquo;* Kedudukan ditetapkan secara manual oleh penganjur&rdquo;.</span></dd>
+<dt id="glossary-qualifier">Yang layak, mara</dt>
+<dd>Peserta yang menamatkan kumpulan pada kedudukan yang cukup tinggi untuk masuk ke kalah mati. <span class="eg">Langkah 2: <b>Peserta setiap kumpulan (mara ke kalah mati)</b>; bracket unjuran: &ldquo;12 yang layak&rdquo;.</span></dd>
+</dl>
+
+<h4 id="glossary-formats">Format dan peringkat</h4>
+<dl class="glossary">
+<dt id="glossary-round-robin">Round robin</dt>
+<dd>Setiap peserta dalam kumpulan bertemu setiap peserta lain dalam kumpulan itu sekali. <span class="eg">Langkah 2: <b>Round robin</b>, <b>Round robin &rarr; Kalah mati</b>.</span></dd>
+<dt id="glossary-knockout">Kalah mati, bracket</dt>
+<dd>Kalah sekali dan anda tersingkir. Bracket ialah carta yang menunjukkan siapa bertemu siapa, pusingan demi pusingan, hingga Juara. <span class="eg">Langkah 2: <b>Kalah mati</b>, <b>Satu bracket</b>; langkah 5: <b>Peringkat kalah mati</b>.</span></dd>
+<dt id="glossary-projected">Bracket unjuran</dt>
+<dd>Kalah mati seperti rupanya nanti, dicetak sebelum kumpulan dimainkan, dengan label kedudukan seperti A1 sebagai ganti nama. <span class="eg">Set cetakan: &ldquo;Bracket utama (unjuran)&rdquo;.</span></dd>
+<dt id="glossary-plate">Saingan Plate</dt>
+<dd>Kalah mati kedua untuk peserta yang tidak mara dari kumpulan, supaya mereka terus bermain. Ia mempunyai pemenangnya sendiri. <span class="eg">Langkah 2 (persediaan Lanjutan): <b>Saingan Plate</b>; kod perlawanan bermula dengan P.</span></dd>
+<dt id="glossary-group-boards">Group Boards, Peringkat Akhir</dt>
+<dd>Kalah mati untuk peserta yang ramai: kumpulan kalah mati kecil, setiap satu di board sendiri, kemudian para juara kumpulan bertemu dalam bracket Peringkat Akhir. <span class="eg">Langkah 2: <b>Group Boards, kemudian peringkat akhir</b>; &ldquo;Pemenang Kumpulan 3&rdquo; di Peringkat Akhir.</span></dd>
+</dl>
+
+<h4 id="glossary-teams">Berpasukan</h4>
+<dl class="glossary">
+<dt id="glossary-segment">Segmen</dt>
+<dd>Satu bahagian perlawanan pasukan, contohnya &ldquo;Perseorangan 1&rdquo; atau segmen berempat. Keputusan pasukan ialah jumlah leg daripada semua segmen. <span class="eg">Langkah 2: <b>Segmen perlawanan pasukan (dimainkan mengikut urutan)</b>.</span></dd>
+<dt id="glossary-foursome">Perseorangan, Beregu, Trio, Berempat</dt>
+<dd>Segmen untuk satu, dua, tiga atau empat pemain dari setiap pasukan. <span class="eg">Jenis segmen di langkah 2.</span></dd>
+<dt id="glossary-tie-breaker">Pemecah seri (Berpasukan)</dt>
+<dd>Segmen tambahan, dimainkan hanya apabila jumlah leg kedua-dua pasukan sama. <span class="eg">Langkah 2: <b>Pemecah seri mungkin diperlukan</b>; borang barisan: PEMECAH SERI.</span></dd>
+<dt id="glossary-fixture">Perlawanan (fixture)</dt>
+<dd>Satu perlawanan pasukan: satu pasukan menentang pasukan lain, di satu board. <span class="eg">Kotak Perlawanan pada borang barisan.</span></dd>
+<dt id="glossary-lineup">Borang barisan (lineup sheet)</dt>
+<dd>Satu halaman bagi setiap perlawanan pasukan tempat kapten menulis siapa yang bermain dalam setiap segmen, dan mata. <span class="eg">Langkah 4 atau 7: <b>Cetak juga borang barisan/kad skor bagi setiap perlawanan, untuk diisi oleh kapten pada hari kejohanan</b>.</span></dd>
+</dl>
+
+<h4 id="glossary-sharing">Cetakan, perkongsian dan penamatan</h4>
+<dl class="glossary">
+<dt id="glossary-pack">Set kosong, susunan perlawanan, helaian peraturan</dt>
+<dd>Apa yang anda cetak sebelum permainan: carta tanpa skor, susunan induk perlawanan (mengikut board, setiap perlawanan dengan kotak tanda) dan helaian peraturan &amp; format. <span class="eg">Langkah 4: <b>Cetak set bracket</b>.</span></dd>
+<dt id="glossary-sheet-language">Bahasa helaian bercetak</dt>
+<dd>Bahasa yang digunakan oleh setiap helaian bercetak acara itu, bahasa Inggeris atau Bahasa Malaysia, tidak kira bahasa pada skrin anda. Lihat <a href="#sheet-language">Bahasa helaian bercetak</a>. <span class="eg">Langkah 4 dan 7: <b>Bahasa helaian bercetak</b>.</span></dd>
+<dt id="glossary-language">EN | BM</dt>
+<dd>Suis bahasa: perkataan pada skrin anda dalam bahasa Inggeris atau Bahasa Malaysia. Ia hanya menukar perkataan, bukan acara anda. Lihat <a href="#language-switch">Suis EN | BM</a>. <span class="eg">Bar atas, di sebelah <b>Bantuan</b>.</span></dd>
+<dt id="glossary-publish">Terbitkan, senaraikan</dt>
+<dd>Terbitkan meletakkan keputusan pada halaman awam yang boleh dilihat oleh sesiapa yang mempunyai pautan. Senaraikan juga memaparkan acara di halaman utama awam. <span class="eg">Langkah 5: <b>Terbitkan keputusan</b>, <b>Senaraikan di halaman awam</b>.</span></dd>
+<dt id="glossary-qr">Kod QR</dt>
+<dd>Kod segi empat yang dicetak pada carta dan helaian bracket. Telefon mengimbasnya untuk membuka keputusan langsung. Ia hanya dicetak semasa acara diterbitkan. <span class="eg">Helaian bercetak: &ldquo;Keputusan langsung &middot; Imbas, atau layari&rdquo; dan alamatnya.</span></dd>
+<dt id="glossary-full-page">Tetingkap skrin penuh</dt>
+<dd>Urus Kejohanan dalam tetingkapnya sendiri, untuk skrin kedua atau projektor. <span class="eg">Langkah 5: <b>Buka dalam tetingkap baharu &#8599;</b>.</span></dd>
+<dt id="glossary-finalize">Muktamadkan</dt>
+<dd>Menerima keputusan sebagai muktamad. Halaman awam kemudian menyatakan <b>Keputusan muktamad</b>, dan hanya Pentadbir boleh membuka semula acara itu. <span class="eg">Bahagian bawah langkah 5: <b>Terima &amp; muktamadkan</b>.</span></dd>
+<dt id="glossary-incident">Log insiden</dt>
+<dd>Nota peribadi anda tentang amaran atau pertikaian. Ia tidak akan dicetak atau dipaparkan. <span class="eg">Langkah 5: <b>+ Catat insiden</b>.</span></dd>
+<dt id="glossary-sample">Acara contoh</dt>
+<dd>Acara latihan yang tidak akan disimpan melainkan anda klik <b>Simpan sebagai acara saya</b>. <span class="eg">Skrin alu-aluan: <b>Cuba acara contoh</b>.</span></dd>
+</dl>
+`
+      },
+      {
+        id: 'limits-and-facts',
+        title: 'Had dan fakta: peserta, bracket, skrin dan sambungan',
+        summary: 'Berapa besar sesuatu acara boleh jadi, skrin mana yang sesuai, dan mengapa anda memerlukan sambungan.',
+        claims: ['phone-bar'],
+        keywords: 'had maksimum berapa ramai saiz besar skrin telefon tablet komputer riba komputer meja melintang menegak landskap putar luar talian internet sambungan wifi fakta limit maximum how many size screen phone tablet landscape portrait rotate offline connection',
+        body: `
+<h4 id="limits">Berapa besar sesuatu acara boleh jadi</h4>
+<ul>
+<li>Round robin tidak mempunyai had tetap.</li>
+<li>Bracket (carta kalah mati) memuatkan sehingga 128 slot (4, 8, 16, 32, 64 atau 128).</li>
+<li>Group Boards membenarkan sehingga 128 kumpulan dengan 2 hingga 128 pemain setiap satu.</li>
+<li>Perlawanan pasukan mempunyai 1 hingga 8 segmen.</li>
+</ul>
+<p>Jika anda melihat mesej bahawa akaun anda membenarkan bilangan peserta tertentu sahaja bagi setiap acara, hubungi pentadbir anda. Lihat <a href="#faq-how-many-entries">Berapa ramai peserta yang boleh saya ada?</a></p>
+
+<h4 id="screen-size">Telefon, tablet dan saiz skrin</h4>
+<p class="callout"><b>Saiz skrin.</b> Aplikasi penganjur dibina untuk komputer riba, komputer meja atau tablet. Pada tablet atau telefon, pegang peranti secara melintang (landskap). Jika dipegang menegak, DartDraw menutup skrin dengan mesej &ldquo;Sila putarkan peranti anda ke mod melintang untuk menggunakan DartDraw.&rdquo; Putarkan peranti dan kerja anda masih ada. Telefon yang dipegang melintang juga boleh digunakan, dengan nota bahawa DartDraw paling sesuai pada tablet, komputer riba atau komputer meja: menu sebelah kiri menjadi bar di bahagian atas. Ketik nama langkah di situ untuk melihat langkah, acara anda, <b>Namakan semula</b>, <b>Salin</b> dan <b>Padam</b> untuk acara yang dibuka, serta <b>Tukar kata laluan</b>. Bar itu digunakan pada setiap telefon (skrin sentuh yang kurang daripada 600 piksel pada sisi pendeknya, tidak kira cara anda memegangnya) dan dalam mana-mana tetingkap yang lebih sempit daripada kira-kira 700 piksel. Tablet, serta tetingkap komputer riba atau komputer meja yang lebih lebar daripada itu, mengekalkan menu di sisi, walaupun tetingkap itu rendah. Lihat <a href="#faq-phone">Bolehkah saya guna telefon?</a></p>
+
+<h4 id="connection">Sambungan</h4>
+<p>Acara anda disimpan ke akaun anda di internet, jadi anda memerlukan sambungan untuk log masuk dan menyimpan. Cetak set kosong sebelum permainan sekiranya Wi-Fi di tempat kejohanan lemah. Lihat <a href="#faq-offline">Bolehkah saya menggunakan DartDraw di luar talian?</a></p>
+`
+      }
+    ]
+  },
+
+  {
+    id: 'faq',
+    title: 'Soalan lazim',
+    kind: 'faq',
+    items: [
+      {
+        id: 'faq-two-events',
+        title: 'Bolehkah saya menjalankan dua acara serentak?',
+        keywords: 'dua acara serentak banyak acara pada masa yang sama dua kejohanan two events same time',
+        body: `<p>Boleh. Setiap acara berasingan. Klik <b>+ Kejohanan baharu</b> untuk acara kedua, atau bukanya dari <b>Kejohanan yang disimpan</b>. Buka aplikasi dalam tab pelayar kedua jika anda mahu melihat kedua-duanya bersama. Cuma jangan buka acara yang <em>sama</em> di dua tempat dan mencatat skor di kedua-duanya. Skor yang dimasukkan dalam tetingkap yang lapuk tidak disimpan. Jika anda melihat &ldquo;Dikemas kini di tempat lain&rdquo;, klik <b>Muat semula</b> sebelum memasukkan apa-apa lagi, kemudian masukkan semula perubahan terakhir anda.</p>`
+      },
+      {
+        id: 'faq-offline',
+        title: 'Bolehkah saya menggunakan DartDraw di luar talian?',
+        keywords: 'luar talian offline tiada internet wifi sambungan tiada liputan line',
+        body: `<p>Tidak. Acara anda disimpan ke akaun anda di internet, jadi anda memerlukan sambungan untuk log masuk dan menyimpan. Jika sambungan terputus, DartDraw memaparkan <b>Gagal disimpan &mdash; klik untuk cuba lagi</b>. Biarkan halaman terbuka, sambung semula ke internet dan klik mesej itu, dan tunggu <b>Disimpan</b> sebelum membuka acara lain (sehingga itu, anda tidak boleh beralih ke acara lain). Sebaiknya cetak set kosong sebelum permainan sekiranya Wi-Fi di tempat kejohanan lemah.</p>`
+      },
+      {
+        id: 'faq-how-many-entries',
+        title: 'Berapa ramai peserta yang boleh saya ada?',
+        keywords: 'berapa ramai pemain maksimum had saiz besar peserta ramai how many players maximum limit',
+        body: `<p>Tiada had tetap untuk round robin. Bracket (carta kalah mati) memuatkan sehingga 128 slot. Untuk acara yang pesertanya ramai, gunakan Group Boards, yang membenarkan sehingga 128 kumpulan dengan 2 hingga 128 pemain setiap satu. Jika anda melihat mesej bahawa akaun anda membenarkan bilangan peserta tertentu sahaja bagi setiap acara, hubungi pentadbir anda.</p>`
+      },
+      {
+        id: 'faq-change-after-finalized',
+        title: 'Bagaimana saya menukar skor selepas acara dimuktamadkan?',
+        keywords: 'buka semula ubah selepas muktamad tukar skor selepas muktamad reopen change after finalize',
+        body: `<p>Anda tidak boleh. Hanya Pentadbir boleh membuka semula acara yang telah dimuktamadkan, jadi hubungi pentadbir anda. Selepas ia dibuka semula, muat semula acara, betulkan skor dan terima keputusan sekali lagi. Sebelum anda memuktamadkan, anda boleh membetulkan mana-mana skor dengan mengkliknya dan menyimpan keputusan baharu. Lihat <a href="#finishing-the-event">Tamatkan acara</a> dan <a href="#correct-a-result">Membetulkan atau mengosongkan keputusan</a>.</p>`
+      },
+      {
+        id: 'faq-correct-result',
+        title: 'Bagaimana saya membetulkan atau mengosongkan keputusan?',
+        claims: ['ko-cascade', 'clear-result'],
+        keywords: 'salah taip silap skor salah buat asal tukar skor ubah skor betulkan kosongkan padam skor buang skor perlawanan salah typo mistake wrong score undo fix correct clear delete score',
+        body: `<p>Klik perlawanan itu. Untuk membetulkannya, taip leg yang betul dan klik <b>Simpan skor</b>. Untuk mengosongkannya, klik <b>Kosongkan keputusan</b>, kemudian <b>Kosongkan keputusan</b> sekali lagi dalam kotak yang bertanya &ldquo;Kosongkan keputusan ini?&rdquo;. Perlawanan itu kembali berstatus belum dimainkan. Dalam kalah mati, pemenang baharu (atau perlawanan yang dikosongkan) juga mengosongkan setiap perlawanan berikutnya yang telah dicapai oleh pemenang lama, termasuk juara. Apabila mana-mana perlawanan itu sudah ada keputusan, DartDraw menyenaraikannya dahulu dan anda memilih <b>Tukar keputusan</b> atau <b>Batal</b>. Skor baharu dengan pemenang yang sama tidak mengubah perlawanan berikutnya. Selepas undian kalah mati dibuat daripada round robin, keputusan kumpulan boleh dibetulkan tetapi tidak boleh dikosongkan. Lihat <a href="#correct-a-result">Membetulkan atau mengosongkan keputusan</a>.</p>`
+      },
+      {
+        id: 'faq-pair-names',
+        title: 'Bolehkah penonton melihat nama pemain dalam sesuatu pasangan?',
+        keywords: 'nama pasangan beregu rakan beregu pair names doubles partner',
+        body: `<p>Mereka melihat <b>nama pasangan</b> yang anda taip, dan organisasi jika anda mengisinya. Tiada kotak berasingan untuk dua pemain, jadi jika anda mahu kedua-dua nama dipaparkan, masukkan kedua-duanya dalam nama pasangan, seperti gabungan nama mereka (contohnya &ldquo;Hakim / Iskandar&rdquo;). Pasukan dipaparkan dengan nama pasukannya dengan cara yang sama.</p>`
+      },
+      {
+        id: 'faq-not-on-home-page',
+        title: 'Mengapa acara saya tiada di halaman utama awam?',
+        keywords: 'halaman utama disenaraikan tiada acara tidak muncul tidak kelihatan senarai home page listed missing not showing',
+        body: `
+<p>Semak senarai ini:</p>
+<ol>
+<li>Adakah <b>Terbitkan keputusan</b> ditanda pada kad Keputusan awam (bahagian bawah langkah 5)?</li>
+<li>Adakah <b>Senaraikan di halaman awam</b> ditanda? Ia dimatikan secara lalai, dan menyahtanda Terbitkan keputusan akan mematikannya.</li>
+<li>Tunggu kira-kira setengah minit dan muat semula halaman utama.</li>
+<li>Lihat tab yang betul. <b>Langsung</b> hanya untuk acara yang permainannya telah bermula dan belum dimuktamadkan. <b>Mendatang</b> untuk acara yang belum bermula dan bertarikh semalam atau kemudian. <b>Keputusan</b> untuk acara yang telah dimuktamadkan, dan hanya untuk tempoh terhad.</li>
+<li>Jika kad menyatakan alamat laman awam belum ditetapkan, maklumkan kepada pentadbir anda.</li>
+</ol>
+<p>Acara yang disalin bermula tanpa diterbitkan dan tanpa disenaraikan, jadi tandakan kedua-duanya semula.</p>`
+      },
+      {
+        id: 'faq-tie-breaks',
+        title: 'Bagaimana pemecah seri berfungsi?',
+        keywords: 'sama mata kedudukan sama mata seri mata sama pemecah seri h2h perlawanan sesama mereka head to head tie tied level tiebreak tie break',
+        body: `
+<p>Peserta disusun mengikut mata dahulu. Menang bernilai 2 mata, seri 1 dan kalah 0. Keputusan dimasukkan sebagai perlawanan yang telah tamat, jadi sentiasa ada pemenang, kecuali dalam round robin berpasukan tanpa pemecah seri, kerana dalam format itu jumlah yang sama dikira seri.</p>
+<p>Apabila peserta mempunyai mata yang sama, DartDraw menggunakan <b>Susunan pemecah seri</b> anda. Susunan lalai ialah:</p>
+<ol>
+<li><b>Keputusan perlawanan sesama mereka</b> (head-to-head): sesiapa yang memenangi perlawanan antara mereka berada di hadapan.</li>
+<li><b>Beza leg</b>: leg dimenangi tolak leg kalah bagi seluruh kumpulan.</li>
+<li><b>Leg dimenangi</b>: leg paling banyak dimenangi bagi seluruh kumpulan.</li>
+<li><b>Keputusan penganjur / perlawanan penentuan</b>: tiada yang automatik. Ia terserah kepada anda.</li>
+</ol>
+<p>Apabila tiga atau lebih peserta sama mata, ketiga-tiga peraturan (keputusan perlawanan sesama mereka, beza leg dan leg dimenangi) hanya menggunakan perlawanan sesama peserta tersebut. Jika sesuatu peraturan memisahkan sebahagian daripada mereka, peserta yang masih sama mata disusun semula dengan peraturan yang sama, mengikut urutan.</p>
+<p>Jika setiap peraturan masih meninggalkan dua peserta sama mata, lencana <b>?</b> dipaparkan dan amaran menyatakan mereka memerlukan keputusan penganjur atau perlawanan penentuan. Selesaikannya, kemudian tetapkan susunan dengan <b>Laraskan kedudukan&hellip;</b>. Langkah 6 dan 7, serta undian kalah mati apabila peserta yang sama mata berada pada garisan kelayakan, kekal dikunci sehingga anda berbuat demikian. Dalam persediaan Lanjutan anda boleh menyusun semula peraturan di bawah Peraturan di langkah 2.</p>`
+      },
+      {
+        id: 'faq-legs',
+        title: 'Apakah maksud &ldquo;terbaik daripada 5&rdquo; apabila saya memasukkan skor?',
+        keywords: 'leg apa itu leg terbaik daripada best of',
+        body: `<p>Yang pertama memenangi majoriti leg memenangi perlawanan. Dalam terbaik daripada 5, itu 3 leg. Kotak skor hanya menerima keputusan yang telah tamat: pemenang mesti mempunyai tepat 3, dan yang kalah 0, 1 atau 2. Dalam terbaik daripada 3, pemenang memerlukan 2, dan seterusnya.</p>`
+      },
+      {
+        id: 'faq-team-result',
+        title: 'Bagaimana saya memasukkan keputusan perlawanan pasukan?',
+        keywords: 'skor pasukan keputusan pasukan jumlah leg team score team result',
+        body: `<p>Sebagai satu keputusan: jumlah leg yang dimenangi setiap pasukan dalam semua segmen, termasuk pemecah seri jika ia dimainkan. Pasukan tidak boleh mempunyai lebih daripada jumlah paling banyak yang boleh dimenanginya (9 dengan segmen lalai, 10 jika pemecah seri digunakan). Jika pemecah seri digunakan, jumlahnya tidak boleh sama. Tanpanya, jumlah yang sama dikira seri dalam round robin, dan ditolak dalam kalah mati. Lihat <a href="#teams-results">Memasukkan keputusan pasukan</a>.</p>`
+      },
+      {
+        id: 'faq-byes',
+        title: 'Bagaimana bye ditentukan dalam kalah mati?',
+        keywords: 'bye lepas terus tiada lawan byes',
+        body: `<p>Saiz bracket (carta kalah mati) ialah saiz terkecil yang dapat memuatkan semua peserta anda (4, 8, 16, 32, 64 atau 128). Tempat kosong menjadi bye dalam pusingan 1. Bye diberikan kepada seed terbaik. Jika seed dimatikan, undian adalah rawak. Peserta dari organisasi yang sama dipisahkan selama mungkin apabila organisasi diisi. Selepas round robin, peserta dari kumpulan yang sama diutamakan, kemudian organisasi yang sama. Setiap undian mengambil paling lama kira-kira satu saat. Dalam bracket besar dengan ramai peserta dari satu organisasi, pengagihannya ialah yang terbaik ditemui DartDraw dalam masa itu, yang mungkin kurang sekata sedikit daripada yang boleh dicapai. Bracket memuatkan paling banyak 128 peserta: DartDraw menolak bracket yang lebih besar dan menyatakan tetapan yang perlu diubah.</p>`
+      },
+      {
+        id: 'faq-basic-advanced',
+        title: 'Apakah perbezaan antara persediaan Asas dan Lanjutan?',
+        keywords: 'asas lanjutan mod persediaan basic advanced setup mode',
+        body: `<p>Persediaan Asas hanya memaparkan perkara penting. Persediaan Lanjutan menambah penjadualan (tahap permainan, masa mula, rehat), bilangan leg (terbaik daripada) yang berbeza bagi pusingan kalah mati kemudian, saingan Plate, logo penaja dengan baris kaki halaman, dan susunan pemecah seri anda sendiri. Anda boleh bertukar bila-bila masa dan tiada tetapan anda yang hilang. Lihat <a href="#setup-mode">Persediaan Asas atau Lanjutan</a>.</p>`
+      },
+      {
+        id: 'faq-plate',
+        title: 'Apakah saingan Plate?',
+        keywords: 'plate saingan plate saguhati peluang kedua yang kalah consolation losers second chance',
+        body: `<p>Dalam Round robin &rarr; Kalah mati, peserta yang tidak mara boleh bermain dalam kalah mati mereka sendiri, dipanggil saingan Plate, supaya mereka masih mendapat perlawanan. Hidupkannya dalam persediaan Lanjutan di langkah 2. Anda boleh mengehadkan bilangan yang menyertai dengan <b>Peserta Plate setiap kumpulan</b>. Lihat <a href="#rr-ko-setup">Round robin &rarr; Kalah mati</a>.</p>`
+      },
+      {
+        id: 'faq-group-boards',
+        title: 'Apakah Group Boards, dan adakah saya wajib menggunakannya?',
+        keywords: 'group boards kumpulan board juara kumpulan',
+        body: `<p>Tidak, ia pilihan. Ia sejenis Kalah mati: pilih <b>Kalah mati</b>, kemudian <b>Group Boards, kemudian peringkat akhir</b>. Ia membahagikan peserta yang ramai kepada kumpulan kalah mati kecil. Setiap kumpulan mempunyai board sendiri dan berakhir dengan seorang juara, dan para juara bermain dalam bracket (carta kalah mati) untuk Peringkat Akhir. Ia sesuai untuk acara besar. Untuk acara bersaiz biasa, round robin atau kalah mati biasanya lebih mudah. Lihat <a href="#group-boards">Group Boards</a>.</p>`
+      },
+      {
+        id: 'faq-change-format',
+        title: 'Bolehkah saya menukar format selepas bermula?',
+        keywords: 'tukar format ubah format change format',
+        body: `<p>Tukar format sebelum anda memulakan perlawanan. Kembali ke langkah 2, buat perubahan dan simpan. Kumpulan round robin akan menyesuaikan diri. Group Boards tidak boleh diundi semula selepas skor dimasukkan. Selepas skor dimasukkan, paling selamat jika format tidak diubah.</p>`
+      },
+      {
+        id: 'faq-entries-locked',
+        title: 'Mengapa saya tidak boleh menukar peserta, bertukar tempat atau membuat undian semula selepas perlawanan bermula?',
+        claims: ['roster-lock'],
+        keywords: 'dikunci tukar tempat undian semula tidak boleh tukar peserta peserta dikunci locked swap redraw',
+        body: `<p>Kerana keputusan yang telah dimainkan milik peserta yang memainkannya. Sebaik sahaja kumpulan bermula (selepas <b>Mulakan semua perlawanan</b>), mempunyai keputusan, atau undian kalah mati telah dibuat, DartDraw menolak apa-apa yang akan memindahkan atau membuang peserta tersebut, dan menyatakan sebabnya: <b>Tarik diri</b>, <b>Tukar dengan&hellip;</b> dan <b>Undian rawak</b> di langkah 3, serta menurunkan <b>Bilangan peserta</b> di langkah 1 jika itu akan membuang seseorang yang sedang bermain. Sebelum perlawanan bermula, semua ini berfungsi seperti biasa. Untuk mengeluarkan seseorang selepas permainan bermula, gunakan <b>Tandakan tidak hadir&hellip;</b>. Lihat <a href="#player-leaves">Ketidakhadiran dan pemain yang meninggalkan acara</a>.</p>`
+      },
+      {
+        id: 'faq-move-player',
+        title: 'Bolehkah saya memindahkan pemain ke kumpulan lain?',
+        keywords: 'pindah pemain tukar kumpulan tukar tempat move player swap',
+        body: `<p>Boleh, di langkah 3. Dalam round robin gunakan <b>Tukar dengan&hellip;</b>. Dalam Group Boards gunakan <b>Pindah&hellip;</b> sebelum anda mengesahkan kumpulan. Kumpulan yang disahkan dan pesertanya berubah akan dibatalkan pengesahannya secara automatik. Lakukannya sebelum perlawanan bermula: selepas kumpulan bermula, DartDraw menolak untuk menukar atau memindahkan pesertanya. Lihat <a href="#faq-entries-locked">Mengapa saya tidak boleh menukar peserta selepas perlawanan bermula?</a></p>`
+      },
+      {
+        id: 'faq-no-show',
+        title: 'Seseorang tidak hadir. Apa yang perlu saya lakukan?',
+        keywords: 'tidak hadir tak hadir tak datang tidak datang ponteng ketidakhadiran walkover absent no show noshow did not turn up missing',
+        body: `<p>Selepas permainan bermula, gunakan <b>Tandakan tidak hadir&hellip;</b>. Dalam round robin ia mengisi perlawanan mereka yang belum dimainkan dengan kalah walkover. Dalam kalah mati ia memberikan kemenangan walkover kepada lawan. Jika kedua-duanya tiada dalam perlawanan kalah mati atau Group Boards, pilih <b>Kedua-dua tidak hadir</b> (round robin tidak mempunyai pilihan itu). Sebelum kumpulan mereka bermula, dalam round robin anda boleh klik <b>Tarik diri</b> bagi peserta itu; selepas kumpulan bermula, Tarik diri ditolak dan menawarkan <b>Tandakan tidak hadir sebagai gantinya</b>. Lihat <a href="#no-shows">Ketidakhadiran dan walkover</a> dan <a href="#player-leaves">Ketidakhadiran dan pemain yang meninggalkan acara</a>.</p>`
+      },
+      {
+        id: 'faq-admin',
+        title: 'Siapakah Pentadbir, dan bagaimana saya menghubunginya?',
+        keywords: 'hubungi sokongan pentadbir admin contact support administrator',
+        body: `<p>Pentadbir ialah orang yang mengendalikan laman DartDraw anda. Pentadbir membuka akaun penganjur, boleh menghantar pautan set semula kata laluan, dan merupakan satu-satunya orang yang boleh membuka semula acara yang telah dimuktamadkan. Hubungi mereka seperti biasa. DartDraw tidak mempunyai cara terbina dalam untuk menghantar mesej kepada mereka.</p>`
+      },
+      {
+        id: 'faq-forgot-password',
+        title: 'Saya terlupa kata laluan',
+        keywords: 'lupa kata laluan set semula kata laluan tak boleh log masuk terkunci e-mel reset password forgot password locked out',
+        body: `<p>Minta pautan set semula daripada pentadbir anda. Anda juga boleh klik <b>Lupa kata laluan?</b> pada borang log masuk dan menaip e-mel anda; jika pautan diterima, ikut pautan itu, dan jika tiada apa-apa diterima, hubungi pentadbir anda. Selepas pautan set semula digunakan, anda akan dilog keluar pada semua peranti.</p>`
+      },
+      {
+        id: 'faq-paper-size',
+        title: 'Bolehkah saya mencetak pada A3 atau lebih besar?',
+        keywords: 'saiz kertas kertas besar a3 a2 a1 poster paper size big paper',
+        body: `<p>Bracket (carta kalah mati) boleh dicetak pada A4, A3, A2 atau A1. Pilih <b>Saiz kertas bracket kalah mati</b> pada skrin cetakan; semakan muat di bawahnya menunjukkan saiz nama yang dicetak bagi setiap saiz. Jika bracket terlalu besar untuk saiz yang anda pilih, DartDraw bertanya sama ada mahu menggunakan saiz yang disyorkannya, memecahkan bracket kepada helaian A4, atau mengekalkan saiz anda dan mengecilkannya. Carta round robin dan helaian lain bersaiz A4 melintang. Lihat <a href="#bracket-sheets">Helaian bracket kalah mati dan saiz kertas</a>.</p>`
+      },
+      {
+        id: 'faq-update-speed',
+        title: 'Seberapa cepat penonton melihat skor baharu?',
+        keywords: 'penonton kelewatan lambat berapa cepat spectators delay how fast',
+        body: `<p>Halaman mereka dimuat semula secara automatik kira-kira setiap 20 saat, dan mendapat skor sejurus selepas anda menyimpannya. Senarai halaman utama boleh mengambil masa kira-kira setengah minit untuk dikemas kini.</p>`
+      },
+      {
+        id: 'faq-duplicate',
+        title: 'Bolehkah saya menggunakan semula acara untuk kali seterusnya?',
+        keywords: 'salin salinan guna semula templat kali seterusnya tahun depan copy reuse template next time',
+        body: `<p>Boleh. Klik <b>Salin</b> di bawah acara dalam <b>Kejohanan yang disimpan</b>. Anda mendapat salinan dengan &ldquo;(salinan)&rdquo; ditambah pada nama. Ia terbuka untuk diedit, tidak diterbitkan dan tidak disenaraikan. Salinan itu mengekalkan peserta, tetapan dan apa-apa skor, jadi ubah apa yang perlu.</p>`
+      },
+      {
+        id: 'faq-incident-log',
+        title: 'Adakah log insiden boleh dilihat umum?',
+        keywords: 'log insiden insiden pertikaian amaran disiplin incident log dispute',
+        body: `<p>Tidak. Ia untuk anda sahaja. Ia tidak akan dicetak dan tidak akan dipaparkan di halaman keputusan awam.</p>`
+      },
+      {
+        id: 'faq-two-devices',
+        title: 'Bolehkah saya menggunakan akaun yang sama pada dua peranti?',
+        keywords: 'dua peranti peranti kedua dua tab dua tetingkap dikemas kini di tempat lain updated elsewhere two tabs two windows second device',
+        body: `<p>Boleh. Log masuk pada kedua-duanya. Acara anda sama pada setiap peranti. Cuma catat skor setiap acara pada satu peranti pada satu masa. Skor yang dimasukkan pada peranti yang lapuk tidak disimpan. Jika anda melihat &ldquo;Dikemas kini di tempat lain &mdash; klik untuk muat semula&rdquo;, klik <b>Muat semula</b> pada sepanduk merah sebelum memasukkan apa-apa lagi, kemudian semak skor terkini dan masukkan semula perubahan terakhir anda.</p>`
+      },
+      {
+        id: 'faq-unconfirmed',
+        title: 'Mengapa carta menyatakan &ldquo;Pengesahan dibatalkan secara automatik&rdquo;?',
+        keywords: 'pengesahan dibatalkan batal pengesahan belum disahkan unconfirmed un confirmed',
+        body: `<p>Anda telah mengubah siapa yang berada dalam kumpulan itu selepas mengesahkannya, contohnya kerana anda menukar peserta atau satu peserta menarik diri. DartDraw membatalkan pengesahannya supaya anda menyemaknya semula. Klik <b>Sahkan carta ini</b> apabila ia sudah betul.</p>`
+      },
+      {
+        id: 'faq-window-sync',
+        title: 'Adakah tetingkap skrin penuh dikemas kini secara automatik?',
+        keywords: 'tetingkap skrin penuh kemas kini sendiri segar semula full page window update',
+        body: `<p>Tidak semasa anda melihatnya. Setiap tetingkap memuatkan acara yang disimpan apabila ia dibuka. Apabila anda beralih ke sesuatu tetingkap, ia menyemak sama ada ada salinan yang lebih baharu dan memuatkannya, dengan nota &ldquo;Dikemas kini dengan skor terkini&rdquo; (tidak di langkah 1 hingga 3, tidak semasa salah satu perubahan anda masih disimpan atau kotak dibuka, dan tidak semasa anda telah menaip sesuatu yang belum disimpan). Tetingkap dalam pelayar yang sama saling memberitahu apabila menyimpan, jadi ini berfungsi serta-merta; untuk perubahan yang dibuat pada peranti lain ia menyemak paling kerap setiap beberapa saat. Tetingkap yang lapuk tidak boleh menulis ganti skor yang lebih baharu: simpanannya ditolak dan ia memaparkan &ldquo;Dikemas kini di tempat lain &mdash; muat semula untuk mendapatkan versi terkini&rdquo;, tetapi skor yang anda masukkan di situ tidak disimpan. Tekan <b>F5</b> untuk mengemas kini tetingkap, dan catat skor dalam satu tetingkap pada satu masa. Lihat <a href="#fpw-sync">Memastikan tetingkap selaras</a>.</p>`
+      },
+      {
+        id: 'faq-phone',
+        title: 'Bolehkah saya guna telefon?',
+        keywords: 'telefon telefon bimbit handphone hp tablet ipad iphone android menegak melintang landskap putar phone mobile portrait landscape rotate',
+        body: `<p>Boleh, jika dipegang melintang (landskap), tetapi DartDraw paling sesuai pada tablet, komputer riba atau komputer meja. Jika dipegang menegak, telefon atau tablet memaparkan &ldquo;Sila putarkan peranti anda ke mod melintang untuk menggunakan DartDraw.&rdquo; Putarkannya dan aplikasi kembali seperti yang anda tinggalkan. Pada telefon yang dipegang melintang, nota kecil menyatakan DartDraw paling sesuai pada skrin yang lebih besar (ketik &times; untuk menyembunyikannya). Menu sebelah kiri menjadi bar di bahagian atas: ketik nama langkah untuk menukar langkah, membuka acara lain, menamakan semula, menyalin atau memadam acara ini, atau menukar kata laluan anda. Menyediakan acara lebih mudah pada skrin yang lebih besar; telefon sesuai untuk menyemak dan memasukkan skor.</p>`
+      },
+      {
+        id: 'faq-delete',
+        title: 'Bolehkah saya memadam atau menamakan semula acara?',
+        keywords: 'namakan semula tukar nama padam buang acara edit nama rename delete remove event',
+        body: `<p>Boleh, dengan <b>Namakan semula</b> dan <b>Padam</b> di bawah acara dalam <b>Kejohanan yang disimpan</b>. Memadam akan membuangnya daripada akaun anda secara kekal. Anda tidak boleh menamakan semula atau memadam acara yang telah dimuktamadkan. Hubungi pentadbir anda.</p>`
+      }
+    ]
+  }
+];
+
+/* The search box on /ms/help (help-search.js with lang "ms": no English stemming, so every form a person may type is
+   listed: cetak / mencetak / dicetak / cetakan). Each group mixes BM and the English words Malaysians use in BM
+   ("login", "print", "seed"), so a search in either language finds the BM article. tests/fixtures/help-search-ms-*.json
+   checks real phrases. Words here are search data only: never shown (so "papan" and "bagan" may be listed as typed).
+   - toEnglish: what a BM word typed on the ENGLISH Help page (/help) searches for there; "" drops a BM question word. */
+const search = {
+  synonyms: [
+    ['log masuk', 'logmasuk', 'login', 'log in', 'log on', 'sign in', 'signin', 'masuk akaun', 'tidak boleh log masuk', 'tak boleh login', 'tidak dapat log masuk', 'tak dapat login', 'tak boleh masuk', 'x boleh login', 'login tak jadi', 'cannot login', 'cant login'],
+    ['daftar', 'mendaftar', 'daftar akaun', 'buat akaun', 'membuat akaun', 'akaun baharu', 'akaun baru', 'tiada akaun', 'belum ada akaun', 'dapatkan akaun', 'akaun', 'jemputan', 'register', 'registration', 'sign up', 'signup', 'account', 'no account', 'invite'],
+    ['kata laluan', 'katalaluan', 'lupa kata laluan', 'tukar kata laluan', 'set semula kata laluan', 'kata kunci', 'password', 'lupa password', 'tukar password', 'pasword', 'forgot password', 'reset password', 'change password'],
+    ['salah', 'silap', 'tersilap', 'tersalah', 'kesilapan', 'skor salah', 'salah skor', 'skor silap', 'score salah', 'markah salah', 'salah key in', 'tersalah key in', 'salah taip', 'tersalah taip', 'tukar score', 'edit score', 'salah masuk', 'tersalah masuk skor', 'salah perlawanan', 'betulkan', 'membetulkan', 'betulkan skor', 'pembetulan', 'tukar skor', 'ubah skor', 'edit skor', 'kosongkan', 'mengosongkan', 'kosongkan keputusan', 'padam skor', 'buang skor', 'buat asal', 'undo', 'typo', 'mistake', 'wrong score', 'wrong', 'correct', 'clear result', 'delete score', 'fix score'],
+    ['berhenti', 'pemain berhenti', 'tinggalkan', 'meninggalkan', 'pemain pergi', 'pemain balik', 'player balik', 'player lari', 'player cedera', 'balik awal', 'keluar awal', 'cedera', 'kecederaan', 'tidak meneruskan', 'tak sambung', 'tarik diri tengah jalan', 'pertengahan', 'quit', 'player quit', 'leaves', 'leave', 'retire', 'retired', 'injured', 'pull out', 'pulled out', 'drop out'],
+    ['tidak hadir', 'tak hadir', 'tidak datang', 'tak datang', 'player tak datang', 'pemain tak datang', 'tak turun', 'tidak turun', 'tak sampai', 'x datang', 'x hadir', 'tidak muncul', 'tak muncul', 'ponteng', 'ketidakhadiran', 'absent', 'no show', 'noshow', 'walkover', 'walk over', 'wo', 'menang walkover', 'kalah walkover'],
+    ['tarik diri', 'menarik diri', 'keluarkan peserta', 'buang peserta', 'buang pemain', 'keluarkan pemain', 'withdraw', 'withdrawal', 'scratch'],
+    ['muat turun', 'download', 'download pdf', 'save pdf', 'pdf', 'simpan pdf', 'simpan sebagai pdf', 'eksport', 'export', 'save as pdf'],
+    ['kod qr', 'qr', 'qr code', 'scan qr', 'imbas', 'mengimbas', 'scan', 'kod bar', 'barcode'],
+    ['kongsi', 'berkongsi', 'kongsi pautan', 'pautan', 'link', 'pautan awam', 'pautan langsung', 'keputusan langsung', 'halaman langsung', 'halaman awam', 'penonton', 'penyokong', 'peminat', 'skor live', 'live score', 'link live', 'share', 'share link', 'live results', 'public page', 'spectator', 'spectators'],
+    ['board', 'boards', 'papan', 'papan dart', 'dartboard', 'dart board', 'lorong', 'lane', 'oche', 'board utama'],
+    ['undian', 'buat undian', 'membuat undian', 'undi', 'cabutan', 'cabutan undi', 'undian rawak', 'rawak', 'undian semula', 'buat undian semula', 'cabut undi', 'buat draw', 'draw semula', 'kocok', 'draw', 'redraw', 'random draw', 'shuffle'],
+    ['seed', 'seeds', 'seeding', 'diberi seed', 'peserta pilihan', 'pemain pilihan', 'pilihan utama'],
+    ['muktamad', 'muktamadkan', 'memuktamadkan', 'dimuktamadkan', 'tamatkan', 'menamatkan', 'tamat', 'tutup acara', 'terima keputusan', 'kunci keputusan', 'keputusan muktamad', 'tutup event', 'habis event', 'end event', 'finalize', 'finalise', 'finalized', 'finish', 'accept', 'accept results'],
+    ['pemain', 'peserta', 'nama', 'nama pemain', 'nama peserta', 'player', 'players', 'entry', 'entries', 'names'],
+    ['pasukan', 'berpasukan', 'acara berpasukan', 'kapten', 'liga', 'team', 'teams'],
+    ['pasangan', 'beregu', 'rakan beregu', 'pair', 'pairs', 'doubles', 'partner'],
+    ['seri', 'sama mata', 'kedudukan sama mata', 'mata sama', 'pemecah seri', 'perlawanan sesama mereka', 'perlawanan penentuan', 'tie', 'tied', 'tie break', 'tiebreak', 'tie breaker', 'h2h', 'head to head', 'playoff', 'play off'],
+    ['leg', 'legs', 'terbaik daripada', 'best of', 'apa itu leg'],
+    ['bye', 'byes', 'lepas terus', 'tiada lawan', 'free pass'],
+    ['namakan semula', 'tukar nama', 'ubah nama', 'edit nama', 'rename'],
+    ['telefon', 'telefon bimbit', 'handphone', 'hp', 'tablet', 'ipad', 'iphone', 'android', 'menegak', 'melintang', 'landskap', 'putar', 'pusingkan', 'phone', 'mobile', 'portrait', 'landscape', 'rotate'],
+    ['luar talian', 'offline', 'tiada internet', 'takde internet', 'internet', 'wifi', 'wi fi', 'sambungan', 'tiada liputan', 'line', 'takde line', 'connection'],
+    ['gagal disimpan', 'tidak disimpan', 'tak tersimpan', 'tak save', 'save gagal', 'tidak dapat simpan', 'tak boleh simpan', 'simpan gagal', 'couldnt save', 'not saved', 'not saving'],
+    ['dikemas kini di tempat lain', 'dua tetingkap', 'dua tab', 'peranti lain', 'peranti kedua', 'lapuk', 'updated elsewhere', 'two windows', 'two tabs'],
+    ['saiz kertas', 'kertas', 'kertas besar', 'a3', 'a2', 'a1', 'poster', 'paper size', 'paper'],
+    ['cetak semula', 'cetak lagi', 'cetak balik', 'print balik', 'print semula', 'reprint', 'print again'],
+    ['cetak', 'mencetak', 'dicetak', 'cetakan', 'pencetak', 'set cetakan', 'print', 'print out', 'printout', 'printing', 'printer'],
+    ['pemenang', 'juara', 'siapa menang', 'menang', 'naib juara', 'kedudukan akhir', 'winner', 'champion', 'who won'],
+    ['mula', 'bermula', 'permulaan', 'mula pantas', 'panduan', 'tutorial', 'pemula', 'acara pertama', 'cara mula', 'cara guna', 'quick start', 'quickstart', 'get started', 'beginner', 'begin'],
+    ['mulakan perlawanan', 'mulakan semua perlawanan', 'mula perlawanan', 'mula main', 'start games', 'start all games'],
+    ['hubungi', 'pentadbir', 'admin', 'sokongan', 'support', 'helpdesk', 'contact', 'administrator'],
+    ['pencatat skor', 'pencatat', 'penanda skor', 'marker', 'markers', 'scorer', 'chalker', 'pengadil', 'referee'],
+    ['plate', 'saingan plate', 'saguhati', 'peluang kedua', 'consolation', 'plate pool'],
+    ['salin', 'salinan', 'guna semula', 'templat', 'kali seterusnya', 'tahun depan', 'duplicate', 'copy', 'reuse', 'template'],
+    ['daftar masuk', 'kehadiran', 'sudah sampai', 'dah sampai', 'tiba', 'check in', 'checkin', 'checked in', 'attendance'],
+    ['segmen', 'segment', 'segments', 'perlawanan pasukan', 'team match'],
+    ['istilah', 'glosari', 'maksud', 'makna', 'perkataan', 'singkatan', 'definisi', 'apa maksud', 'glossary', 'jargon', 'words', 'terms'],
+    ['kedudukan', 'jadual kedudukan', 'jadual', 'lajur', 'main', 'mata', 'lm', 'standings', 'table', 'mp', 'mw', 'ml', 'lw', 'pts'],
+    ['layak', 'kelayakan', 'yang layak', 'mara', 'lepas ke kalah mati', 'qualify', 'qualifier', 'qualifiers', 'advance', 'go through'],
+    ['acara contoh', 'contoh', 'latihan', 'demo', 'sample', 'sample event', 'practice', 'test event'],
+    ['masalah', 'tidak berfungsi', 'tak berfungsi', 'tak jalan', 'rosak', 'ralat', 'tersekat', 'problem', 'problems', 'not working', 'broken', 'error'],
+    ['bracket', 'braket', 'breket', 'carta kalah mati', 'bagan', 'rajah kalah mati', 'knockout bracket'],
+    ['kalah mati', 'knockout', 'peringkat kalah mati', 'jana bracket kalah mati'],
+    ['terbit', 'terbitkan', 'menerbitkan', 'diterbitkan', 'penerbitan', 'publish', 'published', 'publishing'],
+    ['halaman utama', 'laman utama', 'senaraikan', 'disenaraikan', 'penyenaraian', 'home page', 'listed', 'listing'],
+    ['skrin kedua', 'projektor', 'tv', 'televisyen', 'monitor', 'tetingkap baharu', 'tetingkap skrin penuh', 'skrin penuh', 'paparan besar', 'second screen', 'projector', 'full screen', 'pop out'],
+    ['tetingkap timbul', 'pop up', 'popup', 'popup block', 'disekat', 'sekat', 'blocked'],
+    ['insiden', 'log insiden', 'catat insiden', 'pertikaian', 'amaran', 'disiplin', 'incident', 'dispute'],
+    ['skor', 'markah', 'masukkan skor', 'isi skor', 'masuk skor', 'masuk markah', 'key in', 'key in skor', 'keputusan', 'keputusan perlawanan', 'score', 'scores', 'enter score', 'results'],
+    ['borang barisan', 'borang', 'barisan', 'kad skor', 'lineup', 'line up', 'scorecard'],
+    ['jadual masa', 'masa mula', 'anggaran masa', 'berapa lama', 'tempoh', 'rehat', 'penjadualan', 'schedule', 'scheduling', 'start time'],
+    ['organisasi', 'kelab', 'persatuan', 'sama kelab', 'club', 'organisation', 'organization'],
+    ['sahkan', 'pengesahan', 'disahkan', 'batal pengesahan', 'confirm', 'confirmed', 'unconfirmed'],
+    ['muat semula', 'segar semula', 'f5', 'reload', 'refresh'],
+    ['bahasa', 'tukar bahasa', 'menukar bahasa', 'bahasa inggeris', 'inggeris', 'bahasa malaysia', 'bahasa melayu', 'melayu', 'bm', 'terjemah', 'terjemahan', 'english', 'language', 'translate'],
+    ['e-mel', 'e mel', 'emel', 'mel', 'peti masuk', 'email', 'emails', 'e-mail', 'inbox'],
+    ['bahasa helaian bercetak', 'bahasa cetakan', 'bahasa kertas', 'cetak dalam bm', 'cetak dalam bahasa inggeris', 'cetak dalam bahasa melayu', 'sheet language', 'print language']
+  ],
+  noAnswer: [
+    { terms: ['percuma', 'kos', 'harga', 'bayaran', 'bayar', 'yuran', 'caj', 'duit', 'wang', 'bayaran balik', 'langganan', 'free', 'cost', 'price', 'pay', 'payment', 'fee', 'refund'],
+      say: 'Bantuan ini tidak merangkumi kos atau bayaran. Tanya pentadbir DartDraw anda.' },
+    { terms: ['180', '180s', 'checkout', 'purata', 'average', 'averages', 'double out', 'skor tertinggi', 'high score', 'balingan'],
+      say: 'DartDraw merekodkan keputusan setiap perlawanan dalam leg. Ia tidak menyimpan balingan dart, jadi tiada 180, checkout atau purata.' },
+    { terms: ['trofi', 'piala', 'hadiah', 'pingat', 'trophy', 'prize', 'medal'],
+      say: 'DartDraw tidak merekodkan hadiah atau trofi.' },
+    { terms: ['sms', 'whatsapp', 'mesej pemain', 'hantar mesej', 'hantar sms', 'hantar sms pemain', 'sms pemain', 'hantar mesej pemain', 'whatsapp pemain', 'notifikasi', 'pemberitahuan', 'e mel pemain', 'nombor telefon', 'text message', 'notification', 'notify'],
+      say: 'DartDraw tidak boleh menghantar mesej kepada pemain. Sebaliknya, kongsi pautan langsung atau kod QR.' },
+    { terms: ['csv', 'excel', 'hamparan', 'spreadsheet', 'xlsx'],
+      say: 'Belum ada eksport hamparan. Anda boleh mencetak mana-mana carta, atau menyimpannya sebagai PDF.' },
+    { terms: ['video', 'strim', 'penstriman', 'siaran langsung', 'youtube', 'live stream', 'streaming', 'broadcast'],
+      say: 'DartDraw memaparkan skor, bukan video: ia tidak boleh menstrim atau merakam perlawanan.' }
+  ],
+  popular: [
+    { id: 'quick-start', label: 'Mula pantas' },
+    { id: 'no-account', label: 'Belum ada akaun?' },
+    { id: 'correct-a-result', label: 'Membetulkan atau mengosongkan keputusan' },
+    { id: 'player-leaves', label: 'Ketidakhadiran dan pemain yang meninggalkan acara' },
+    { id: 'troubleshooting', label: 'Apabila berlaku masalah' },
+    { id: 'glossary', label: 'Istilah yang akan anda lihat' }
+  ],
+  stuck: 'Masih tidak menemui jawapan? Tanya pentadbir DartDraw anda.',
+  toEnglish: [
+    // BM question words people put around a search: dropped on the English page
+    ['bagaimana', ''], ['macam mana', ''], ['camne', ''], ['cara', ''], ['saya', ''], ['nak', ''], ['hendak', ''], ['mahu', ''], ['boleh', ''],
+    ['apa', ''], ['apakah', ''], ['yang', ''], ['untuk', ''], ['dengan', ''], ['mana', ''], ['kenapa', ''], ['mengapa', ''], ['tak', ''], ['tidak', ''],
+    ['di', ''], ['ke', ''], ['ini', ''], ['itu', ''], ['sudah', ''], ['dah', ''],
+    // topics
+    ['log masuk', 'log in'], ['logmasuk', 'login'], ['kata laluan', 'password'], ['lupa kata laluan', 'forgot password'], ['akaun', 'account'],
+    ['daftar masuk', 'check in'], ['daftar', 'register'], ['cetak semula', 'reprint'], ['cetak', 'print'], ['mencetak', 'print'], ['cetakan', 'print'],
+    ['muat turun', 'download'], ['kod qr', 'qr'], ['tidak hadir', 'no show'], ['tak hadir', 'no show'], ['tak datang', 'no show'], ['tidak datang', 'no show'],
+    ['ponteng', 'no show'], ['tarik diri', 'withdraw'], ['berhenti', 'player quit'], ['cedera', 'injured'], ['markah', 'score'], ['skor', 'score'],
+    ['skor salah', 'wrong score'], ['score salah', 'wrong score'], ['lupa password', 'forgot password'], ['tak boleh login', 'log in'], ['key in', 'enter scores'], ['salah', 'wrong'], ['silap', 'mistake'], ['betulkan', 'correct'], ['kosongkan', 'clear result'], ['buat asal', 'undo'],
+    ['keputusan', 'results'], ['kumpulan', 'group'], ['undian', 'draw'], ['undi', 'draw'], ['cabutan', 'draw'], ['muktamad', 'finalize'],
+    ['muktamadkan', 'finalize'], ['tamatkan', 'finish'], ['terbitkan', 'publish'], ['terbit', 'publish'], ['pemain', 'players'], ['peserta', 'entries'],
+    ['pasangan', 'pairs'], ['beregu', 'doubles'], ['pasukan', 'teams'], ['berpasukan', 'teams'], ['perseorangan', 'singles'], ['kalah mati', 'knockout'],
+    ['pemenang', 'winner'], ['juara', 'champion'], ['padam', 'delete'], ['namakan semula', 'rename'], ['tukar nama', 'rename'], ['telefon', 'phone'],
+    ['kertas', 'paper'], ['saiz kertas', 'paper size'], ['pencatat skor', 'marker'], ['pencatat', 'marker'], ['segmen', 'segment'], ['pemecah seri', 'tie break'],
+    ['sama mata', 'tie'], ['luar talian', 'offline'], ['penonton', 'spectators'], ['pautan', 'link'], ['kongsi', 'share'], ['halaman utama', 'home page'],
+    ['salin', 'duplicate'], ['mula', 'start'], ['mulakan perlawanan', 'start all games'], ['tetingkap timbul', 'pop up'], ['skrin kedua', 'second screen'],
+    ['projektor', 'projector'], ['insiden', 'incident'], ['pentadbir', 'admin'], ['borang barisan', 'lineup'], ['organisasi', 'organisation'],
+    ['kelab', 'club'], ['istilah', 'glossary'], ['maksud', 'meaning'], ['kedudukan', 'standings'], ['masalah', 'problem'], ['layak', 'qualify'],
+    ['acara contoh', 'sample event'], ['sahkan', 'confirm'], ['saingan plate', 'plate pool'], ['muat semula', 'reload'], ['penjadualan', 'scheduling'],
+    ['tukar bahasa', 'language'], ['bahasa inggeris', 'english'], ['bahasa helaian bercetak', 'printed sheets language'], ['helaian bercetak', 'printed sheets'], ['e-mel', 'email'], ['emel', 'email']
+  ]
+};
+
+module.exports = {
+  VIEWER_URL,
+  VIEWER_HELP_URL,
+  title: 'Bantuan untuk penganjur',
+  lede: 'Panduan ringkas langkah demi langkah untuk menjalankan acara dalam DartDraw, dan jawapan pantas kepada soalan yang paling kerap ditanya oleh penganjur.',
+  sections,
+  search
+};

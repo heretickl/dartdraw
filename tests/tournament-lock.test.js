@@ -69,7 +69,7 @@ test('PUT on a finalized row is refused with 403 and nothing is written', async 
   seed('t1', { name: 'X', finalized: { at: '2026-10-13T09:00:00.000Z' } });
   const res = await call('PUT', 't1', putBody({ name: 'Edited' }));
   assert.equal(res.statusCode, 403);
-  assert.deepEqual(res.body, { error: FINAL_MSG, finalized: true });
+  assert.deepEqual(res.body, { code: 'finalized', error: FINAL_MSG, finalized: true });
   assert.equal(issued(/^\s*UPDATE/i).length, 0);
   assert.equal(issued(/^\s*INSERT/i).length, 0);
 });
@@ -85,7 +85,7 @@ test('DELETE on a finalized row is refused with 403 and nothing is deleted', asy
   seed('t1', { name: 'X', finalized: { at: '2026-10-13T09:00:00.000Z' } });
   const res = await call('DELETE', 't1');
   assert.equal(res.statusCode, 403);
-  assert.deepEqual(res.body, { error: FINAL_MSG, finalized: true });
+  assert.deepEqual(res.body, { code: 'finalized', error: FINAL_MSG, finalized: true });
   assert.equal(issued(/^\s*DELETE/i).length, 0);
 });
 
@@ -159,7 +159,7 @@ test('a finalized row owned by another organiser is a 404 on PUT, and untouched 
   seed('t1', { name: 'X', finalized: { at: '2026-10-13T09:00:00.000Z' } }, 'someoneelse');
   const put = await call('PUT', 't1', putBody({ name: 'Y' }));
   assert.equal(put.statusCode, 404);
-  assert.deepEqual(put.body, { error: 'Not found.' });
+  assert.deepEqual(put.body, { code: 'not_found', error: 'Not found.' });
   const del = await call('DELETE', 't1');
   assert.notEqual(del.statusCode, 403);
   // Any DELETE issued is scoped to the caller's own rows, so it cannot touch this one.
@@ -182,7 +182,7 @@ test('PUT: the row being finalized between the SELECT and the UPDATE is refused 
   beforeWrite = () => { store.t1.data = { name: 'X', finalized: { at: '2026-10-13T10:30:00.000Z' } }; store.t1.updated_at = '2026-10-13T10:30:00.000Z'; };
   const res = await call('PUT', 't1', putBody({ name: 'Mine' }));
   assert.equal(res.statusCode, 403);
-  assert.deepEqual(res.body, { error: FINAL_MSG, finalized: true });
+  assert.deepEqual(res.body, { code: 'finalized', error: FINAL_MSG, finalized: true });
   assert.equal(store.t1.data.name, 'X'); assert.ok(store.t1.data.finalized);
 });
 
@@ -198,7 +198,7 @@ test('DELETE: the row being finalized between the SELECT and the DELETE is refus
   beforeWrite = () => { store.t1.data = { name: 'X', finalized: { at: '2026-10-13T10:30:00.000Z' } }; };
   const res = await call('DELETE', 't1');
   assert.equal(res.statusCode, 403);
-  assert.deepEqual(res.body, { error: FINAL_MSG, finalized: true });
+  assert.deepEqual(res.body, { code: 'finalized', error: FINAL_MSG, finalized: true });
   assert.ok(store.t1, 'the row must still exist');
 });
 
@@ -256,7 +256,7 @@ test('a second finalize attempt on an already finalized row is still 403 and wri
   seed('t1', { name: 'X', finalized: { at: '2026-10-13T09:00:00.000Z' } });
   const again = await call('PUT', 't1', putBody({ name: 'X', finalized: { at: '2999-01-01T00:00:00.000Z' } }));
   assert.equal(again.statusCode, 403);
-  assert.deepEqual(again.body, { error: FINAL_MSG, finalized: true });
+  assert.deepEqual(again.body, { code: 'finalized', error: FINAL_MSG, finalized: true });
   assert.equal(issued(/^\s*UPDATE/i).length, 0);
   assert.equal(store.t1.data.finalized.at, '2026-10-13T09:00:00.000Z');
 });
@@ -283,7 +283,7 @@ test('a save that carries a stamp for a row that no longer exists (deleted or mo
   delete store.t1;                                         // deleted by another window
   const res = await call('PUT', 't1', { data: { name: 'from a window that still had it' }, expectedUpdatedAt: UPDATED });
   assert.equal(res.statusCode, 404);
-  assert.deepEqual(res.body, { error: 'Not found.' });
+  assert.deepEqual(res.body, { code: 'not_found', error: 'Not found.' });
   assert.equal(issued(/^\s*INSERT/i).length, 0);
   assert.equal(store.t1, undefined);
 });

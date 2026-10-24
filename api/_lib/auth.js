@@ -96,25 +96,25 @@ async function requireAuth(req, res) {
       // downstream code never sees undefined.
       return Object.assign({}, pub, { role: 'organizer', tier: 'pro' });
     } catch (e) {
-      res.status(500).json({ error: 'Could not resolve public account.' });
+      res.status(500).json({ code: 'public_account_failed', error: 'Could not resolve public account.' });
       return null;
     }
   }
   const session = getOrganizerFromRequest(req);
   if (!session) {
-    res.status(401).json({ error: 'Not authenticated' });
+    res.status(401).json({ code: 'not_authenticated', error: 'Not authenticated' });
     return null;
   }
   let row;
   try {
     row = await findById(session.id);
   } catch (e) {
-    res.status(500).json({ error: 'Could not verify your session.' });
+    res.status(500).json({ code: 'session_check_failed', error: 'Could not verify your session.' });
     return null;
   }
   if (!row || row.suspended || !row.email_verified_at
       || typeof session.tv !== 'number' || session.tv !== Number(row.token_version)) {
-    res.status(401).json({ error: 'Not authenticated' });
+    res.status(401).json({ code: 'not_authenticated', error: 'Not authenticated' });
     return null;
   }
   // tier is the effective one (an Admin is Pro whatever the stored tier says).
@@ -128,7 +128,7 @@ async function requireAdmin(req, res) {
   const organizer = await requireAuth(req, res);
   if (!organizer) return null;
   if (organizer.role !== 'admin') {
-    res.status(403).json({ error: 'Admin only.' });
+    res.status(403).json({ code: 'admin_only', error: 'Admin only.' });
     return null;
   }
   return organizer;

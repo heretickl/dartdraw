@@ -299,7 +299,7 @@ test('the full-page window shows the stale banner and its own save status (it ha
 });
 
 test('the full-page window’s header has the save status element and its Print button uses the main print path', () => {
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.html'), 'utf8');
+  const src = require('./lib/app-source').englishSource('app.html');   // the static markup's words without the i18n step 3 attributes
   const tools = f('popoutToolsHTML')();
   assert.match(tools, /id="popoutSaveStatus"/);
   assert.match(tools, /onclick="popoutPrint\(\)"/);

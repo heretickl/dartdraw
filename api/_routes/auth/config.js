@@ -5,7 +5,7 @@ const { getContactLine } = require('../../_lib/settings');
 // "No account yet?". The contact line is the only stored setting exposed here: plain text, at most 200 characters,
 // '' when none is set or the database cannot be read (getContactLine never throws). The page renders it with textContent.
 module.exports = async (req, res) => {
-  if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (req.method !== 'GET') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
   res.setHeader('Cache-Control', 'no-store');
   const adminContact = await getContactLine();
   res.status(200).json({ signupOpen: process.env.SIGNUP_OPEN === 'true' && isMailConfigured(), adminContact });

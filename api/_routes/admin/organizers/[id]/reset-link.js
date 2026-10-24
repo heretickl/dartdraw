@@ -11,25 +11,20 @@ module.exports = async (req, res) => {
   if (!admin) return;
 
   try {
-    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    if (req.method !== 'POST') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
 
     const target = await lookupTarget(req.query && req.query.id);
-    if (!target) { res.status(404).json({ error: 'Organiser not found.' }); return; }
+    if (!target) { res.status(404).json({ code: 'organiser_not_found', error: 'Organiser not found.' }); return; }
     if (target.suspended) {
-      res.status(409).json({ error: 'This account is suspended. Reactivate it first.' });
+      res.status(409).json({ code: 'account_suspended_reactivate', error: 'This account is suspended. Reactivate it first.' });
       return;
     }
 
     const raw = await issueToken(target.id, 'reset');
     const link = linkFor(req, raw);
-    await mailLink(
-      target.email,
-      'Reset your DartDraw password',
-      'An administrator has issued a link for you to choose a new DartDraw password (it works for 1 hour):\n\n'
-        + link + '\n'
-    );
+    await mailLink(target.email, 'adminReset', { link });
     res.status(200).json({ link });
   } catch (e) {
-    res.status(500).json({ error: 'Could not complete that request.' });
+    res.status(500).json({ code: 'request_failed', error: 'Could not complete that request.' });
   }
 };

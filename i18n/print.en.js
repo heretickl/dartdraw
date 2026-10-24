@@ -1,0 +1,156 @@
+/* The organiser app's PRINTED SHEETS in English (i18n step 4): the rules & format sheet, the running order, the bracket
+   sheets (bracket-print.js and the Group Boards charts), the projected brackets, the lineup sheets, the Players A-Z and
+   Boards sheets, and the "Printed sheets language" setting itself. The words the sheets share with the screens stay in
+   i18n/app.en.js (sheet.*, grp.label, noun.*, seg.*, credit, qr.block, ...) and render.js (round names, BYE, CHAMPION...).
+   A separate file from app.en.js on purpose: the keys here are only for paper, and they merge into the same T() table
+   (i18n/app-i18n.js). Same rules as app.en.js: stable keys, whole sentences with {placeholders}, { one, other } plurals,
+   and each value is exactly what the sheet printed before it had a table (English print output is byte-identical:
+   tests/print-i18n.test.js). Every key must be in print.ms.js with the same placeholders. */
+var DD_PRINT_EN = {
+  /* ---------- the setting (on screen, in the UI language) ---------- */
+  'pr.set.label': 'Printed sheets language',
+  'pr.set.hint': 'Every printed sheet of this event uses this language, whoever prints it.',
+  'pr.set.en': 'English',
+  'pr.set.ms': 'Bahasa Malaysia',
+  'pr.set.wait': 'The Bahasa Malaysia words for this event\'s printed sheets have not loaded yet. Check your connection, then print again.',
+
+  /* ---------- shared pieces ---------- */
+  'pr.sub': '{catUnit} · {date}',
+  'pr.sheetOf': ' · sheet {i} of {n}',
+  'pr.SheetOf': ' · Sheet {i} of {n}',
+  'pr.groups': { one: '{n} group', other: '{n} groups' },
+  'pr.boards': { one: '{n} board', other: '{n} boards' },
+  'pr.matches': { one: '{n} match', other: '{n} matches' },
+  'pr.count': '{n} {noun}',
+
+  /* ---------- running order ---------- */
+  'pr.ro.title': 'RUNNING ORDER',
+  'pr.ro.head': 'Master running order — board by board',
+  'pr.ro.key': 'Numbers are positions in the group (1 v 2 = the first two on the group chart). Tick each match when it is finished.',
+  'pr.ro.board': 'Board {b}',
+  'pr.ro.boardCont': 'Board {b}, continued',
+  'pr.ro.empty': 'No more groups on this board.',
+  'pr.ro.everyTeams': 'Every match: {label}.',
+  'pr.ro.every': 'Every match: best of {n} legs.',
+  'pr.ro.report': 'Report each result to the desk as soon as it is finished.',
+
+  /* ---------- rules & format sheet ---------- */
+  'pr.rules.title': 'RULES &amp; FORMAT',
+  'pr.rules.read': 'Please read before playing',
+  'pr.rules.format': 'Format',
+  'pr.rules.tb': 'Tie-break order',
+  'pr.rules.tbNote': '(used only when points are level)',
+  'pr.rules.other': 'Walkover, conduct &amp; other rules',
+  /* the format lines (plain text, escaped when printed) */
+  'pr.f.rr': 'Format: Round robin — every entry in a group plays every other entry in that group once.',
+  'pr.f.rrScoring': 'Scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of {n} legs (first to {m}).',
+  'pr.f.ko': 'Format: Knockout — single elimination. Lose once and you’re out (except any bye rounds).',
+  'pr.f.koVar': 'Legs increase by round: early rounds best of {e}, quarterfinal best of {q}, semifinal best of {s}, final best of {f}. Knockout matches cannot end in a draw.',
+  'pr.f.koFlat': 'Each match is best of {n} legs (first to {m}). Knockout matches cannot end in a draw.',
+  'pr.f.pod': 'Format: Knockout, Group Boards then finals — players are drawn into {p} groups. Each group is a small knockout on its own board, and every group winner goes through to a Finals bracket.',
+  'pr.f.podLegs': 'Group matches are best of {pn} legs (first to {pm}). Finals matches are best of {n} legs (first to {m}) unless legs increase by stage. Knockout matches cannot end in a draw.',
+  'pr.f.rrko': 'Format: Round robin group stage, followed by a knockout bracket.',
+  'pr.f.rrkoScoring': 'Group stage scoring: Win = 2 points, Draw = 1 point, Loss = 0 points. Each match is best of {n} legs (first to {m}).',
+  'pr.f.apart': 'Two entries advancing from the same group are kept apart in the first knockout round where possible, so they don\'t immediately face a rematch of their round robin group.',
+  'pr.f.rrkoVar': 'Knockout stage legs increase by round: early rounds best of {e}, quarterfinal best of {q}, semifinal best of {s}, final best of {f}. Cannot end in a draw.',
+  'pr.f.rrkoFlat': 'Knockout stage matches are best of {n} legs and cannot end in a draw.',
+  'pr.f.plateVar': 'Plate pool legs increase by round: early rounds best of {e}, quarterfinal best of {q}, semifinal best of {s}, final best of {f}.',
+  'pr.f.plateFlat': 'Plate pool matches are best of {n} legs.',
+  'pr.f.pair': 'Each entry is a pair of 2 players.',
+  'pr.f.triple': 'Each entry is a team of 3 players.',
+  'pr.f.org': 'Entries from the same organisation are kept apart where possible, both in round robin groups and in the first knockout round.',
+  'pr.f.advance': { one: 'Advancing to the knockout: top {n} entry from each group, {how}.{plate}', other: 'Advancing to the knockout: top {n} entries from each group, {how}.{plate}' },
+  'pr.f.seeded': 'seeded by group finishing position',
+  'pr.f.random': 'drawn at random',
+  'pr.f.plate': ' Entries who don\'t advance go into a separate Plate pool knockout bracket{which}.',
+  'pr.f.plateNext': { one: ' (next {n} entry per group; anyone ranked below that is eliminated)', other: ' (next {n} entries per group; anyone ranked below that is eliminated)' },
+  'pr.f.plateAll': ' (everyone who doesn\'t advance to the main bracket)',
+  /* Teams */
+  'pr.t.pod': 'Format: Knockout, Group Boards then finals — teams are drawn into {p} groups. Each group is a small knockout on its own board, and every group winner goes through to a Finals bracket.',
+  'pr.t.rr': 'Win = 2 points, Draw = 1 point, Loss = 0 points. Every match is decided by the total legs each team wins across its segments; level totals are a draw.',
+  'pr.t.rrTb': 'Win = 2 points, Loss = 0 points. Every match is decided by the total legs each team wins across its segments; level totals go to the tie-breaker, so there are no draws.',
+  'pr.t.scoring': 'Scoring: {rule}',
+  'pr.t.gsScoring': 'Group stage scoring: {rule}',
+  'pr.t.ko': 'Every match is decided by the total legs each team wins across its segments. Knockout matches cannot end level.',
+  'pr.t.koTb': 'Every match is decided by the total legs each team wins across its segments. Knockout matches cannot end level: level totals go to the tie-breaker.',
+  'pr.t.podLegs': 'Every match is decided by the total legs each team wins across its segments, in the groups and the Finals alike. Knockout matches cannot end level.',
+  'pr.t.podLegsTb': 'Every match is decided by the total legs each team wins across its segments, in the groups and the Finals alike. Knockout matches cannot end level: level totals go to the tie-breaker.',
+  'pr.t.rrkoKo': 'Knockout stage matches use the same segments and cannot end level.',
+  'pr.t.rrkoKoTb': 'Knockout stage matches use the same segments and cannot end level: level totals go to the tie-breaker.',
+  'pr.t.rrkoKoPlate': 'Knockout stage matches (and the Plate pool) use the same segments and cannot end level.',
+  'pr.t.rrkoKoPlateTb': 'Knockout stage matches (and the Plate pool) use the same segments and cannot end level: level totals go to the tie-breaker.',
+  'pr.t.segs': { one: 'Each match has {n} segment: {list}.', other: 'Each match has {n} segments: {list}.' },
+  'pr.t.tb': ' Tie-breaker if the totals are level: {desc}.',
+  'pr.t.tbRr': ' Tie-breaker in round robin matches if the totals are level: {desc}.',
+  'pr.t.tbKo': ' Tie-breaker in knockout matches if the totals are level: {desc}.',
+  'pr.t.more': ' The team with more total legs wins.',
+
+  /* ---------- bracket sheets (two-sided, bracket-print.js) ---------- */
+  'pr.ko.stage': 'Knockout Stage',
+  'pr.ko.legsSub': ' · Best of {n} Legs',
+  'pr.ko.legsTeams': 'Each match: {label}. Write each team\'s total legs — no draws, the team with more legs wins.',
+  'pr.ko.legsVar': 'Legs per match increase by knockout stage: {summary}.',
+  'pr.ko.legsSummary': 'early rounds best of {e}, quarterfinal best of {q}, semifinal best of {s}, final best of {f}',
+  'pr.ko.legsFlat': 'Best of {n} legs per match — no draws, the winner needs {m} legs.',
+  'pr.ko.bye': ' BYE = goes straight to the next round.',
+  'pr.ko.numbers': ' Numbers on the bracket joints are match numbers (round-match).',
+  'pr.ko.detail': '{size}-slot draw · {n} {noun}',
+  'pr.ko.detailQ': { one: '{size}-slot draw · {n} qualifier', other: '{size}-slot draw · {n} qualifiers' },
+  'pr.kb.exitL': 'to Finals {tag} »',
+  'pr.kb.exitR': '« to Finals {tag}',
+  'pr.kb.exitSheet': 'sheet',
+  'pr.kb.fullNames': 'Full names:',
+  'pr.kb.short.of': 'R{n}',
+  'pr.kb.short.quarter': 'QF',
+  'pr.kb.short.semi': 'SF',
+  'pr.kb.short.final': 'F',
+  /* split over several A4 sheets */
+  'pr.sp.to': '{a} to {b}',
+  'pr.sp.left': 'left half',
+  'pr.sp.right': 'right half',
+  'pr.sp.both': '{l} on the left half, {r} on the right half',
+  'pr.sp.one': '{x} on the right half',
+  'pr.sp.order': 'Sheets 1 to {last} are the sections ({ranges}; numbered top to bottom), sheet {total} is the Finals sheet. Every sheet prints at the same scale.',
+  'pr.sp.head': 'Section {id} ({half}, {i} of {n}) · {rounds} · sheet {k} of {total}',
+  'pr.sp.legend': 'Section {id} of the {label}. {order} Each winner here goes on to the Finals sheet: the label at each exit names the Finals match, and on the Finals sheet the box marked &ldquo;{id} · match number&rdquo; takes the winner of that match. The + marks show where winners leave this section.',
+  'pr.sp.finDetail': 'Finals sheet, {i} of {n}',
+  'pr.sp.finLegend': 'Finals sheet. {order} Each first box here is filled from a section: &ldquo;{ex}&rdquo; means the winner of match {m} on section {s} (+ marks where it enters). ',
+  /* projected brackets */
+  'pr.proj.stage': 'Projected Knockout Placement',
+  'pr.proj.legend': 'Labels show group + projected finishing position (e.g. A1 = Group A, 1st place) — seeded automatically once the round robin is confirmed. The actual bracket with real names is generated in Manage Tournament after results are entered.',
+  'pr.proj.org': ' <b>Some entries have an organisation: the real draw also keeps entries from the same organisation apart, so the actual bracket will probably differ from this sheet.</b>',
+  'pr.proj.none': 'not projected',
+  'pr.proj.doBefore': ' Do this before the knockout is drawn.',
+  'pr.proj.plateToo': ' The Plate pool is not projected either: the real draw makes neither bracket until this is fixed.',
+
+  /* ---------- Group Boards charts ---------- */
+  'pr.gb.legsVar': 'Legs per match increase by knockout stage — see each round\'s heading above.',
+  'pr.gb.size': '{size}-entry bracket',
+  'pr.gb.full': 'Full chart',
+  'pr.gb.section': 'Section {side}{i} of {n}',
+  'pr.gb.winnerOf': 'Winner of',
+  'pr.gb.noWinner': 'no winner',
+  'pr.gb.short': 'Gp {g} winner',
+  'pr.gb.shortNone': 'Gp {g}: none',
+
+  /* ---------- Teams lineup sheets ---------- */
+  'pr.lu.group': 'Group',
+  'pr.lu.board': 'Board',
+  'pr.lu.fixture': 'Fixture',
+  'pr.lu.gameNo': 'Game No.',
+  'pr.lu.vs': 'vs {name}',
+  'pr.lu.team': 'Team Name',
+  'pr.lu.points': 'Points',
+  'pr.lu.total': 'TOTAL POINTS',
+  'pr.lu.sig': 'Captain/Manager Signature',
+  'pr.lu.sub': { one: '{start} x {n} Leg', other: '{start} x {n} Legs' },
+
+  /* ---------- Group Boards: Players A-Z and Boards sheets ---------- */
+  'pr.bp.players': 'PLAYERS A–Z',
+  'pr.bp.find': 'Find your group and board',
+  'pr.bp.row': 'Group {g} · Board {b}',
+  'pr.bp.boards': 'BOARDS',
+  'pr.bp.order': 'Groups in the order they play',
+  'pr.bp.finals': { one: 'Finals ({n} match)', other: 'Finals ({n} matches)' }
+};
+if (typeof module !== 'undefined' && module.exports) module.exports = DD_PRINT_EN;

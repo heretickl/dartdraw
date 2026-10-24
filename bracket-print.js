@@ -18,6 +18,14 @@
      browser (kerning only ever makes the real text narrower).
    - Names up to 24 characters print in full; longer ones are cut with an ellipsis and a footnote number, and the full name
      is printed in the footer.
+   - Words (i18n step 4): every word the engine prints itself (BYE, CHAMPION, the WO / NO-SHOW marks, the section exits,
+     "Full names:", the short round names) comes from the app's string table in the language the sheet is printed in
+     (fromBracket records it in model.words; without the app's T() it is English). Round labels are fitted to their box:
+     shrunk down to the 4.6 pt floor; English then uses its short forms (R128, QF, SF) as before, while Bahasa Malaysia, which
+     must not abbreviate quarter / semi / final (glossary), first wraps the label onto two lines and only then uses the
+     approved short form P{n}. A word never widens the layout beyond the English one (a mark or exit label longer than
+     the English is stacked or measured against the English width), so the paper recommendation is the same in every
+     language.
 
    KBP.layout() returns plain positioned items (so tests can check the geometry without a browser), KBP.sheetHTML() turns
    them into the printed sheet, KBP.verify() checks a layout (gaps, overlaps, overflow, font floors). */
@@ -40,6 +48,25 @@ var KBP = (function(){
   };
   var FAMILY = '"Barlow Semi Condensed"';
   var SANS = 'Inter,"Segoe UI",Arial,sans-serif';
+
+  /* ---------- words (i18n step 4) ---------- */
+  var EN_WORDS = { 'r.bye':'BYE', 'r.champion':'CHAMPION', 'r.wo':'WO', 'r.noShow':'NO-SHOW', 'pr.kb.exitL':'to Finals {tag} \u00bb', 'pr.kb.exitR':'\u00ab to Finals {tag}',
+    'pr.kb.exitSheet':'sheet', 'pr.kb.fullNames':'Full names:', 'pr.kb.short.of':'R{n}', 'pr.kb.short.quarter':'QF', 'pr.kb.short.semi':'SF', 'pr.kb.short.final':'F' };
+  function fill(s, vars){ return String(s).replace(/\{(\w+)\}/g, function(m, k){ return vars && vars[k]!=null ? String(vars[k]) : m; }); }
+  /* A word from the app's table (T, in the language being drawn) when the app is loaded, else the English one. */
+  function word(key, vars){
+    try{ if(typeof T==='function' && typeof DD_TABLES!=='undefined' && DD_TABLES.en && Object.prototype.hasOwnProperty.call(DD_TABLES.en, key)) return T(key, vars); }catch(e){}
+    return fill(EN_WORDS[key]!=null ? EN_WORDS[key] : key, vars);
+  }
+  var EN_SET = null;
+  /* The words of one sheet, in the language being drawn now. */
+  function wordsNow(){
+    var lang = 'en'; try{ if(typeof ddLang==='function') lang = ddLang(); }catch(e){}
+    return { lang: lang, bye: word('r.bye'), champion: word('r.champion'), mark: { 'WO': word('r.wo'), 'NO-SHOW': word('r.noShow') },
+      exitL: word('pr.kb.exitL', {tag:'{tag}'}), exitR: word('pr.kb.exitR', {tag:'{tag}'}), sheet: word('pr.kb.exitSheet'), fullNames: word('pr.kb.fullNames') };
+  }
+  function enWords(){ return EN_SET || (EN_SET = { lang:'en', bye:'BYE', champion:'CHAMPION', mark:{ 'WO':'WO', 'NO-SHOW':'NO-SHOW' }, exitL: EN_WORDS['pr.kb.exitL'], exitR: EN_WORDS['pr.kb.exitR'], sheet:'sheet', fullNames:'Full names:' }); }
+  function W(model){ return (model && model.words) || enWords(); }
 
   /* ---------- text measurement ---------- */
   var WCH = "0123456789 !\"#$%&'()*+,-./:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\u00a0\u00a1\u00a2\u00a3\u00a4\u00a5\u00a6\u00a7\u00a8\u00a9\u00aa\u00ab\u00ac\u00ad\u00ae\u00af\u00b0\u00b1\u00b2\u00b3\u00b4\u00b5\u00b6\u00b7\u00b8\u00b9\u00ba\u00bb\u00bc\u00bd\u00be\u00bf\u00c0\u00c1\u00c2\u00c3\u00c4\u00c5\u00c6\u00c7\u00c8\u00c9\u00ca\u00cb\u00cc\u00cd\u00ce\u00cf\u00d0\u00d1\u00d2\u00d3\u00d4\u00d5\u00d6\u00d7\u00d8\u00d9\u00da\u00db\u00dc\u00dd\u00de\u00df\u00e0\u00e1\u00e2\u00e3\u00e4\u00e5\u00e6\u00e7\u00e8\u00e9\u00ea\u00eb\u00ec\u00ed\u00ee\u00ef\u00f0\u00f1\u00f2\u00f3\u00f4\u00f5\u00f6\u00f7\u00f8\u00f9\u00fa\u00fb\u00fc\u00fd\u00fe\u00ff\u2018\u2019\u201c\u201d\u2013\u2014\u2026\u2022\u0152\u0153\u0141\u0142\u015a\u015b\u0106\u0107\u0179\u017a\u017b\u017c\u0104\u0105\u0118\u0119\u0143\u0144\u0160\u0161\u017d\u017e\u010c\u010d\u0158\u0159\u011e\u011f\u0130\u0131\u015e\u015f\u0150\u0151\u0170\u0171";
@@ -101,6 +128,9 @@ var KBP = (function(){
   function serifBold(text, pt){ return faceMM(text, pt, '700 {px} Georgia,serif', [0.8, 0.62, 0.27, 0.45]); }
   function sans(text, pt, w){ return faceMM(text, pt, (w||400)+' {px} '+SANS, w>=700 ? [0.76, 0.6, 0.27, 0.45] : [0.68, 0.55, 0.26, 0.4]); }
   function ready(){ loadFonts(); return fontReady(); }
+  /* The characters of `text` the print font's width table does not know (a name or word in another script would be
+     measured with the average width there, and might print in a fallback face). */
+  function missingGlyphs(text){ var out = []; String(text==null ? '' : text).split('').forEach(function(ch){ if(WT[700][ch]==null && out.indexOf(ch)<0) out.push(ch); }); return out; }
   /* The spec's floor for secondary text (match numbers, BYE, seeds, round labels, the Final and Champion labels, the title
      block, the footer): 4.6 pt on a legible sheet; on a sheet shrunk on purpose the chart's text shrinks with it. */
   var SEC_PT = 4.6;
@@ -113,14 +143,42 @@ var KBP = (function(){
     var fs = at <= width*0.94 || !at ? maxPt : maxPt*width*0.94/at;
     return Math.max(fs, floor || 0);
   }
-  /* A round name that fits its column at or above the floor: the full name, else a short one ("R128", "QF", "SF"). */
+  /* A round name that fits its column at or above the floor: the full name (shrunk to fit, never under the floor), else
+     (Bahasa Malaysia: `wrap`) the full name on two lines, else a short one ("R128", "QF", "SF"; BM "P128"). h: the box height. */
   var SHORT_ROUND = { 'Final':'F', 'Semifinal':'SF', 'Quarterfinal':'QF' };
   function shortRound(name){ var m = /^Round of (\d+)$/.exec(name); return m ? 'R'+m[1] : (SHORT_ROUND[name] || name); }
-  function roundLabel(name, s, width){
+  var RL_LH = 1.08;    // line height of a two-line round label
+  function twoLineLabel(name, s, width, h){
+    var max = BASE.roundFont*s, floor = secFloor(s), best = null;
+    for(var i=1;i<name.length;i++){
+      if(name[i-1]!==' ') continue;
+      var a = name.slice(0, i).replace(/\s+$/, ''), b = name.slice(i);
+      var fs = Math.min(max, width*0.94/Math.max(labelMM(a, 1, 700), labelMM(b, 1, 700)), h ? h/(2*PT*RL_LH) : max);
+      if(!best || fs >= best.fs - 1e-6) best = { a:a, b:b, fs:fs };   // the largest size; a tie goes to the longer first line
+    }
+    return best && best.fs >= floor - 1e-9 ? { txt:name, fs: best.fs, two:true, lines:[best.a, best.b] } : null;
+  }
+  function roundLabel(name, s, width, sh, wrap, h){
     var max = BASE.roundFont*s, floor = secFloor(s);
     if(labelMM(name, floor, 700) <= width*0.94) return { txt:name, fs: fitSans(name, max, width, 700, 0, floor) };
-    var sh = shortRound(name);
+    if(wrap){ var two = twoLineLabel(name, s, width, h); if(two) return two; }
+    sh = sh || shortRound(name);
     return { txt:sh, fs: fitSans(sh, max, width, 700, 0, floor) };
+  }
+  function wrapsRounds(model){ return W(model).lang!=='en'; }
+  /* The WO / NO-SHOW mark in the box: the word in the sheet's language, on two lines when it is wider than the English
+     one (TIDAK / HADIR), so it never needs more room than the English mark; markMM is the room it takes. */
+  function markLines(code, words){
+    var txt = (words && words.mark && words.mark[code]!=null) ? words.mark[code] : code;
+    if(txt===code || textMM(txt, BASE.markFont, 700) <= textMM(code, BASE.markFont, 700) + 1e-9 || txt.indexOf(' ')<0) return [txt];
+    var best = null;
+    for(var i=1;i<txt.length;i++){ if(txt[i-1]!==' ') continue; var a = txt.slice(0, i).replace(/\s+$/, ''), b = txt.slice(i), w = Math.max(textMM(a, 1, 700), textMM(b, 1, 700)); if(!best || w < best.w) best = { a:a, b:b, w:w }; }
+    return [best.a, best.b];
+  }
+  function markMM(code, words, pt){
+    var w = textMM(code, pt, 700);
+    markLines(code, words).forEach(function(l){ w = Math.max(w, textMM(l, pt, 700)); });
+    return w;
   }
   /* 'Final' (Georgia) and its match number pill side by side, fitted to the Final box width but never under the floor
      (then the label is wider than the box, centred over it). */
@@ -156,7 +214,7 @@ var KBP = (function(){
      side = { name, seed, legs, win, lose, mark:'WO'|'NO-SHOW'|'', muted, ph } (ph: grey placeholder text for an empty box) */
   function fromBracket(bracket, t, opts){
     opts = opts || {};
-    var projected = !!opts.projected;
+    var projected = !!opts.projected, words = wordsNow();
     var R = bracket.rounds.length;
     function nameOf(id){ if(!id) return ''; if(projected) return (bracket.seedLabels && bracket.seedLabels[id]) || ''; return bracketEntryName(t, id) || ''; }
     function seedOf(id){ if(projected || !id) return ''; var s = bracketSeedForDisplay(t, bracket.seeds, bracket.seedLabels, id); return s ? String(s) : ''; }
@@ -169,7 +227,7 @@ var KBP = (function(){
           var id = m[s+'EntryId'];
           var o = { name: nameOf(id), seed: ri===0 ? seedOf(id) : '', legs: (!projected && id && m[s+'Legs']!=null) ? String(m[s+'Legs']) : '',
             win: decided && winSide===s, lose: decided && winSide!==s && !!id, mark:'', muted:false, ph:'' };
-          if(!id && m.bye && ri>0) o.ph = 'BYE';
+          if(!id && m.bye && ri>0) o.ph = words.bye;
           if(id && m.wo && m.winnerId && m.winnerId!==id) o.mark = 'WO';
           if(id && m.void){ o.mark = 'NO-SHOW'; o.muted = true; }
           return o;
@@ -179,8 +237,14 @@ var KBP = (function(){
       });
     });
     var champId = projected ? null : bracketChampion(bracket);
-    return { R:R, kind: projected ? 'projected' : 'main', noLegs: projected, rounds:rounds,
+    var words = wordsNow();
+    if(rounds.length) rounds[0].concat.apply([], rounds).forEach(function(M){ ['a','b'].forEach(function(s){ if(M[s].ph==='BYE') M[s].ph = words.bye; }); });
+    return { R:R, kind: projected ? 'projected' : 'main', noLegs: projected, rounds:rounds, words: words,
       roundNames: bracket.rounds.map(function(r, ri){ return koRoundName(bracket, ri); }),
+      roundShort: bracket.rounds.map(function(r, ri){
+        if(typeof koRoundInfo!=='function') return shortRound(koRoundName(bracket, ri));
+        var x = koRoundInfo(bracket, ri); return word('pr.kb.short.'+x.code, x.code==='of' ? {n:x.n} : null);
+      }),
       champion: champId ? (bracketEntryName(t, champId) || '') : '' };
   }
 
@@ -189,7 +253,7 @@ var KBP = (function(){
   function nameWidths(model){
     var notes = [], seen = {}, w1 = 0, w2 = 0, mk = 0;
     sidesOf(model).forEach(function(sd){
-      if(sd.mark) mk = Math.max(mk, textMM(sd.mark, BASE.markFont, 700) + 0.8);
+      if(sd.mark) mk = Math.max(mk, markMM(sd.mark, model.words, BASE.markFont) + 0.8);
       var nm = sd.name || sd.ph; if(!nm || seen[nm]) return; seen[nm] = 1;
       var d = displayName(nm, notes), tx = noteText(d);
       w1 = Math.max(w1, textMM(tx, BASE.font, 700)); w2 = Math.max(w2, twoLineMM(tx, BASE.font));
@@ -315,7 +379,7 @@ var KBP = (function(){
       if(b.byeLeaf){
         var tw = 4.2, th = 2.4;
         var tx = sd===0 ? x - C/2 - tw/2 : x + B + C/2 - tw/2;
-        out.items.push(rect('bye', S(tx), S(oy + b.y - th/2), S(tw), S(th), { fs: BASE.byeFont*s }));
+        out.items.push(rect('bye', S(tx), S(oy + b.y - th/2), S(tw), S(th), { fs: BASE.byeFont*s, label: W(model).bye }));
         if(seed){
           var sw = Math.max(3.4, textMM(seed, BASE.seedFont, 700) + 0.2);
           var sx = sd===0 ? tx - sw - 0.6 : tx + tw + 0.6;
@@ -339,8 +403,10 @@ var KBP = (function(){
       if(tw > C - 0.2){ fs = Math.max(SEC_PT*Math.min(1, s)/s, fs*(C - 1.1)/(tw - 0.9)); tw = Math.max(3.0, textMM(t, fs, 500) + 0.9); }   // never under the 4.6 pt floor
       out.items.push(rect('tag', S(xb - tw/2), S(yExit - tagH/2), S(tw), S(tagH), { txt:t, fs: fs*s }));
       if(opts.exits && mt.r===opts.exitRound){
-        var dest = 'to Finals ' + ((model.rounds[mt.r+1] && model.rounds[mt.r+1][mt.m>>1].tag) || 'sheet');
-        var label = sd===0 ? dest+' \u00bb' : '\u00ab '+dest, ew = textMM(label, BASE.tagFont, 700) + 1.8;
+        var wd = W(model), tagTo = (model.rounds[mt.r+1] && model.rounds[mt.r+1][mt.m>>1].tag) || wd.sheet;
+        var label = fill(sd===0 ? wd.exitL : wd.exitR, {tag: tagTo});
+        var enLabel = fill(sd===0 ? EN_WORDS['pr.kb.exitL'] : EN_WORDS['pr.kb.exitR'], {tag: (model.rounds[mt.r+1] && model.rounds[mt.r+1][mt.m>>1].tag) || 'sheet'});
+        var ew = Math.max(textMM(enLabel, BASE.tagFont, 700), textMM(label, BASE.tagFont, 700)) + 1.8;   // never wider than the English needs
         var ex = sd===0 ? x1 + 0.4 : x1 - 0.4 - ew;
         out.items.push(rect('exit', S(ex), S(yExit - 1.4), S(ew), S(2.8), { txt:label, fs: BASE.tagFont*s, sd:sd }));
         out.marks.push({ x: S(sd===0 ? ex + ew + 1.4 : ex - 1.4), y: S(yExit) });
@@ -375,11 +441,11 @@ var KBP = (function(){
     sides.forEach(function(L, sd){ drawSide(out, model, L, sd, sideOff[sd], X(sd), s, dims, disp, { toFinal:true, yMid:yMid, entryMarks: !!opts.entryMarks, width: av.w }); });
     /* round names over the outer columns; "Semifinal" over the top semifinal box of each half */
     [0,1].forEach(function(sd){
-      for(var c=0;c<k-1;c++) out.items.push(rect('rl', S(X(sd)(c)), 0, S(B), S(BASE.headRow-1.2), roundLabel(model.roundNames[c] || '', s, S(B))));
+      for(var c=0;c<k-1;c++) out.items.push(rect('rl', S(X(sd)(c)), 0, S(B), S(BASE.headRow-1.2), roundLabel(model.roundNames[c] || '', s, S(B), model.roundShort && model.roundShort[c], wrapsRounds(model), S(BASE.headRow-1.2))));
       var top = sides[sd].boxes.filter(function(b){ return b.r===model.R-2; }).sort(function(a,b){ return a.y-b.y; })[0];
       if(top && k>=1){
         var y = sideOff[sd] + top.y - H/2;
-        out.items.push(rect('rl', S(X(sd)(k-1)), S(y-4.2), S(B), S(3.4), roundLabel(model.roundNames[model.R-2] || 'Semifinal', s, S(B))));
+        out.items.push(rect('rl', S(X(sd)(k-1)), S(y-4.2), S(B), S(3.4), roundLabel(model.roundNames[model.R-2] || 'Semifinal', s, S(B), model.roundShort && model.roundShort[model.R-2], wrapsRounds(model), S(3.4))));
         out.sfTop = Math.min(out.sfTop, S(y-4.2));
       }
     });
@@ -388,14 +454,14 @@ var KBP = (function(){
     var fTop = yMid - 1.2 - Hf, fBot = yMid + 1.2;
     out.items.push(rect('box', S(Xc), S(fTop), S(Bc), S(Hf), { sd:0, fin:true, side:F.a, disp: F.a.name ? disp[F.a.name] : null, r:model.R-1, m:0, slot:'a' }));
     out.items.push(rect('box', S(Xc), S(fBot), S(Bc), S(Hf), { sd:1, fin:true, side:F.b, disp: F.b.name ? disp[F.b.name] : null, r:model.R-1, m:0, slot:'b' }));
-    [0,1].forEach(function(sd){ if(!sides[sd].boxes.length && sides[1-sd].boxes.length){ var y = sd===0 ? fTop : fBot; out.items.push(rect('bye', S(sd===0 ? Xc - C/2 - 2.1 : Xc + Bc + C/2 - 2.1), S(y + Hf/2 - 1.2), S(4.2), S(2.4), { fs: BASE.byeFont*s })); } });
+    [0,1].forEach(function(sd){ if(!sides[sd].boxes.length && sides[1-sd].boxes.length){ var y = sd===0 ? fTop : fBot; out.items.push(rect('bye', S(sd===0 ? Xc - C/2 - 2.1 : Xc + Bc + C/2 - 2.1), S(y + Hf/2 - 1.2), S(4.2), S(2.4), { fs: BASE.byeFont*s, label: W(model).bye })); } });
     var flTxt = model.roundNames[model.R-1] || 'Final', flFs = flFont(flTxt, F.tag || '', s, S(Bc)), flW = Math.max(S(Bc), flWidth(flTxt, F.tag || '', s, flFs)/0.94);
     out.items.push(rect('fl', S(Xc) + S(Bc)/2 - flW/2, S(fTop-6.2), flW, S(4.6), { txt: flTxt, tag: F.tag || '', fs: flFs, tfs: BASE.tagFont*s }));
     var champBottom = S(fBot + Hf);
     if(opts.champion !== false){
       var cy = fBot + Hf + 4.2;
-      var clFs = fitSans('CHAMPION', 6*s, S(Bc), 800, 0.08, secFloor(s)), clW = Math.max(S(Bc), labelMM('CHAMPION', clFs, 800, 0.08)/0.94);
-      out.items.push(rect('cl', S(Xc) + S(Bc)/2 - clW/2, S(cy), clW, S(2.8), { fs: clFs }));
+      var clTxt = W(model).champion, clFs = fitSans(clTxt, 6*s, S(Bc), 800, 0.08, secFloor(s)), clW = Math.max(S(Bc), labelMM(clTxt, clFs, 800, 0.08)/0.94);
+      out.items.push(rect('cl', S(Xc) + S(Bc)/2 - clW/2, S(cy), clW, S(2.8), { fs: clFs, label: clTxt }));
       var cd = model.champion ? (disp[model.champion] || displayName(model.champion, [])) : null;   // a cut name keeps its footnote number
       out.items.push(rect('champ', S(Xc), S(cy+3.6), S(Bc), S(Hf), { txt: cd ? cd.text : '', note: cd ? cd.note : null, fs: BASE.font*BASE.finalK*s, two: !!cd && textMM(noteText(cd), BASE.font*BASE.finalK*s, 700) > S(Bc) - 2.2 }));
       champBottom = S(cy + 3.6 + Hf);
@@ -436,14 +502,14 @@ var KBP = (function(){
         out.items.push(out.zone);
       }
     }
-    out.items.push(rect('foot', 0, av.h, av.w, FOOTER, { fs: footFont(chrome, notes, av.w) }));
+    out.items.push(rect('foot', 0, av.h, av.w, FOOTER, { fs: footFont(chrome, notes, av.w, model.words) }));
     return out;
   }
 
   /* ---------- split over several A4 sheets ---------- */
   /* du kept beyond the last column's connector lane of a section: the "to Finals 5-1" label and the cross mark */
   function exitW(model, c){
-    var w = 0; (model.rounds[c] || []).forEach(function(M){ w = Math.max(w, textMM('to Finals '+M.tag+' \u00bb', BASE.tagFont, 700)); });
+    var w = 0, wd = W(model); (model.rounds[c] || []).forEach(function(M){ w = Math.max(w, textMM(fill(EN_WORDS['pr.kb.exitL'], {tag: M.tag}), BASE.tagFont, 700), textMM(fill(wd.exitL, {tag: M.tag}), BASE.tagFont, 700), textMM(fill(wd.exitR, {tag: M.tag}), BASE.tagFont, 700)); });
     return 0.4 + w + 1.8 + 3.4;
   }
   function subModel(model, c, fromLabels){
@@ -454,7 +520,10 @@ var KBP = (function(){
         return copy;
       });
     });
-    return { R: model.R - c, kind: model.kind, noLegs: model.noLegs, rounds: rounds, roundNames: model.roundNames.slice(c), champion: model.champion };
+    var out = { R: model.R - c, kind: model.kind, noLegs: model.noLegs, rounds: rounds, roundNames: model.roundNames.slice(c), champion: model.champion };
+    if(model.words) out.words = model.words;
+    if(model.roundShort) out.roundShort = model.roundShort.slice(c);
+    return out;
   }
   /* Plans the split: the halves are cut at column c; the subtrees left of the cut go onto section sheets (as many as fit
      one A4 sheet at the legible scale), the rest of the chart onto one Finals sheet. null when no cut fits. */
@@ -471,7 +540,7 @@ var KBP = (function(){
         var cur = null, n = 0;
         for(var j=0;j<half;j++){
           var m = sd*half + j, L = layoutSide(model, sd, dims.H, 1, 0, [{ r:c-1, m:m }]);
-          if(!L.boxes.length){ from[m] = (c-1===0 && model.rounds[0][m].bye) ? 'BYE' : ''; continue; }
+          if(!L.boxes.length){ from[m] = (c-1===0 && model.rounds[0][m].bye) ? W(model).bye : ''; continue; }
           if(L.height > capH){ ok = false; return; }
           if(!cur || cur.h + BASE.G + L.height > capH){ n++; cur = { sd:sd, idx:n, roots:[], h:-BASE.G }; sheets.push(cur); }
           cur.roots.push({ r:c-1, m:m }); cur.h += BASE.G + L.height;
@@ -507,9 +576,9 @@ var KBP = (function(){
     var offX = (Wdu - sp.wingW)/2;
     var X = function(col){ return sd===0 ? offX + dims.gutter + col*(B+C) : offX + sp.wingW - dims.gutter - col*(B+C) - B; };
     drawSide(out, model, L, sd, oy, X, s, dims, disp, { exits:true, exitRound:c-1, exitLabel:'to Finals sheet' });
-    for(var col=0; col<c; col++) out.items.push(rect('rl', X(col)*s, bodyTop*s, B*s, (BASE.headRow-1.2)*s, roundLabel(model.roundNames[col] || '', s, B*s)));
+    for(var col=0; col<c; col++) out.items.push(rect('rl', X(col)*s, bodyTop*s, B*s, (BASE.headRow-1.2)*s, roundLabel(model.roundNames[col] || '', s, B*s, model.roundShort && model.roundShort[col], wrapsRounds(model), (BASE.headRow-1.2)*s)));
     out.items.push(rect('head', 0, 0, av.w, WING_HEAD - 1.5, {}));
-    out.items.push(rect('foot', 0, av.h, av.w, FOOTER, { fs: footFont(out.chrome, notes, av.w) }));
+    out.items.push(rect('foot', 0, av.h, av.w, FOOTER, { fs: footFont(out.chrome, notes, av.w, model.words) }));
     return out;
   }
 
@@ -552,7 +621,7 @@ var KBP = (function(){
       var tx = boxText(it); if(!tx) return;
       var pt = BASE.font*lay.s*(it.fin ? BASE.finalK : 1);
       if(it.disp){ res.minNamePt = Math.min(res.minNamePt, pt); res.maxNamePt = Math.max(res.maxNamePt, pt); }
-      var mk = it.side && it.side.mark ? textMM(it.side.mark, BASE.markFont*lay.s, 700) + 0.8*lay.s : 0;
+      var mk = it.side && it.side.mark ? markMM(it.side.mark, lay.model && lay.model.words, BASE.markFont*lay.s) + 0.8*lay.s : 0;
       var need = (lay.mode===2 ? twoLineMM(tx, pt) : textMM(tx, pt, 700)) + mk;
       if(need > nameArea(it, lay) + 0.01) res.clipped++;
     });
@@ -572,7 +641,8 @@ var KBP = (function(){
       else if(it.k==='crown') note(it.minPt, fixedFloor, 'title block');
       else if(it.k==='foot') note(it.fs || 6, fixedFloor, 'footer');
       else if(it.k==='zone' && it.qr && it.caption) note(6.75*it.z, fixedFloor, 'code caption');
-      if((it.k==='rl' || it.k==='cl' || it.k==='fl') && labelMM(it.txt || 'CHAMPION', it.fs, it.k==='cl' ? 800 : 700, it.k==='cl' ? 0.08 : 0) > it.w + 0.01 && it.k!=='fl') res.clipped++;
+      if(it.k==='rl' && it.two){ if(Math.max(labelMM(it.lines[0], it.fs, 700), labelMM(it.lines[1], it.fs, 700)) > it.w + 0.01 || 2*it.fs*PT*RL_LH > it.h + 0.01) res.clipped++; }
+      else if((it.k==='rl' || it.k==='cl' || it.k==='fl') && labelMM(it.txt || it.label || 'CHAMPION', it.fs, it.k==='cl' ? 800 : 700, it.k==='cl' ? 0.08 : 0) > it.w + 0.01 && it.k!=='fl') res.clipped++;
     });
     if(lay.crown && lay.crown.fitsAbove===false) res.overflow++;
     res.twoSided = boxes.some(function(b){ return !b.fin && b.sd===0; }) && boxes.some(function(b){ return !b.fin && b.sd===1; });
@@ -594,7 +664,7 @@ var KBP = (function(){
     if(shown && lay.mode===2) shown = shown.replace(/\//g, '/&#8203;');      // a pair name may break after its "/"
     var text = d ? shown+(d.note ? '<sup>'+d.note+'</sup>' : '') : (side.ph ? '<span class="kb-ph">'+esc(side.ph)+'</span>' : '');
     var html = '<span class="kb-nm"'+(d && d.note ? ' data-trunc="1"' : '')+(side.name ? ' title="'+esc(side.name)+'"' : '')+' style="padding:'+pad+';font-size:'+fs+'pt">'+text+'</span>';
-    if(side.mark) html += '<span class="kb-mk" style="font-size:'+(BASE.markFont*s).toFixed(2)+'pt;padding:0 '+mm(0.4*s)+'">'+esc(side.mark)+'</span>';
+    if(side.mark){ var ml = markLines(side.mark, lay.model && lay.model.words); html += '<span class="kb-mk'+(ml.length>1 ? ' two' : '')+'" style="font-size:'+(BASE.markFont*s).toFixed(2)+'pt;padding:0 '+mm(0.4*s)+'">'+ml.map(esc).join('<br>')+'</span>'; }
     if(legs) html += '<span class="kb-lg" style="width:'+mm(legs*s*fk)+';font-size:'+fs+'pt">'+esc(side.legs||'')+'</span>';
     return '<div class="'+cls+'" data-r="'+it.r+'" data-m="'+it.m+'" data-s="'+it.slot+'" style="'+pos(it)+'">'+html+'</div>';
   }
@@ -624,19 +694,19 @@ var KBP = (function(){
     if(it.rows) h += '<div class="kb-sps" style="gap:'+mm(2*z)+';margin-top:'+mm(it.qr ? 2.5*z : 0)+'">'+(c.sponsors||[]).map(function(x){ var sq = x.shape==='square'; return '<div class="kb-sp" style="width:'+mm((sq ? 8 : 17)*z)+';height:'+mm(8*z)+'"><img src="'+x.src+'" alt=""></div>'; }).join('')+'</div>';
     return '<div class="kb-ink kb-zone" style="'+pos(it)+'">'+h+'</div>';
   }
-  function footText(chrome, notes){
-    var fn = notes.length ? ' <b>Full names:</b> '+notes.map(function(n){ return '<sup>'+n.n+'</sup> '+esc(n.full); }).join('; ')+'.' : '';
+  function footText(chrome, notes, words){
+    var fn = notes.length ? ' <b>'+esc((words || enWords()).fullNames)+'</b> '+notes.map(function(n){ return '<sup>'+n.n+'</sup> '+esc(n.full); }).join('; ')+'.' : '';
     return ((chrome || {}).legend || '') + fn;
   }
   /* The footer's font: 6 pt, smaller for a long legend, never under the 4.6 pt floor (the strip clips what is left). */
-  function footFont(chrome, notes, width){
-    var plain = footText(chrome, notes).replace(/<[^>]*>/g, ''), room = width - 36, fs = 6;
+  function footFont(chrome, notes, width, words){
+    var plain = footText(chrome, notes, words).replace(/<[^>]*>/g, ''), room = width - 36, fs = 6;
     while(fs > SEC_PT + 0.05 && sans(plain, fs, 400)/room > Math.floor((FOOTER - 1.2)/(fs*PT*1.22))) fs -= 0.2;
     return Math.max(SEC_PT, fs);
   }
   function footHTML(it, lay){
     var c = lay.chrome || {};
-    return '<div class="kb-foot" style="'+pos(it)+'"><div class="kb-fn" style="font-size:'+(it.fs || 6).toFixed(1)+'pt">'+footText(c, lay.notes)+'</div>'+(c.credit || '')+'</div>';
+    return '<div class="kb-foot" style="'+pos(it)+'"><div class="kb-fn" style="font-size:'+(it.fs || 6).toFixed(1)+'pt">'+footText(c, lay.notes, lay.model && lay.model.words)+'</div>'+(c.credit || '')+'</div>';
   }
   function pathsSVG(lay){
     var s = lay.s, lineW = Math.max(0.22, 0.3*s), winW = Math.max(0.3, 0.45*s);
@@ -659,11 +729,12 @@ var KBP = (function(){
         case 'box': html += boxHTML(it, lay); break;
         case 'tag': html += '<div class="kb-ink kb-tag" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.txt)+'</div>'; break;
         case 'exit': html += '<div class="kb-ink kb-exit" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.txt)+'</div>'; break;
-        case 'bye': html += '<div class="kb-ink kb-bye" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">BYE</div>'; break;
+        case 'bye': html += '<div class="kb-ink kb-bye" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.label || 'BYE')+'</div>'; break;
         case 'seed': html += '<div class="kb-ink kb-seed '+(it.al==='r' ? 'r' : 'l')+'" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.txt)+'</div>'; break;
-        case 'rl': html += '<div class="kb-ink kb-rl" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.txt)+'</div>'; break;
+        case 'rl': html += it.two ? '<div class="kb-ink kb-rl two" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt"><span>'+esc(it.lines[0])+'<br>'+esc(it.lines[1])+'</span></div>'
+          : '<div class="kb-ink kb-rl" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.txt)+'</div>'; break;
         case 'fl': html += '<div class="kb-ink kb-fl" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.txt)+(it.tag ? ' <span class="kb-ftag" style="font-size:'+it.tfs.toFixed(2)+'pt">'+esc(it.tag)+'</span>' : '')+'</div>'; break;
-        case 'cl': html += '<div class="kb-ink kb-cl" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">CHAMPION</div>'; break;
+        case 'cl': html += '<div class="kb-ink kb-cl" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.label || 'CHAMPION')+'</div>'; break;
         case 'champ': html += '<div class="kb-ink kb-champ'+(it.two ? ' two' : '')+'" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt"><span class="kb-nm">'+esc(it.txt)+(it.note ? '<sup>'+it.note+'</sup>' : '')+'</span></div>'; break;
         case 'crown': html += crownHTML(it, lay); break;
         case 'zone': html += zoneHTML(it, lay); break;
@@ -680,7 +751,7 @@ var KBP = (function(){
 
   if(browser()) loadFonts();
   return { PT:PT, PAPERS:PAPERS, ORDER:ORDER, MARGIN:MARGIN, FOOTER:FOOTER, WING_HEAD:WING_HEAD, S_MAX:S_MAX, NAME_CAP:NAME_CAP, SOFT_PT:SOFT_PT, BASE:BASE,
-    ready:ready, whenReady:whenReady, textMM:textMM, twoLineMM:twoLineMM, displayName:displayName,
+    ready:ready, whenReady:whenReady, textMM:textMM, twoLineMM:twoLineMM, displayName:displayName, missingGlyphs:missingGlyphs, roundLabel:roundLabel, markLines:markLines,
     fromBracket:fromBracket, nameWidths:nameWidths, layoutSide:layoutSide, geom:geom, plan:plan, recommend:recommend,
     layout:layout, splitPlan:splitPlan, wingLayout:wingLayout, subModel:subModel, verify:verify, sheetHTML:sheetHTML, esc:esc };
 })();

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign up - DartDraw</title>
+<title data-i18n="register.title">Sign up - DartDraw</title>
 <style>
 :root{--navy:#10233e;--blue:#1f6feb;--gold:#d9ad45;--ink:#142133;--muted:#5b6877;--line:#dbe2ea;--bg:#edf2f6;--red:#b3261e;--green:#1b6e3c}
 *{box-sizing:border-box}
@@ -29,39 +29,66 @@ input:focus-visible{border-color:var(--blue)}
 .foot{text-align:center;margin-top:14px;font-size:13px;color:var(--muted)}
 .foot a{display:inline-block;padding:10px 6px;color:var(--blue);text-decoration:underline;font-weight:700}
 [hidden]{display:none!important}
+/* The top row: the logo and the EN | BM switch (i18n/auth-i18n.js shows it; hidden without JavaScript and in the pop-up). */
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.top .brand{margin-bottom:0}
+.langsw{display:inline-flex;gap:2px;padding:2px;border:1.5px solid #c3cfdf;border-radius:10px;background:#fff;flex:none}
+.langsw button{min-width:40px;min-height:36px;padding:0 8px;border:0;border-radius:7px;background:transparent;color:#2b3a50;font:700 13px/1 Inter,Segoe UI,Arial,sans-serif;letter-spacing:.04em;cursor:pointer}
+.langsw button:hover{background:#eef3fa;color:var(--navy)}
+.langsw button[aria-pressed="true"]{background:var(--navy);color:#fff}
+.langsw button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+/* small phones: a little less card padding, so the logo, the switch and the longer BM button labels stay on one line */
+@media (max-width:360px){.card{padding:26px 20px}.langsw button{min-width:36px;padding:0 6px}}
 </style>
 </head>
 <body>
 <main class="card">
+  <div class="top">
   <div class="brand"><span class="brand-mark" aria-hidden="true">D</span> <h1>DartDraw</h1></div>
+    <div class="langsw" role="group" aria-label="Language / Bahasa" data-lang-switch hidden><button type="button" lang="en" aria-label="English" aria-pressed="true" data-lang-set="en">EN</button><button type="button" lang="ms" aria-label="Bahasa Malaysia" aria-pressed="false" data-lang-set="ms">BM</button></div>
+  </div>
   <p class="sub" id="intro">Create an organizer account.</p>
   <div class="msg" id="msg" aria-live="polite" tabindex="-1"></div>
   <form id="registerForm">
-    <div class="field"><label for="name">Name</label><input type="text" id="name" autocomplete="name" maxlength="80" required></div>
-    <div class="field"><label for="email">Email</label><input type="email" id="email" autocomplete="email" autocapitalize="none" spellcheck="false" required></div>
-    <div class="field"><label for="password">Password</label><input type="password" id="password" autocomplete="new-password" minlength="8" aria-describedby="pwHint" required>
-      <div class="hint" id="pwHint">At least 8 characters.</div>
+    <div class="field"><label for="name" data-i18n="register.name">Name</label><input type="text" id="name" autocomplete="name" maxlength="80" required></div>
+    <div class="field"><label for="email" data-i18n="auth.email">Email</label><input type="email" id="email" autocomplete="email" autocapitalize="none" spellcheck="false" required></div>
+    <div class="field"><label for="password" data-i18n="auth.password">Password</label><input type="password" id="password" autocomplete="new-password" minlength="8" aria-describedby="pwHint" required>
+      <div class="hint" id="pwHint" data-i18n="auth.pwHint">At least 8 characters.</div>
     </div>
-    <button class="btn" id="submitBtn" type="submit">Create account</button>
+    <button class="btn" id="submitBtn" type="submit" data-i18n="register.create">Create account</button>
   </form>
-  <div class="foot">Already have an account? <a href="/?login=1">Sign in</a></div>
+  <div class="foot"><span data-i18n="register.haveAccount">Already have an account?</span> <a href="/?login=1" data-i18n="auth.signIn">Sign in</a></div>
 </main>
+<script src="/i18n/auth.en.js"></script>
+<script data-dd-ms>/* The Bahasa Malaysia tables (and errors.en.js, which only BM needs): written here (so they run before auth-i18n.js)
+   only when BM is the language, chosen as auth-i18n.js does: ?lang=ms, else (the pop-up) the page around it, else the
+   saved choice. English pages never download them; auth-i18n.js fetches them on a switch to BM. */
+var DD_MS_FILES = ["/i18n/errors.en.js", "/i18n/auth.ms.js", "/i18n/errors.ms.js"];
+(function(){ try{ var q = location.search, m = /[?&]lang=(en|ms)(?=&|$)/.exec(q), l = m ? m[1] : null;
+  if(!l && /[?&]embed=1(&|$)/.test(q) && window.top !== window){ try{ var p = String(window.parent.document.documentElement.getAttribute('lang') || ''); l = /^ms/i.test(p) ? 'ms' : /^en/i.test(p) ? 'en' : null; }catch(e){} }
+  if(!l) l = localStorage.getItem('dartdraw.lang');
+  if(l === 'ms') for(var i = 0; i < DD_MS_FILES.length; i++) document.write('<script src="' + DD_MS_FILES[i] + '"><\/script>'); }catch(e){} })();
+</script>
+<script src="/i18n/auth-i18n.js"></script>
 <script>
+/* Words: the English texts below go through I18N.put (i18n/auth-i18n.js), which shows them in the reader's language (EN or
+   BM), and a server answer's code in BM; without that script the English is shown as written. */
+const I18N = window.DDAuth || { put(el, s, o){ el.textContent = String(s) + (o && o.after ? ' ' + o.after : ''); } };
 const msgEl = document.getElementById('msg');
 const form = document.getElementById('registerForm');
 const btn = document.getElementById('submitBtn');
 const introEl = document.getElementById('intro');
 
-function show(text, kind){
-  msgEl.textContent = text;
+function show(text, kind, opt){
+  I18N.put(msgEl, text, opt);
   msgEl.className = 'msg ' + kind;
 }
 // Replace the form with a message and move focus to it so screen readers announce it.
-function closeForm(text, kind, intro){
+function closeForm(text, kind, intro, opt){
   form.hidden = true;
   if(intro === undefined) introEl.hidden = true;   // no "Create an account." above a message that says otherwise
-  else introEl.textContent = intro;
-  show(text, kind);
+  else I18N.put(introEl, intro);
+  show(text, kind, opt);
   msgEl.focus();
 }
 
@@ -71,16 +98,17 @@ fetch('/api/auth/config', { cache:'no-store' })
   .then((r) => r.ok ? r.json() : null)
   .then((cfg) => {
     if(!(cfg && cfg.signupOpen === false)) return;
-    // The same words as the sign-in page's "No account yet?", plus the Admin's contact line (plain text, shown as text).
+    // The same words as the sign-in page's "No account yet?", plus the Admin's contact line (plain text, shown as text,
+    // in the Admin's own words whatever the page language).
     const contact = typeof cfg.adminContact === 'string' ? cfg.adminContact.trim().slice(0, 200) : '';
-    closeForm('Sign-up is not open yet. Accounts are created by the site admin.' + (contact ? ' ' + contact : ''), 'err');
+    closeForm('Sign-up is not open yet. Accounts are created by the site admin.', 'err', undefined, { after: contact });
   })
   .catch(() => {});
 
 form.addEventListener('submit', async (e)=>{
   e.preventDefault();
-  msgEl.textContent = ''; msgEl.className = 'msg';
-  btn.disabled = true; btn.textContent = 'Creating account…';
+  I18N.put(msgEl, ''); msgEl.className = 'msg';
+  btn.disabled = true; I18N.put(btn, 'Creating account…');
   try{
     const res = await fetch('/api/auth/register', {
       method:'POST',
@@ -98,14 +126,14 @@ form.addEventListener('submit', async (e)=>{
       return;
     }
     if(res.status === 403){
-      closeForm(body.error || 'Sign-up is not open yet.', 'err');
+      closeForm(body.error || 'Sign-up is not open yet.', 'err', undefined, { code: body.code, vars: body });
       return;
     }
-    show(body.error || 'Could not create account.', 'err');
+    show(body.error || 'Could not create account.', 'err', { code: body.code, vars: body });
   }catch(err){
     show('Could not reach the server. Check your connection and try again.', 'err');
   }
-  btn.disabled = false; btn.textContent = 'Create account';
+  btn.disabled = false; I18N.put(btn, 'Create account');
 });
 </script>
 </body>

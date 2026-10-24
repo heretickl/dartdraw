@@ -113,7 +113,7 @@ test('finalized lock still wins first: a finalized row plus an over-limit save a
   tier('basic'); seed('t1', { entriesList: entries(10), finalized: { at: '2026-10-13T09:00:00.000Z' } });
   const res = await put('t1', { entriesList: entries(200) });
   assert.equal(res.statusCode, 403);
-  assert.deepEqual(res.body, { error: FINAL_MSG, finalized: true });
+  assert.deepEqual(res.body, { code: 'finalized', error: FINAL_MSG, finalized: true });
 });
 
 test('the list endpoint only reads (no write path there)', async () => {

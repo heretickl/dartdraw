@@ -9,12 +9,12 @@ const {
 // same minimum time.
 module.exports = async (req, res) => {
   const startedAt = Date.now();
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (req.method !== 'POST') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
 
   const body = req.body || {};
   const email = normalizeEmail(typeof body.email === 'string' ? body.email : '');
   if (!isValidEmail(email)) {
-    res.status(400).json({ error: 'Please enter a valid email address.' });
+    res.status(400).json({ code: 'invalid_email', error: 'Please enter a valid email address.' });
     return;
   }
 
@@ -22,7 +22,7 @@ module.exports = async (req, res) => {
   let result = { ok: true, message: FORGOT_MESSAGE };
   try {
     if (await throttled('forgot', req, email)) {
-      res.status(429).json({ error: TOO_MANY });
+      res.status(429).json({ code: 'rate_limited', error: TOO_MANY });
       return;
     }
     const account = await findByEmail(email);
@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
     }
   } catch (e) {
     status = 500;
-    result = { error: 'Could not send the email.' };
+    result = { code: 'mail_failed', error: 'Could not send the email.' };
   }
   await padTo(startedAt, minResponseMs());
   res.status(status).json(result);

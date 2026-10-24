@@ -72,6 +72,7 @@ const sections = [
         body: `
 <h4 id="no-account">No account yet?</h4>
 <p>Accounts are created by the site admin, usually the person who runs DartDraw for your club or league. Unless the sign-in box shows a <b>Sign up</b> link, you cannot make one yourself: ask your admin to create it. You then get a link to choose your password, and you sign in as below.</p>
+<p>The sign-in page and the account emails are in English and Bahasa Malaysia: see <a href="#languages">English or Bahasa Malaysia</a>.</p>
 <p>The sign-in box says the same under <b>Sign in</b>: &ldquo;No account yet? Accounts are created by the site admin.&rdquo; Your admin can add a line under it saying who to ask and how. If your club has no admin yet, the person who set up DartDraw for you can create one. See also <a href="#faq-admin">Who is the Admin, and how do I reach them?</a></p>
 
 <h4 id="signing-in">Signing in</h4>
@@ -131,6 +132,32 @@ const sections = [
 <dd>The event is closed. See <a href="#finishing-the-event">Finish the event</a>.</dd>
 </dl>
 <p>A sample event is never saved, so it shows no save status. See <a href="#sample-event">Try it first with a sample event</a>.</p>
+`
+      },
+      {
+        id: 'languages',
+        title: 'English or Bahasa Malaysia: screens, printed sheets and emails',
+        summary: 'The EN | BM switch, the language each event prints in, and why account emails come in both languages.',
+        claims: ['language-switch', 'sheet-language'],
+        keywords: 'language languages english bahasa malaysia bahasa melayu malay melayu bm en translate translation translated switch change language screen language print language printed sheets language sheet language paper language print in malay print in english email emails bilingual two languages both languages',
+        body: `
+<h4 id="language-switch">The EN | BM switch</h4>
+<p>DartDraw is in English and in Bahasa Malaysia. In the organiser app the EN | BM switch is at the top right, next to <b>Help</b>. On a narrow screen it is in the bar at the top, or in the menu that opens from the step name, under &ldquo;Bahasa:&rdquo;. The public pages and the sign-in page have the same switch at the top (the sign-in box that opens over a public page follows that page).</p>
+<p>A click changes every word on the screen at once. Switching saves nothing and changes nothing in your event: you stay on the same step, an open box stays open, and what you typed stays in its box.</p>
+<p>DartDraw remembers your choice in this browser. The organiser app, the public pages (this Help too) and the sign-in page share it: choose BM on one and the others open in BM as well. The <b>Help</b> link and the <b>?</b> links open this Help in the language on your screen. The public results site, where spectators follow your event, has its own EN | BM switch and remembers its own choice: it does not change the language of your screens, and your choice does not change theirs.</p>
+
+<h4 id="sheet-language">Printed sheets language</h4>
+<p>The language of the paper is a setting of each event, separate from the language on your screen. <b>Printed sheets language</b> sits with the other print settings on step 4, <b>Confirm &amp; Print Bracket</b>, and on step 7, <b>Print Final Chart</b>: choose <b>English</b> or <b>Bahasa Malaysia</b>.</p>
+<ul>
+<li>Every sheet of the event uses it: the charts and brackets, the running order, the rules sheet, the lineup sheets, the Players A&ndash;Z and Boards sheets, and the print previews on steps 4 and 7.</li>
+<li>It belongs to the event, so the paper is the same whoever prints it and whatever language their screen shows. For example, your screens can be in BM while the sheets print in English.</li>
+<li>A new event starts with the language your screen shows when you create it. Events made before this setting existed print in English. A duplicated event keeps the setting.</li>
+<li>Names, and everything you typed (the event name, the rules, the sponsor footer), print as you typed them. Automatic names such as &ldquo;Player A1&rdquo; are stored in the language of the screen when they were made.</li>
+<li>On a finalized event the setting is locked, like the other print settings.</li>
+</ul>
+
+<h4 id="bilingual-emails">Emails in both languages</h4>
+<p>DartDraw does not know which language you read when it emails you, so every account email is in both languages: English first, then Bahasa Malaysia, in the same message, with both in the subject line. That includes the email to verify your email address, the one with a link to reset your password, and the one you get when an admin creates your account or sends you a new password link. The link is the same in both halves.</p>
 `
       }
     ]
@@ -900,6 +927,10 @@ const sections = [
 <dl class="glossary">
 <dt id="glossary-pack">Blank pack, running order, rules sheet</dt>
 <dd>What you print before play: the charts with no scores, a master running order (board by board, every match with a tick box) and a rules &amp; format sheet. <span class="eg">Step 4: <b>Print bracket pack</b>.</span></dd>
+<dt id="glossary-sheet-language">Printed sheets language</dt>
+<dd>The language every printed sheet of the event uses, English or Bahasa Malaysia, whatever language your screen shows. See <a href="#sheet-language">Printed sheets language</a>. <span class="eg">Steps 4 and 7: <b>Printed sheets language</b>.</span></dd>
+<dt id="glossary-language">EN | BM</dt>
+<dd>The language switch: the words on your screen in English or Bahasa Malaysia. It changes only the words, never your event. See <a href="#language-switch">The EN | BM switch</a>. <span class="eg">The top bar, next to <b>Help</b>.</span></dd>
 <dt id="glossary-publish">Publish, list</dt>
 <dd>Publish puts the results on a public page that anyone with the link can see. List also shows the event on the public home page. <span class="eg">Step 5: <b>Publish results</b>, <b>List on the public page</b>.</span></dd>
 <dt id="glossary-qr">QR code</dt>
@@ -1191,7 +1222,10 @@ const search = {
     ['standings', 'table', 'tables', 'columns', 'mp', 'mw', 'ml', 'lw', 'pts'],
     ['qualifier', 'qualifiers', 'qualify', 'go through', 'goes through', 'advance', 'advances', 'advancing'],
     ['sample', 'sample event', 'practice', 'demo', 'try it', 'test event'],
-    ['problem', 'problems', 'troubleshooting', 'not working', 'broken', 'something wrong', 'gone wrong']
+    ['problem', 'problems', 'troubleshooting', 'not working', 'broken', 'something wrong', 'gone wrong'],
+    ['language', 'languages', 'bahasa', 'bahasa malaysia', 'bahasa melayu', 'malay', 'melayu', 'bm', 'translate', 'translation', 'translated', 'english'],
+    ['email', 'emails', 'e-mail', 'e-mails', 'mail', 'inbox'],
+    ['sheet language', 'sheets language', 'printed sheets language', 'print language', 'paper language', 'print in malay', 'print in english']
   ],
   noAnswer: [
     { terms: ['free', 'cost', 'costs', 'price', 'prices', 'refund', 'pay', 'payment', 'paid', 'fee', 'fees', 'money', 'charge'],

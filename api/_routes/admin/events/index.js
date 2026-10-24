@@ -12,9 +12,9 @@ module.exports = async (req, res) => {
   if (!admin) return;
 
   try {
-    if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    if (req.method !== 'GET') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
     res.status(200).json(await listEvents(parseListQuery(req.query)));
   } catch (e) {
-    res.status(500).json({ error: 'Could not load events.' });
+    res.status(500).json({ code: 'load_events_failed', error: 'Could not load events.' });
   }
 };

@@ -8,7 +8,7 @@ const { sanitizeTournamentData, isRouteId } = require('../../tournament-sanitize
 //   Creates the row if it doesn't exist yet, but only for a save with no
 //   expectedUpdatedAt (a new event's first save). A save that carries a stamp
 //   for a row that does not exist (deleted elsewhere, or moved to another
-//   organiser) is answered 404 { error: 'Not found.' } and never re-creates it. If it exists, expectedUpdatedAt must match the stored
+//   organiser) is answered 404 { code: 'not_found', error: 'Not found.' } and never re-creates it. If it exists, expectedUpdatedAt must match the stored
 //   updated_at or the write is rejected with 409 + the current row, so a
 //   stale client never silently clobbers a newer save.
 //   The success body (200 or 201) is { id, updated_at }, plus `finalized` only when the saved data has one. A save carrying a
@@ -30,7 +30,7 @@ const { sanitizeTournamentData, isRouteId } = require('../../tournament-sanitize
 //   DELETE statement itself skips finalized rows, so it cannot race a finalize.
 // An Admin caller (organizer.role === 'admin') is not scoped to created_by on GET, PUT and DELETE; an update never changes
 //   created_by, and a PUT for an unknown id inserts a row owned by the Admin. Every other rule above applies to Admins too.
-const FINALIZED_BODY = { error: 'This event is finalized. Only an Admin can change it.', finalized: true };
+const FINALIZED_BODY = { code: 'finalized', error: 'This event is finalized. Only an Admin can change it.', finalized: true };
 
 function isFinalized(data) {
   return !!(data && typeof data === 'object' && data.finalized);
@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
   if (!organizer) return;
 
   const { id } = req.query;
-  if (!id) { res.status(400).json({ error: 'Missing id.' }); return; }
+  if (!id) { res.status(400).json({ code: 'missing_id', error: 'Missing id.' }); return; }
 
   // An Admin works on any organiser's event: the same statements without the owner filter, and an update never changes the owner.
   const isAdmin = organizer.role === 'admin';
@@ -57,10 +57,10 @@ module.exports = async (req, res) => {
       `;
     } catch (e) {
       console.error('GET /api/tournaments/' + id + ' failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
-      res.status(500).json({ error: 'Could not load tournament.' });
+      res.status(500).json({ code: 'load_failed', error: 'Could not load tournament.' });
       return;
     }
-    if (!rows.length) { res.status(404).json({ error: 'Not found.' }); return; }
+    if (!rows.length) { res.status(404).json({ code: 'not_found', error: 'Not found.' }); return; }
     res.status(200).json(rows[0]);
     return;
   }
@@ -104,12 +104,12 @@ module.exports = async (req, res) => {
   if (req.method === 'PUT') {
     // The id becomes a primary key and is later put into onclick handlers: plain letters, digits, _ and - only.
     if (!isRouteId(id)) {
-      res.status(400).json({ error: 'Invalid tournament id.' });
+      res.status(400).json({ code: 'invalid_id', error: 'Invalid tournament id.' });
       return;
     }
     const { data, expectedUpdatedAt } = req.body || {};
     if (!data || typeof data !== 'object') {
-      res.status(400).json({ error: 'Missing tournament data.' });
+      res.status(400).json({ code: 'missing_data', error: 'Missing tournament data.' });
       return;
     }
     // Strip anything that could become script in the organiser app (see tournament-sanitize.js). Strips, never rejects.
@@ -120,7 +120,7 @@ module.exports = async (req, res) => {
 
       if (existing && !isAdmin && existing.created_by !== organizer.id) {
         // Belongs to someone else - treat like it doesn't exist.
-        res.status(404).json({ error: 'Not found.' });
+        res.status(404).json({ code: 'not_found', error: 'Not found.' });
         return;
       }
 
@@ -145,7 +145,7 @@ module.exports = async (req, res) => {
 
       if (!existing && expectedUpdatedAt) {
         // The client had a copy of this event, so it existed: it was deleted (or moved) since. Never bring it back.
-        res.status(404).json({ error: 'Not found.' });
+        res.status(404).json({ code: 'not_found', error: 'Not found.' });
         return;
       }
 
@@ -163,7 +163,7 @@ module.exports = async (req, res) => {
       const expectedIso = expectedUpdatedAt ? new Date(expectedUpdatedAt).toISOString() : null;
       if (expectedIso !== existingIso) {
         res.status(409).json({
-          error: 'Tournament changed elsewhere.',
+          code: 'changed_elsewhere', error: 'Tournament changed elsewhere.',
           current: { id: existing.id, data: existing.data, updated_at: existing.updated_at }
         });
         return;
@@ -189,10 +189,10 @@ module.exports = async (req, res) => {
           ? await sql`SELECT id, data, updated_at, created_by FROM tournaments WHERE id = ${id}`
           : await sql`SELECT id, data, updated_at, created_by FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
         const current = nowRows[0];
-        if (!current) { res.status(404).json({ error: 'Not found.' }); return; }
+        if (!current) { res.status(404).json({ code: 'not_found', error: 'Not found.' }); return; }
         if (isFinalized(current.data)) { res.status(403).json(FINALIZED_BODY); return; }
         res.status(409).json({
-          error: 'Tournament changed elsewhere.',
+          code: 'changed_elsewhere', error: 'Tournament changed elsewhere.',
           current: { id: current.id, data: current.data, updated_at: current.updated_at }
         });
         return;
@@ -201,10 +201,10 @@ module.exports = async (req, res) => {
     } catch (e) {
       // The reason goes to the server log (Vercel > Logs), never to the browser.
       console.error('PUT /api/tournaments/' + id + ' failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
-      res.status(500).json({ error: 'Could not save tournament.' });
+      res.status(500).json({ code: 'save_failed', error: 'Could not save tournament.' });
     }
     return;
   }
 
-  res.status(405).json({ error: 'Method not allowed' });
+  res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' });
 };

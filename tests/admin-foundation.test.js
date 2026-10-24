@@ -99,14 +99,14 @@ test('requireAdmin: 401 with no cookie, nothing returned', async () => {
   const r = await run(auth.requireAdmin, {});
   assert.equal(r.result, null);
   assert.equal(r.status, 401);
-  assert.deepEqual(r.body, { error: 'Not authenticated' });
+  assert.deepEqual(r.body, { code: 'not_authenticated', error: 'Not authenticated' });
 });
 
 test('requireAdmin: 403 for a signed-in organiser', async () => {
   const r = await run(auth.requireAdmin, { cookies: cookieFor(db.tables.organizers[0]) });
   assert.equal(r.result, null);
   assert.equal(r.status, 403);
-  assert.deepEqual(r.body, { error: 'Admin only.' });
+  assert.deepEqual(r.body, { code: 'admin_only', error: 'Admin only.' });
 });
 
 test('requireAdmin: returns the organiser object for an admin', async () => {
@@ -127,7 +127,7 @@ test('requireAdmin: with REQUIRE_LOGIN unset nobody is an admin (403)', async ()
   const r = await run(auth.requireAdmin, { cookies: cookieFor(db.tables.organizers[1]) });
   assert.equal(r.result, null);
   assert.equal(r.status, 403);
-  assert.deepEqual(r.body, { error: 'Admin only.' });
+  assert.deepEqual(r.body, { code: 'admin_only', error: 'Admin only.' });
 });
 
 test('requireAdmin rejects a suspended admin, an unverified admin and a stale-session admin (401)', async () => {
@@ -242,7 +242,7 @@ test('admin PUT for an unknown id inserts a row owned by the admin', async () =>
 test('admin PUT on a finalized event is refused with the existing 403 and nothing is written', async () => {
   const r = await call('PUT', 't-final', admin(), putBody({ name: 'Nope' }));
   assert.equal(r.statusCode, 403);
-  assert.deepEqual(r.body, { error: 'This event is finalized. Only an Admin can change it.', finalized: true });
+  assert.deepEqual(r.body, { code: 'finalized', error: 'This event is finalized. Only an Admin can change it.', finalized: true });
   assert.equal(stored('t-final').data.name, 'Closed');
 });
 
@@ -264,7 +264,7 @@ test('admin DELETE of a non-finalized foreign event works', async () => {
 test('admin DELETE of a finalized event is refused with the existing 403', async () => {
   const r = await call('DELETE', 't-final', admin());
   assert.equal(r.statusCode, 403);
-  assert.deepEqual(r.body, { error: 'This event is finalized. Only an Admin can change it.', finalized: true });
+  assert.deepEqual(r.body, { code: 'finalized', error: 'This event is finalized. Only an Admin can change it.', finalized: true });
   assert.ok(stored('t-final'));
 });
 

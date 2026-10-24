@@ -2,6 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs'), path = require('path');
 const { loadApp, run, hash, ROOT } = require('./lib/load-app');
+// i18n step 4 added the "Printed sheets language" row to the print settings of steps 4 and 7: it is taken out before
+// hashing, so everything else on those screens is still compared with the stored snapshot.
+const noSheetLang = (html) => String(html).replace(/<div class="sheet-lang-row">[\s\S]*?<\/div>/g, '');
 
 const GOLDEN = path.join(__dirname, 'golden', 'existing-formats.json');
 
@@ -31,7 +34,7 @@ function snapshot() {
   ['rr', 'ko', 'rrko'].forEach((kind) => {
     const app = loadApp(); const t = build(app, kind); run(app, 'state = __t');
     const parts = {};
-    [3, 4, 6, 7].forEach((n) => { app.__n = n; run(app, 'currentStage = __n'); parts['stage' + n] = hash(run(app, 'stage' + n + '()')); });
+    [3, 4, 6, 7].forEach((n) => { app.__n = n; run(app, 'currentStage = __n'); parts['stage' + n] = hash(noSheetLang(run(app, 'stage' + n + '()'))); });
     ['formatSummaryCard()', 'JSON.stringify(formatDescriptionLines(state))', 'schedulingContextHTML()', 'competitionDurationSummaryHTML(state)', 'String(estimateTotalMinutes(state))']
       .forEach((c, i) => { parts['helper' + i] = hash(run(app, c)); });
     if (kind === 'ko') {

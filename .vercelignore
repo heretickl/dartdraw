@@ -1,1 +1,5 @@
 docs/design/
+# Working documents: the translation notes and the proofreader's string lists, the plans and specs. Nothing the site
+# serves reads them (tests/landing-site.test.js). docs/third-party/ stays: the font licence the app.html notice names.
+docs/i18n/
+docs/superpowers/

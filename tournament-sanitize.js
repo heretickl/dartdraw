@@ -89,13 +89,15 @@
   // Printing: printSettings.koPaperSize is one of the four paper sizes (else A4); printSettings.koPaperChoice (the answer of
   // the paper dialog) is { mode: 'shrink' | 'split', paper, rec } with paper sizes, else removed; lineupPrinted (which
   // knockout lineup sheets were printed) maps "<knockout | knockoutLosers | pod:id>:<round>-<match>" to "<id>|<id>",
-  // anything else in it is dropped (at most 2000 entries).
+  // anything else in it is dropped (at most 2000 entries). printSettings.sheetLang (the language every printed sheet of
+  // the event uses, i18n step 4) is 'en' or 'ms'; any other value becomes 'en' (an event without it prints in English).
   var PAPER_KEYS = ['A4', 'A3', 'A2', 'A1'];
   var LINEUP_KEY_RE = /^(knockout|knockoutLosers|pod:[A-Za-z0-9_.|-]{1,80}):\d{1,3}-\d{1,4}$/;
   function cleanPrinting(data) {
     var ps = data.printSettings;
     if (isPlain(ps)) {
       if ('koPaperSize' in ps && PAPER_KEYS.indexOf(ps.koPaperSize) === -1) ps.koPaperSize = 'A4';
+      if ('sheetLang' in ps && ps.sheetLang !== 'en' && ps.sheetLang !== 'ms') ps.sheetLang = 'en';
       if ('koPaperChoice' in ps) {
         var c = ps.koPaperChoice;
         if (isPlain(c) && (c.mode === 'shrink' || c.mode === 'split') && PAPER_KEYS.indexOf(c.paper) !== -1 && PAPER_KEYS.indexOf(c.rec) !== -1) ps.koPaperChoice = { mode: c.mode, paper: c.paper, rec: c.rec };

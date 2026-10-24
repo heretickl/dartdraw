@@ -19,21 +19,21 @@ module.exports = async (req, res) => {
   if (!admin) return;
 
   try {
-    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    if (req.method !== 'POST') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
 
     const id = req.query && req.query.id;
-    if (typeof id !== 'string' || !id) { res.status(400).json({ error: 'Missing id.' }); return; }
+    if (typeof id !== 'string' || !id) { res.status(400).json({ code: 'missing_id', error: 'Missing id.' }); return; }
 
     const event = await getEventSummary(id);
-    if (!event) { res.status(404).json({ error: 'Event not found.' }); return; }
+    if (!event) { res.status(404).json({ code: 'event_not_found', error: 'Event not found.' }); return; }
 
     const body = bodyObject(req);
     const action = body.action;
-    if (typeof action !== 'string' || !ACTIONS.includes(action)) { res.status(400).json({ error: 'Unknown action.' }); return; }
+    if (typeof action !== 'string' || !ACTIONS.includes(action)) { res.status(400).json({ code: 'unknown_action', error: 'Unknown action.' }); return; }
 
     let rows;
     if (action === 'reopen') {
-      if (!event.finalizedAt) { res.status(409).json({ error: 'Event is not finalized.' }); return; }
+      if (!event.finalizedAt) { res.status(409).json({ code: 'not_finalized', error: 'Event is not finalized.' }); return; }
       // The WHERE repeats the finalized test, so an event reopened a moment ago by someone else is a 409, not a second bump.
       rows = await sql`
         UPDATE tournaments SET data = data - 'finalized', updated_at = now()
@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
           AND data->>'finalized' IS NOT NULL AND data->>'finalized' NOT IN ('false', '0', '')
         RETURNING id
       `;
-      if (!rows.length) { res.status(409).json({ error: 'Event is not finalized.' }); return; }
+      if (!rows.length) { res.status(409).json({ code: 'not_finalized', error: 'Event is not finalized.' }); return; }
     } else if (action === 'unpublish') {
       rows = await sql`
         UPDATE tournaments SET data = data || '{"published": false, "listed": false}'::jsonb, updated_at = now()
@@ -61,7 +61,7 @@ module.exports = async (req, res) => {
         rows = await sql`UPDATE tournaments SET created_by = ${target.id} WHERE id = ${id} RETURNING id`;
       } catch (e) {
         if (e && e.code === '23503') {
-          res.status(409).json({ error: 'That organiser no longer exists. Nothing was moved.' });
+          res.status(409).json({ code: 'transfer_target_gone', error: 'That organiser no longer exists. Nothing was moved.' });
           return;
         }
         throw e;
@@ -71,13 +71,13 @@ module.exports = async (req, res) => {
     }
 
     // The event vanished between the lookup and the write (someone deleted it).
-    if (!rows.length) { res.status(404).json({ error: 'Event not found.' }); return; }
+    if (!rows.length) { res.status(404).json({ code: 'event_not_found', error: 'Event not found.' }); return; }
 
     if (action === 'delete') { res.status(200).json({ ok: true }); return; }
     const updated = await getEventSummary(id);
-    if (!updated) { res.status(404).json({ error: 'Event not found.' }); return; }
+    if (!updated) { res.status(404).json({ code: 'event_not_found', error: 'Event not found.' }); return; }
     res.status(200).json({ event: updated });
   } catch (e) {
-    res.status(500).json({ error: 'Could not complete that request.' });
+    res.status(500).json({ code: 'request_failed', error: 'Could not complete that request.' });
   }
 };

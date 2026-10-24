@@ -60,7 +60,8 @@ test('without a viewer address the switch is disabled with its own explanation, 
 
 test('with a viewer address the card links to the home page', () => {
   fresh({ published: true });
-  assert.match(card(), /href="https:\/\/dartdraw-viewer\.vercel\.app"[^>]*>All events/);
+  // i18n step 3: the viewer opens in the organiser's language (?lang=)
+  assert.match(card(), /href="https:\/\/dartdraw-viewer\.vercel\.app\?lang=en"[^>]*>All events/);
 });
 
 test('the flag is stored in the tournament data like any setting, and no other part of the card changed', () => {

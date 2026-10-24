@@ -87,6 +87,12 @@
     { "q": "password", "was": 6, "expect": ["faq-forgot-password", "signing-in"] },
     { "q": "help", "was": 1, "none": true },
     { "q": "contact", "was": 3, "expect": ["faq-admin"] },
-    { "q": "support", "was": 0, "expect": ["faq-admin"] }
+    { "q": "support", "was": 0, "expect": ["faq-admin"] },
+    { "q": "language", "was": 0, "expect": ["languages", "language-switch", "sheet-language", "bilingual-emails"] },
+    { "q": "bahasa malaysia", "was": 0, "expect": ["languages", "language-switch"] },
+    { "q": "change language", "was": 0, "expect": ["languages", "language-switch"] },
+    { "q": "print in malay", "was": 0, "expect": ["languages", "sheet-language"] },
+    { "q": "printed sheets language", "was": 0, "expect": ["languages", "sheet-language"] },
+    { "q": "email language", "was": 0, "expect": ["languages", "bilingual-emails"] }
   ]
 }

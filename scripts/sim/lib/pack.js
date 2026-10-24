@@ -31,17 +31,18 @@ function classify(sheet) {
   }
   if (/class="print-sheet lineup-sheet/.test(sheet)) type = 'lineup';
   else if (/mko-print-sheet/.test(sheet)) type = 'bracket';
-  else if (/Projected Knockout Placement/.test(sheet)) type = 'projected';
-  else if (/^RULES/.test(head)) type = 'rules';
-  else if (/^RUNNING ORDER/.test(head)) type = 'running-order';
-  else if (/^PLAYERS/.test(head)) type = 'players';
-  else if (/^BOARDS/.test(head)) type = 'boards';
-  else if (/^GROUP /.test(head) && /class="chart"/.test(sheet)) type = 'chart';
+  /* (BM sheets, i18n step 4: the same heads in Bahasa Malaysia) */
+  else if (/Projected Knockout Placement|Unjuran Penempatan Kalah Mati/.test(sheet)) type = 'projected';
+  else if (/^(RULES|PERATURAN)/.test(head)) type = 'rules';
+  else if (/^(RUNNING ORDER|SUSUNAN PERLAWANAN)/.test(head)) type = 'running-order';
+  else if (/^(PLAYERS|PEMAIN)/.test(head)) type = 'players';
+  else if (/^(BOARDS|BOARD$)/.test(head)) type = 'boards';
+  else if (/^(GROUP|KUMPULAN) /.test(head) && /class="chart"/.test(sheet)) type = 'chart';
   let label = head ? head + (sub ? ' · ' + sub : '') : (type === 'lineup' ? 'Lineup sheet' : 'Sheet');
   if (type === 'lineup' && /lineup-blank/.test(sheet)) return { type, label: 'Empty lineup sheet (every box blank)', subtitle: '' };
   if (type === 'lineup') {
-    const fx =[...sheet.matchAll(/<div class="bar">Fixture<\/div><div class="box">([\s\S]*?)<\/div>/g)].map((m) => decode(m[1]));
-    const team = [...sheet.matchAll(/<span class="tag">Team Name<\/span>([\s\S]*?)<\/div>/g)].map((m) => decode(strip(m[1])));
+    const fx =[...sheet.matchAll(/<div class="bar">(?:Fixture|Perlawanan)<\/div><div class="box">([\s\S]*?)<\/div>/g)].map((m) => decode(m[1]));
+    const team = [...sheet.matchAll(/<span class="tag">(?:Team Name|Nama Pasukan)<\/span>([\s\S]*?)<\/div>/g)].map((m) => decode(strip(m[1])));
     label = 'Lineup sheet · ' + (team[0] || '?') + ' ' + (fx[0] || '') + ' | ' + (team[1] || '?') + ' ' + (fx[1] || '');
   }
   return { type, label, subtitle: strip(sub2) };
@@ -112,7 +113,7 @@ function writePage(file, opts) {
       '<div class="sim-zoom">' + sec.sheets.map((s) => { n++; return '<div class="sim-sheet" data-type="' + esc(s.type || sec.type) + '" data-label="' + esc(s.label) + '"><div class="sim-label">#' + n + ' · ' + esc(s.label) + '</div>' + s.html + '</div>'; }).join('') + '</div></section>';
   }).join('\n');
   const factRows = (facts || []).map(([k, v]) => '<tr><th>' + esc(k) + '</th><td>' + esc(v) + '</td></tr>').join('');
-  const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(title) + '</title>' +
+  const html = '<!doctype html><html lang="' + (opts.lang === 'ms' ? 'ms' : 'en') + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(title) + '</title>' +
     '<style>' + appCss() + '\n' + PAPER_CSS + '\n' + SIM_CSS + '</style></head><body>' +
     '<div class="sim-bar"><a href="' + esc(backLink || '../index.html') + '">&larr; All 12 events</a><b>' + esc(stageName) + '</b>' +
     '<label>Screen zoom <input id="sim-zoom-range" type="range" min="0.25" max="1.25" step="0.05" value="0.55"> <span id="sim-zoom-val">55%</span></label>' +

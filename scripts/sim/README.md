@@ -2,8 +2,14 @@
 
 Plays 12 whole events (Singles, Doubles and Teams, each as Knockout, Round robin to Knockout, Knockout with Group Boards, and Round robin only; 67 entries each) through the organiser app's real functions, and writes the printed packs before and after play as standalone HTML pages. It is read-only with respect to the app: `app.html` is loaded into a Node `vm` exactly as `tests/lib/load-app.js` does and only its own functions are called. Nothing in `app.html`, `viewer/` or the tests is changed.
 
+Since i18n step 4 the run is made twice: once with English printed sheets (`docs/design/simulation/`, exactly as before) and
+once with every event's **Printed sheets language** set to Bahasa Malaysia (`docs/design/simulation-ms/`, the screens stay
+English), each with its own audit and index. `--lang en` or `--lang ms` runs one of them.
+
 ```
-node scripts/sim/run-simulation.js                 # everything (about 1.5 minutes, most of it the browser audit)
+node scripts/sim/run-simulation.js                 # everything, English and BM sheets (about 3 minutes, most of it the browser audit)
+node scripts/sim/run-simulation.js --lang ms       # BM sheets only
+node scripts/sim/run-event.js Teams knockout docs/design/simulation-ms ms   # one event with BM sheets
 node scripts/sim/run-simulation.js --skip-audit    # the 12 events only (about 3 seconds)
 node scripts/sim/run-simulation.js --only teams-knockout,singles-group-boards
 node scripts/sim/run-event.js Teams knockout       # one event (Singles|Doubles|Teams + knockout|rrknockout|podknockout|roundrobin)
@@ -32,7 +38,9 @@ Teams lineup sheets are shown as captioned samples (the first round robin fixtur
 
 ## The layout audit
 
-`audit-client.js` is embedded in every page. It switches the zoom to 100%, measures each sheet, and shows a summary at the top of the page. For the two-sided bracket sheets (bracket-print.js) it checks, in mm, every printed item against every other (overlap), the boxes of a column against the gap floors (1.6 mm inside a match, 3.0 mm between matches, times the scale on a sheet shrunk on purpose), items off the sheet, clipped text, the 7 pt name floor on legible sheets, one box height and the shape (two-sided, or one half on a split section sheet). For the Group Boards charts it reports overlapping and touching (gap under 4 px) name boxes, clipped names and the frame. The running order is checked for columns and groups past the sheet. `run-audit.js` runs it for all pages in a headless Chrome or Edge (`SIM_BROWSER=<exe>` to choose one; no browser means the audit is skipped and the pages still run it live) by loading each page with `?audit=1` and reading the report back from the dumped DOM. `build-index.js` turns facts and audit into `index.html` and `FINDINGS.md`; the reviewer notes at the top of `FINDINGS.md` live in `findings-notes.js` and are edited by hand.
+`audit-client.js` is embedded in every page. It switches the zoom to 100%, measures each sheet, and shows a summary at the top of the page. For the two-sided bracket sheets (bracket-print.js) it checks, in mm, every printed item against every other (overlap), the boxes of a column against the gap floors (1.6 mm inside a match, 3.0 mm between matches, times the scale on a sheet shrunk on purpose), items off the sheet, clipped text, the 7 pt name floor on legible sheets, one box height and the shape (two-sided, or one half on a split section sheet). For the Group Boards charts it reports overlapping and touching (gap under 4 px) name boxes, clipped names and the frame. The running order is checked for columns and groups past the sheet. Every other sheet is checked for text cut by its box
+(an element with its own text, `overflow:hidden` or an ellipsis, whose text is wider or taller than the box: the lineup
+header bars and segment titles, the running order heads, footers, captions), added for the longer BM words (i18n step 4). `run-audit.js` runs it for all pages in a headless Chrome or Edge (`SIM_BROWSER=<exe>` to choose one; no browser means the audit is skipped and the pages still run it live) by loading each page with `?audit=1` and reading the report back from the dumped DOM. `build-index.js` turns facts and audit into `index.html` and `FINDINGS.md`; the reviewer notes at the top of `FINDINGS.md` live in `findings-notes.js` and are edited by hand.
 
 Text widths in Node: the bracket sheets measure with the print font's own advance widths stored in `bracket-print.js`; the Group Boards charts with a stand-in for the canvas (`lib/appvm.js`, characters x font size x 0.55 or 0.60). The audit measures the real thing in the browser.
 

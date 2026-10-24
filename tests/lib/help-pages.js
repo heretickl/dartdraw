@@ -1,6 +1,6 @@
 // Loads a real Help page into tests/lib/mini-dom.js and runs its search exactly as the browser does: the shared module
 // (help-search.js, or the viewer's copy) and the page's own inline script that calls HelpSearch.attach.
-//   const page = loadHelp('organiser' | 'spectator', { hash: '#faq-no-show', desktop: true })
+//   const page = loadHelp('organiser' | 'spectator' | 'organiser-ms' | 'spectator-ms', { hash: '#faq-no-show', desktop: true })
 //   page.type('no show'); page.controller.search('typo'); page.key('Escape'); page.goTo('#q-ties')
 const fs = require('fs');
 const path = require('path');
@@ -10,7 +10,10 @@ const { parse } = require('./mini-dom');
 const ROOT = path.join(__dirname, '..', '..');
 const PAGES = {
   organiser: { html: 'help.html', module: 'help-search.js' },
-  spectator: { html: 'viewer/help.html', module: 'viewer/help-search.js' }
+  spectator: { html: 'viewer/help.html', module: 'viewer/help-search.js' },
+  // the Bahasa Malaysia twins (i18n step 1): the same module, the page data says lang ms
+  'organiser-ms': { html: 'ms/help.html', module: 'help-search.js' },
+  'spectator-ms': { html: 'viewer/ms/help.html', module: 'viewer/help-search.js' }
 };
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
@@ -33,7 +36,7 @@ function loadHelp(which, opts = {}) {
   ctx.HelpSearch.attach = (cfg) => (controller = real(cfg));
   const inline = doc.querySelectorAll('script').filter((s) => !s.hasAttribute('src') && !s.hasAttribute('type') && /HelpSearch/.test(s.textContent));
   inline.forEach((s, i) => vm.runInContext(s.textContent, ctx, { filename: p.html + '#inline' + i }));
-  const input = doc.getElementById(which === 'organiser' ? 'helpQ' : 'faqSearch');
+  const input = doc.getElementById(/^organiser/.test(which) ? 'helpQ' : 'faqSearch');
   const ev = (t, extra) => Object.assign({ type: t, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } }, extra);
   return {
     doc, ctx, html, input, controller, location, window,

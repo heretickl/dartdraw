@@ -17,10 +17,10 @@ const {
 //   verified email    -> "you already have an account" mail; nothing changes
 module.exports = async (req, res) => {
   const startedAt = Date.now();
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (req.method !== 'POST') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
 
   if (process.env.SIGNUP_OPEN !== 'true' || !isMailConfigured()) {
-    res.status(403).json({ error: 'Sign-up is not open yet.' });
+    res.status(403).json({ code: 'signup_closed', error: 'Sign-up is not open yet.' });
     return;
   }
 
@@ -29,19 +29,19 @@ module.exports = async (req, res) => {
   const email = normalizeEmail(typeof body.email === 'string' ? body.email : '');
   const password = body.password;
   if (typeof body.name !== 'string' || !name) {
-    res.status(400).json({ error: 'Please enter your name.' });
+    res.status(400).json({ code: 'name_required', error: 'Please enter your name.' });
     return;
   }
   if (name.length > 80) {
-    res.status(400).json({ error: 'Name must be 80 characters or fewer.' });
+    res.status(400).json({ code: 'name_too_long', error: 'Name must be 80 characters or fewer.' });
     return;
   }
   if (!isValidEmail(email)) {
-    res.status(400).json({ error: 'Please enter a valid email address.' });
+    res.status(400).json({ code: 'invalid_email', error: 'Please enter a valid email address.' });
     return;
   }
   if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
-    res.status(400).json({ error: 'Password must be at least ' + MIN_PASSWORD + ' characters.' });
+    res.status(400).json({ code: 'password_too_short', error: 'Password must be at least ' + MIN_PASSWORD + ' characters.' });
     return;
   }
 
@@ -49,7 +49,7 @@ module.exports = async (req, res) => {
   let result = { ok: true, message: REGISTER_MESSAGE };
   try {
     if (await throttled('register', req, email)) {
-      res.status(429).json({ error: TOO_MANY });
+      res.status(429).json({ code: 'rate_limited', error: TOO_MANY });
       return;
     }
 
@@ -76,7 +76,7 @@ module.exports = async (req, res) => {
     }
   } catch (e) {
     status = 500;
-    result = { error: 'Could not create account.' };
+    result = { code: 'register_failed', error: 'Could not create account.' };
   }
   await padTo(startedAt, minResponseMs());
   res.status(status).json(result);

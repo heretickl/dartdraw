@@ -2,6 +2,7 @@
 const { clientIp, hit } = require('./throttle');
 const { sendMail, appUrl } = require('./mail');
 const { issueToken } = require('./tokens');
+const { buildEmail } = require('./emails');
 
 const WINDOW_MS = 60 * 60 * 1000; // register, resend and forgot: 5 per hour
 const LIMIT = 5;
@@ -65,37 +66,20 @@ function canMail(row) {
   return !!row && row.password_hash !== 'disabled' && !row.suspended;
 }
 
+// The three account e-mails are bilingual (English, then Bahasa Malaysia) with a text and an HTML part: api/_lib/emails.js.
+// None of them carries a name: the sign-up form's name is typed by whoever registers, who may not own the address.
 async function sendVerifyEmail(req, organizerId, to) {
   const raw = await issueToken(organizerId, 'verify');
-  await sendMail({
-    to,
-    subject: 'Verify your DartDraw email',
-    text: 'Welcome to DartDraw. To verify your email address, open this link and enter the password you chose when you signed up (the link works for 24 hours):\n\n'
-      + appUrl(req) + '/verify.html?token=' + raw + '\n\n'
-      + 'If you did not sign up for DartDraw, you can ignore this message.\n'
-  });
+  await sendMail(Object.assign({ to }, buildEmail('verify', { link: appUrl(req) + '/verify.html?token=' + raw })));
 }
 
 async function sendResetEmail(req, organizerId, to) {
   const raw = await issueToken(organizerId, 'reset');
-  await sendMail({
-    to,
-    subject: 'Reset your DartDraw password',
-    text: 'Open this link to choose a new DartDraw password (it works for 1 hour):\n\n'
-      + appUrl(req) + '/reset.html?token=' + raw + '\n\n'
-      + 'If you did not ask to reset your password, you can ignore this message.\n'
-  });
+  await sendMail(Object.assign({ to }, buildEmail('reset', { link: appUrl(req) + '/reset.html?token=' + raw })));
 }
 
 async function sendAlreadyRegisteredEmail(req, to) {
-  await sendMail({
-    to,
-    subject: 'Your DartDraw account',
-    text: 'Someone tried to sign up for DartDraw with this email address, but you already have an account. '
-      + 'If you forgot your password, use Forgot password to reset it:\n\n'
-      + appUrl(req) + '/forgot.html\n\n'
-      + 'If this was not you, you can ignore this message.\n'
-  });
+  await sendMail(Object.assign({ to }, buildEmail('alreadyRegistered', { link: appUrl(req) + '/forgot.html' })));
 }
 
 module.exports = {

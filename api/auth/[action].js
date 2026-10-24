@@ -6,7 +6,7 @@
 //   /api/auth/login | logout | me | config | register | verify | resend-verification | forgot | reset | change-password
 //
 // The action is read from req.url, not from req.query.action, so it does not depend on how the platform shapes the
-// query. Anything else answers 404 { error: 'Not found.' }. The literal require() paths keep the file tracer bundling
+// query. Anything else answers 404 { code: 'not_found', error: 'Not found.' }. The literal require() paths keep the file tracer bundling
 // every handler; they are loaded lazily, on first use.
 const ROUTES = {
   login: () => require('../_routes/auth/login'),
@@ -31,7 +31,7 @@ function lastSegment(url) {
 module.exports = async (req, res) => {
   const action = lastSegment(req.url);
   if (!Object.prototype.hasOwnProperty.call(ROUTES, action)) {
-    res.status(404).json({ error: 'Not found.' });
+    res.status(404).json({ code: 'not_found', error: 'Not found.' });
     return;
   }
   if (!req.query) req.query = {};

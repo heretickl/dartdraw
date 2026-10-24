@@ -16,7 +16,9 @@ const content = require('../scripts/help-content');
 
 const PUBLIC_PAGES = ['index.html', 'features.html', 'how-it-works.html', 'help.html'];
 const help = read('help.html');
-const app = read('app.html');
+// The app's words live in i18n/app.en.js since i18n step 3: englishSource writes them back into the source (tests/lib/app-source.js).
+const { englishSource } = require('./lib/app-source');
+const app = englishSource('app.html');
 const markup = (s) => s.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '');
 const scripts = (s) => [...s.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 const text = (s) => markup(s).replace(/<\/?(p|li|ul|ol|div|dd|dt|dl|h[1-6]|summary|details|article|section|br|nav|form|label|input|header|footer|main)\b[^>]*>/g, ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&ndash;/g, '\u2013').replace(/&amp;/g, '&').replace(/&lsquo;/g, '\u2018').replace(/&rsquo;/g, '\u2019').replace(/&ldquo;|&rdquo;/g, '"').replace(/&mdash;/g, '—').replace(/&hellip;/g, '…').replace(/&rarr;/g, '→').replace(/&#8599;/g, '↗').replace(/\s+/g, ' ');
@@ -208,7 +210,7 @@ test('the full-page window section explains when, how, pop-ups, scoring, keeping
   assert.match(t, /pop-ups?/);
   assert.match(t, /Your browser blocked the new window — allow pop-ups for this site, then click the button again\./, 'quotes the blocked pop-up message');
   assert.match(fnBody(app, 'openInNewWindow'), /if\(!win\) popupBlockedModal\(\)/, 'and the app shows it when window.open gives nothing');
-  assert.ok(app.includes("POPUP_BLOCKED_MSG = 'Your browser blocked the new window — allow pop-ups for this site, then click the button again.'"));
+  assert.match(fnBody(app, 'popupBlockedModal'), /'Your browser blocked the new window — allow pop-ups for this site, then click the button again\.'/);
   // its header has the save status and Print
   assert.match(t, /the save status \(such as Saved\) and a Print button/);
   assert.match(fnBody(app, 'popoutToolsHTML'), /id="popoutSaveStatus"/);
@@ -302,10 +304,10 @@ test('the buttons, labels and messages the guide quotes still exist in app.html 
     'Publish results now', 'Publishing is off, so these sheets will have no QR code', 'To finish the event, use <b>Accept & finalize</b> at the bottom of step 5', 'Go there',
     'Number of pairs', 'Number of teams'
   ];
-  const missing = quoted.filter((q) => !appText.includes(q) && !read('pods-ui.js').includes(q) && !read('boardplan-ui.js').includes(q) && !read('render.js').includes(q));
+  const missing = quoted.filter((q) => !appText.includes(q) && !englishSource('pods-ui.js').includes(q) && !englishSource('boardplan-ui.js').includes(q) && !read('render.js').includes(q));
   assert.deepEqual(missing, [], 'quoted in the guide but not in the app');
   // the one name that is the public site's, not the organiser app's
-  assert.ok(read('viewer/index.html').includes('Neither attended'));
+  assert.ok(read('viewer/i18n/en.js').includes("'Neither attended'"));   // the viewer's words are in its string table (i18n step 2)
   assert.ok(text(help).includes('Neither attended'));
   // and the guide really does quote them (so this list does not rot into checking nothing)
   const t = text(help);
@@ -378,7 +380,7 @@ test('search: the page loads the shared module, then its synonyms as JSON, then 
   const i = help.indexOf('<script src="/help-search.js"></script>'), j = help.indexOf('<script type="application/json" id="helpSearchData">'), k = help.indexOf(scripts(help)[0]);
   assert.ok(i > 0 && i < j && j < k, 'module, data, page script, in that order');
   const data = JSON.parse(help.match(/<script type="application\/json" id="helpSearchData">([\s\S]*?)<\/script>/)[1]);
-  assert.deepEqual(data, { synonyms: content.search.synonyms, noAnswer: content.search.noAnswer }, 'the data is help-content.js search, as written');
+  assert.deepEqual(data, { synonyms: content.search.synonyms, noAnswer: content.search.noAnswer, strings: require('../scripts/i18n/en/landing').helpPage.search, alias: require('../scripts/i18n/ms/help-content').search.toEnglish }, 'the data is help-content.js search as written, the search sentences, and the BM words read as English');
   assert.match(scripts(help)[0], /HelpSearch\.attach\(/);
   assert.match(read('help-search.js'), /getAttribute\('data-keywords'\)/, 'keywords are read from the items');
 });
@@ -580,7 +582,7 @@ const fnBody = (src, name) => {
 };
 const articleText = (id) => text((help.match(new RegExp('<article class="harticle" id="' + id + '"[\\s\\S]*?</article>')) || [''])[0]);
 const faqText = (id) => text((help.match(new RegExp('<details class="faq" id="' + id + '"[\\s\\S]*?</details>')) || [''])[0]);
-const podsUi = read('pods-ui.js'), bpUi = read('boardplan-ui.js');
+const podsUi = englishSource('pods-ui.js'), bpUi = englishSource('boardplan-ui.js');
 
 test('QR codes: only the sheets the guide names carry one, and the guide says the rest do not (and that the public address must be set)', () => {
   [fnBody(app, 'chartSheetHTML'), fnBody(app, 'knockoutBracketSheetHTML'), fnBody(bpUi, 'bpSheetShell')].forEach((b) => assert.match(b, /printQrBlockHTML\(/));
@@ -626,7 +628,7 @@ test('Neither showed: knockout and Group Boards only. The round robin no-show pi
   assert.match(fnBody(app, 'openKoNoShowPicker'), /Neither showed/);
   assert.match(articleText('player-leaves'), /This is for knockout and Group Boards matches only; a round robin has no such choice/);
   assert.match(faqText('faq-no-show'), /If both are missing in a knockout or Group Boards match, choose Neither showed \(a round robin does not have that choice\)/);
-  assert.match(read('viewer/index.html'), /NO-SHOW|Neither attended/);
+  assert.match(read('viewer/i18n/en.js'), /NO-SHOW|Neither attended/);
   assert.match(articleText('player-leaves'), /Neither attended", or NO-SHOW in the bracket Chart view/);
 });
 

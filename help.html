@@ -5,6 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Help for organisers – DartDraw</title>
 <meta name="description" content="Step-by-step guides and answers to common questions for DartDraw organisers: setting up an event, running the day, printing, live results and finishing.">
+<link rel="canonical" href="https://dartdraw.vercel.app/help">
+<link rel="alternate" hreflang="en" href="https://dartdraw.vercel.app/help">
+<link rel="alternate" hreflang="ms" href="https://dartdraw.vercel.app/ms/help">
+<link rel="alternate" hreflang="x-default" href="https://dartdraw.vercel.app/help">
+<script id="dd-lang">
+(function(){
+var L="en",TWIN="/ms/help",HASHOK=true,KEY='dartdraw.lang';
+var q=String(location.search||''),h=String(location.hash||''),m=/[?&]lang=(en|ms)(?=&|$)/.exec(q);
+if(m){
+  try{localStorage.setItem(KEY,m[1])}catch(e){}
+  var rest=q.replace(/([?&])lang=(en|ms)(&|$)/,function(a,b,c,d){return d?b:''}).replace(/[?&]$/,'');
+  if(m[1]!==L){location.replace(TWIN+rest+h);return}
+  try{history.replaceState(null,'',location.pathname+rest+h)}catch(e){}
+  return;
+}
+var s=null;try{s=localStorage.getItem(KEY)}catch(e){}
+if((s==='en'||s==='ms')&&s!==L&&(!h||(HASHOK&&s==='ms')))location.replace(TWIN+q+h);
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -182,6 +201,25 @@ body:has(dialog[open]){overflow:hidden}
 @media (max-width:480px){.nav{height:auto;flex-wrap:wrap;gap:0 12px;padding-top:10px;padding-bottom:2px}.nav-links{order:3;flex:0 0 100%;margin:0;gap:22px}.nav-links a{padding:10px 2px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 
+.langsw{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1.5px solid #c3cfdf;border-radius:11px;background:#fff;flex:none}
+.langsw a{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:38px;padding:0 10px;border-radius:8px;color:#2b3a50;font:700 14px/1 Inter,"Segoe UI",system-ui,Arial,sans-serif;letter-spacing:.04em;text-decoration:none}
+.langsw a:hover{background:#eef3fa;color:var(--navy)}
+.langsw a[aria-current="true"]{background:var(--navy);color:#fff}
+.nav .langsw{margin-right:-18px}
+.vh{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.langbar{background:var(--gold-soft);border-bottom:1px solid #ecd9a4;color:#3b2c06;font-size:15px}
+.langbar .wrap{display:flex;align-items:center;gap:10px;min-height:48px;padding-top:4px;padding-bottom:4px}
+.langbar p{margin:0;flex:1 1 auto;min-width:0}
+.langbar a{display:inline-block;padding:8px 2px;font-weight:700;color:var(--blue-d)}
+.langbar-x{flex:none;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:#5a4a1c;font-size:24px;line-height:1;cursor:pointer}
+.langbar-x:hover{background:#f5e3b3}
+@media (max-width:640px){.nav .langsw{margin-right:-6px}.langsw a{min-width:40px;padding:0 8px}}
+@media (max-width:480px){.nav .langsw{margin:0}.langsw a{min-width:34px;min-height:36px;padding:0 6px;font-size:13px}.nav .btn.sm{padding:10px 12px}}
+@media (max-width:400px){.brand{font-size:20px;gap:8px}.mark{width:30px;height:30px;font-size:15px}.nav{gap:0 8px}}
+@media (max-width:374px){.nav-links{flex:1 1 auto;gap:14px}.nav .langsw{order:4;margin-left:auto}}
+@media (max-width:340px){.nav-links{gap:10px}.nav-links a{font-size:13px}}
+@media print{.langbar,.langsw{display:none!important}}
+
 [hidden]{display:none!important}
 .phero .hsearch{margin:26px 0 0;max-width:640px}
 .hsearch label{display:block;margin:0 0 8px;font-weight:700;font-size:15px;color:var(--navy)}
@@ -311,6 +349,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 </defs></svg>
 
 <a class="skip" href="#main">Skip to content</a>
+<div class="langbar" id="langBar" lang="ms" hidden><div class="wrap"><p>Bahasa Malaysia tersedia &mdash; <a href="/ms/help" hreflang="ms" data-lang-set="ms" title="Switch to Bahasa Malaysia">Tukar ke BM<span class="vh" lang="en"> (Switch to Bahasa Malaysia)</span></a></p><button class="langbar-x" type="button" data-langbar-close aria-label="Tutup" title="Close">&times;</button></div></div>
 <header class="top"><div class="wrap nav">
   <a class="brand" href="/" aria-label="DartDraw home"><span class="mark" aria-hidden="true">D</span>DartDraw</a>
   <nav class="nav-links" aria-label="Main">
@@ -319,6 +358,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
     <a href="/help" aria-current="page">Help</a>
   </nav>
   <span class="spacer"></span>
+  <div class="langsw" role="group" aria-label="Language / Bahasa"><a href="/help" lang="en" hreflang="en" aria-label="English" data-lang-set="en" aria-current="true">EN</a><a href="/ms/help" lang="ms" hreflang="ms" aria-label="Bahasa Malaysia" data-lang-set="ms">BM</a></div>
   <a class="btn sm" href="/login.html" data-login>Log in</a>
 </div></header>
 <main id="main">
@@ -344,6 +384,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
           <li data-toc="quick-start"><a href="#quick-start">Quick start: run your first event in about 10 minutes</a></li>
           <li data-toc="getting-started"><a href="#getting-started">No account yet? Signing in and passwords</a></li>
           <li data-toc="how-dartdraw-works"><a href="#how-dartdraw-works">How DartDraw works: the seven steps and saving</a></li>
+          <li data-toc="languages"><a href="#languages">English or Bahasa Malaysia: screens, printed sheets and emails</a></li>
         </ol>
         <p class="toc-h">Set up an event</p>
         <ol>
@@ -444,6 +485,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
       <div class="hbody">
 <h4 id="no-account">No account yet?</h4>
 <p>Accounts are created by the site admin, usually the person who runs DartDraw for your club or league. Unless the sign-in box shows a <b>Sign up</b> link, you cannot make one yourself: ask your admin to create it. You then get a link to choose your password, and you sign in as below.</p>
+<p>The sign-in page and the account emails are in English and Bahasa Malaysia: see <a href="#languages">English or Bahasa Malaysia</a>.</p>
 <p>The sign-in box says the same under <b>Sign in</b>: &ldquo;No account yet? Accounts are created by the site admin.&rdquo; Your admin can add a line under it saying who to ask and how. If your club has no admin yet, the person who set up DartDraw for you can create one. See also <a href="#faq-admin">Who is the Admin, and how do I reach them?</a></p>
 
 <h4 id="signing-in">Signing in</h4>
@@ -502,6 +544,30 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <dd>The event is closed. See <a href="#finishing-the-event">Finish the event</a>.</dd>
 </dl>
 <p>A sample event is never saved, so it shows no save status. See <a href="#sample-event">Try it first with a sample event</a>.</p>
+</div>
+      <p class="totop"><a href="#top">Back to top &uarr;</a></p>
+    </article>
+    <article class="harticle" id="languages" data-item data-group="start-here" data-kind="guide" data-keywords="language languages english bahasa malaysia bahasa melayu malay melayu bm en translate translation translated switch change language screen language print language printed sheets language sheet language paper language print in malay print in english email emails bilingual two languages both languages">
+      <div class="hhead"><h3>English or Bahasa Malaysia: screens, printed sheets and emails</h3><a class="anchor" href="#languages" aria-label="Link to this section">#</a></div>
+      <p class="sum">The EN | BM switch, the language each event prints in, and why account emails come in both languages.</p>
+      <div class="hbody">
+<h4 id="language-switch">The EN | BM switch</h4>
+<p>DartDraw is in English and in Bahasa Malaysia. In the organiser app the EN | BM switch is at the top right, next to <b>Help</b>. On a narrow screen it is in the bar at the top, or in the menu that opens from the step name, under &ldquo;Bahasa:&rdquo;. The public pages and the sign-in page have the same switch at the top (the sign-in box that opens over a public page follows that page).</p>
+<p>A click changes every word on the screen at once. Switching saves nothing and changes nothing in your event: you stay on the same step, an open box stays open, and what you typed stays in its box.</p>
+<p>DartDraw remembers your choice in this browser. The organiser app, the public pages (this Help too) and the sign-in page share it: choose BM on one and the others open in BM as well. The <b>Help</b> link and the <b>?</b> links open this Help in the language on your screen. The public results site, where spectators follow your event, has its own EN | BM switch and remembers its own choice: it does not change the language of your screens, and your choice does not change theirs.</p>
+
+<h4 id="sheet-language">Printed sheets language</h4>
+<p>The language of the paper is a setting of each event, separate from the language on your screen. <b>Printed sheets language</b> sits with the other print settings on step 4, <b>Confirm &amp; Print Bracket</b>, and on step 7, <b>Print Final Chart</b>: choose <b>English</b> or <b>Bahasa Malaysia</b>.</p>
+<ul>
+<li>Every sheet of the event uses it: the charts and brackets, the running order, the rules sheet, the lineup sheets, the Players A&ndash;Z and Boards sheets, and the print previews on steps 4 and 7.</li>
+<li>It belongs to the event, so the paper is the same whoever prints it and whatever language their screen shows. For example, your screens can be in BM while the sheets print in English.</li>
+<li>A new event starts with the language your screen shows when you create it. Events made before this setting existed print in English. A duplicated event keeps the setting.</li>
+<li>Names, and everything you typed (the event name, the rules, the sponsor footer), print as you typed them. Automatic names such as &ldquo;Player A1&rdquo; are stored in the language of the screen when they were made.</li>
+<li>On a finalized event the setting is locked, like the other print settings.</li>
+</ul>
+
+<h4 id="bilingual-emails">Emails in both languages</h4>
+<p>DartDraw does not know which language you read when it emails you, so every account email is in both languages: English first, then Bahasa Malaysia, in the same message, with both in the subject line. That includes the email to verify your email address, the one with a link to reset your password, and the one you get when an admin creates your account or sends you a new password link. The link is the same in both halves.</p>
 </div>
       <p class="totop"><a href="#top">Back to top &uarr;</a></p>
     </article>
@@ -1224,6 +1290,10 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <dl class="glossary">
 <dt id="glossary-pack">Blank pack, running order, rules sheet</dt>
 <dd>What you print before play: the charts with no scores, a master running order (board by board, every match with a tick box) and a rules &amp; format sheet. <span class="eg">Step 4: <b>Print bracket pack</b>.</span></dd>
+<dt id="glossary-sheet-language">Printed sheets language</dt>
+<dd>The language every printed sheet of the event uses, English or Bahasa Malaysia, whatever language your screen shows. See <a href="#sheet-language">Printed sheets language</a>. <span class="eg">Steps 4 and 7: <b>Printed sheets language</b>.</span></dd>
+<dt id="glossary-language">EN | BM</dt>
+<dd>The language switch: the words on your screen in English or Bahasa Malaysia. It changes only the words, never your event. See <a href="#language-switch">The EN | BM switch</a>. <span class="eg">The top bar, next to <b>Help</b>.</span></dd>
 <dt id="glossary-publish">Publish, list</dt>
 <dd>Publish puts the results on a public page that anyone with the link can see. List also shows the event on the public home page. <span class="eg">Step 5: <b>Publish results</b>, <b>List on the public page</b>.</span></dd>
 <dt id="glossary-qr">QR code</dt>
@@ -1404,7 +1474,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 </div></section>
 
 <script src="/help-search.js"></script>
-<script type="application/json" id="helpSearchData">{"synonyms":[["login","log in","logon","log on","sign in","signin","sign on","signing in","logging in"],["register","registration","sign up","signup","create account","new account","get an account","no account","account","invite","invitation"],["password","forgot password","forgotten password","lost password","reset password","change password"],["typo","mistake","wrong score","wrong result","wrong match","wrong","undo","change score","change a score","change result","edit score","correct","correction","correct a result","fix score","fix a score","clear result","clear a result","clear score","delete score","remove score"],["quit","player quit","leaves","player leaves","leave","leaving","drop out","dropped out","drops out","retire","retired","injured","injury","gave up","give up","pull out","pulled out","leaves part way","leaves midway"],["no show","noshow","didnt turn up","did not turn up","didnt show","did not show","didnt come","absent","not turned up","walkover","walk over","wo"],["withdraw","withdrawal","withdrawals","remove player","remove entry","scratch"],["download","export","pdf","save as pdf","save pdf","print to pdf"],["qr","qr code","qr codes","barcode","scan"],["share","share link","link","public link","live link","live results","live page","public page","spectator","spectators","audience","viewers","fans"],["board","boards","oche","dartboard","dartboards","lane","lanes"],["draw","redraw","random draw","random","shuffle","seed","seeds","seeding","seeded"],["finalise","finalize","finalised","finalized","finish","finished","finishing","close event","end event","complete","accept","accept results","lock results","sign off"],["players","player","people","entrants","participants","competitors","names","entry","entries","pair","pairs","team","teams"],["tie","tied","ties","tie break","tie breaks","tiebreak","tie breaker","tiebreaker","level on points","h2h","head to head","playoff","play off"],["leg","legs","best of","what is a leg"],["bye","byes","free pass"],["rename","edit name","change name","rename event"],["phone","mobile","tablet","ipad","iphone","android","portrait","landscape","rotate","sideways"],["offline","no internet","no wifi","wifi","connection","no signal","internet"],["couldnt save","not saving","wont save","save failed","not saved","cant save"],["updated elsewhere","two windows","two tabs","another device","second device","out of date"],["paper size","paper","a3","a2","a1","big paper","bigger paper","poster"],["reprint","print again","reprinting"],["winner","champion","who won","won","final standings","placings"],["begin","get started","getting started","first event","tutorial","beginner","quick start","quickstart"],["contact","support","helpdesk","help desk","admin","administrator"],["marker","markers","scorer","chalker","referee"],["plate","plate pool","consolation","losers bracket","second chance"],["duplicate","copy","reuse","template","next time"],["check in","checkin","checked in","arrived","attendance"],["segment","segments","team match"],["glossary","words","terms","jargon","abbreviation","abbreviations","meaning","definition","definitions","what does it mean"],["standings","table","tables","columns","mp","mw","ml","lw","pts"],["qualifier","qualifiers","qualify","go through","goes through","advance","advances","advancing"],["sample","sample event","practice","demo","try it","test event"],["problem","problems","troubleshooting","not working","broken","something wrong","gone wrong"]],"noAnswer":[{"terms":["free","cost","costs","price","prices","refund","pay","payment","paid","fee","fees","money","charge"],"say":"This Help does not cover costs or payments. Ask your DartDraw admin."},{"terms":["180","180s","checkout","checkouts","double out","average","averages","darts thrown","high score"],"say":"DartDraw records each match result in legs. It does not keep the darts thrown, so there are no 180s, checkouts or averages."},{"terms":["trophy","trophies","prize","prizes","medal","medals"],"say":"DartDraw does not keep track of prizes or trophies."},{"terms":["text message","text messages","sms","phone number","phone numbers","whatsapp","message players","email players","notify","notification","notifications"],"say":"DartDraw cannot send messages to players. Share the live link or the QR codes instead."},{"terms":["csv","excel","spreadsheet","xlsx"],"say":"There is no spreadsheet export yet. You can print any chart, or save it as a PDF."},{"terms":["video","videos","live stream","livestream","stream","streaming","broadcast","youtube","watch video"],"say":"DartDraw shows scores, not video: it cannot stream or record the matches."}]}</script>
+<script type="application/json" id="helpSearchData">{"synonyms":[["login","log in","logon","log on","sign in","signin","sign on","signing in","logging in"],["register","registration","sign up","signup","create account","new account","get an account","no account","account","invite","invitation"],["password","forgot password","forgotten password","lost password","reset password","change password"],["typo","mistake","wrong score","wrong result","wrong match","wrong","undo","change score","change a score","change result","edit score","correct","correction","correct a result","fix score","fix a score","clear result","clear a result","clear score","delete score","remove score"],["quit","player quit","leaves","player leaves","leave","leaving","drop out","dropped out","drops out","retire","retired","injured","injury","gave up","give up","pull out","pulled out","leaves part way","leaves midway"],["no show","noshow","didnt turn up","did not turn up","didnt show","did not show","didnt come","absent","not turned up","walkover","walk over","wo"],["withdraw","withdrawal","withdrawals","remove player","remove entry","scratch"],["download","export","pdf","save as pdf","save pdf","print to pdf"],["qr","qr code","qr codes","barcode","scan"],["share","share link","link","public link","live link","live results","live page","public page","spectator","spectators","audience","viewers","fans"],["board","boards","oche","dartboard","dartboards","lane","lanes"],["draw","redraw","random draw","random","shuffle","seed","seeds","seeding","seeded"],["finalise","finalize","finalised","finalized","finish","finished","finishing","close event","end event","complete","accept","accept results","lock results","sign off"],["players","player","people","entrants","participants","competitors","names","entry","entries","pair","pairs","team","teams"],["tie","tied","ties","tie break","tie breaks","tiebreak","tie breaker","tiebreaker","level on points","h2h","head to head","playoff","play off"],["leg","legs","best of","what is a leg"],["bye","byes","free pass"],["rename","edit name","change name","rename event"],["phone","mobile","tablet","ipad","iphone","android","portrait","landscape","rotate","sideways"],["offline","no internet","no wifi","wifi","connection","no signal","internet"],["couldnt save","not saving","wont save","save failed","not saved","cant save"],["updated elsewhere","two windows","two tabs","another device","second device","out of date"],["paper size","paper","a3","a2","a1","big paper","bigger paper","poster"],["reprint","print again","reprinting"],["winner","champion","who won","won","final standings","placings"],["begin","get started","getting started","first event","tutorial","beginner","quick start","quickstart"],["contact","support","helpdesk","help desk","admin","administrator"],["marker","markers","scorer","chalker","referee"],["plate","plate pool","consolation","losers bracket","second chance"],["duplicate","copy","reuse","template","next time"],["check in","checkin","checked in","arrived","attendance"],["segment","segments","team match"],["glossary","words","terms","jargon","abbreviation","abbreviations","meaning","definition","definitions","what does it mean"],["standings","table","tables","columns","mp","mw","ml","lw","pts"],["qualifier","qualifiers","qualify","go through","goes through","advance","advances","advancing"],["sample","sample event","practice","demo","try it","test event"],["problem","problems","troubleshooting","not working","broken","something wrong","gone wrong"],["language","languages","bahasa","bahasa malaysia","bahasa melayu","malay","melayu","bm","translate","translation","translated","english"],["email","emails","e-mail","e-mails","mail","inbox"],["sheet language","sheets language","printed sheets language","print language","paper language","print in malay","print in english"]],"noAnswer":[{"terms":["free","cost","costs","price","prices","refund","pay","payment","paid","fee","fees","money","charge"],"say":"This Help does not cover costs or payments. Ask your DartDraw admin."},{"terms":["180","180s","checkout","checkouts","double out","average","averages","darts thrown","high score"],"say":"DartDraw records each match result in legs. It does not keep the darts thrown, so there are no 180s, checkouts or averages."},{"terms":["trophy","trophies","prize","prizes","medal","medals"],"say":"DartDraw does not keep track of prizes or trophies."},{"terms":["text message","text messages","sms","phone number","phone numbers","whatsapp","message players","email players","notify","notification","notifications"],"say":"DartDraw cannot send messages to players. Share the live link or the QR codes instead."},{"terms":["csv","excel","spreadsheet","xlsx"],"say":"There is no spreadsheet export yet. You can print any chart, or save it as a PDF."},{"terms":["video","videos","live stream","livestream","stream","streaming","broadcast","youtube","watch video"],"say":"DartDraw shows scores, not video: it cannot stream or record the matches."}],"strings":{"count":{"one":"1 result","other":"{n} results"},"near":{"one":"No direct answer. 1 close match","other":"No direct answer. {n} close matches"},"nearLabel":"Closest matches:","showAll":"Show all {n} results"},"alias":[["bagaimana",""],["macam mana",""],["camne",""],["cara",""],["saya",""],["nak",""],["hendak",""],["mahu",""],["boleh",""],["apa",""],["apakah",""],["yang",""],["untuk",""],["dengan",""],["mana",""],["kenapa",""],["mengapa",""],["tak",""],["tidak",""],["di",""],["ke",""],["ini",""],["itu",""],["sudah",""],["dah",""],["log masuk","log in"],["logmasuk","login"],["kata laluan","password"],["lupa kata laluan","forgot password"],["akaun","account"],["daftar masuk","check in"],["daftar","register"],["cetak semula","reprint"],["cetak","print"],["mencetak","print"],["cetakan","print"],["muat turun","download"],["kod qr","qr"],["tidak hadir","no show"],["tak hadir","no show"],["tak datang","no show"],["tidak datang","no show"],["ponteng","no show"],["tarik diri","withdraw"],["berhenti","player quit"],["cedera","injured"],["markah","score"],["skor","score"],["skor salah","wrong score"],["score salah","wrong score"],["lupa password","forgot password"],["tak boleh login","log in"],["key in","enter scores"],["salah","wrong"],["silap","mistake"],["betulkan","correct"],["kosongkan","clear result"],["buat asal","undo"],["keputusan","results"],["kumpulan","group"],["undian","draw"],["undi","draw"],["cabutan","draw"],["muktamad","finalize"],["muktamadkan","finalize"],["tamatkan","finish"],["terbitkan","publish"],["terbit","publish"],["pemain","players"],["peserta","entries"],["pasangan","pairs"],["beregu","doubles"],["pasukan","teams"],["berpasukan","teams"],["perseorangan","singles"],["kalah mati","knockout"],["pemenang","winner"],["juara","champion"],["padam","delete"],["namakan semula","rename"],["tukar nama","rename"],["telefon","phone"],["kertas","paper"],["saiz kertas","paper size"],["pencatat skor","marker"],["pencatat","marker"],["segmen","segment"],["pemecah seri","tie break"],["sama mata","tie"],["luar talian","offline"],["penonton","spectators"],["pautan","link"],["kongsi","share"],["halaman utama","home page"],["salin","duplicate"],["mula","start"],["mulakan perlawanan","start all games"],["tetingkap timbul","pop up"],["skrin kedua","second screen"],["projektor","projector"],["insiden","incident"],["pentadbir","admin"],["borang barisan","lineup"],["organisasi","organisation"],["kelab","club"],["istilah","glossary"],["maksud","meaning"],["kedudukan","standings"],["masalah","problem"],["layak","qualify"],["acara contoh","sample event"],["sahkan","confirm"],["saingan plate","plate pool"],["muat semula","reload"],["penjadualan","scheduling"],["tukar bahasa","language"],["bahasa inggeris","english"],["bahasa helaian bercetak","printed sheets language"],["helaian bercetak","printed sheets"],["e-mel","email"],["emel","email"]]}</script>
 <script>
 (function(){
 var form=document.getElementById('helpSearch'),input=document.getElementById('helpQ');
@@ -1416,8 +1486,7 @@ if(form&&input&&typeof HelpSearch!=='undefined'){
   var tocs=[].slice.call(document.querySelectorAll('[data-toc]')).map(function(li){var id=li.getAttribute('data-toc'),own=idsOf(id);return{el:li,ids:own.length?own:[id]}});
   HelpSearch.attach({input:input,form:form,reveal:form,status:document.getElementById('helpCount'),results:document.getElementById('helpResults'),
     empty:document.getElementById('helpEmpty'),emptyQ:document.getElementById('helpEmptyQ'),say:document.getElementById('helpSay'),
-    items:items,groups:groups,tocs:tocs,data:data,
-    nearCount:function(n){return 'No direct answer. '+n+(n===1?' close match':' close matches')}});
+    items:items,groups:groups,tocs:tocs,data:data});
 }
 var toc=document.getElementById('helpToc'),mq=window.matchMedia?window.matchMedia('(min-width: 961px)'):null;
 if(toc&&mq){
@@ -1442,6 +1511,40 @@ if(toc&&mq){
   </nav>
   <div class="foot"><a class="brand" href="/"><span class="mark" aria-hidden="true">D</span>DartDraw</a><span class="sep" aria-hidden="true"></span><span>Tournament charts, made simple.</span></div>
 </div></section>
+
+<script id="dd-lang-ui">
+(function(){
+var KEY='dartdraw.lang',NOTE='dartdraw.lang.note',FOCUS='dartdraw.lang.focus';
+function get(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function put(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+/* the other language's link keeps this address's query (?from=...) and #anchor, so the twin opens at the same place */
+function keep(){return String(location.search||'').replace(/([?&])lang=(en|ms)(&|$)/,function(a,b,c,d){return d?b:''}).replace(/[?&]$/,'')+String(location.hash||'')}
+function sync(){[].forEach.call(document.querySelectorAll('[data-lang-set]'),function(a){
+  if(a.getAttribute('aria-current')==='true')return;
+  var b=a.getAttribute('data-base')||String(a.getAttribute('href')||'').split(/[?#]/)[0];
+  a.setAttribute('data-base',b);a.setAttribute('href',b+keep());
+})}
+sync();
+window.addEventListener('hashchange',sync);
+[].forEach.call(document.querySelectorAll('[data-lang-set]'),function(a){
+  a.addEventListener('click',function(e){
+    var l=a.getAttribute('data-lang-set');
+    put(KEY,l);
+    try{sessionStorage.setItem(FOCUS,'1')}catch(x){}
+    if(a.getAttribute('aria-current')==='true')e.preventDefault();
+  });
+});
+try{if(sessionStorage.getItem(FOCUS)){sessionStorage.removeItem(FOCUS);var cur=document.querySelector('.langsw [aria-current="true"]');if(cur&&cur.focus)cur.focus()}}catch(e){}
+var bar=document.getElementById('langBar');
+if(bar){
+  var n=String((navigator.languages&&navigator.languages[0])||navigator.language||'');
+  var saved=get(KEY);
+  if(saved!=='en'&&saved!=='ms'&&/^ms/i.test(n)&&get(NOTE)!=='closed')bar.hidden=false;
+  var x=bar.querySelector('[data-langbar-close]');
+  if(x)x.addEventListener('click',function(){bar.hidden=true;put(NOTE,'closed')});
+}
+})();
+</script>
 
 <dialog id="loginDlg" aria-label="Log in to DartDraw">
   <div class="dlg">

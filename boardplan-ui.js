@@ -8,28 +8,28 @@ function bpOrgKey(key){ return key === 'ko' ? 'knockout' : key; }
 function bpMatchOf(t, e){ var b = bpBracket(t, e.key); return b && b.rounds[e.ri] ? b.rounds[e.ri][e.mi] : null; }
 function bpSlotName(t, m, side){
   var id = m[side+'EntryId'], from = m[side+'FromPod'];
-  if(id) return (t.entriesList.find(function(e){ return e.id === id; }) || {}).name || 'Unknown';
-  if(from){ var p = podsList(t).find(function(x){ return x.id === from; }); return p && podNoWinner(p) ? 'Group '+p.label+': no winner' : 'Winner of Group '+(p ? p.label : '?'); }
-  return 'To be decided';
+  if(id) return (t.entriesList.find(function(e){ return e.id === id; }) || {}).name || T('r.unknown');
+  if(from){ var p = podsList(t).find(function(x){ return x.id === from; }); return p && podNoWinner(p) ? T('r.podNoWinner', { g: p.label }) : T('r.podWinner', { g: (p ? p.label : '?') }); }
+  return T('bp.tbd');
 }
 function bpWhere(t, e){
   var b = bpBracket(t, e.key), round = b ? koRoundName(b, e.ri) : '';
-  if(e.key === 'ko') return 'Finals · '+round;
+  if(e.key === 'ko') return T('bp.whereFinals', { round: round });
   var p = podByKey(t, e.key);
-  return 'Group '+(p ? p.label : '?')+' · '+round;
+  return T('bp.whereGroup', { g: (p ? p.label : '?'), round: round });
 }
 function bpEntryRowHTML(t, e, label){
   var m = bpMatchOf(t, e);
   if(!m) return '';
   var args = "'"+bpOrgKey(e.key)+"',"+e.ri+','+e.mi, btn = 'style="padding:3px 9px;font-size:11px"';
   var buttons = e.ready
-    ? '<button class="btn ghost" '+btn+' onclick="bpToggleCall('+args+')">'+(m.called ? 'Uncall' : 'Call')+'</button>'+
-      '<button class="btn ghost" '+btn+' onclick="koMatchScoreModal('+args+')">Enter result</button>'+
-      '<button class="btn ghost" '+btn+' onclick="openKoNoShowPicker('+args+')">No-show</button>'
+    ? '<button class="btn ghost" '+btn+' onclick="bpToggleCall('+args+')">'+T(m.called ? 'bp.uncall' : 'bp.call')+'</button>'+
+      '<button class="btn ghost" '+btn+' onclick="koMatchScoreModal('+args+')">'+T('bp.enter')+'</button>'+
+      '<button class="btn ghost" '+btn+' onclick="openKoNoShowPicker('+args+')">'+T('noshow.tag')+'</button>'
     : '';
   return '<div style="padding:8px 0;border-top:1px solid var(--line)">'+
-    '<div style="font-size:12px"><b>'+(m.called ? 'Called' : label)+'</b> · '+escapeHtml(bpWhere(t, e))+(e.estMs != null ? ' · ~'+escapeHtml(epochClockLabel(e.estMs)) : '')+'</div>'+
-    '<div style="font-size:13px;margin:2px 0 6px">'+escapeHtml(bpSlotName(t, m, 'a'))+' v '+escapeHtml(bpSlotName(t, m, 'b'))+(e.ready ? '' : ' <span class="hint" style="margin:0">· waiting for an earlier match</span>')+'</div>'+
+    '<div style="font-size:12px"><b>'+(m.called ? T('bp.called') : label)+'</b> · '+escapeHtml(bpWhere(t, e))+(e.estMs != null ? ' · ~'+escapeHtml(epochClockLabel(e.estMs)) : '')+'</div>'+
+    '<div style="font-size:13px;margin:2px 0 6px">'+T('ko.vs', { a: escapeHtml(bpSlotName(t, m, 'a')), b: escapeHtml(bpSlotName(t, m, 'b')) })+(e.ready ? '' : ' <span class="hint" style="margin:0">'+T('bp.waiting')+'</span>')+'</div>'+
     (buttons ? '<div class="buttonrow" style="margin:0">'+buttons+'</div>' : '')+'</div>';
 }
 function bpPanelHTML(){
@@ -40,12 +40,12 @@ function bpPanelHTML(){
     var pending = plan.boards[b].filter(function(e){ return e.status !== 'done'; });
     var shown = pending.slice(0, 2), more = pending.length - shown.length;
     return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><strong>Board '+b+'</strong><span class="hint" style="margin:0">'+(pending.length ? pending.length+' to play' : 'Finished')+'</span></div>'+
-      shown.map(function(e){ return bpEntryRowHTML(t, e, e.status === 'up' ? 'Up now' : 'Next'); }).join('')+
-      (more > 0 ? '<div class="hint" style="margin:6px 0 0">'+more+' more after these</div>' : '')+'</div>';
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><strong>'+T('bp.board', { b: b })+'</strong><span class="hint" style="margin:0">'+(pending.length ? T('bp.toPlay', { n: pending.length }) : T('pods.finished'))+'</span></div>'+
+      shown.map(function(e){ return bpEntryRowHTML(t, e, T(e.status === 'up' ? 'bp.upNow' : 'bp.next')); }).join('')+
+      (more > 0 ? '<div class="hint" style="margin:6px 0 0">'+T('bp.more', { n: more })+'</div>' : '')+'</div>';
   }).join('');
-  return '<div class="card"><h2>Boards</h2><p class="intro">What is on each board now and next. Call a match to tell the players, on the public results page, to go to their board.</p>'+
-    (plan.hasTimes ? '' : '<div class="hint" style="margin-bottom:8px">Estimated times are off. Set an anticipated start time in <a href="javascript:void(0)" onclick="goStage(2)">Format &amp; branding</a> to switch them on.</div>')+
+  return '<div class="card"><h2>'+T('sum.boards')+'</h2><p class="intro">'+T('bp.intro')+'</p>'+
+    (plan.hasTimes ? '' : '<div class="hint" style="margin-bottom:8px">'+T('bp.timesOff')+'</div>')+
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:10px">'+cards+'</div>'+
     bpFinalsBoardsHTML(t, plan)+'</div>';
 }
@@ -59,11 +59,11 @@ function bpFinalsBoardsHTML(t, plan){
   fin.rounds.forEach(function(round, ri){ round.forEach(function(m, mi){
     if(m.bye || m.void) return;
     rows += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;font-size:12px"><span>'+
-      escapeHtml(koRoundName(fin, ri))+' · '+escapeHtml(bpSlotName(t, m, 'a'))+' v '+escapeHtml(bpSlotName(t, m, 'b'))+'</span>'+
-      '<span>Board <input type="text" inputmode="numeric" style="width:54px;height:26px;font-size:12px" value="'+escapeHtml(String(m.board || ''))+'" placeholder="'+escapeHtml(String(auto[ri+'|'+mi] || ''))+'" onchange="bpSetFinalsBoard('+ri+','+mi+',this.value)"></span></div>';
+      escapeHtml(koRoundName(fin, ri))+' · '+T('ko.vs', { a: escapeHtml(bpSlotName(t, m, 'a')), b: escapeHtml(bpSlotName(t, m, 'b')) })+'</span>'+
+      '<span>'+T('cc.board')+' <input type="text" inputmode="numeric" style="width:54px;height:26px;font-size:12px" value="'+escapeHtml(String(m.board || ''))+'" placeholder="'+escapeHtml(String(auto[ri+'|'+mi] || ''))+'" onchange="bpSetFinalsBoard('+ri+','+mi+',this.value)"></span></div>';
   }); });
-  return '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">Finals boards</summary>'+
-    '<p class="hint" style="margin:6px 0">Leave a box blank to let the app choose. A number puts that match on that board.</p>'+rows+'</details>';
+  return '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">'+T('bp.finalsBoards')+'</summary>'+
+    '<p class="hint" style="margin:6px 0">'+T('bp.finalsHint')+'</p>'+rows+'</details>';
 }
 function bpToggleCall(bracketKey, ri, mi){
   var b = bracketByKey(state, bracketKey), m = b && b.rounds[ri] && b.rounds[ri][mi];
@@ -111,14 +111,15 @@ function bpSheetShell(t, title, subtitle, inner, qrPath){
   return '<div class="print-sheet ro-sheet">'+
     '<div class="sheet-top"'+printQrHeaderAttr(qr)+'>'+mainLogoBoxHTML()+
       '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
-      '<div class="sheet-sub">'+escapeHtml(t.eventCreation.eventType)+' '+escapeHtml(t.eventCreation.competitionUnit)+' · '+escapeHtml(t.eventCreation.date||'')+'</div></div>'+
+      '<div class="sheet-sub">'+printSubHTML(t)+'</div></div>'+
       '<div class="group-label"><strong>'+escapeHtml(title)+'</strong><span>'+escapeHtml(subtitle)+'</span></div>'+qr+
     '</div>'+inner+
-    '<div class="footer" style="margin-top:14px"><small>'+(t.format.footerText ? escapeHtml(t.format.footerText) : '')+'</small><div class="footer-right">'+DD_CREDIT_HTML+'</div></div>'+
+    '<div class="footer" style="margin-top:14px"><small>'+(t.format.footerText ? escapeHtml(t.format.footerText) : '')+'</small><div class="footer-right">'+ddCreditHTML()+'</div></div>'+
   '</div>';
 }
 var BP_ROWS_PER_SHEET = 36, BP_BOARDS_PER_SHEET = 14;   /* what fits on one fixed-height sheet */
 function bpPlayersSheetsHTML(t){
+  if(ddLang()!==ddPrintLang()) return ddWithLang(ddPrintLang(), ()=> bpPlayersSheetsHTML.apply(null, arguments));   // printed: the print language
   var rows = bpPlayerRows(t);
   if(!rows.length) return '';
   var sheets = Math.ceil(rows.length / BP_ROWS_PER_SHEET), html = '';
@@ -127,13 +128,14 @@ function bpPlayersSheetsHTML(t){
     var body = '<div style="column-count:2;column-gap:28px;margin-top:10px">'+chunk.map(function(r){
       return '<div style="break-inside:avoid;display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #d7dce1;font-size:12px">'+
         '<span><b>'+escapeHtml(r.name)+'</b>'+(r.org ? ' <small style="color:#6f7c8b">'+escapeHtml(r.org)+'</small>' : '')+'</span>'+
-        '<span style="white-space:nowrap">Group '+escapeHtml(r.group)+' · Board '+escapeHtml(r.boards)+(r.startMs != null ? ' · '+escapeHtml(bpClock(r.startMs)) : '')+'</span></div>';
+        '<span style="white-space:nowrap">'+T('pr.bp.row', {g: escapeHtml(r.group), b: escapeHtml(r.boards)})+(r.startMs != null ? ' · '+escapeHtml(bpClock(r.startMs)) : '')+'</span></div>';
     }).join('')+'</div>';
-    html += bpSheetShell(t, 'PLAYERS A–Z', 'Find your group and board'+(sheets > 1 ? ' · Sheet '+(s + 1)+' of '+sheets : ''), body);
+    html += bpSheetShell(t, T('pr.bp.players'), T('pr.bp.find')+(sheets > 1 ? T('pr.SheetOf', {i: s + 1, n: sheets}) : ''), body);
   }
   return html;
 }
 function bpBoardsSheetHTML(t){
+  if(ddLang()!==ddPrintLang()) return ddWithLang(ddPrintLang(), ()=> bpBoardsSheetHTML.apply(null, arguments));   // printed: the print language
   var plan = buildBoardPlan(t, { starts:true });
   var boards = Object.keys(plan.boards).sort(function(a, b){ return a - b; });
   if(!boards.length) return '';
@@ -144,23 +146,23 @@ function bpBoardsSheetHTML(t){
       if(seen[e.key]) return;
       seen[e.key] = true;
       var p = podByKey(t, e.key);
-      parts.push('Group '+escapeHtml(p ? p.label : '?')+(e.startMs != null ? ' <small>('+escapeHtml(bpClock(e.startMs))+')</small>' : ''));
+      parts.push(T('grp.label', {g: escapeHtml(p ? p.label : '?')})+(e.startMs != null ? ' <small>('+escapeHtml(bpClock(e.startMs))+')</small>' : ''));
     });
-    if(finals) parts.push('Finals ('+finals+' match'+(finals === 1 ? '' : 'es')+')');
-    return '<div style="display:flex;gap:14px;padding:8px 0;border-bottom:1px solid #d7dce1;font-size:13px"><b style="min-width:70px">Board '+escapeHtml(b)+'</b><span>'+parts.join(' → ')+'</span></div>';
+    if(finals) parts.push(T('pr.bp.finals', {n: finals}));
+    return '<div style="display:flex;gap:14px;padding:8px 0;border-bottom:1px solid #d7dce1;font-size:13px"><b style="min-width:70px">'+T('bp.board', {b: escapeHtml(b)})+'</b><span>'+parts.join(' → ')+'</span></div>';
   });
   var sheets = Math.ceil(rows.length / BP_BOARDS_PER_SHEET), html = '';
   for(var s = 0; s < sheets; s++){
-    html += bpSheetShell(t, 'BOARDS', 'Groups in the order they play'+(sheets > 1 ? ' · Sheet '+(s + 1)+' of '+sheets : ''),
+    html += bpSheetShell(t, T('pr.bp.boards'), T('pr.bp.order')+(sheets > 1 ? T('pr.SheetOf', {i: s + 1, n: sheets}) : ''),
       '<div style="margin-top:10px">'+rows.slice(s * BP_BOARDS_PER_SHEET, (s + 1) * BP_BOARDS_PER_SHEET).join('')+'</div>', 'boards');
   }
   return html;
 }
 function playersSheetToggleHTML(){
-  return '<div class="toggle-row"><input type="checkbox" id="playersSheetToggle" '+(state.printSettings.playersSheetEnabled !== false ? 'checked' : '')+' onchange="togglePlayersSheet(this.checked)"> <label for="playersSheetToggle">Include the Players A–Z sheet (name, group and board, for the wall)</label></div>';
+  return '<div class="toggle-row"><input type="checkbox" id="playersSheetToggle" '+(state.printSettings.playersSheetEnabled !== false ? 'checked' : '')+' onchange="togglePlayersSheet(this.checked)"> <label for="playersSheetToggle">'+T('bp.playersSheet')+'</label></div>';
 }
 function boardsSheetToggleHTML(){
-  return '<div class="toggle-row"><input type="checkbox" id="boardsSheetToggle" '+(state.printSettings.boardsSheetEnabled !== false ? 'checked' : '')+' onchange="toggleBoardsSheet(this.checked)"> <label for="boardsSheetToggle">Include the Boards sheet (which groups play on each board)</label></div>';
+  return '<div class="toggle-row"><input type="checkbox" id="boardsSheetToggle" '+(state.printSettings.boardsSheetEnabled !== false ? 'checked' : '')+' onchange="toggleBoardsSheet(this.checked)"> <label for="boardsSheetToggle">'+T('bp.boardsSheet')+'</label></div>';
 }
 function togglePlayersSheet(v){ state.printSettings.playersSheetEnabled = v; persist(); render(); }
 function toggleBoardsSheet(v){ state.printSettings.boardsSheetEnabled = v; persist(); render(); }

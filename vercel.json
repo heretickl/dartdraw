@@ -7,7 +7,11 @@
     { "source": "/app", "destination": "/app.html" },
     { "source": "/features", "destination": "/features.html" },
     { "source": "/how-it-works", "destination": "/how-it-works.html" },
-    { "source": "/help", "destination": "/help.html" }
+    { "source": "/help", "destination": "/help.html" },
+    { "source": "/ms", "destination": "/ms/index.html" },
+    { "source": "/ms/features", "destination": "/ms/features.html" },
+    { "source": "/ms/how-it-works", "destination": "/ms/how-it-works.html" },
+    { "source": "/ms/help", "destination": "/ms/help.html" }
   ],
   "headers": [
     { "source": "/verify.html", "headers": [

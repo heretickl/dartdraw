@@ -16,12 +16,13 @@ function isMailConfigured() {
   return false;
 }
 
-// Never throws. { ok: true } when handed to the provider, else { ok: false }.
-async function sendMail({ to, subject, text }) {
+// Never throws. { ok: true } when handed to the provider, else { ok: false }. html is optional: the account e-mails
+// (api/_lib/emails.js) send the same words as text and as HTML; the console provider logs only the text, as before.
+async function sendMail({ to, subject, text, html }) {
   try {
     if (!isMailConfigured()) return { ok: false };
     if (provider() === 'console') {
-      sendMail.outbox.push({ to, subject, text });
+      sendMail.outbox.push(html === undefined ? { to, subject, text } : { to, subject, text, html });
       console.log('[mail] To: ' + to + '\n[mail] Subject: ' + subject + '\n' + text);
       return { ok: true };
     }
@@ -31,7 +32,7 @@ async function sendMail({ to, subject, text }) {
         Authorization: 'Bearer ' + process.env.RESEND_API_KEY,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ from: process.env.MAIL_FROM, to: [to], subject, text })
+      body: JSON.stringify(Object.assign({ from: process.env.MAIL_FROM, to: [to], subject, text }, html === undefined ? {} : { html }))
     });
     return { ok: !!(resp && resp.ok) };
   } catch (e) {

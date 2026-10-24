@@ -106,10 +106,10 @@ for (const [name, call] of ROUTES) {
     const before = JSON.stringify(db.tables);
     const none = await call({});
     assert.equal(none.statusCode, 401);
-    assert.deepEqual(none.body, { error: 'Not authenticated' });
+    assert.deepEqual(none.body, { code: 'not_authenticated', error: 'Not authenticated' });
     const org = await call({ cookies: cookieFor(byId('org1')) });
     assert.equal(org.statusCode, 403);
-    assert.deepEqual(org.body, { error: 'Admin only.' });
+    assert.deepEqual(org.body, { code: 'admin_only', error: 'Admin only.' });
     assert.equal(JSON.stringify(db.tables), before);
   });
 
@@ -129,7 +129,7 @@ for (const [name, call] of ROUTES) {
     delete process.env.REQUIRE_LOGIN;
     const r = await call({ cookies: asAdmin() });
     assert.equal(r.statusCode, 403);
-    assert.deepEqual(r.body, { error: 'Admin only.' });
+    assert.deepEqual(r.body, { code: 'admin_only', error: 'Admin only.' });
   });
 }
 
@@ -241,7 +241,7 @@ test('POST still answers 201 when the mail provider fails', async () => {
 });
 
 test('POST: an existing email (any case or spacing, the Public address included) is 409', async () => {
-  const msg = { error: 'An account with that email already exists.' };
+  const msg = { code: 'email_exists', error: 'An account with that email already exists.' };
   for (const email of ['a@example.com', ' A@EXAMPLE.COM ', 'root@example.com', PUBLIC_EMAIL, 's@example.com']) {
     const r = await create(goodNew({ email }));
     assert.equal(r.statusCode, 409, email);
@@ -262,7 +262,7 @@ test('POST: a unique-violation raised by the database (a race) is also 409', asy
   };
   const r = await create(goodNew());
   assert.equal(r.statusCode, 409);
-  assert.deepEqual(r.body, { error: 'An account with that email already exists.' });
+  assert.deepEqual(r.body, { code: 'email_exists', error: 'An account with that email already exists.' });
 });
 
 test('POST validation: name 1-80, email shape <= 254, tier basic|pro, a body is required', async () => {
@@ -579,7 +579,7 @@ test('DELETE removes an organiser who owns no events (204) along with their toke
 test('DELETE is refused with 409 and the event count while they own events; nothing is lost', async () => {
   const r = await del('org1');
   assert.equal(r.statusCode, 409);
-  assert.deepEqual(r.body, { error: 'Transfer or delete their events first.', eventCount: 2 });
+  assert.deepEqual(r.body, { code: 'has_events', error: 'Transfer or delete their events first.', eventCount: 2 });
   assert.ok(byId('org1'));
   assert.equal(db.tables.tournaments.length, 3);
   const r2 = await del('org2');
@@ -601,7 +601,7 @@ test('DELETE: an event created during the request makes the database refuse, and
   };
   const r = await del('orgU');
   assert.equal(r.statusCode, 409);
-  assert.deepEqual(r.body, { error: 'Transfer or delete their events first.', eventCount: 1 });
+  assert.deepEqual(r.body, { code: 'has_events', error: 'Transfer or delete their events first.', eventCount: 1 });
   assert.ok(byId('orgU'));
 });
 
@@ -652,7 +652,7 @@ test('race: two admins demoting each other at the same moment leave exactly one 
   ]);
   assert.deepEqual([a.statusCode, b.statusCode].sort(), [200, 409]);
   const refused = a.statusCode === 409 ? a : b;
-  assert.deepEqual(refused.body, { error: 'There must always be at least one active admin.' });
+  assert.deepEqual(refused.body, { code: 'last_admin', error: 'There must always be at least one active admin.' });
   assert.equal(activeAdmins().length, 1);
 });
 

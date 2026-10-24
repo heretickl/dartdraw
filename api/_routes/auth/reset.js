@@ -9,11 +9,11 @@ const { INVALID_LINK, MIN_PASSWORD } = require('../../_lib/authflow');
 // token_version so every earlier session stops working. A suspended account
 // changes nothing and gets the same answer as a bad link.
 module.exports = async (req, res) => {
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (req.method !== 'POST') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
 
   const { token, password } = req.body || {};
   if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
-    res.status(400).json({ error: 'Password must be at least ' + MIN_PASSWORD + ' characters.' });
+    res.status(400).json({ code: 'password_too_short', error: 'Password must be at least ' + MIN_PASSWORD + ' characters.' });
     return;
   }
 
@@ -21,7 +21,7 @@ module.exports = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
     const consumed = await consumeToken(token, ['reset', 'invite']);
     if (!consumed) {
-      res.status(400).json({ error: INVALID_LINK });
+      res.status(400).json({ code: 'invalid_link', error: INVALID_LINK });
       return;
     }
     const rows = await sql`
@@ -32,11 +32,11 @@ module.exports = async (req, res) => {
       RETURNING id
     `;
     if (!rows.length) {
-      res.status(400).json({ error: INVALID_LINK });
+      res.status(400).json({ code: 'invalid_link', error: INVALID_LINK });
       return;
     }
     res.status(200).json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: 'Could not reset your password.' });
+    res.status(500).json({ code: 'reset_failed', error: 'Could not reset your password.' });
   }
 };

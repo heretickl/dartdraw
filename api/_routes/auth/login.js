@@ -8,11 +8,11 @@ const EMAIL_LIMIT = 10;
 const IP_LIMIT = 40;
 
 module.exports = async (req, res) => {
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (req.method !== 'POST') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
 
   const { email, password } = req.body || {};
   if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
-    res.status(400).json({ error: 'Email and password are required.' });
+    res.status(400).json({ code: 'email_password_required', error: 'Email and password are required.' });
     return;
   }
 
@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
     const emailOver = await hit(emailKey, EMAIL_LIMIT, WINDOW_MS);
     const ipOver = await hit(ipKey, IP_LIMIT, WINDOW_MS);
     if (emailOver || ipOver) {
-      res.status(429).json({ error: 'Too many attempts. Try again later.' });
+      res.status(429).json({ code: 'rate_limited', error: 'Too many attempts. Try again later.' });
       return;
     }
 
@@ -40,7 +40,7 @@ module.exports = async (req, res) => {
     const ok = !!(realHash && matched);
 
     if (!ok) {
-      res.status(401).json({ error: 'Incorrect email or password.' });
+      res.status(401).json({ code: 'bad_credentials', error: 'Incorrect email or password.' });
       return;
     }
 
@@ -61,6 +61,6 @@ module.exports = async (req, res) => {
     setSessionCookie(res, signSession(organizer));
     res.status(200).json(toSessionUser(organizer));
   } catch (e) {
-    res.status(500).json({ error: 'Could not sign in.' });
+    res.status(500).json({ code: 'login_failed', error: 'Could not sign in.' });
   }
 };

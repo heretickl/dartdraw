@@ -87,7 +87,7 @@ test('login: wrong password and unknown email give byte-identical 401s and both 
   assert.equal(a.statusCode, 401);
   assert.equal(b.statusCode, 401);
   assert.equal(JSON.stringify(a.body), JSON.stringify(b.body));
-  assert.deepEqual(a.body, { error: 'Incorrect email or password.' });
+  assert.deepEqual(a.body, { code: 'bad_credentials', error: 'Incorrect email or password.' });
   assert.equal(a.headers['set-cookie'], undefined);
   assert.equal(b.headers['set-cookie'], undefined);
   assert.equal(throttleRow('login:email:a@example.com').count, 1);
@@ -102,7 +102,7 @@ test('login: unverified and suspended are revealed only after the correct passwo
   const wrongS = await login({ email: 's@example.com', password: 'wrong-password' });
   assert.equal(wrongU.statusCode, 401);
   assert.equal(wrongS.statusCode, 401);
-  assert.deepEqual(wrongU.body, { error: 'Incorrect email or password.' });
+  assert.deepEqual(wrongU.body, { code: 'bad_credentials', error: 'Incorrect email or password.' });
 
   const u = await login({ email: 'u@example.com', password: PASSWORD });
   assert.equal(u.statusCode, 403);
@@ -132,7 +132,7 @@ test('login: 429 after 10 failures for an email, success does not record, and th
   assert.equal(throttleRow('login:email:a@example.com').count, 10);
   const blocked = await login({ email: 'a@example.com', password: PASSWORD });
   assert.equal(blocked.statusCode, 429);
-  assert.deepEqual(blocked.body, { error: 'Too many attempts. Try again later.' });
+  assert.deepEqual(blocked.body, { code: 'rate_limited', error: 'Too many attempts. Try again later.' });
   assert.equal(blocked.headers['set-cookie'], undefined);
   // the counter moves first (atomically), so the refused request is counted too
   assert.equal(throttleRow('login:email:a@example.com').count, 11);
@@ -194,7 +194,7 @@ test('login: the Public row (password_hash disabled) can never sign in', async (
     if (!pw) continue;
     const r = await login({ email: 'public@dartdraw.local', password: pw });
     assert.equal(r.statusCode, 401);
-    assert.deepEqual(r.body, { error: 'Incorrect email or password.' });
+    assert.deepEqual(r.body, { code: 'bad_credentials', error: 'Incorrect email or password.' });
     assert.equal(r.headers['set-cookie'], undefined);
   }
 });
@@ -214,7 +214,7 @@ test('login: validation, method and server errors', async () => {
   const failed = await login({ email: 'a@example.com', password: PASSWORD });
   db.sql = realSql;
   assert.equal(failed.statusCode, 500);
-  assert.deepEqual(failed.body, { error: 'Could not sign in.' });
+  assert.deepEqual(failed.body, { code: 'login_failed', error: 'Could not sign in.' });
 });
 
 // ---- requireAuth ----
@@ -233,7 +233,7 @@ test('requireAuth success returns id, email, name, role, tier and nothing else',
 });
 
 test('requireAuth rejects: no cookie, garbage, wrong secret, expired', async () => {
-  const expected = { error: 'Not authenticated' };
+  const expected = { code: 'not_authenticated', error: 'Not authenticated' };
   let r = await runRequireAuth({});
   assert.equal(r.result, null); assert.equal(r.status, 401); assert.deepEqual(r.body, expected);
   r = await runRequireAuth({ [COOKIE]: 'garbage' });
@@ -250,7 +250,7 @@ test('requireAuth rejects a missing row, a suspended account and an unverified a
 
   db.tables.organizers[0].suspended = true;
   let r = await runRequireAuth(good);
-  assert.equal(r.result, null); assert.equal(r.status, 401); assert.deepEqual(r.body, { error: 'Not authenticated' });
+  assert.equal(r.result, null); assert.equal(r.status, 401); assert.deepEqual(r.body, { code: 'not_authenticated', error: 'Not authenticated' });
   db.tables.organizers[0].suspended = false;
   assert.ok((await runRequireAuth(good)).result);
 

@@ -14,17 +14,21 @@ const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 const { render } = require('../scripts/build-landing');
 
 const PAGES = ['index.html', 'features.html', 'how-it-works.html', 'help.html'];
+// the Bahasa Malaysia twins (tests/i18n-pages.test.js covers them in detail)
+const MS_PAGES = PAGES.map((p) => 'ms/' + p);
 const rendered = render();
 const markup = (s) => s.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '');
 const scripts = (s) => [...s.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 const tick = () => new Promise((r) => setImmediate(r));
 
-test('the generator returns exactly the four pages', () => {
-  assert.deepEqual(Object.keys(rendered).sort(), PAGES.slice().sort());
+test('the generator returns exactly the eight pages: four in English, the same four in Bahasa Malaysia under ms/', () => {
+  assert.deepEqual(Object.keys(rendered).sort(), PAGES.concat(MS_PAGES).sort());
+  assert.deepEqual(Object.keys(render('en')).sort(), PAGES.slice().sort());
+  assert.deepEqual(Object.keys(render('ms')).sort(), MS_PAGES.slice().sort());
 });
 
-test('the pages in the repo are the generator output (edit scripts/build-landing.js, then npm run build-landing)', () => {
-  PAGES.forEach((p) => {
+test('the pages in the repo are the generator output, in both languages (edit scripts/build-landing.js or its word files, then npm run build-landing)', () => {
+  PAGES.concat(MS_PAGES).forEach((p) => {
     assert.ok(fs.existsSync(path.join(root, p)), p + ' exists');
     assert.equal(read(p), rendered[p], p + ' differs from scripts/build-landing.js output; run: npm run build-landing');
   });
@@ -33,7 +37,7 @@ test('the pages in the repo are the generator output (edit scripts/build-landing
 test('importing the generator writes nothing (it only writes when run directly)', () => {
   const src = read('scripts/build-landing.js');
   assert.match(src, /require\.main === module/);
-  assert.match(src, /module\.exports\s*=\s*\{\s*render\s*\}/);
+  assert.match(src, /module\.exports\s*=\s*\{\s*render\b/);
 });
 
 test('every page is a complete, titled document with a description and a mobile viewport', () => {
@@ -141,11 +145,15 @@ test('the pages stay responsive: breakpoints for phones, wrapping rows, no fixed
 
 test('the pages load nothing but the Inter font from another host (help.html also links to the spectators\' help page)', () => {
   const viewerOrigin = new URL(require('../scripts/help-content').VIEWER_URL).origin;
-  PAGES.forEach((p) => {
-    const hosts = new Set((read(p).match(/https?:\/\/[^/"')\s]+/g) || []));
-    hosts.forEach((h) => assert.ok(/^https:\/\/fonts\.(googleapis|gstatic)\.com$/.test(h) || (p === 'help.html' && h === viewerOrigin), p + ' references ' + h));
+  const siteOrigin = new URL(require('../scripts/build-landing').SITE_URL).origin;
+  PAGES.concat(MS_PAGES).forEach((p) => {
+    // this site's own address appears only in the canonical and hreflang links (search engines want full addresses)
+    const page = read(p).replace(/<link rel="(canonical|alternate)"[^>]*>/g, '');
+    const hosts = new Set((page.match(/https?:\/\/[^/"')\s]+/g) || []));
+    hosts.forEach((h) => assert.ok(/^https:\/\/fonts\.(googleapis|gstatic)\.com$/.test(h) || (/help\.html$/.test(p) && h === viewerOrigin), p + ' references ' + h));
     // the other host may only be a link the visitor clicks: never a script, style sheet, image or frame
-    assert.doesNotMatch(read(p), /<(script|link|img|iframe)[^>]*\s(src|href)="https?:\/\/(?!fonts\.g)/, p);
+    assert.doesNotMatch(page, /<(script|link|img|iframe)[^>]*\s(src|href)="https?:\/\/(?!fonts\.g)/, p);
+    [...read(p).matchAll(/<link rel="(?:canonical|alternate)"[^>]*href="([^"]+)"/g)].forEach((m) => assert.equal(new URL(m[1]).origin, siteOrigin, p + ' ' + m[1]));
   });
 });
 
@@ -183,6 +191,19 @@ test('.vercelignore keeps the design mockups (they hold a fake sign-in form) out
   assert.ok(lines.includes('docs/design/'));
   lines.forEach((l) => assert.doesNotMatch(l, /^(\/?api|\*|\*\.html|\*\.js|\*\.css|viewer|\/?)\/?$/, 'too broad: ' + l));
   PAGES.concat(['app.html', 'login.html']).forEach((p) => assert.doesNotMatch(read(p), /docs\/design/, p));
+});
+
+test('.vercelignore keeps every working document under docs/ out of the deployment (only the font licence is served), and no served page or script links into docs/', () => {
+  const lines = read('.vercelignore').split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const dirs = fs.readdirSync(path.join(root, 'docs'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+  assert.ok(dirs.includes('i18n') && dirs.includes('design'));
+  dirs.filter((d) => d !== 'third-party').forEach((d) => assert.ok(lines.includes('docs/' + d + '/'), 'docs/' + d + '/ is not deployed'));
+  assert.ok(!lines.includes('docs/') && !lines.includes('docs/third-party/'), 'the licence file the app.html notice names stays');
+  // nothing the site serves loads or links a file in docs/ (comments may name them)
+  const served = fs.readdirSync(root).filter((f) => /\.(html|js|css)$/.test(f)).map((f) => f)
+    .concat(fs.readdirSync(path.join(root, 'i18n')).map((f) => 'i18n/' + f), fs.readdirSync(path.join(root, 'ms')).filter((f) => /\.html$/.test(f)).map((f) => 'ms/' + f));
+  served.forEach((f) => assert.doesNotMatch(read(f), /(?:href|src|url)\s*[=(]\s*["']?\/?docs\//i, f + ' links into docs/'));
+  assert.doesNotMatch(read('vercel.json'), /docs\//, 'no rewrite serves docs/');
 });
 
 test('package.json has the build-landing script', () => {

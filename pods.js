@@ -6,7 +6,10 @@
 var PODS_MAX = 128;
 /* A group is one knockout bracket, and the largest bracket holds 128. */
 var PODS_GROUP_MAX = 128;
-var PODS_GROUP_FULL_MESSAGE = 'A group can hold at most 128 players.';
+/* The words this file returns to the screens come from the organiser's table (i18n/app.*.js, through T); without it
+   (a test that loads this file alone) the English is used. */
+function podsT(key, vars, en){ return typeof T === 'function' ? T(key, vars) : en; }
+function podsGroupFullMessage(){ return podsT('pods.groupFull', {n: PODS_GROUP_MAX}, 'A group can hold at most 128 players.'); }
 
 function podsList(t){ if(!t.pods) t.pods = []; return t.pods; }
 
@@ -21,10 +24,10 @@ function podsPlayerCount(t){
 
 /* n players into p groups: is that allowed? (pure, so a number typed on screen can be checked before it is saved) */
 function podsValidateCount(n, p){
-  if(p < 2) return { ok:false, message:'Choose at least 2 groups.' };
-  if(p > PODS_MAX) return { ok:false, message:'Choose at most '+PODS_MAX+' groups.' };
-  if(n < p*2) return { ok:false, message:'Each group needs at least 2 players. '+n+' players can fill at most '+Math.floor(n/2)+' groups.' };
-  if(Math.ceil(n/p) > PODS_GROUP_MAX) return { ok:false, message:PODS_GROUP_FULL_MESSAGE+' '+n+' players need at least '+Math.ceil(n/PODS_GROUP_MAX)+' groups.' };
+  if(p < 2) return { ok:false, message:podsT('pods.min2', null, 'Choose at least 2 groups.') };
+  if(p > PODS_MAX) return { ok:false, message:podsT('pods.max', {n: PODS_MAX}, 'Choose at most '+PODS_MAX+' groups.') };
+  if(n < p*2) return { ok:false, message:podsT('pods.each2', {n: n, m: Math.floor(n/2)}, 'Each group needs at least 2 players. '+n+' players can fill at most '+Math.floor(n/2)+' groups.') };
+  if(Math.ceil(n/p) > PODS_GROUP_MAX) return { ok:false, message:podsT('pods.tooBig', {full: podsGroupFullMessage(), n: n, m: Math.ceil(n/PODS_GROUP_MAX)}, podsGroupFullMessage()+' '+n+' players need at least '+Math.ceil(n/PODS_GROUP_MAX)+' groups.') };
   return { ok:true, message:'' };
 }
 /* pOverride: check a number typed on screen instead of the saved one. */
@@ -163,7 +166,7 @@ function generatePods(t, rng){
   return { ok:true, message:'' };
 }
 
-function podBoardLabel(pod){ return (pod.boards.length === 1 ? 'Board ' : 'Boards ') + pod.boards.join(', '); }
+function podBoardLabel(pod){ return podsT('boards.list', {n: pod.boards.length, list: pod.boards.join(', ')}, (pod.boards.length === 1 ? 'Board ' : 'Boards ') + pod.boards.join(', ')); }
 
 function podsFindOf(t, entryId){ return podsList(t).find(function(p){ return p.entryIds.indexOf(entryId) !== -1; }) || null; }
 
@@ -185,10 +188,10 @@ function podsAnyScores(t){ return podsList(t).some(podHasScores) || !!(podsFinal
 function podsCanEdit(pod){ return !pod.confirmed && !podHasScores(pod); }
 function podsMovePlayer(t, entryId, toPodId){
   var from = podsFindOf(t, entryId), to = podsList(t).find(function(p){ return p.id === toPodId; });
-  if(!from || !to || from === to) return { ok:false, message:'Pick a different group.' };
-  if(!podsCanEdit(from) || !podsCanEdit(to)) return { ok:false, message:'Both groups must be unconfirmed with no scores.' };
-  if(from.entryIds.length <= 2) return { ok:false, message:'A group needs at least 2 players.' };
-  if(to.entryIds.length >= PODS_GROUP_MAX) return { ok:false, message:PODS_GROUP_FULL_MESSAGE };   // checked before anything changes
+  if(!from || !to || from === to) return { ok:false, message:podsT('pods.pickOther', null, 'Pick a different group.') };
+  if(!podsCanEdit(from) || !podsCanEdit(to)) return { ok:false, message:podsT('pods.bothOpen', null, 'Both groups must be unconfirmed with no scores.') };
+  if(from.entryIds.length <= 2) return { ok:false, message:podsT('pods.need2', null, 'A group needs at least 2 players.') };
+  if(to.entryIds.length >= PODS_GROUP_MAX) return { ok:false, message:podsGroupFullMessage() };   // checked before anything changes
   from.entryIds = from.entryIds.filter(function(id){ return id !== entryId; });
   to.entryIds.push(entryId);
   podsBuildBracket(t, from); podsBuildBracket(t, to);
@@ -196,8 +199,8 @@ function podsMovePlayer(t, entryId, toPodId){
 }
 function podsSwapPlayers(t, entryA, entryB){
   var pa = podsFindOf(t, entryA), pb = podsFindOf(t, entryB);
-  if(!pa || !pb || pa === pb) return { ok:false, message:'Pick players from two different groups.' };
-  if(!podsCanEdit(pa) || !podsCanEdit(pb)) return { ok:false, message:'Both groups must be unconfirmed with no scores.' };
+  if(!pa || !pb || pa === pb) return { ok:false, message:podsT('pods.pickTwo', null, 'Pick players from two different groups.') };
+  if(!podsCanEdit(pa) || !podsCanEdit(pb)) return { ok:false, message:podsT('pods.bothOpen', null, 'Both groups must be unconfirmed with no scores.') };
   pa.entryIds = pa.entryIds.map(function(id){ return id === entryA ? entryB : id; });
   pb.entryIds = pb.entryIds.map(function(id){ return id === entryB ? entryA : id; });
   podsBuildBracket(t, pa); podsBuildBracket(t, pb);
@@ -346,7 +349,7 @@ function podsApplyResult(t, pod, apply){
   if(r.blocked.length){
     pod.bracket.rounds = JSON.parse(snapshot);
     syncFinalsFromPods(t);
-    return { ok:false, message:'This result would change who reaches the Finals, but a Finals match that depends on it already has a score.' };
+    return { ok:false, message:podsT('pods.finalsScored', null, 'This result would change who reaches the Finals, but a Finals match that depends on it already has a score.') };
   }
   return { ok:true, message:'' };
 }
@@ -364,10 +367,10 @@ function podsConfirmAll(t){
 }
 function podsUnconfirm(t, podId){
   var pod = podsList(t).find(function(p){ return p.id === podId; });
-  if(!pod) return { ok:false, message:'Unknown group.' };
-  if(podHasScores(pod)) return { ok:false, message:'This group already has scores.' };
+  if(!pod) return { ok:false, message:podsT('pods.unknown', null, 'Unknown group.') };
+  if(podHasScores(pod)) return { ok:false, message:podsT('pods.hasScores', null, 'This group already has scores.') };
   var fin = podsFinals(t);
-  if(fin && podBracketHasLegs(fin)) return { ok:false, message:'The Finals already has scores.' };
+  if(fin && podBracketHasLegs(fin)) return { ok:false, message:podsT('pods.finalsHasScores', null, 'The Finals already has scores.') };
   pod.confirmed = false;
   if(fin) t.knockout = null;
   return { ok:true, message:'' };
@@ -440,10 +443,10 @@ function podsGone(t){
 /* Puts an unplaced player into a group that can still be edited. */
 function podsPlaceLate(t, entryId, toPodId){
   var pod = podsList(t).find(function(p){ return p.id === toPodId; });
-  if(!pod) return { ok:false, message:'Pick a group.' };
-  if(podsUnplaced(t).indexOf(entryId) === -1) return { ok:false, message:'That player is already in a group.' };
-  if(!podsCanEdit(pod)) return { ok:false, message:'That group is confirmed or already has scores.' };
-  if(pod.entryIds.length >= PODS_GROUP_MAX) return { ok:false, message:PODS_GROUP_FULL_MESSAGE };   // checked before anything changes
+  if(!pod) return { ok:false, message:podsT('pods.pickGroup', null, 'Pick a group.') };
+  if(podsUnplaced(t).indexOf(entryId) === -1) return { ok:false, message:podsT('pods.alreadyIn', null, 'That player is already in a group.') };
+  if(!podsCanEdit(pod)) return { ok:false, message:podsT('pods.locked', null, 'That group is confirmed or already has scores.') };
+  if(pod.entryIds.length >= PODS_GROUP_MAX) return { ok:false, message:podsGroupFullMessage() };   // checked before anything changes
   pod.entryIds.push(entryId);
   podsBuildBracket(t, pod);
   return { ok:true, message:'' };
@@ -460,5 +463,5 @@ function podsRemoveGone(t){
     podsBuildBracket(t, p);
   });
   return { ok: !stuck.length, stuck: stuck,
-    message: stuck.length ? 'Some players could not be removed: their group is confirmed, has scores, or would drop below 2 players.' : '' };
+    message: stuck.length ? podsT('pods.stuck', null, 'Some players could not be removed: their group is confirmed, has scores, or would drop below 2 players.') : '' };
 }

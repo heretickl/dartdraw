@@ -18,7 +18,7 @@ const { VERIFY_FAILED, TOO_MANY, verifyThrottled } = require('../../_lib/authflo
 // exactly one bcrypt comparison, so neither the message nor the time says which
 // part was wrong.
 module.exports = async (req, res) => {
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (req.method !== 'POST') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
 
   const body = req.body || {};
   const token = body.token;
@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
 
   try {
     if (await verifyThrottled(req)) {
-      res.status(429).json({ error: TOO_MANY });
+      res.status(429).json({ code: 'rate_limited', error: TOO_MANY });
       return;
     }
 
@@ -36,18 +36,18 @@ module.exports = async (req, res) => {
       ? account.password_hash : null;
     const matched = await bcrypt.compare(password, realHash || DUMMY_HASH);
     if (!(realHash && matched && password)) {
-      res.status(400).json({ error: VERIFY_FAILED });
+      res.status(400).json({ code: 'invalid_link_or_password', error: VERIFY_FAILED });
       return;
     }
 
     const consumed = await consumeToken(token, ['verify']);
     if (!consumed || consumed.organizerId !== account.id) {
-      res.status(400).json({ error: VERIFY_FAILED });
+      res.status(400).json({ code: 'invalid_link_or_password', error: VERIFY_FAILED });
       return;
     }
     await sql`UPDATE organizers SET email_verified_at = now() WHERE id = ${consumed.organizerId} AND email_verified_at IS NULL`;
     res.status(200).json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: 'Could not verify your email.' });
+    res.status(500).json({ code: 'verify_failed', error: 'Could not verify your email.' });
   }
 };

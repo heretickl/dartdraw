@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in - DartDraw</title>
+<title data-i18n="login.title">Sign in - DartDraw</title>
 <style>
 :root{--navy:#10233e;--blue:#1f6feb;--gold:#d9ad45;--ink:#142133;--muted:#5b6877;--line:#dbe2ea;--bg:#edf2f6;--red:#b3261e;--green:#1b6e3c}
 *{box-sizing:border-box}
@@ -34,6 +34,16 @@ input:focus-visible{border-color:var(--blue)}
 .noacct b{color:var(--ink)}
 .noacct .contact{display:block;margin-top:4px;color:var(--ink);overflow-wrap:anywhere}
 [hidden]{display:none!important}
+/* The top row: the logo and the EN | BM switch (i18n/auth-i18n.js shows it; hidden without JavaScript and in the pop-up). */
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.top .brand{margin-bottom:0}
+.langsw{display:inline-flex;gap:2px;padding:2px;border:1.5px solid #c3cfdf;border-radius:10px;background:#fff;flex:none}
+.langsw button{min-width:40px;min-height:36px;padding:0 8px;border:0;border-radius:7px;background:transparent;color:#2b3a50;font:700 13px/1 Inter,Segoe UI,Arial,sans-serif;letter-spacing:.04em;cursor:pointer}
+.langsw button:hover{background:#eef3fa;color:var(--navy)}
+.langsw button[aria-pressed="true"]{background:var(--navy);color:#fff}
+.langsw button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+/* small phones: a little less card padding, so the logo, the switch and the longer BM button labels stay on one line */
+@media (max-width:360px){.card{padding:26px 20px}.langsw button{min-width:36px;padding:0 6px}}
 /* Embedded in the pop-up on the public site (login.html?embed=1): no page background or centring, a flat card. */
 html.embed body{display:block;min-height:0;padding:0;background:transparent}
 html.embed .card{max-width:none;border:0;border-radius:0;box-shadow:none;margin:0;background:transparent;padding:30px 30px 24px}
@@ -41,22 +51,39 @@ html.embed .card{max-width:none;border:0;border-radius:0;box-shadow:none;margin:
 </head>
 <body>
 <main class="card">
+  <div class="top">
   <div class="brand"><span class="brand-mark" aria-hidden="true">D</span> <h1>DartDraw</h1></div>
-  <p class="sub">Sign in to manage your tournaments.</p>
+    <div class="langsw" role="group" aria-label="Language / Bahasa" data-lang-switch hidden><button type="button" lang="en" aria-label="English" aria-pressed="true" data-lang-set="en">EN</button><button type="button" lang="ms" aria-label="Bahasa Malaysia" aria-pressed="false" data-lang-set="ms">BM</button></div>
+  </div>
+  <p class="sub" data-i18n="login.sub">Sign in to manage your tournaments.</p>
   <div class="msg" id="msg" aria-live="polite" tabindex="-1"></div>
   <div id="resendBox" hidden>
-    <button class="btn secondary" id="resendBtn" type="button">Resend verification email</button>
+    <button class="btn secondary" id="resendBtn" type="button" data-i18n="login.resend">Resend verification email</button>
   </div>
   <form id="loginForm">
-    <div class="field"><label for="email">Email</label><input type="email" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
-    <div class="field"><label for="password">Password</label><input type="password" id="password" autocomplete="current-password" required></div>
-    <button class="btn" id="submitBtn" type="submit">Sign in</button>
+    <div class="field"><label for="email" data-i18n="auth.email">Email</label><input type="email" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+    <div class="field"><label for="password" data-i18n="auth.password">Password</label><input type="password" id="password" autocomplete="current-password" required></div>
+    <button class="btn" id="submitBtn" type="submit" data-i18n="auth.signIn">Sign in</button>
   </form>
   <div class="foot"><a href="/forgot.html">Forgot password?</a></div>
-  <div class="foot" id="signupFoot" hidden>Need an account? <a href="/register.html">Sign up</a></div>
+  <div class="foot" id="signupFoot" hidden><span data-i18n="login.needAccount">Need an account?</span> <a href="/register.html" data-i18n="login.signUp">Sign up</a></div>
   <div class="foot noacct" id="noAccountFoot"><b>No account yet?</b> Accounts are created by the site admin.<span class="contact" id="adminContact" hidden></span></div>
 </main>
+<script src="/i18n/auth.en.js"></script>
+<script data-dd-ms>/* The Bahasa Malaysia tables (and errors.en.js, which only BM needs): written here (so they run before auth-i18n.js)
+   only when BM is the language, chosen as auth-i18n.js does: ?lang=ms, else (the pop-up) the page around it, else the
+   saved choice. English pages never download them; auth-i18n.js fetches them on a switch to BM. */
+var DD_MS_FILES = ["/i18n/errors.en.js", "/i18n/auth.ms.js", "/i18n/errors.ms.js"];
+(function(){ try{ var q = location.search, m = /[?&]lang=(en|ms)(?=&|$)/.exec(q), l = m ? m[1] : null;
+  if(!l && /[?&]embed=1(&|$)/.test(q) && window.top !== window){ try{ var p = String(window.parent.document.documentElement.getAttribute('lang') || ''); l = /^ms/i.test(p) ? 'ms' : /^en/i.test(p) ? 'en' : null; }catch(e){} }
+  if(!l) l = localStorage.getItem('dartdraw.lang');
+  if(l === 'ms') for(var i = 0; i < DD_MS_FILES.length; i++) document.write('<script src="' + DD_MS_FILES[i] + '"><\/script>'); }catch(e){} })();
+</script>
+<script src="/i18n/auth-i18n.js"></script>
 <script>
+/* Words: the English texts below go through I18N.put (i18n/auth-i18n.js), which shows them in the reader's language (EN or
+   BM), and a server answer's code in BM; without that script the English is shown as written. */
+const I18N = window.DDAuth || { put(el, s, o){ el.textContent = String(s) + (o && o.after ? ' ' + o.after : ''); } };
 /* Embedded mode: the public site shows this page in a pop-up. Success and the other pages then open in the whole window. */
 const embedded = new URLSearchParams(location.search).get('embed') === '1' && window.top !== window;
 if(embedded){
@@ -71,12 +98,12 @@ const resendBox = document.getElementById('resendBox');
 const resendBtn = document.getElementById('resendBtn');
 const btn = document.getElementById('submitBtn');
 
-function show(text, kind){
-  msgEl.textContent = text;
+function show(text, kind, opt){
+  I18N.put(msgEl, text, opt);
   msgEl.className = 'msg ' + kind;
 }
 function clearMsg(){
-  msgEl.textContent = '';
+  I18N.put(msgEl, '');
   msgEl.className = 'msg';
   resendBox.hidden = true;
 }
@@ -113,7 +140,7 @@ fetch('/api/auth/config', { cache:'no-store' })
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   clearMsg();
-  btn.disabled = true; btn.textContent = 'Signing in…';
+  btn.disabled = true; I18N.put(btn, 'Signing in…');
   try{
     const { res, body } = await postJson('/api/auth/login', {
       email: document.getElementById('email').value,
@@ -124,19 +151,19 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
       return;
     }
     if(res.status === 403 && body.code === 'unverified'){
-      show('Please verify your email first.', 'err');
+      show('Please verify your email first.', 'err', { code: body.code });
       resendBox.hidden = false;
     }else if(res.status === 403 && body.code === 'suspended'){
-      show(body.error || 'This account has been suspended.', 'err');
+      show(body.error || 'This account has been suspended.', 'err', { code: body.code });
     }else if(res.status === 429){
-      show(body.error || 'Too many attempts. Try again later.', 'err');
+      show(body.error || 'Too many attempts. Try again later.', 'err', { code: body.code || 'rate_limited' });
     }else{
-      show(body.error || 'Could not sign in.', 'err');
+      show(body.error || 'Could not sign in.', 'err', { code: body.code, vars: body });
     }
   }catch(err){
     show('Could not reach the server. Check your connection and try again.', 'err');
   }
-  btn.disabled = false; btn.textContent = 'Sign in';
+  btn.disabled = false; I18N.put(btn, 'Sign in');
 });
 
 resendBtn.addEventListener('click', async ()=>{
@@ -148,7 +175,7 @@ resendBtn.addEventListener('click', async ()=>{
       resendBox.hidden = true;
       show(body.message || 'If that account can be verified, we have sent a new verification link.', 'ok');
     }else{
-      show(body.error || 'Could not send the email.', 'err');
+      show(body.error || 'Could not send the email.', 'err', { code: body.code, vars: body });
     }
   }catch(err){
     show('Could not reach the server. Check your connection and try again.', 'err');

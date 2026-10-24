@@ -52,9 +52,9 @@ function cleanContactLine(v) {
 function validateContactLine(v) {
   if (v === null) return { ok: true, value: '' };
   const clean = cleanContactLine(v);
-  if (clean === null) return { ok: false, error: 'adminContact must be text.' };
-  if (clean.length > CONTACT_MAX_LENGTH) return { ok: false, error: 'The contact line must be ' + CONTACT_MAX_LENGTH + ' characters or fewer.' };
-  if (/[<>]/.test(clean)) return { ok: false, error: 'The contact line must be plain text, without < or >.' };
+  if (clean === null) return { ok: false, code: 'invalid_contact', error: 'adminContact must be text.' };
+  if (clean.length > CONTACT_MAX_LENGTH) return { ok: false, code: 'contact_too_long', error: 'The contact line must be ' + CONTACT_MAX_LENGTH + ' characters or fewer.' };
+  if (/[<>]/.test(clean)) return { ok: false, code: 'contact_not_plain', error: 'The contact line must be plain text, without < or >.' };
   return { ok: true, value: clean };
 }
 
@@ -75,13 +75,13 @@ async function getContactLine() {
 // integers inside the limits. adminContact is optional: when it is left out of the body it is left out of the value
 // (and the stored line is kept as it is).
 function validateSettings(body) {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, error: 'Send resultsDays and liveHours.' };
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, code: 'settings_missing', error: 'Send resultsDays and liveHours.' };
   const value = {};
   for (const key of Object.keys(SETTING_LIMITS)) {
     const v = body[key];
     const [lo, hi] = SETTING_LIMITS[key];
     if (!Number.isInteger(v) || !inRange(key, v)) {
-      return { ok: false, error: key + ' must be a whole number from ' + lo + ' to ' + hi + '.' };
+      return { ok: false, code: 'invalid_setting_number', error: key + ' must be a whole number from ' + lo + ' to ' + hi + '.' };
     }
     value[key] = v;
   }

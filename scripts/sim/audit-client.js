@@ -120,6 +120,20 @@
     };
     out.overflow.any = out.overflow.scrollX > 1 || out.overflow.scrollY > 1 || out.overflow.spillBottomPx > 1 || out.overflow.spillRightPx > 1;
     if (sheet.classList.contains('kb-sheet')) { auditKb(sheet, out); return out; }
+    /* text cut by its box (i18n step 4, for the longer BM words): every element with text of its own whose box clips
+       (overflow hidden or an ellipsis) and whose text is wider or taller than the box: header bars, segment titles, the
+       running order column heads, footers, the code's caption. The Group Boards name boxes are checked below. */
+    var tc = { count: 0, list: [] };
+    Array.prototype.forEach.call(sheet.querySelectorAll('*'), function (e) {
+      if (e.closest('.mko-artboard')) return;
+      var own = Array.prototype.some.call(e.childNodes, function (n) { return n.nodeType === 3 && n.textContent.trim(); });
+      if (!own) return;
+      var cs2 = getComputedStyle(e);
+      var clips = /hidden|clip/.test(cs2.overflowX + cs2.overflowY) || cs2.textOverflow === 'ellipsis';
+      if (!clips) return;
+      if (e.scrollWidth > e.clientWidth + 0.5 || e.scrollHeight > e.clientHeight + 1) { tc.count++; if (tc.list.length < 6) tc.list.push((e.className || e.tagName) + ' "' + e.textContent.trim().slice(0, 30) + '"'); }
+    });
+    out.textClip = tc;
     /* running order: every board column and group inside the sheet, nothing clipped */
     if (sheet.classList.contains('ro-sheet') && sheet.querySelector('.ro-col')) {
       var rr = R(sheet), outside = 0, clip = 0;
@@ -157,7 +171,7 @@
         var nm = box.querySelector('span[style*="flex:1"]');
         var tx = (nm ? nm.textContent : box.textContent).trim();
         if (bx.kind === 'projected') { kinds.placeholder++; return; }
-        if (!tx) kinds.empty++; else if (tx === 'BYE') kinds.bye++; else if (/^Winner of\s*Group|no winner$|^Gp \S+ (winner|: none)/.test(tx)) kinds.placeholder++; else kinds.named++;
+        if (!tx) kinds.empty++; else if (tx === 'BYE') kinds.bye++; else if (/^Winner of\s*Group|no winner$|^Gp \S+ (winner|: none)|^Pemenang\s*Kumpulan|tiada pemenang$|^Pemenang K\S+$|^K\S+: tiada$/.test(tx)) kinds.placeholder++; else kinds.named++;
       });
       out.boxes.kinds = kinds;
       /* text that does not fit: ellipsis or line clamp truncation, or content wider than its box */
@@ -219,6 +233,7 @@
     var ro = res.sheets.filter(function (s) { return s.runningOrder; });
     o.runningOrderSheets = ro.length;
     o.runningOrderBad = ro.filter(function (s) { return s.runningOrder.outside || s.runningOrder.clipped; }).length;
+    o.textClipSheets = res.sheets.filter(function (s) { return s.textClip && s.textClip.count > 0; }).length;   // i18n step 4
     return o;
   }
 
@@ -226,7 +241,7 @@
     var el = document.getElementById('sim-audit'); if (!el) return;
     var s = res.summary;
     var bad = s.overlapSheets || s.touchSheets || s.clippedSheets || s.overflowSheets || s.artboardClipSheets || s.lineupOverflow ||
-      s.kbOverlaps || s.kbTouching || s.kbOutside || s.kbClipped || s.kbBelowFloor || s.kbNotUniform || s.kbTextUnderFloor || s.runningOrderBad;
+      s.kbOverlaps || s.kbTouching || s.kbOutside || s.kbClipped || s.kbBelowFloor || s.kbNotUniform || s.kbTextUnderFloor || s.runningOrderBad || s.textClipSheets;
     el.className = 'sim-audit' + (bad ? ' bad' : '');
     var lines = ['Layout audit (measured in this browser at 100%, fonts: ' + res.fonts.split(',')[0] + '): ' + s.sheets + ' sheets, ' + s.bracketSheets + ' with Group Boards bracket boxes, ' + s.kbSheets + ' two-sided bracket sheets.'];
     if (s.kbSheets) lines.push('Two-sided bracket sheets: overlapping items ' + s.kbOverlaps + ' | boxes closer than the floors ' + s.kbTouching + ' | smallest box gap ' + (s.kbMinGapMm === null ? 'n/a' : s.kbMinGapMm + ' mm') +
@@ -234,7 +249,7 @@
     if (s.runningOrderSheets) lines.push('Running order: ' + s.runningOrderSheets + ' sheet(s), ' + s.runningOrderBad + ' with content off the sheet or clipped.');
     if (s.bracketSheets) lines.push('Group Boards charts: name boxes overlapping ' + s.overlapSheets + ' sheet(s) | touching (gap under ' + TOUCH_PX + 'px): ' + s.touchSheets + ' sheet(s) | smallest gap ' + (s.minGapPx === null ? 'n/a' : s.minGapPx + 'px') +
       ' | clipped or truncated text: ' + s.clippedSheets + ' sheet(s)');
-    lines.push('Sheets whose content leaves the paper: ' + s.overflowSheets + ' | bracket clipped by its frame: ' + s.artboardClipSheets + ' | lineup cards overflowing: ' + s.lineupOverflow);
+    lines.push('Sheets whose content leaves the paper: ' + s.overflowSheets + ' | bracket clipped by its frame: ' + s.artboardClipSheets + ' | lineup cards overflowing: ' + s.lineupOverflow + ' | sheets with text cut by its box: ' + s.textClipSheets);
     res.sheets.forEach(function (x) {
       var flags = [];
       if (x.kb) {
@@ -253,6 +268,7 @@
       if (x.overflow.any) flags.push('overflow ' + Math.max(x.overflow.scrollY, x.overflow.spillBottomPx, x.overflow.scrollX, x.overflow.spillRightPx) + 'px');
       if (x.artboardClipPx > 1) flags.push('frame clip ' + x.artboardClipPx + 'px');
       if (x.lineupCardsOverflowing) flags.push('lineup card overflows');
+      if (x.textClip && x.textClip.count) flags.push(x.textClip.count + ' text(s) cut by their box (' + x.textClip.list.join('; ') + ')');
       if (flags.length) lines.push('#' + x.idx + ' ' + x.type + ' "' + x.label + '": ' + flags.join(', '));
     });
     el.innerHTML = '';

@@ -4,6 +4,7 @@ const { PUBLIC_ORGANIZER_EMAIL } = require('./auth');
 const { effectiveTier } = require('./tiers');
 const { findById } = require('./accounts');
 const { sendMail, appUrl } = require('./mail');
+const { buildEmail } = require('./emails');
 
 const TIERS = ['basic', 'pro'];
 const ROLES = ['organizer', 'admin'];
@@ -83,20 +84,20 @@ async function lookupTarget(id) {
 // (sourceId = that organiser) and for moving a single event (sourceId = the event's current owner).
 async function transferTarget(res, toId, sourceId) {
   if (typeof toId !== 'string' || !toId) {
-    res.status(400).json({ error: 'Choose an organiser to receive the events.' });
+    res.status(400).json({ code: 'transfer_target_missing', error: 'Choose an organiser to receive the events.' });
     return null;
   }
   if (String(toId).toLowerCase() === String(sourceId == null ? '' : sourceId).toLowerCase()) {   // ids are uuids: compare without case
-    res.status(400).json({ error: 'Choose a different organiser to receive the events.' });
+    res.status(400).json({ code: 'transfer_target_same', error: 'Choose a different organiser to receive the events.' });
     return null;
   }
   const target = await lookupTarget(toId);
   if (!target) {
-    res.status(404).json({ error: 'The organiser to receive the events was not found.' });
+    res.status(404).json({ code: 'transfer_target_not_found', error: 'The organiser to receive the events was not found.' });
     return null;
   }
   if (target.suspended) {
-    res.status(409).json({ error: 'That organiser is suspended. Choose an active organiser.' });
+    res.status(409).json({ code: 'transfer_target_suspended', error: 'That organiser is suspended. Choose an active organiser.' });
     return null;
   }
   return target;
@@ -112,10 +113,11 @@ function linkFor(req, raw) {
   return appUrl(req) + '/reset.html?token=' + raw;
 }
 
-// Emails the link when mail is configured. Never throws and never fails the request.
-async function mailLink(to, subject, text) {
+// Emails the link when mail is configured. Never throws and never fails the request. kind: 'invite' or 'adminReset'
+// (api/_lib/emails.js: bilingual, English then Bahasa Malaysia); vars: { link, name? }.
+async function mailLink(to, kind, vars) {
   try {
-    await sendMail({ to, subject, text });
+    await sendMail(Object.assign({ to }, buildEmail(kind, vars)));
   } catch (e) { /* the Admin still has the link on screen */ }
 }
 

@@ -5,7 +5,7 @@ const { requireAuth } = require('../_lib/auth');
 module.exports = async (req, res) => {
   const organizer = await requireAuth(req, res);
   if (!organizer) return;
-  if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (req.method !== 'GET') { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); return; }
 
   try {
     const rows = await sql`
@@ -15,6 +15,6 @@ module.exports = async (req, res) => {
     `;
     res.status(200).json(rows);
   } catch (e) {
-    res.status(500).json({ error: 'Could not load tournaments.' });
+    res.status(500).json({ code: 'load_list_failed', error: 'Could not load tournaments.' });
   }
 };

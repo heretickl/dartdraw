@@ -217,6 +217,6 @@ function qrSvg(text, opts){
       d += 'M'+(start + quiet)+' '+(y + quiet)+'h'+(x - start)+'v1h-'+(x - start)+'z';
     }
   });
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+n+' '+n+'" width="'+size+'" height="'+size+'" shape-rendering="crispEdges" role="img" aria-label="QR code for the live results link">'+
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+n+' '+n+'" width="'+size+'" height="'+size+'" shape-rendering="crispEdges" role="img" aria-label="'+(typeof T === 'function' ? T('qr.aria') : 'QR code for the live results link')+'">'+
     '<rect width="'+n+'" height="'+n+'" fill="#fff"/><path d="'+d+'" fill="#000"/></svg>';
 }

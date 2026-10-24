@@ -97,7 +97,7 @@ for (const [name, call] of ROUTES) {
     assert.equal(none.statusCode, 401);
     const org = await call({ cookies: cookieFor(byId('org1')) });
     assert.equal(org.statusCode, 403);
-    assert.deepEqual(org.body, { error: 'Admin only.' });
+    assert.deepEqual(org.body, { code: 'admin_only', error: 'Admin only.' });
     assert.equal(JSON.stringify(db.tables), before);
   });
 
@@ -118,7 +118,7 @@ for (const [name, call] of ROUTES) {
     const before = JSON.stringify(db.tables);
     const r = await call({ cookies: asAdmin() });
     assert.equal(r.statusCode, 403);
-    assert.deepEqual(r.body, { error: 'Admin only.' });
+    assert.deepEqual(r.body, { code: 'admin_only', error: 'Admin only.' });
     assert.equal(JSON.stringify(db.tables), before);
   });
 }
@@ -275,7 +275,7 @@ test('action: unknown id 404, unknown / missing action 400, bad body 400 (nothin
   assert.equal((await act('nope', { action: 'bogus' })).statusCode, 404);   // existence is checked first
   const bad = await act('t1', { action: 'bogus' });
   assert.equal(bad.statusCode, 400);
-  assert.deepEqual(bad.body, { error: 'Unknown action.' });
+  assert.deepEqual(bad.body, { code: 'unknown_action', error: 'Unknown action.' });
   assert.equal((await act('t1', {})).statusCode, 400);
   assert.equal((await act('t1', undefined)).statusCode, 400);
   assert.equal((await act('t1', 'reopen')).statusCode, 400);
@@ -312,7 +312,7 @@ test('reopen: a non-finalized event is 409 and unchanged', async () => {
   const before = JSON.stringify(tById('t1'));
   const r = await act('t1', { action: 'reopen' });
   assert.equal(r.statusCode, 409);
-  assert.deepEqual(r.body, { error: 'Event is not finalized.' });
+  assert.deepEqual(r.body, { code: 'not_finalized', error: 'Event is not finalized.' });
   assert.equal(JSON.stringify(tById('t1')), before);
   tById('t1').data.finalized = false;
   const again = await act('t1', { action: 'reopen' });

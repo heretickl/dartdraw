@@ -5,6 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DartDraw – Your tournament. Every draw, organised.</title>
 <meta name="description" content="Create draws, organise groups and prepare branded darts tournament charts – all in one place.">
+<link rel="canonical" href="https://dartdraw.vercel.app/">
+<link rel="alternate" hreflang="en" href="https://dartdraw.vercel.app/">
+<link rel="alternate" hreflang="ms" href="https://dartdraw.vercel.app/ms">
+<link rel="alternate" hreflang="x-default" href="https://dartdraw.vercel.app/">
+<script id="dd-lang">
+(function(){
+var L="en",TWIN="/ms",HASHOK=false,KEY='dartdraw.lang';
+var q=String(location.search||''),h=String(location.hash||''),m=/[?&]lang=(en|ms)(?=&|$)/.exec(q);
+if(m){
+  try{localStorage.setItem(KEY,m[1])}catch(e){}
+  var rest=q.replace(/([?&])lang=(en|ms)(&|$)/,function(a,b,c,d){return d?b:''}).replace(/[?&]$/,'');
+  if(m[1]!==L){location.replace(TWIN+rest+h);return}
+  try{history.replaceState(null,'',location.pathname+rest+h)}catch(e){}
+  return;
+}
+var s=null;try{s=localStorage.getItem(KEY)}catch(e){}
+if((s==='en'||s==='ms')&&s!==L&&(!h||(HASHOK&&s==='ms')))location.replace(TWIN+q+h);
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -181,6 +200,25 @@ body:has(dialog[open]){overflow:hidden}
 }
 @media (max-width:480px){.nav{height:auto;flex-wrap:wrap;gap:0 12px;padding-top:10px;padding-bottom:2px}.nav-links{order:3;flex:0 0 100%;margin:0;gap:22px}.nav-links a{padding:10px 2px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+.langsw{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1.5px solid #c3cfdf;border-radius:11px;background:#fff;flex:none}
+.langsw a{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:38px;padding:0 10px;border-radius:8px;color:#2b3a50;font:700 14px/1 Inter,"Segoe UI",system-ui,Arial,sans-serif;letter-spacing:.04em;text-decoration:none}
+.langsw a:hover{background:#eef3fa;color:var(--navy)}
+.langsw a[aria-current="true"]{background:var(--navy);color:#fff}
+.nav .langsw{margin-right:-18px}
+.vh{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.langbar{background:var(--gold-soft);border-bottom:1px solid #ecd9a4;color:#3b2c06;font-size:15px}
+.langbar .wrap{display:flex;align-items:center;gap:10px;min-height:48px;padding-top:4px;padding-bottom:4px}
+.langbar p{margin:0;flex:1 1 auto;min-width:0}
+.langbar a{display:inline-block;padding:8px 2px;font-weight:700;color:var(--blue-d)}
+.langbar-x{flex:none;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:#5a4a1c;font-size:24px;line-height:1;cursor:pointer}
+.langbar-x:hover{background:#f5e3b3}
+@media (max-width:640px){.nav .langsw{margin-right:-6px}.langsw a{min-width:40px;padding:0 8px}}
+@media (max-width:480px){.nav .langsw{margin:0}.langsw a{min-width:34px;min-height:36px;padding:0 6px;font-size:13px}.nav .btn.sm{padding:10px 12px}}
+@media (max-width:400px){.brand{font-size:20px;gap:8px}.mark{width:30px;height:30px;font-size:15px}.nav{gap:0 8px}}
+@media (max-width:374px){.nav-links{flex:1 1 auto;gap:14px}.nav .langsw{order:4;margin-left:auto}}
+@media (max-width:340px){.nav-links{gap:10px}.nav-links a{font-size:13px}}
+@media print{.langbar,.langsw{display:none!important}}
 </style>
 <script>
 (function(){
@@ -220,6 +258,7 @@ window.__ddSignedIn=fetch('/api/auth/me',{credentials:'same-origin',cache:'no-st
 </defs></svg>
 
 <a class="skip" href="#main">Skip to content</a>
+<div class="langbar" id="langBar" lang="ms" hidden><div class="wrap"><p>Bahasa Malaysia tersedia &mdash; <a href="/ms" hreflang="ms" data-lang-set="ms" title="Switch to Bahasa Malaysia">Tukar ke BM<span class="vh" lang="en"> (Switch to Bahasa Malaysia)</span></a></p><button class="langbar-x" type="button" data-langbar-close aria-label="Tutup" title="Close">&times;</button></div></div>
 <header class="top"><div class="wrap nav">
   <a class="brand" href="/" aria-label="DartDraw home"><span class="mark" aria-hidden="true">D</span>DartDraw</a>
   <nav class="nav-links" aria-label="Main">
@@ -228,6 +267,7 @@ window.__ddSignedIn=fetch('/api/auth/me',{credentials:'same-origin',cache:'no-st
     <a href="/help">Help</a>
   </nav>
   <span class="spacer"></span>
+  <div class="langsw" role="group" aria-label="Language / Bahasa"><a href="/" lang="en" hreflang="en" aria-label="English" data-lang-set="en" aria-current="true">EN</a><a href="/ms" lang="ms" hreflang="ms" aria-label="Bahasa Malaysia" data-lang-set="ms">BM</a></div>
   <a class="btn sm" href="/login.html" data-login>Log in</a>
 </div></header>
 <main id="main">
@@ -298,6 +338,40 @@ window.__ddSignedIn=fetch('/api/auth/me',{credentials:'same-origin',cache:'no-st
   </nav>
   <div class="foot"><a class="brand" href="/"><span class="mark" aria-hidden="true">D</span>DartDraw</a><span class="sep" aria-hidden="true"></span><span>Tournament charts, made simple.</span></div>
 </div></section>
+
+<script id="dd-lang-ui">
+(function(){
+var KEY='dartdraw.lang',NOTE='dartdraw.lang.note',FOCUS='dartdraw.lang.focus';
+function get(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function put(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+/* the other language's link keeps this address's query (?from=...) and #anchor, so the twin opens at the same place */
+function keep(){return String(location.search||'').replace(/([?&])lang=(en|ms)(&|$)/,function(a,b,c,d){return d?b:''}).replace(/[?&]$/,'')+String(location.hash||'')}
+function sync(){[].forEach.call(document.querySelectorAll('[data-lang-set]'),function(a){
+  if(a.getAttribute('aria-current')==='true')return;
+  var b=a.getAttribute('data-base')||String(a.getAttribute('href')||'').split(/[?#]/)[0];
+  a.setAttribute('data-base',b);a.setAttribute('href',b+keep());
+})}
+sync();
+window.addEventListener('hashchange',sync);
+[].forEach.call(document.querySelectorAll('[data-lang-set]'),function(a){
+  a.addEventListener('click',function(e){
+    var l=a.getAttribute('data-lang-set');
+    put(KEY,l);
+    try{sessionStorage.setItem(FOCUS,'1')}catch(x){}
+    if(a.getAttribute('aria-current')==='true')e.preventDefault();
+  });
+});
+try{if(sessionStorage.getItem(FOCUS)){sessionStorage.removeItem(FOCUS);var cur=document.querySelector('.langsw [aria-current="true"]');if(cur&&cur.focus)cur.focus()}}catch(e){}
+var bar=document.getElementById('langBar');
+if(bar){
+  var n=String((navigator.languages&&navigator.languages[0])||navigator.language||'');
+  var saved=get(KEY);
+  if(saved!=='en'&&saved!=='ms'&&/^ms/i.test(n)&&get(NOTE)!=='closed')bar.hidden=false;
+  var x=bar.querySelector('[data-langbar-close]');
+  if(x)x.addEventListener('click',function(){bar.hidden=true;put(NOTE,'closed')});
+}
+})();
+</script>
 
 <dialog id="loginDlg" aria-label="Log in to DartDraw">
   <div class="dlg">

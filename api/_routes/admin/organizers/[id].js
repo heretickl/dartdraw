@@ -16,8 +16,8 @@ const { TIERS, ROLES, getSummary, activeAdminCount, isActiveAdmin, lookupTarget,
 // first, re-reads the rows the first one changed, and counts one fewer. "Active admin" = role admin, not suspended, email
 // verified, and not the unusable password hash 'disabled' (someone who can actually sign in). The statement changes
 // nothing when its target is an active admin and not more than one active admin exists.
-const NOT_FOUND = { error: 'Organiser not found.' };
-const LAST_ADMIN = { error: 'There must always be at least one active admin.' };
+const NOT_FOUND = { code: 'organiser_not_found', error: 'Organiser not found.' };
+const LAST_ADMIN = { code: 'last_admin', error: 'There must always be at least one active admin.' };
 const HAS_EVENTS = 'Transfer or delete their events first.';
 
 module.exports = async (req, res) => {
@@ -29,19 +29,19 @@ module.exports = async (req, res) => {
       const body = bodyObject(req);
       const { tier, role, suspended } = body;
       if (tier === undefined && role === undefined && suspended === undefined) {
-        res.status(400).json({ error: 'Nothing to change.' });
+        res.status(400).json({ code: 'nothing_to_change', error: 'Nothing to change.' });
         return;
       }
       if (tier !== undefined && !TIERS.includes(tier)) {
-        res.status(400).json({ error: 'Tier must be basic or pro.' });
+        res.status(400).json({ code: 'invalid_tier', error: 'Tier must be basic or pro.' });
         return;
       }
       if (role !== undefined && !ROLES.includes(role)) {
-        res.status(400).json({ error: 'Role must be organizer or admin.' });
+        res.status(400).json({ code: 'invalid_role', error: 'Role must be organizer or admin.' });
         return;
       }
       if (suspended !== undefined && typeof suspended !== 'boolean') {
-        res.status(400).json({ error: 'Suspended must be true or false.' });
+        res.status(400).json({ code: 'invalid_suspended', error: 'Suspended must be true or false.' });
         return;
       }
 
@@ -50,11 +50,11 @@ module.exports = async (req, res) => {
 
       const self = target.id === admin.id;
       if (self && role !== undefined && role !== target.role) {
-        res.status(409).json({ error: 'You cannot change your own role.' });
+        res.status(409).json({ code: 'own_role', error: 'You cannot change your own role.' });
         return;
       }
       if (self && suspended === true) {
-        res.status(409).json({ error: 'You cannot suspend yourself.' });
+        res.status(409).json({ code: 'suspend_self', error: 'You cannot suspend yourself.' });
         return;
       }
       const losesAdmin = isActiveAdmin(target) && (role === 'organizer' || suspended === true);
@@ -63,7 +63,7 @@ module.exports = async (req, res) => {
         return;
       }
       if (role === 'admin' && target.role !== 'admin' && !target.email_verified_at) {
-        res.status(409).json({ error: 'Only a verified account can be made an admin.' });
+        res.status(409).json({ code: 'admin_needs_verified', error: 'Only a verified account can be made an admin.' });
         return;
       }
 
@@ -101,7 +101,7 @@ module.exports = async (req, res) => {
       const target = await lookupTarget(req.query && req.query.id);
       if (!target) { res.status(404).json(NOT_FOUND); return; }
       if (target.id === admin.id) {
-        res.status(409).json({ error: 'You cannot delete your own account.' });
+        res.status(409).json({ code: 'delete_self', error: 'You cannot delete your own account.' });
         return;
       }
       if (isActiveAdmin(target) && await activeAdminCount() <= 1) {
@@ -110,7 +110,7 @@ module.exports = async (req, res) => {
       }
       const summary = await getSummary(target.id);
       if (summary && summary.eventCount > 0) {
-        res.status(409).json({ error: HAS_EVENTS, eventCount: summary.eventCount });
+        res.status(409).json({ code: 'has_events', error: HAS_EVENTS, eventCount: summary.eventCount });
         return;
       }
       try {
@@ -131,7 +131,7 @@ module.exports = async (req, res) => {
         if (e && e.code === '23503') {
           // An event was created for them after the check above; the database refuses to orphan it.
           const now = await getSummary(target.id);
-          res.status(409).json({ error: HAS_EVENTS, eventCount: now ? now.eventCount : 1 });
+          res.status(409).json({ code: 'has_events', error: HAS_EVENTS, eventCount: now ? now.eventCount : 1 });
           return;
         }
         throw e;
@@ -140,8 +140,8 @@ module.exports = async (req, res) => {
       return;
     }
 
-    res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' });
   } catch (e) {
-    res.status(500).json({ error: 'Could not complete that request.' });
+    res.status(500).json({ code: 'request_failed', error: 'Could not complete that request.' });
   }
 };

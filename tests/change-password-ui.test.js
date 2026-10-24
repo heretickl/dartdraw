@@ -354,3 +354,52 @@ test('the account bar is outside the stage area, so a finalized event never lock
   assert.ok(targets.length > 0);
   for (const target of targets) assert.doesNotMatch(target, /organizerBar|document\.body|sidebar|documentElement/, target);
 });
+
+/* ---------- i18n step 5: the server's error code in BM (ddApiError, i18n/errors.*.js) ---------- */
+test('BM: each change-password error answer is shown by its code in BM, with no English; English shows the server text as sent', async () => {
+  const { DD_ERR_EN } = require('../i18n/errors.en.js');
+  const { DD_ERR_MS } = require('../i18n/errors.ms.js');
+  const CODES = [[400, 'passwords_required'], [400, 'new_password_too_short'], [400, 'new_password_too_long'], [400, 'new_password_same'],
+    [400, 'current_password_incorrect'], [409, 'password_changed_elsewhere'], [500, 'password_change_failed'], [429, 'rate_limited'],
+    [403, 'password_change_unavailable'], [401, 'not_authenticated']];
+  run(app, "DD_I18N.lang = 'ms'");
+  try {
+    for (const [status, code] of CODES) {
+      reset(); const click = open();
+      reply = { status, body: { code, error: DD_ERR_EN['err.' + code] } };
+      await click();
+      assert.equal(err(), DD_ERR_MS['err.' + code], code);
+      assert.notEqual(err(), DD_ERR_EN['err.' + code], code + ' is not English');
+      assert.equal(closed, 0);
+    }
+    // a code without BM (an Admin-only one, or a newer server's) shows the English text as sent; no usable body: the BM fallback
+    reset(); let click = open();
+    reply = { status: 400, body: { code: 'brand_new_code', error: 'Something new.' } };
+    await click();
+    assert.equal(err(), 'Something new.');
+    reset(); click = open();
+    reply = { status: 500, body: { code: 42, error: 42 } };
+    await click();
+    assert.equal(err(), 'Kata laluan anda tidak dapat ditukar. Sila cuba lagi.');
+    // values from the answer are text only
+    assert.equal(f('ddApiError')({ code: 'entry_limit', limit: EVIL, error: 'x' }, 'f'), 'Akaun Asas membenarkan sehingga ' + EVIL + ' peserta bagi setiap acara.');
+    assert.equal(f('ddApiError')({ code: 'entry_limit', limit: { a: 1 }, error: 'x' }, 'f'), 'Akaun Asas membenarkan sehingga {limit} peserta bagi setiap acara.');
+  } finally { run(app, "DD_I18N.lang = 'en'"); }
+  // English: the server's own words, byte for byte, even with a code
+  reset(); const click = open();
+  reply = { status: 400, body: { code: 'current_password_incorrect', error: 'The current password is incorrect.' } };
+  await click();
+  assert.equal(err(), 'The current password is incorrect.');
+});
+
+test('the app loads the error tables before app-i18n.js and merges them into T()', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'app.html'), 'utf8');
+  const at = (s) => src.indexOf('<script src="' + s + '"></script>');
+  // errors.en.js is a script tag; errors.ms.js is in the BM tables the data-dd-ms script writes (only when BM is the language)
+  const ms = src.indexOf('<script data-dd-ms>'), msList = src.slice(ms, src.indexOf('</script>', ms));
+  assert.ok(at('i18n/errors.en.js') > 0 && at('i18n/errors.en.js') < ms && ms < at('i18n/app-i18n.js'));
+  assert.match(msList, /DD_MS_FILES = \[[^\]]*"i18n\/errors\.ms\.js"/);
+  assert.equal(f('T')('err.rate_limited'), 'Too many attempts. Try again later.');
+  assert.match(src, /message = ddApiError\(body, T\('pw\.err\.failed'\)\);/);
+  assert.doesNotMatch(src, /\bbody\.error\b(?![^\n]*ddApiError)/, 'no other place shows a server error text directly');
+});

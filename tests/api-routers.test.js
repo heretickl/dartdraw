@@ -88,7 +88,7 @@ test('auth router: unknown actions answer 404 { error: "Not found." } and reach 
     for (const url of ['/api/auth/nope', '/api/auth/', '/api/auth', '/api/auth/constructor', '/api/auth/__proto__', '/api/auth/LOGIN', '/api/auth/login%20', '/api/auth/toString']) {
       const r = await viaAuth(url);
       assert.equal(r.statusCode, 404, url);
-      assert.deepEqual(r.body, { error: 'Not found.' }, url);
+      assert.deepEqual(r.body, { code: 'not_found', error: 'Not found.' }, url);
     }
     assert.equal((await callHandler(authRouter, { method: 'GET' })).statusCode, 404);   // no URL at all
     assert.equal(calls.length, 0);
@@ -152,7 +152,7 @@ test('admin router: the id is decoded; a bad escape or an empty id is a 404', as
     for (const url of ['/api/admin/events/%E0%A4%A', '/api/admin/organizers/%zz', '/api/admin/organizers/%/reset-link']) {
       const r = await viaAdmin(url);
       assert.equal(r.statusCode, 404, url);
-      assert.deepEqual(r.body, { error: 'Not found.' }, url);
+      assert.deepEqual(r.body, { code: 'not_found', error: 'Not found.' }, url);
     }
     assert.equal(calls.length, n);
   } finally { unstub(); }
@@ -170,7 +170,7 @@ test('admin router: unknown routes answer 404 { error: "Not found." } and reach 
     for (const url of urls) {
       const r = await viaAdmin(url);
       assert.equal(r.statusCode, 404, url);
-      assert.deepEqual(r.body, { error: 'Not found.' }, url);
+      assert.deepEqual(r.body, { code: 'not_found', error: 'Not found.' }, url);
     }
     assert.equal((await callHandler(adminRouter, { method: 'GET' })).statusCode, 404);   // no URL at all
     assert.equal(calls.length, 0);
@@ -224,7 +224,7 @@ test('admin router: with the real handlers, no session is 401 and an organiser i
     assert.equal(none.statusCode, 401, method + ' ' + url);
     const org = await viaAdmin(url, { method, body: {}, cookies: cookieFor(byId('org1')) });
     assert.equal(org.statusCode, 403, method + ' ' + url);
-    assert.deepEqual(org.body, { error: 'Admin only.' }, method + ' ' + url);
+    assert.deepEqual(org.body, { code: 'admin_only', error: 'Admin only.' }, method + ' ' + url);
   }
 });
 
