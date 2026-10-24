@@ -5,6 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Help · DartDraw Live</title>
 <meta name="description" content="How to follow a darts tournament live: finding a player, reading group tables and brackets, and what to do if something looks wrong.">
+<link rel="canonical" href="https://dartdraw-viewer.vercel.app/help">
+<link rel="alternate" hreflang="en" href="https://dartdraw-viewer.vercel.app/help">
+<link rel="alternate" hreflang="ms" href="https://dartdraw-viewer.vercel.app/ms/help">
+<link rel="alternate" hreflang="x-default" href="https://dartdraw-viewer.vercel.app/help">
+<script id="dd-lang">
+(function(){
+var L="en",TWIN="/ms/help",HASHOK=true,KEY='dartdraw.lang';
+var q=String(location.search||''),h=String(location.hash||''),m=/[?&]lang=(en|ms)(?=&|$)/.exec(q);
+if(m){
+  try{localStorage.setItem(KEY,m[1])}catch(e){}
+  var rest=q.replace(/([?&])lang=(en|ms)(&|$)/,function(a,b,c,d){return d?b:''}).replace(/[?&]$/,'');
+  if(m[1]!==L){location.replace(TWIN+rest+h);return}
+  try{history.replaceState(null,'',location.pathname+rest+h)}catch(e){}
+  return;
+}
+var s=null;try{s=localStorage.getItem(KEY)}catch(e){}
+if((s==='en'||s==='ms')&&s!==L&&(!h||(HASHOK&&s==='ms')))location.replace(TWIN+q+h);
+})();
+</script>
 <meta name="theme-color" content="#0a1624">
 <meta name="color-scheme" content="dark light">
 <script>try{var t=localStorage.getItem('dartdraw.viewer.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
@@ -15,15 +34,19 @@
 <link rel="stylesheet" href="/help.css">
 </head>
 <body>
+<div class="langbar" id="langBar" lang="ms" hidden><div class="wrap"><p>Bahasa Malaysia tersedia &mdash; <a href="/ms/help" hreflang="ms" data-lang-set="ms" title="Switch to Bahasa Malaysia">Tukar ke BM<span class="vh" lang="en"> (Switch to Bahasa Malaysia)</span></a></p><button class="langbar-x" type="button" data-langbar-close aria-label="Tutup" title="Close">&times;</button></div></div>
 <header>
   <div class="wrap">
     <a class="allevents" href="/"><span class="am" aria-hidden="true">D</span>&lsaquo; All events</a>
     <div class="toprow">
       <div class="over">DartDraw Live</div>
-      <div class="themesw" role="group" aria-label="Colour theme">
-        <button type="button" data-theme-set="auto" aria-pressed="true">Auto</button>
-        <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
-        <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+      <div class="hdr-tools">
+        <div class="langsw" role="group" aria-label="Language / Bahasa"><a href="/help" lang="en" hreflang="en" aria-label="English" data-lang-set="en" aria-current="true">EN</a><a href="/ms/help" lang="ms" hreflang="ms" aria-label="Bahasa Malaysia" data-lang-set="ms">BM</a></div>
+        <div class="themesw" role="group" aria-label="Colour theme">
+          <button type="button" data-theme-set="auto" aria-pressed="true">Auto</button>
+          <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
+          <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+        </div>
       </div>
     </div>
     <h1>Help</h1>
@@ -569,7 +592,7 @@
 <footer>Powered by DartDraw</footer>
 
 <script src="/help-search.js"></script>
-<script type="application/json" id="helpSearchData">{"synonyms":[["son","daughter","kid","kids","child","children","husband","wife","dad","mum","mom","father","mother","friend","brother","sister","grandson","granddaughter","my player","my son","my daughter","where is","find","find player","find a player","look up"],["when","what time","time","times","schedule","timetable","which board","what board","board number","court","where","start time","starting time","order of play","when do i play"],["qualify","qualifies","qualified","qualifying","advance","advances","advancing","go through","goes through","through","top 2","top two","green bar"],["champion","winner","won","who won","winning","runner up","runner"],["not updating","not moving","stuck","frozen","old","stale","not changing","no new scores","delay","delayed"],["refresh","reload","refreshes","auto refresh","live scores"],["dark mode","night mode","light mode","theme","dark","light","dark theme"],["wo","walkover","walk over","no show","noshow","didnt turn up","did not turn up","didnt show","did not show","absent","neither attended","forfeit"],["h2h","head to head","tb","tie break","tiebreak","ld","leg difference","3 way","three way","badge","badges","?","*","asterisk","question mark"],["tie","tied","ties","level","level on points","same points","equal points"],["team","teams","pair","pairs","doubles","partner"],["mp","mw","ml","md","lw","pts","+/-","columns","abbreviation","abbreviations","letters","headings"],["qr","qr code","scan","camera","barcode"],["share","send link","copy link","whatsapp","send to a friend","link"],["account","sign up","signup","register","login","log in","sign in","password"],["privacy","data","cookie","cookies","tracking","track","personal data","permission","permissions","collect"],["offline","no signal","wifi","wi fi","no internet","connection","reconnecting","roaming","mobile data"],["missing","name missing","not listed","not there","spelling","misspelled","wrong name","cant find"],["cut off","sideways","scroll","too wide"],["finished","over","ended","complete","final results","awaiting","official"],["me","this is me","myself","follow","following","star","favourite","favorite","unfollow","blue","gold"],["withdrawn","withdraw","retired","pulled out","quit"],["eliminated","knocked out","out","still in","next match","next opponent","who plays next","plays next","next game","lost"],["how long","kept","stay","expire","disappear","hours","days","old results"],["problem","broken","blank","error","not working","wrong"],["segment","segments","foursome","team match"],["leg","legs","best of"],["bye","byes"],["delete","remove","clear","forget"],["colour","color","colours","colors","red green","red","green"],["tooltip","hover","explanation"],["group boards","boards tab","board tab"],["who is playing","playing now","up now","on now"],["seed","seeds","seeded","seeding","top seed","a1","b2"],["plate","plate pool","consolation","second bracket"],["glossary","jargon","terms","words you will see"],["match code","match codes","match number"],["come back","come back later","return","later","next time"]],"noAnswer":[{"terms":["notify","notified","notification","notifications","alert","alerts","push","remind","reminder","text me","sms","email","email me"],"say":"This site can’t send notifications. Keep the event page open: it refreshes by itself."},{"terms":["contact","contact organiser","organiser","organizer"],"say":"This site has no way to message the organiser. Ask at the organiser’s desk at the venue."},{"terms":["language","languages","bahasa","malay","melayu","translate","translation"],"say":"The site is in English only for now."},{"terms":["app","install","add to home screen","home screen","bookmark","bookmarks","download app"],"say":"There is no app to install. Bookmark the event page in your browser, or keep the link you were given: it keeps working."},{"terms":["accessibility","screen reader","screenreader","colorblind","colourblind","colour blind","color blind"],"say":"This Help has no page about accessibility yet. If you need the results another way, ask the organiser at the venue desk."},{"terms":["third place","3rd place","bronze"],"say":"Third place is not covered in this Help. Ask the organiser at the venue desk."},{"terms":["text size","font","font size","large text","larger text","bigger text","small text","small","zoom"],"say":"To make the text bigger, use your browser’s zoom (on a phone, spread two fingers on the screen)."}]}</script>
+<script type="application/json" id="helpSearchData">{"synonyms":[["son","daughter","kid","kids","child","children","husband","wife","dad","mum","mom","father","mother","friend","brother","sister","grandson","granddaughter","my player","my son","my daughter","where is","find","find player","find a player","look up"],["when","what time","time","times","schedule","timetable","which board","what board","board number","court","where","start time","starting time","order of play","when do i play"],["qualify","qualifies","qualified","qualifying","advance","advances","advancing","go through","goes through","through","top 2","top two","green bar"],["champion","winner","won","who won","winning","runner up","runner"],["not updating","not moving","stuck","frozen","old","stale","not changing","no new scores","delay","delayed"],["refresh","reload","refreshes","auto refresh","live scores"],["dark mode","night mode","light mode","theme","dark","light","dark theme"],["wo","walkover","walk over","no show","noshow","didnt turn up","did not turn up","didnt show","did not show","absent","neither attended","forfeit"],["h2h","head to head","tb","tie break","tiebreak","ld","leg difference","3 way","three way","badge","badges","?","*","asterisk","question mark"],["tie","tied","ties","level","level on points","same points","equal points"],["team","teams","pair","pairs","doubles","partner"],["mp","mw","ml","md","lw","pts","+/-","columns","abbreviation","abbreviations","letters","headings"],["qr","qr code","scan","camera","barcode"],["share","send link","copy link","whatsapp","send to a friend","link"],["account","sign up","signup","register","login","log in","sign in","password"],["privacy","data","cookie","cookies","tracking","track","personal data","permission","permissions","collect"],["offline","no signal","wifi","wi fi","no internet","connection","reconnecting","roaming","mobile data"],["missing","name missing","not listed","not there","spelling","misspelled","wrong name","cant find"],["cut off","sideways","scroll","too wide"],["finished","over","ended","complete","final results","awaiting","official"],["me","this is me","myself","follow","following","star","favourite","favorite","unfollow","blue","gold"],["withdrawn","withdraw","retired","pulled out","quit"],["eliminated","knocked out","out","still in","next match","next opponent","who plays next","plays next","next game","lost"],["how long","kept","stay","expire","disappear","hours","days","old results"],["problem","broken","blank","error","not working","wrong"],["segment","segments","foursome","team match"],["leg","legs","best of"],["bye","byes"],["delete","remove","clear","forget"],["colour","color","colours","colors","red green","red","green"],["tooltip","hover","explanation"],["group boards","boards tab","board tab"],["who is playing","playing now","up now","on now"],["seed","seeds","seeded","seeding","top seed","a1","b2"],["plate","plate pool","consolation","second bracket"],["glossary","jargon","terms","words you will see"],["match code","match codes","match number"],["come back","come back later","return","later","next time"]],"noAnswer":[{"terms":["notify","notified","notification","notifications","alert","alerts","push","remind","reminder","text me","sms","email","email me"],"say":"This site can’t send notifications. Keep the event page open: it refreshes by itself."},{"terms":["contact","contact organiser","organiser","organizer"],"say":"This site has no way to message the organiser. Ask at the organiser’s desk at the venue."},{"terms":["language","languages","bahasa","malay","melayu","translate","translation","bahasa malaysia","bm"],"say":"This Help and the event pages are also in Bahasa Malaysia: tap BM at the top of the page. This site remembers your choice on this device."},{"terms":["app","install","add to home screen","home screen","bookmark","bookmarks","download app"],"say":"There is no app to install. Bookmark the event page in your browser, or keep the link you were given: it keeps working."},{"terms":["accessibility","screen reader","screenreader","colorblind","colourblind","colour blind","color blind"],"say":"This Help has no page about accessibility yet. If you need the results another way, ask the organiser at the venue desk."},{"terms":["third place","3rd place","bronze"],"say":"Third place is not covered in this Help. Ask the organiser at the venue desk."},{"terms":["text size","font","font size","large text","larger text","bigger text","small text","small","zoom"],"say":"To make the text bigger, use your browser’s zoom (on a phone, spread two fingers on the screen)."}],"strings":{"count":{"one":"1 question matches","other":"{n} questions match"},"near":{"one":"No direct answer. 1 close match","other":"No direct answer. {n} close matches"},"nearLabel":"Closest matches:","showAll":"Show all {n} results"},"alias":[["macam mana",""],["bagaimana",""],["camne",""],["mana",""],["apa",""],["apakah",""],["yang",""],["di",""],["ke",""],["nak",""],["boleh",""],["kenapa",""],["mengapa",""],["tak",""],["tidak",""],["ini saya","this is me"],["anak saya","my son"],["anak","son"],["saya",""],["cari pemain","find a player"],["cari","find"],["pemain","player"],["bila","when"],["pukul berapa","what time"],["masa","time"],["skor","score"],["markah","score"],["keputusan","results"],["kumpulan","group"],["jadual","table"],["lajur","columns"],["mata","points"],["pemenang","winner"],["juara","champion"],["siapa menang","who won"],["tidak hadir","no show"],["tak hadir","no show"],["sama mata","tie"],["seri","draw"],["luar talian","offline"],["kod qr","qr"],["imbas","scan"],["kongsi","share"],["pautan","link"],["gelap","dark"],["cerah","light"],["tema","theme"],["ikuti","follow"],["diikuti","following"],["pusingan","rounds"],["carta","chart"],["pasukan","team"],["pasangan","pair"],["beregu","doubles"],["segmen","segment"],["halaman utama","home page"],["acara","event"],["langsung","live"],["mendatang","upcoming"],["muktamad","final results"],["akaun","account"],["privasi","privacy"],["salah","wrong"],["lambat","slow"],["tersekat","stuck"],["tidak berubah","not moving"],["layak","qualify"],["mara","go through"],["istilah","glossary"],["maksud","meaning"],["tarik diri","withdrawn"],["peringkat akhir","finals"],["saingan plate","plate pool"]]}</script>
 <script id="faq-search">
 /* Help search: the shared module help-search.js (a copy of the root file, made by npm run sync-viewer) does the work.
    This page gives it the questions, their groups, the synonyms above, and where to show the results. Without JavaScript
@@ -590,9 +613,7 @@
     input: input, reveal: document.getElementById('faqFind'), status: document.getElementById('faqStatus'), hideIdleStatus: true,
     results: document.getElementById('faqResults'), empty: document.getElementById('faqNone'), emptyQ: document.getElementById('faqNoneQ'),
     say: document.getElementById('faqSay'), items: items, groups: groups, tocs: asides, data: data,
-    groupOf: function(d){ var g = d.closest ? d.closest('.help-grp') : null, h = g ? g.querySelector('h2') : null; return h ? h.textContent : ''; },
-    count: function(n){ return n === 1 ? '1 question matches' : n + ' questions match'; },
-    nearCount: function(n){ return 'No direct answer. ' + n + (n === 1 ? ' close match' : ' close matches'); }
+    groupOf: function(d){ var g = d.closest ? d.closest('.help-grp') : null, h = g ? g.querySelector('h2') : null; return h ? h.textContent : ''; }
   });
 })();
 </script>
@@ -625,6 +646,39 @@
     b.setAttribute('aria-pressed', b.getAttribute('data-theme-set') === saved() ? 'true' : 'false');
     b.addEventListener('click', function(){ apply(b.getAttribute('data-theme-set')); });
   });
+})();
+</script>
+<script id="dd-lang-ui">
+(function(){
+var KEY='dartdraw.lang',NOTE='dartdraw.lang.note',FOCUS='dartdraw.lang.focus';
+function get(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function put(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+/* the other language's link keeps this address's query (?from=...) and #anchor, so the twin opens at the same place */
+function keep(){return String(location.search||'').replace(/([?&])lang=(en|ms)(&|$)/,function(a,b,c,d){return d?b:''}).replace(/[?&]$/,'')+String(location.hash||'')}
+function sync(){[].forEach.call(document.querySelectorAll('[data-lang-set]'),function(a){
+  if(a.getAttribute('aria-current')==='true')return;
+  var b=a.getAttribute('data-base')||String(a.getAttribute('href')||'').split(/[?#]/)[0];
+  a.setAttribute('data-base',b);a.setAttribute('href',b+keep());
+})}
+sync();
+window.addEventListener('hashchange',sync);
+[].forEach.call(document.querySelectorAll('[data-lang-set]'),function(a){
+  a.addEventListener('click',function(e){
+    var l=a.getAttribute('data-lang-set');
+    put(KEY,l);
+    try{sessionStorage.setItem(FOCUS,'1')}catch(x){}
+    if(a.getAttribute('aria-current')==='true')e.preventDefault();
+  });
+});
+try{if(sessionStorage.getItem(FOCUS)){sessionStorage.removeItem(FOCUS);var cur=document.querySelector('.langsw [aria-current="true"]');if(cur&&cur.focus)cur.focus()}}catch(e){}
+var bar=document.getElementById('langBar');
+if(bar){
+  var n=String((navigator.languages&&navigator.languages[0])||navigator.language||'');
+  var saved=get(KEY);
+  if(saved!=='en'&&saved!=='ms'&&/^ms/i.test(n)&&get(NOTE)!=='closed')bar.hidden=false;
+  var x=bar.querySelector('[data-langbar-close]');
+  if(x)x.addEventListener('click',function(){bar.hidden=true;put(NOTE,'closed')});
+}
 })();
 </script>
 </body>

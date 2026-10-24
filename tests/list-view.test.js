@@ -67,7 +67,7 @@ test('withdrawn entries are not counted; names are trimmed and capped; hostile n
   assert.equal(r.item.entries, 7);
   assert.equal(r.item.event.length, 120); assert.ok(r.item.event.startsWith('<script>'));
   assert.equal(r.item.tournament, '');
-  t.eventCreation.eventName = ''; assert.equal(lv.describe(row(t), NOW).item.event, 'Untitled event');
+  t.eventCreation.eventName = ''; assert.equal(lv.describe(row(t), NOW).item.event, '');
 });
 
 test('every format is live once a result exists and results once it has finished, with the winner where there is one', () => {
@@ -167,26 +167,26 @@ test('progress: round robin counts every match of every confirmed group', () => 
   const t = rrEvent(12);
   run(app, 'setScore')(t.groups[0], t.groups[0].entryIds[0], t.groups[0].entryIds[1], 3, 0);
   run(app, 'setScore')(t.groups[1], t.groups[1].entryIds[0], t.groups[1].entryIds[1], 3, 0);
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Group stage', done: 2, total: 18 });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'groups', done: 2, total: 18 });
   t.groups[2].confirmed = false;
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Group stage', done: 2, total: 12 });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'groups', done: 2, total: 12 });
 });
 
 test('progress: a knockout shows its current round, and moves to the next round only when this one is done', () => {
   const t = knockoutEvent(8);
   play(t.knockout.rounds[0][0], 'a'); play(t.knockout.rounds[0][1], 'a');
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Quarterfinals', done: 2, total: 4 });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'knockout', round: 'quarterfinals', done: 2, total: 4 });
   play(t.knockout.rounds[0][2], 'a'); play(t.knockout.rounds[0][3], 'a'); run(app, 'propagateByes')(t.knockout.rounds);
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Semifinals', done: 0, total: 2 });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'knockout', round: 'semifinals', done: 0, total: 2 });
   const big = knockoutEvent(16); play(big.knockout.rounds[0][0], 'a');
-  assert.deepEqual(plain(progressOf(big)), { stage: 'Round of 16', done: 1, total: 8 });
+  assert.deepEqual(plain(progressOf(big)), { stage: 'knockout', round: 'r16', done: 1, total: 8 });
 });
 
 test('progress: byes and void matches are not counted, and a bracket of 6 has two byes', () => {
   const t = knockoutEvent(6);
   const real = t.knockout.rounds[0].filter((m) => !m.bye).length;
   play(t.knockout.rounds[0].find((m) => !m.bye), 'a');
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Quarterfinals', done: 1, total: real });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'knockout', round: 'quarterfinals', done: 1, total: real });
   const v = knockoutEvent(8); v.knockout.rounds[0][0].void = true; run(app, 'propagateByes')(v.knockout.rounds);
   assert.equal(progressOf(v).total, 3);
 });
@@ -194,23 +194,23 @@ test('progress: byes and void matches are not counted, and a bracket of 6 has tw
 test('progress: round robin then knockout stays in the group stage until every group is complete', () => {
   const t = rrEvent(8); t.format.formatType = 'rrknockout';
   run(app, 'setScore')(t.groups[0], t.groups[0].entryIds[0], t.groups[0].entryIds[1], 3, 0);
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Group stage', done: 1, total: 12 });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'groups', done: 1, total: 12 });
   t.groups.forEach(playAll);
   t.knockout = run(app, 'generateBracket')(t.entriesList.slice(0, 4).map((e) => ({ entryId: e.id, org: '' })), 'Bracket');
   play(t.knockout.rounds[0][0], 'a');
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Semifinals', done: 1, total: 2 });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'knockout', round: 'semifinals', done: 1, total: 2 });
   const noBracket = rrEvent(8); noBracket.format.formatType = 'rrknockout'; noBracket.groups.forEach(playAll);   // groups done, bracket not made yet
-  assert.deepEqual(plain(progressOf(noBracket)), { stage: 'Group stage', done: 12, total: 12, next: 'Knockout draw next' });   // the gap before the draw says what comes next
+  assert.deepEqual(plain(progressOf(noBracket)), { stage: 'groups', done: 12, total: 12, next: 'knockout' });   // the gap before the draw says what comes next
 });
 
 test('progress: Group Boards shows the group stage, then the Finals once every group is finished or the Finals has started', () => {
   const t = podEvent(12, 3);
   play(t.pods[0].bracket.rounds[0][0], 'a');
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Group stage', done: 1, total: 9 });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'groups', done: 1, total: 9 });
   t.pods.forEach((p) => { playOut(app, p.bracket, () => 'a'); });
   run(app, 'syncFinalsFromPods')(t);
   const p = progressOf(t);
-  assert.ok(p.stage.startsWith('Finals · '), p.stage);
+  assert.equal(p.stage, 'finals'); assert.ok(/^(final|semifinals|quarterfinals|r\d+)$/.test(p.round), p.round);
   assert.ok(p.done <= p.total && p.total > 0);
 });
 
@@ -219,7 +219,7 @@ test('progress: "next" appears only between stages: every group played and no kn
   run(app, 'setScore')(rr.groups[0], rr.groups[0].entryIds[0], rr.groups[0].entryIds[1], 3, 0);
   assert.ok(!('next' in progressOf(rr)));                                        // groups still being played
   rr.groups.forEach(playAll);
-  assert.deepEqual(plain(progressOf(rr)), { stage: 'Group stage', done: 12, total: 12, next: 'Knockout draw next' });
+  assert.deepEqual(plain(progressOf(rr)), { stage: 'groups', done: 12, total: 12, next: 'knockout' });
   rr.knockout = run(app, 'generateBracket')(rr.entriesList.slice(0, 4).map((e) => ({ entryId: e.id, org: '' })), 'Bracket');
   assert.ok(!('next' in progressOf(rr)));                                        // bracket drawn: no longer in the gap
   play(rr.knockout.rounds[0][0], 'a');
@@ -233,20 +233,40 @@ test('progress: "next" appears only between stages: every group played and no kn
   const finals = t.knockout; t.knockout = null;                                   // the Finals bracket is not built yet
   t.pods.forEach((p) => { playOut(app, p.bracket, () => 'a'); });                // every group finished
   assert.equal(lv.describe(row(t), NOW).status, 'live');
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Group stage', done: 9, total: 9, next: 'Finals next' });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'groups', done: 9, total: 9, next: 'finals' });
   assert.deepEqual(Object.keys(lv.describe(row(t), NOW).item).sort(), ITEM_KEYS.concat('progress').sort());     // the item's own keys do not change; only progress may carry next
   assert.deepEqual(Object.keys(progressOf(t)).sort(), ['done', 'next', 'stage', 'total']);
   t.knockout = finals; run(app, 'syncFinalsFromPods')(t);                        // Finals built
   assert.ok(!('next' in progressOf(t)));
   const k = knockoutEvent(8); play(k.knockout.rounds[0][0], 'a');
   assert.ok(!('next' in progressOf(k)));
-  assert.deepEqual(Object.keys(progressOf(k)).sort(), ['done', 'stage', 'total']);
+  assert.deepEqual(Object.keys(progressOf(k)).sort(), ['done', 'round', 'stage', 'total']);   // a live knockout names its round by code
 });
 
-const AWAIT = 'Awaiting final results';
+test('progress and stages are codes and numbers only: no English words leave the server (i18n step 2)', () => {
+  const codes = /^(groups|knockout|finals)$/, rounds = /^(final|semifinals|quarterfinals|r\d{1,4})$/, nexts = /^(awaiting|knockout|finals)$/;
+  const check = (d) => {
+    const p = progressOf(d);
+    if (p) {
+      assert.match(p.stage, codes); if ('round' in p) assert.match(p.round, rounds); if ('next' in p) assert.match(p.next, nexts);
+      Object.keys(p).forEach((key) => assert.ok(['stage', 'round', 'next', 'done', 'total'].includes(key), key));
+    }
+    lv.stagesOf(d).forEach((s) => { if ('round' in s) assert.match(s.round, rounds); });
+  };
+  const k = knockoutEvent(16); check(k);
+  play(k.knockout.rounds[0][0], 'a'); check(k);
+  playOut(app, k.knockout); check(k);
+  assert.equal(lv.roundCode(k.knockout, 0), 'r16'); assert.equal(lv.roundCode(k.knockout, 1), 'quarterfinals');
+  assert.equal(lv.roundCode(k.knockout, 2), 'semifinals'); assert.equal(lv.roundCode(k.knockout, 3), 'final');
+  // and the whole list as the endpoint sends it: only the organiser's own names are text
+  const out = JSON.stringify(lv.buildList([row(k)], NOW));
+  ['Round of', 'Semifinal', 'Quarterfinal', 'Final', 'Group stage', 'Knockout', 'Awaiting', 'draw next', 'Untitled'].forEach((w) => assert.ok(!out.includes(w), w));
+});
+
+const AWAIT = 'awaiting';   // codes, not words (i18n step 2): the page says "Awaiting final results" in its language
 test('progress: a finished round robin that is not finalized is the full Group stage awaiting final results; before it is full and finalized it is a result', () => {
   const t = rrEvent(8); t.groups.forEach(playAll);
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Group stage', done: 12, total: 12, next: AWAIT });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'groups', done: 12, total: 12, next: AWAIT });
   assert.deepEqual(Object.keys(progressOf(t)).sort(), ['done', 'next', 'stage', 'total']);
   const part = rrEvent(8); playAll(part.groups[0]);
   assert.ok(!('next' in progressOf(part)));                                          // one group still to play: unchanged
@@ -255,14 +275,14 @@ test('progress: a finished round robin that is not finalized is the full Group s
 
 test('progress: a finished knockout (champion, or a void final) is Knockout complete, awaiting final results, with the real match count', () => {
   const t = knockoutEvent(8); playOut(app, t.knockout, () => 'a');
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Knockout', done: 7, total: 7, next: AWAIT });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'knockout', done: 7, total: 7, next: AWAIT });
   const six = knockoutEvent(6); playOut(app, six.knockout, () => 'a');                // byes are not counted
   const real = lv.counts(six.knockout).total;
-  assert.deepEqual(plain(progressOf(six)), { stage: 'Knockout', done: real, total: real, next: AWAIT });
+  assert.deepEqual(plain(progressOf(six)), { stage: 'knockout', done: real, total: real, next: AWAIT });
   const v = knockoutEvent(8); play(v.knockout.rounds[0][0], 'a'); v.knockout.rounds[v.knockout.rounds.length - 1][0].void = true;
-  const p = progressOf(v); assert.equal(p.stage, 'Knockout'); assert.equal(p.next, AWAIT); assert.equal(p.done, p.total);
+  const p = progressOf(v); assert.equal(p.stage, 'knockout'); assert.equal(p.next, AWAIT); assert.equal(p.done, p.total);
   const mid = knockoutEvent(8); play(mid.knockout.rounds[0][0], 'a');                 // not finished: the round, no next
-  assert.deepEqual(plain(progressOf(mid)), { stage: 'Quarterfinals', done: 1, total: 4 });
+  assert.deepEqual(plain(progressOf(mid)), { stage: 'knockout', round: 'quarterfinals', done: 1, total: 4 });
   assert.equal(lv.describe(row(fin(t)), NOW).status, 'results');
 });
 
@@ -270,16 +290,16 @@ test('progress: a finished round robin + knockout says Knockout complete, not th
   const t = rrEvent(8); t.format.formatType = 'rrknockout'; t.groups.forEach(playAll);
   t.knockout = run(app, 'generateBracket')(t.entriesList.slice(0, 4).map((e) => ({ entryId: e.id, org: '' })), 'Bracket');
   play(t.knockout.rounds[0][0], 'a');
-  assert.equal(progressOf(t).stage, 'Semifinals');
+  assert.equal(progressOf(t).round, 'semifinals');
   playOut(app, t.knockout, () => 'a');
-  assert.deepEqual(plain(progressOf(t)), { stage: 'Knockout', done: 3, total: 3, next: AWAIT });
+  assert.deepEqual(plain(progressOf(t)), { stage: 'knockout', done: 3, total: 3, next: AWAIT });
   const v = rrEvent(8); v.format.formatType = 'rrknockout'; v.groups.forEach(playAll);
   v.knockout = run(app, 'generateBracket')(v.entriesList.slice(0, 4).map((e) => ({ entryId: e.id, org: '' })), 'Bracket');
   play(v.knockout.rounds[0][0], 'a'); play(v.knockout.rounds[0][1], 'a'); run(app, 'propagateByes')(v.knockout.rounds);
   v.knockout.rounds[1][0].void = true;                                               // a void final
-  const p = progressOf(v); assert.equal(p.stage, 'Knockout'); assert.equal(p.next, AWAIT); assert.equal(p.done, p.total); assert.equal(p.total, 2);
+  const p = progressOf(v); assert.equal(p.stage, 'knockout'); assert.equal(p.next, AWAIT); assert.equal(p.done, p.total); assert.equal(p.total, 2);
   const noBracket = rrEvent(8); noBracket.format.formatType = 'rrknockout'; noBracket.groups.forEach(playAll);
-  assert.deepEqual(plain(progressOf(noBracket)), { stage: 'Group stage', done: 12, total: 12, next: 'Knockout draw next' });   // no bracket: still the draw gap
+  assert.deepEqual(plain(progressOf(noBracket)), { stage: 'groups', done: 12, total: 12, next: 'knockout' });   // no bracket: still the draw gap
   assert.equal(lv.describe(row(fin(t)), NOW).status, 'results');
 });
 
@@ -287,15 +307,15 @@ test('progress: finished Group Boards say Finals complete, awaiting final result
   const t = podEvent(12, 3);
   t.pods.forEach((p) => { playOut(app, p.bracket, () => 'a'); });
   run(app, 'syncFinalsFromPods')(t);
-  assert.ok(lv.describe(row(t), NOW).item.progress.stage.startsWith('Finals · '));
+  assert.equal(lv.describe(row(t), NOW).item.progress.stage, 'finals'); assert.ok(lv.describe(row(t), NOW).item.progress.round);
   playOut(app, t.knockout, () => 'a');
-  const p = plain(progressOf(t)); assert.equal(p.stage, 'Finals'); assert.equal(p.next, AWAIT); assert.equal(p.done, p.total); assert.ok(p.total > 0);
+  const p = plain(progressOf(t)); assert.equal(p.stage, 'finals'); assert.equal(p.next, AWAIT); assert.equal(p.done, p.total); assert.ok(p.total > 0);
   assert.equal(p.total, lv.counts(t.knockout).total);
   const v = podEvent(12, 3);
   v.pods.forEach((q) => { playOut(app, q.bracket, () => 'a'); });
   run(app, 'syncFinalsFromPods')(v);
   v.knockout.rounds[v.knockout.rounds.length - 1][0].void = true;
-  const pv = progressOf(v); assert.equal(pv.stage, 'Finals'); assert.equal(pv.next, AWAIT); assert.equal(pv.done, pv.total);
+  const pv = progressOf(v); assert.equal(pv.stage, 'finals'); assert.equal(pv.next, AWAIT); assert.equal(pv.done, pv.total);
   const half = podEvent(12, 3); half.pods.forEach((q) => { playOut(app, q.bracket, () => 'a'); }); run(app, 'syncFinalsFromPods')(half);
   assert.ok(!('next' in progressOf(half)));                                            // Finals built, not played
   assert.equal(lv.describe(row(fin(t)), NOW).status, 'results');
@@ -330,9 +350,9 @@ test('progress: groups of one or two, an empty group and a bracket with nothing 
 
 test('only live events carry progress, and the counts never go backwards within a stage', () => {
   const up = knockoutEvent(8); assert.ok(!('progress' in lv.describe(row(up), NOW).item));
-  const done = knockoutEvent(8); playOut(app, done.knockout, () => 'a'); assert.deepEqual(plain(progressOf(done)), { stage: 'Knockout', done: 7, total: 7, next: 'Awaiting final results' });   // finished but not finalized: awaiting, not a ring
+  const done = knockoutEvent(8); playOut(app, done.knockout, () => 'a'); assert.deepEqual(plain(progressOf(done)), { stage: 'knockout', done: 7, total: 7, next: 'awaiting' });   // finished but not finalized: awaiting, not a ring
   const t = knockoutEvent(16); let last = -1;
-  t.knockout.rounds[0].forEach((m) => { play(m, 'a'); const p = progressOf(t); if (p.stage === 'Round of 16') { assert.ok(p.done > last); last = p.done; } });
+  t.knockout.rounds[0].forEach((m) => { play(m, 'a'); const p = progressOf(t); if (p.round === 'r16') { assert.ok(p.done > last); last = p.done; } });
 });
 
 test('describe only accepts real strings for the date, start time and slug', () => {
@@ -379,7 +399,7 @@ test('stages: the item key allow-list now includes stages, for all three statuse
   assert.deepEqual(Object.keys(lv.describe(row(live), NOW).item).sort(), ITEM_KEYS.concat('progress').sort());
   const done = knockoutEvent(8); playOut(app, done.knockout, () => 'a'); fin(done);
   assert.deepEqual(Object.keys(lv.describe(row(done), NOW).item).sort(), ITEM_KEYS.concat('winner').sort());
-  assert.equal(lv.describe(row(live), NOW).item.progress.stage, 'Quarterfinals');   // progress is untouched
+  assert.equal(lv.describe(row(live), NOW).item.progress.round, 'quarterfinals');   // progress is untouched
 });
 
 test('stages: a plain round robin has one groups stage: notstarted, live, done', () => {
@@ -405,7 +425,7 @@ test('stages: a plain knockout has one stage: next with no bracket, ready, live 
   assert.deepEqual(s, [{ key: 'knockout', state: 'ready', done: 0, total: 0 }]);
   play(t.knockout.rounds[0][0], 'a'); play(t.knockout.rounds[0][1], 'a');
   s = stagesOf(t); checkStages(s);
-  assert.deepEqual(s, [{ key: 'knockout', state: 'live', done: 2, total: 4, round: 'Quarterfinals' }]);
+  assert.deepEqual(s, [{ key: 'knockout', state: 'live', done: 2, total: 4, round: 'quarterfinals' }]);
   playOut(app, t.knockout, () => 'a');
   s = stagesOf(t); checkStages(s);
   assert.deepEqual(s, [{ key: 'knockout', state: 'done', done: 7, total: 7 }]);
@@ -416,7 +436,7 @@ test('stages: a plain knockout has one stage: next with no bracket, ready, live 
 test('stages: a knockout whose current round moves on reports that round', () => {
   const t = knockoutEvent(8);
   t.knockout.rounds[0].forEach((m) => play(m, 'a')); run(app, 'propagateByes')(t.knockout.rounds);
-  assert.deepEqual(stagesOf(t), [{ key: 'knockout', state: 'live', done: 0, total: 2, round: 'Semifinals' }]);
+  assert.deepEqual(stagesOf(t), [{ key: 'knockout', state: 'live', done: 0, total: 2, round: 'semifinals' }]);
 });
 
 test('stages: round robin then knockout goes waiting, next, ready, live, done', () => {
@@ -440,7 +460,7 @@ test('stages: round robin then knockout goes waiting, next, ready, live, done', 
   assert.deepEqual(s, [{ key: 'groups', state: 'done', done: 12, total: 12, groups: 2 }, { key: 'knockout', state: 'ready', done: 0, total: 0 }]);
   play(t.knockout.rounds[0][0], 'a');
   s = stagesOf(t); checkStages(s);
-  assert.deepEqual(s[1], { key: 'knockout', state: 'live', done: 1, total: 2, round: 'Semifinals' });
+  assert.deepEqual(s[1], { key: 'knockout', state: 'live', done: 1, total: 2, round: 'semifinals' });
   playOut(app, t.knockout, () => 'a');
   s = stagesOf(t); checkStages(s);
   assert.deepEqual(s, [{ key: 'groups', state: 'done', done: 12, total: 12, groups: 2 }, { key: 'knockout', state: 'done', done: 3, total: 3 }]);
@@ -523,7 +543,7 @@ test('stages: a knockout drawn early (a group result missing) forces the groups 
   assert.equal(s[1].state, 'ready'); assert.equal(s[0].state, 'live');                  // a bracket with no result changes nothing
   play(t.knockout.rounds[0][0], 'a');
   s = stagesOf(t); checkStages(s);
-  assert.deepEqual(s, [{ key: 'groups', state: 'done', done: 11, total: 12, groups: 2 }, { key: 'knockout', state: 'live', done: 1, total: 2, round: 'Semifinals' }]);
+  assert.deepEqual(s, [{ key: 'groups', state: 'done', done: 11, total: 12, groups: 2 }, { key: 'knockout', state: 'live', done: 1, total: 2, round: 'semifinals' }]);
   playOut(app, t.knockout, () => 'a'); fin(t);
   assert.equal(lv.describe(row(t), NOW).status, 'results');
   s = stagesOf(t); checkStages(s);

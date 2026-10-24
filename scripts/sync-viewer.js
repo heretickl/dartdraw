@@ -2,6 +2,7 @@
 // viewer can't load render.js / render.css / help-search.js from the app's folder.
 // The root copies are the source of truth; this copies them into viewer/.
 //   render.js, render.css  the standings and bracket drawing
+//   i18n/render.ms.js      render.js's words in Bahasa Malaysia (the English is inside render.js)
 //   help-search.js         the Help search, used by help.html and viewer/help.html
 //   node scripts/sync-viewer.js          copy root -> viewer/
 //   node scripts/sync-viewer.js --check  exit 1 if viewer/ is out of date
@@ -9,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const FILES = ['render.js', 'render.css', 'help-search.js'];
+const FILES = ['render.js', 'render.css', 'help-search.js', 'i18n/render.ms.js'];
 const check = process.argv.includes('--check');
 let stale = 0;
 
@@ -20,6 +21,7 @@ for (const f of FILES) {
   const same = dst && src.equals(dst);
   if (same) { console.log('ok      ' + f); continue; }
   if (check) { console.log('STALE   viewer/' + f); stale++; continue; }
+  fs.mkdirSync(path.dirname(dstPath), { recursive: true });
   fs.writeFileSync(dstPath, src);
   console.log('copied  ' + f + ' -> viewer/' + f);
 }

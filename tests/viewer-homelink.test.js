@@ -15,12 +15,12 @@ test('event header: exactly one plain "All events" link to / sits before the top
   const h = header();
   // two links: All events, and (Release 4) the Help button beside it
   assert.equal((h.match(/<a\b/g) || []).length, 2);
-  assert.match(h, /<div class="headrow"><a class="allevents" href="\/">[\s\S]*?<\/a><a class="evhelp" id="hHelp" href="\/help">Help<\/a><\/div>/);
+  assert.match(h, /<div class="headrow"><a class="allevents" href="\/">[\s\S]*?<\/a><a class="evhelp" id="hHelp" href="\/help" data-i18n="nav\.help">Help<\/a><\/div>/);
   assert.equal((HTML.match(/class="allevents"/g) || []).length, 1);
   const m = h.match(/<a class="allevents" href="\/">([\s\S]*?)<\/a>/);
   assert.ok(m, 'link is <a class="allevents" href="/">');
   assert.match(m[1], /<span class="am" aria-hidden="true">D<\/span>/);
-  assert.match(m[1], /&lsaquo; All events/);
+  assert.match(m[1], /&lsaquo; <span data-i18n="nav\.allEvents">All events<\/span>/);   // the words come from the tables (EN | BM)
   assert.ok(h.indexOf('class="allevents"') < h.indexOf('class="toprow"'));
   assert.ok(!/<a class="allevents"[^>]*(onclick|target)/.test(h), 'no script or new-tab behaviour');
 });

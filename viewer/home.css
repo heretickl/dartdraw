@@ -81,6 +81,10 @@
 .hm-stage .hm-ring{width:40px;height:40px}.hm-stage .hm-ring span{width:31px;height:31px;font-size:12px}
 .hm-stage .k{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .hm-stage .v{font-weight:600;font-size:15px;line-height:1.25;margin-top:1px;overflow-wrap:anywhere}
+/* BM: a long word in a narrow stage card ("Sedang berlangsung" at 320 px) breaks at a hyphen where the browser can, and the
+   card gives the words a little more room on a small phone, instead of cutting the word anywhere */
+:lang(ms) .hm-stage .v{-webkit-hyphens:auto;hyphens:auto}
+@media (max-width:350px){:lang(ms) .hm-stage{gap:8px;padding:10px 8px}:lang(ms) .hm-stage .v{font-size:14px}}
 .hm-stage .s{font-size:13px;color:var(--muted);margin-top:1px}
 .hm-stage.is-done{border-color:rgba(46,209,127,.45)}
 .hm-stage.is-wait{border-style:dashed}
@@ -113,3 +117,35 @@
 .hm-startbtns{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap}
 .hm-startmore{display:inline-flex;align-items:center;min-height:44px;padding:0 4px}
 .hm-start .hm-btn:focus-visible,.hm-startmore:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+/* EN | BM on the home page (i18n step 2): the pair from 481 px; on a phone one button that shows the other language,
+   so the header row (logo, switch, Help, colour) still fits at 320 px. */
+.hm-lang{display:flex;align-items:center}
+.langtog{display:none;align-items:center;justify-content:center;height:38px;min-width:44px;padding:0 10px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#dbe5f1;font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.08em;cursor:pointer}
+.langtog:hover{background:rgba(255,255,255,.12)}
+.langtog:focus-visible{outline:2px solid #8fc2ff;outline-offset:2px}
+@media (max-width:480px){.hm-lang .langsw{display:none}.langtog{display:inline-flex}}
+/* the tab row: BM "Mendatang" / "Keputusan" with their counts fit a 320 px phone */
+@media (max-width:400px){
+  .hm-seg{gap:2px}
+  .hm-seg button{letter-spacing:.05em;gap:5px;font-size:15px}
+  .hm-seg button .hm-c{padding:1px 5px;min-width:20px}
+  .hm-tools{gap:6px}
+  .hm-help{padding:0 10px}
+}
+/* the header row on a small phone: logo, EN | BM toggle, Help and colour button in one row down to 320 px (both languages) */
+@media (max-width:400px){
+  .hm-row1{gap:8px}
+  .hm-brand{gap:6px;min-width:0}
+  .hm-mark{width:26px;height:26px;border-width:2.5px;font-size:13px}
+  .hm-brand b{font-size:17px}
+  .hm-brand i{font-size:10px;letter-spacing:.14em}
+}
+@media (max-width:350px){
+  .hm-brand i{display:none}
+  .hm-help{padding:0 8px;letter-spacing:.06em}
+  .langtog{min-width:40px;padding:0 8px}
+}
+@media (max-width:350px){
+  .hm-seg button{font-size:14px;letter-spacing:.02em;gap:4px;min-width:0}
+  .hm-seg button .hm-c{font-size:12px;padding:0 4px;min-width:18px}
+}

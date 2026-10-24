@@ -8,6 +8,9 @@ const HELP = read('help.html');
 const INDEX = read('index.html');
 const HOME = read('home.js');
 const VERCEL = JSON.parse(read('vercel.json'));
+// The words the pages show live in the string tables (i18n step 2): viewer/i18n/en.js, and render.js's own DD_RENDER_EN.
+const EN = require('../viewer/i18n/en.js');
+const REN = (() => { const c = { document: { createElement: () => ({ getContext: () => ({}) }) } }; vm.createContext(c); vm.runInContext(read('render.js') + ';this.__t = DD_RENDER_EN;', c); return c.__t; })();
 
 test('help page: exists with a title, one h1 "Help", and the viewer theme', () => {
   assert.match(HELP, /<title>[^<]*Help[^<]*<\/title>/);
@@ -91,7 +94,7 @@ test('glossary: one entry per word with its own anchor, linked from the answers 
   assert.equal(pg2.byId('q-glossary').open, true);
   // the TB badge and the Teams tie-breaker are told apart; 3-way LD is what render.js badges
   assert.match(g, /TB in a group table is the tie-break badge/); assert.match(g, /tie-breaker in a Teams event is different/);
-  assert.ok(read('render.js').includes("(st.tieSize>2?st.tieSize+'-way ':'')"));
+  assert.equal(REN['r.tb.way'], '{n}-way {badge}'); assert.ok(read('render.js').includes("ddRT('r.tb.way', {n:st.tieSize, badge:badge})"));
 });
 
 test('"Back to the event": Help shows it only for a valid ?from= code and builds the link from that code alone', () => {
@@ -146,12 +149,12 @@ test('claims checked against the viewer code: doubles show the pair name only, a
 test('claims checked against the viewer code: the Teams answers match what the page does', () => {
   const find = answer('q-teams-find'), header = answer('q-teams-header'), total = answer('q-teams-total');
   // the finder box: the code says "Find a team" for a Teams event and the search still looks at name and club
-  assert.ok(INDEX.includes("function unitWord(plural){ return isTeamsEvent() ? (plural ? 'teams' : 'team')"));
-  assert.ok(INDEX.includes("el('finder').placeholder = 'Find a '+unitWord()"));
+  assert.ok(INDEX.includes("function TE(key, vars){ return TU(key, isTeamsEvent(), vars); }"));
+  assert.ok(INDEX.includes("el('finder').placeholder = TE('ev.find')")); assert.equal(EN['ev.find.team'], 'Find a team');
   assert.match(find, /Find a team/); assert.match(find, /team name, or its club/);
   // the header line: the same words the code builds, and it replaces "best of legs" only for Teams
   assert.ok(INDEX.includes('if(isTeamsEvent(s)) return teamsParts(f);'));
-  assert.ok(INDEX.includes("' per match'")); assert.ok(INDEX.includes("' + tie-breaker'"));
+  assert.equal(EN['ev.seg.plain'].other, '{n} segments per match'); assert.equal(EN['ev.seg.tb'].other, '{n} segments + tie-breaker per match');
   assert.ok(header.includes('5 segments + tie-breaker per match')); assert.ok(header.includes('Round robin: 5 segments per match'));
   assert.match(header, /Group Boards events the groups and the Finals use the knockout setting/);
   // a result is the plain total of legs (the same fields every other match uses)
@@ -178,7 +181,7 @@ test('claims checked against index.html and render.js: Rounds/Chart defaults, NO
   assert.match(INDEX, /b\.size>=32/);
   const labels = answer('q-match-labels');
   assert.match(labels, /Chart view a match nobody attended shows NO-SHOW beside both names/);
-  assert.ok(read('render.js').includes('>NO-SHOW</span>'));
+  assert.equal(REN['r.noShow'], 'NO-SHOW'); assert.ok(read('render.js').includes(">'+escapeHtml(ddRT('r.noShow'))+'</span>"));
   assert.match(answer('q-grid'), /Shaded square/);
   assert.ok(!/Dark square/.test(HELP));
   assert.ok(!/small updates|only fetches/i.test(answer('q-slow')));
@@ -194,12 +197,13 @@ test('Release 2 spectator answers: when and where, scores last changed, and the 
   assert.match(w, /Group Boards events have a Boards tab/); assert.match(w, /Knockout events show a match as soon as both sides are known/);
   assert.match(w, /organiser calls each match at the venue/); assert.match(w, /ask at the organiser.s desk/);
   assert.ok(!/\bplan\b/i.test(w.replace(/board plan/gi, '')));
-  assert.match(INDEX, /Board and time for each match are announced at the venue\. <a href="'\+escapeHtml\(helpHref\('q-when-where'\)\)\+'">More<\/a>/);
+  assert.equal(EN['ev.venue'], 'Board and time for each match are announced at the venue.'); assert.equal(EN['ev.venueMore'], 'More');
+  assert.ok(INDEX.includes("escapeHtml(T('ev.venue'))+' <a href=\"'+escapeHtml(helpHref('q-when-where'))+'\">'+escapeHtml(T('ev.venueMore'))+'</a>'"));
   const stuck = answer('q-stuck-scores');
   assert.match(stuck, /Scores last changed/); assert.ok(!/you are up to date/.test(stuck)); assert.ok(!/\bUpdated\b/.test(stuck + answer('q-status-pill') + answer('q-refresh')));
   assert.match(answer('q-offline'), /Last checked/);
   assert.match(answer('q-home-cant-load'), /Try again/); assert.match(answer('q-home-cant-load'), /does not mean nothing is on/);
-  assert.match(INDEX, /Scores last changed/); assert.ok(!/Updated '/.test(INDEX));
+  assert.equal(EN['ev.changed'], 'Scores last changed {when}'); assert.ok(!/Updated '/.test(INDEX));
 });
 
 test('vercel.json: /help rewrites to /help.html and the event rewrite is still there', () => {
@@ -210,14 +214,14 @@ test('vercel.json: /help rewrites to /help.html and the event rewrite is still t
 });
 
 test('the event page and the home page link to /help', () => {
-  assert.match(INDEX, /<footer>[^<]*<a href="\/help">Help<\/a><\/footer>/);
-  assert.match(HOME, /<a class="hm-help" href="\/help">Help<\/a>/);
-  assert.match(HOME, /class="hm-foot">[^']*<a href="\/help">Help<\/a>/);
+  // (the link words come from the tables: data-i18n="nav.help"; the page sends a BM reader to /ms/help)
+  assert.match(INDEX, /<footer><span data-i18n="foot\.text">[^<]*<\/span> · <a href="\/help" data-i18n="nav\.help">Help<\/a><\/footer>/);
+  assert.match(HOME, /<a class="hm-help" href="\/help" data-i18n="nav\.help">' \+ hmEsc\(T\('nav\.help'\)\) \+ '<\/a>/);
+  assert.match(HOME, /class="hm-foot">[^']*' \+ hmEsc\(T\('foot\.text'\)\) \+ '<\/span> \\u00B7 <a href="\/help" data-i18n="nav\.help">/);
 });
 
 test('the home page header still has its brand, search, tabs and theme button after adding Help', () => {
-  const ctx = {}; vm.createContext(ctx);
-  vm.runInContext(HOME, ctx, { filename: 'viewer/home.js' });
+  const ctx = require('./lib/load-viewer').loadHome();
   const html = vm.runInContext('hmHeaderHTML()', ctx);
   ['hm-brand', 'id="hmTheme"', 'id="hmQ"', 'id="hmTabs"', 'id="hmOpen"', 'href="/help"'].forEach((s) => assert.ok(html.includes(s), s));
   assert.equal((html.match(/<div/g) || []).length, (html.match(/<\/div>/g) || []).length, 'divs are balanced');
@@ -334,7 +338,7 @@ test('search: no answer shows what was typed, the honest line when the Help know
   assert.equal(pg.byId('faqSay').hidden, false);
   assert.match(pg.byId('faqSay').textContent, /can.t send notifications/);
   pg.type('language');
-  assert.match(pg.byId('faqSay').textContent, /English only/);
+  assert.match(pg.byId('faqSay').textContent, /also in Bahasa Malaysia: tap BM/);   // the BM Help exists now (/ms/help)
   pg.type('');
   assert.equal(pg.byId('faqNone').hidden, true);
 });

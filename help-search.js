@@ -16,7 +16,16 @@
    4. Only when a word of 5 letters or more finds nothing at all, words one typo away are tried (finalise -> finalize).
    5. Each item scores per concept by where it matched (title 5, keywords 4, heading 3, summary 2, group 2, body 1),
       times how rare the concept is. Items matching more of the concepts always rank first.
-   6. A result names the section (h4) that matched best, so a click lands on it. */
+   6. A result names the section (h4) that matched best, so a click lands on it.
+
+   Languages (page data "lang"): "en" (the default) works as above. "ms" (Bahasa Malaysia) turns the English stemmer
+   OFF (BM affixes change the meaning: undi / undian / mengundi, main / bermain / permainan, so me-, di-, -kan and -an
+   are never cut), uses the BM stop words plus the English ones (people mix in "how to"), folds a repeated word
+   (kumpulan-kumpulan = kumpulan) and expands common chat short forms in the query (tak = tidak, utk = untuk). The
+   page's synonym groups carry the affixed forms and the English words people mix in (cetak, mencetak, print).
+   Page data "alias" ([[phrase, replacement], ...]) rewrites the query before it is read, so a BM word typed on the
+   English page searches for its English meaning ("cetak" -> "print"). Page data "strings" holds every sentence the
+   search shows (counts, close matches, Show all), so each language page gives its own; English is the fallback. */
 (function (root) {
   'use strict';
 
@@ -75,17 +84,45 @@
     + 'him his how i id if im in into is it its ive just my no not of on or our please she should so than that the their them '
     + 'then there these they this those to us was we were what when where which who why will with would you your').split(' ');
 
+  /* Bahasa Malaysia: question and function words that say nothing about the topic ("bagaimana saya nak ...").
+     "tidak" is one of them; the phrases that need it ("tidak hadir") are synonym phrases, found before stop words go. */
+  var STOP_MS = ('ada adakah adalah agar akan anda apa apabila apakah atau bagaimana bagi bahawa berapa bila bilakah '
+    + 'boleh bolehkah bukan cara dah dalam dan dapat dari daripada dengan di dia hendak ia ialah ini ingin itu jadi jika juga '
+    + 'kah kalau kami kat ke kenapa kepada kita lagi lah macam mahu mana manakah mengapa mereka mesti nak oleh pada '
+    + 'patut perlu pun saja sahaja saya sebab sedang selepas semasa siapa sila sini situ sudah supaya tak telah '
+    + 'tengok tentang tidak untuk walau ya yang').split(' ');
+  /* Chat-style short forms Malaysians type, read as the full word (query only; the Help text is written out in full). */
+  var SHORT_MS = { tk: 'tidak', utk: 'untuk', dgn: 'dengan', yg: 'yang', sy: 'saya', nk: 'nak', mcm: 'macam', camne: 'macam mana',
+    camana: 'macam mana', macamana: 'macam mana', mcmana: 'macam mana', cmne: 'macam mana', lg: 'lagi', blh: 'boleh', bole: 'boleh',
+    tgk: 'tengok', sdh: 'sudah', bkn: 'bukan', kpd: 'kepada', dlm: 'dalam', pd: 'pada', ni: 'ini', tu: 'itu', je: 'sahaja',
+    aje: 'sahaja', ape: 'apa', mane: 'mana', knp: 'kenapa', napa: 'kenapa', xde: 'tiada', takde: 'tiada', tade: 'tiada',
+    tiade: 'tiada', xleh: 'tidak boleh', xboleh: 'tidak boleh', takleh: 'tidak boleh', taknak: 'tidak mahu' };
+
+  function same(w) { return String(w || ''); }
+  /* BM text and queries: a word written twice in a row ("kumpulan-kumpulan", the plural) counts once. */
+  function tokenizeMs(s) {
+    var t = tokenize(s), out = [];
+    for (var i = 0; i < t.length; i++) if (!out.length || out[out.length - 1] !== t[i]) out.push(t[i]);
+    return out;
+  }
+  var LANGS = {
+    en: { id: 'en', stem: stem, tokens: tokenize, stop: STOP, short: null },
+    ms: { id: 'ms', stem: same, tokens: tokenizeMs, stop: STOP_MS.concat(STOP), short: SHORT_MS }
+  };
+  function langOf(data) { return LANGS[data && data.lang === 'ms' ? 'ms' : 'en']; }
+
   /* ---------- the index ---------- */
   var W = { title: 5, keywords: 4, head: 3, summary: 2, group: 2, body: 1 };
 
-  function field(text) {
-    var raws = tokenize(text), stems = [], set = {}, join = {}, seen = {}, uniq = [], i;
+  function field(text, L) {
+    L = L || LANGS.en;
+    var raws = L.tokens(text), stems = [], set = {}, join = {}, seen = {}, uniq = [], i;
     for (i = 0; i < raws.length; i++) {
-      var st = stem(raws[i]);
+      var st = L.stem(raws[i]);
       stems.push(st);
       set[st] = (set[st] || 0) + 1;
       if (!seen[raws[i]]) { seen[raws[i]] = 1; uniq.push(raws[i]); }
-      if (i > 0) join[stem(raws[i - 1] + raws[i])] = 1;          // "no show" also counts as "noshow", "log in" as "login"
+      if (i > 0) join[L.stem(raws[i - 1] + raws[i])] = 1;          // "no show" also counts as "noshow", "log in" as "login"
     }
     return { stems: stems, set: set, join: join, raws: uniq, text: String(text || '') };
   }
@@ -117,14 +154,35 @@
     return { q: 0.45, n: 1 };
   }
 
-  function phraseOf(text) { var raws = tokenize(text), st = []; for (var i = 0; i < raws.length; i++) st.push(stem(raws[i])); return { raws: raws, stems: st, text: String(text) }; }
+  function phraseOf(text, L) { L = L || LANGS.en; var raws = L.tokens(text), st = []; for (var i = 0; i < raws.length; i++) st.push(L.stem(raws[i])); return { raws: raws, stems: st, text: String(text) }; }
 
   /* docs: [{ id, title, keywords, summary, group, parts: [{ id, head, text }] }] in page order.
-     data: { synonyms: [[phrase, ...], ...], noAnswer: [{ terms: [phrase, ...], say: 'text' }], stop: [...] } */
+     data: { synonyms: [[phrase, ...], ...], noAnswer: [{ terms: [phrase, ...], say: 'text' }], stop: [...],
+             lang: 'en' | 'ms', alias: [[phrase, replacement], ...] } */
   function createIndex(docs, data) {
     data = data || {};
+    var L = langOf(data), stem = L.stem, tokenize = L.tokens;   // the English page keeps the module's own stem and tokenize
     var stop = {}, i, j;
-    (data.stop || STOP).forEach(function (w) { stop[normalize(w)] = 1; });
+    (data.stop || L.stop).forEach(function (w) { stop[normalize(w)] = 1; });
+    // the query rewrites ("cetak" -> "print"), longest phrase first
+    var alias = (data.alias || []).map(function (a) { return { from: LANGS.en.tokens(a && a[0]), to: normalize(a && a[1]) }; })
+      .filter(function (a) { return a.from.length; }).sort(function (a, b) { return b.from.length - a.from.length; });
+    function rewrite(q) {
+      var w = LANGS.en.tokens(q), out = [], k = 0, hit = false;
+      if (!alias.length) return q;
+      while (k < w.length) {
+        var done = false;
+        for (var a = 0; a < alias.length && !done; a++) if (seqAt(w, k, alias[a].from)) { if (alias[a].to) out.push(alias[a].to); k += alias[a].from.length; done = hit = true; }
+        if (!done) { out.push(w[k]); k++; }
+      }
+      return hit && out.length ? out.join(' ') : q;
+    }
+    function expandShort(words) {
+      if (!L.short) return words;
+      var out = [];
+      words.forEach(function (w) { var s = L.short[w]; if (s) out.push.apply(out, s.split(' ')); else out.push(w); });
+      return out;
+    }
     var vocab = {}, rawVocab = {}, rawList = [];
     function learn(F) {
       var k;
@@ -135,9 +193,9 @@
     var D = (docs || []).map(function (d, n) {
       var x = {
         id: d.id, order: n, title: String(d.title || ''),
-        f: { title: field(d.title), keywords: field(d.keywords), summary: field(d.summary), group: field(d.group) },
+        f: { title: field(d.title, L), keywords: field(d.keywords, L), summary: field(d.summary, L), group: field(d.group, L) },
         parts: (d.parts && d.parts.length ? d.parts : [{ id: d.id, head: '', text: '' }]).map(function (p) {
-          return { id: p.id || d.id, headText: String(p.head || ''), head: field(p.head), body: field(p.text) };
+          return { id: p.id || d.id, headText: String(p.head || ''), head: field(p.head, L), body: field(p.text, L) };
         })
       };
       learn(x.f.title); learn(x.f.keywords); learn(x.f.summary); learn(x.f.group);
@@ -150,7 +208,7 @@
     (data.synonyms || []).forEach(function (g, gi) {
       var ph = [];
       (g || []).forEach(function (t) {
-        var p = phraseOf(t);
+        var p = phraseOf(t, L);
         if (!p.stems.length) { rawRing[String(t).toLowerCase()] = gi; return; }   // a symbol such as "?" or "+/-"
         ph.push(p);
         (ringStart[p.stems[0]] = ringStart[p.stems[0]] || []).push({ ring: gi, stems: p.stems, idx: ph.length - 1 });
@@ -172,7 +230,7 @@
     }
 
     function parse(query) {
-      var raw = String(query == null ? '' : query), words = tokenize(raw), concepts = [], i2, k;
+      var raw = String(query == null ? '' : query), words = expandShort(tokenize(raw)), concepts = [], i2, k;
       var rk = raw.replace(/^\s+|\s+$/g, '').toLowerCase();
       if (!words.length) {
         if (rk && rawRing[rk] != null) concepts.push(ringConcept(rawRing[rk], -1, rk));
@@ -298,12 +356,12 @@
           if (a.prefix) prefixes.push(a.raws[0]);
         });
       });
-      return { stems: stems, prefixes: prefixes };
+      return { stems: stems, prefixes: prefixes, lang: L.id };
     }
 
     function search(query) {
       query = String(query == null ? '' : query).slice(0, MAX_QUERY);
-      var pq = parse(query), n = pq.concepts.length;
+      var pq = parse(rewrite(query)), n = pq.concepts.length;
       var res = { query: String(query == null ? '' : query), concepts: n, results: [], suggest: false, clear: false, partial: false, say: '', hl: highlighter(pq) };
       if (!pq.words.length && !n) return res;
       var na = noAnswerFor(pq);
@@ -361,11 +419,12 @@
     var out = [], m;
     text = String(text || '');
     if (!hl) return out;
+    var st = (LANGS[hl.lang] || LANGS.en).stem;
     WORD.lastIndex = 0;
     while ((m = WORD.exec(text))) {
       var w = normalize(m[0]);
       if (!w || w.indexOf(' ') >= 0) continue;
-      var ok = !!hl.stems[stem(w)];
+      var ok = !!hl.stems[st(w)];
       for (var p = 0; !ok && p < hl.prefixes.length; p++) ok = w.indexOf(hl.prefixes[p]) === 0;
       if (ok) {
         var s = m.index, e = m.index + m[0].length;
@@ -443,7 +502,17 @@
       if (!index) index = createIndex(items.map(function (it) { return docFromElement(it.el, cfg); }), cfg.data || {});
       return index;
     }
-    function count(n) { return cfg.count ? cfg.count(n) : (n === 1 ? '1 result' : n + ' results'); }
+    /* The sentences the search shows come from the page data (data.strings), so each language page gives its own:
+       { count: { one, other }, near: { one, other }, nearLabel, showAll }, where {n} is the number. A plain string has
+       one form for every number (BM does not inflect). English is the fallback. */
+    var S = (cfg.data && cfg.data.strings) || {};
+    function say(spec, n, dflt) {
+      if (spec == null) return dflt;
+      var s = typeof spec === 'string' ? spec : (n === 1 && spec.one != null ? spec.one : spec.other);
+      return String(s == null ? dflt : s).replace(/\{n\}/g, String(n));
+    }
+    function count(n) { return cfg.count ? cfg.count(n) : say(S.count, n, n === 1 ? '1 result' : n + ' results'); }
+    function nearCount(n) { return cfg.nearCount ? cfg.nearCount(n) : say(S.near, n, 'No direct answer'); }
     function setOpen(it, open, bySearch) {
       if (!it.details) return;
       if (!!it.el.open !== open) { it.expected = open; it.el.open = open; }
@@ -498,7 +567,7 @@
       if (!box) return;
       while (box.firstChild) box.removeChild(box.firstChild);
       if (!res || !res.results.length) { box.hidden = true; return; }
-      if (res.suggest) box.appendChild(el('p', 'hs-near', cfg.nearLabel || 'Closest matches:'));
+      if (res.suggest) box.appendChild(el('p', 'hs-near', cfg.nearLabel || S.nearLabel || 'Closest matches:'));
       var ol = el('ol', 'hs-list'), max = cfg.maxShown || 8, list = state.all ? res.results : res.results.slice(0, max);
       list.forEach(function (r) {
         var li = el('li', 'hs-item'), a = el('a', 'hs-link');
@@ -513,7 +582,7 @@
       });
       box.appendChild(ol);
       if (list.length < res.results.length) {
-        var more = el('button', 'hs-more', 'Show all ' + res.results.length + ' results');
+        var more = el('button', 'hs-more', say(S.showAll, res.results.length, 'Show all ' + res.results.length + ' results'));
         more.setAttribute('type', 'button');
         more.addEventListener('click', function () {
           state.all = true; renderList(state.res);
@@ -572,7 +641,7 @@
       if (cfg.say) { cfg.say.textContent = res.say || ''; cfg.say.hidden = !res.say; }
       if (cfg.status) {
         cfg.status.hidden = false;
-        cfg.status.textContent = !res.results.length ? count(0) : res.suggest ? (cfg.nearCount ? cfg.nearCount(res.results.length) : 'No direct answer') : count(res.results.length);
+        cfg.status.textContent = !res.results.length ? count(0) : res.suggest ? nearCount(res.results.length) : count(res.results.length);
       }
     }
     function clearSearch() { input.value = ''; apply(); }
@@ -639,6 +708,8 @@
   HS.stem = stem;
   HS.within1 = within1;
   HS.STOP = STOP;
+  HS.STOP_MS = STOP_MS;
+  HS.SHORT_MS = SHORT_MS;
   HS.createIndex = createIndex;
   HS.markRanges = markRanges;
   HS.textOf = textOf;

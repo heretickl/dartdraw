@@ -322,3 +322,34 @@ body.tv .evhelp{display:none}
 @media (prefers-reduced-motion: reduce){.hm-sbchev{transition:none}}
 .venue{margin-top:8px;font-size:13px;color:#8fa1b6}
 .venue a{color:#8fc2ff}
+
+/* ---- EN | BM (i18n step 2) ----
+   The language switch on the event page: two buttons in the same pill style as Auto / Light / Dark, left of it (the Help
+   pages use links with the same look, help.css). At 480 px and below the header's top row wraps: the tournament name takes
+   the whole first line and the two switches sit on a second line, on the right, instead of squeezing the name. */
+.toprow .hdr-tools{display:flex;align-items:center;gap:8px;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end}
+.langsw{display:flex;flex:0 0 auto;border:1px solid rgba(255,255,255,.18);border-radius:99px;padding:2px}
+.langsw[aria-busy="true"] button,.langtog[aria-busy="true"]{cursor:progress}
+.langsw button{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:36px;padding:0 10px;border:0;border-radius:99px;background:transparent;font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.08em;color:#8fa1b6;cursor:pointer}
+.langsw button:hover{color:#f3f7fb}
+.langsw button:focus-visible,.themesw button:focus-visible{outline:2px solid #8fc2ff;outline-offset:1px}
+.langsw button[aria-pressed="true"]{background:rgba(255,255,255,.18);color:#fff}
+@media (min-width:700px){.langsw button{min-width:44px;min-height:38px}}
+@media (max-width:480px){
+  #head .toprow{flex-wrap:wrap;row-gap:6px}
+  #head .toprow .over{flex:1 1 100%}
+  #head .toprow .hdr-tools{margin-left:auto}
+  .langsw button{min-width:34px;padding:0 8px}
+  /* round buttons: wrap onto a second line rather than hide the last round off-screen (BM "Separuh akhir") */
+  .rseg{flex-wrap:wrap;row-gap:6px;overflow-x:visible}
+  .rseg button{padding:6px 12px}
+}
+body.tv .langsw{display:none}
+/* the "Bahasa Malaysia tersedia" note (a Malay first browser language, English page, nothing chosen yet), above the header */
+.vh{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.langbar{background:var(--gold-tint);border-bottom:1px solid var(--gold-line);color:var(--ink);font-size:15px}
+.langbar .wrap{display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 16px}
+.langbar p{margin:0;flex:1 1 auto;min-width:0}
+.langbar a{display:inline-block;padding:8px 2px;font-weight:600;color:var(--gold-text)}
+.langbar-x{flex:none;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--ink);font-size:24px;line-height:1;cursor:pointer}
+@media print{.langbar,.langsw{display:none!important}}

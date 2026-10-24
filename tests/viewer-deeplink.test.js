@@ -212,6 +212,6 @@ test('Help links from the event page carry the event (?from=<slug>); a slug of t
   rv(v, 'SLUG = "bad slug<x>"');
   assert.equal(rv(v, 'helpHref("q-columns")'), '/help#q-columns');
   const fs = require('fs'), path = require('path');
-  assert.match(fs.readFileSync(path.join(__dirname, '..', 'viewer', 'index.html'), 'utf8'), /<a class="evhelp" id="hHelp" href="\/help">Help<\/a>/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'viewer', 'index.html'), 'utf8'), /<a class="evhelp" id="hHelp" href="\/help" data-i18n="nav\.help">Help<\/a>/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'viewer', 'theme.css'), 'utf8'), /\.evhelp\{[^}]*min-height:44px/);
 });

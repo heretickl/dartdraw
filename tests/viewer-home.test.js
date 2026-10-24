@@ -182,13 +182,13 @@ test('the event page loads the home styles and script, and the bare address show
   assert.match(indexHtml, /<link rel="stylesheet" href="\/home\.css">/);
   assert.match(indexHtml, /<script src="\/home\.js"><\/script>/);
   assert.match(indexHtml, /if\(!SLUG\)\{[\s\S]{0,200}if\(typeof showHome === 'function'\) showHome\(\);[\s\S]{0,200}return false;/);   // no slug: the home page
-  assert.match(indexHtml, /else showMessage\('No results link'/);   // the old message survives only as the fallback when home.js did not load
-  assert.equal(indexHtml.split("showMessage('No results link'").length, 2);
+  assert.match(indexHtml, /else showMessage\('ev\.msg\.noLinkTitle'/);   // the old message survives only as the fallback when home.js did not load
+  assert.equal(indexHtml.split("showMessage('ev.msg.noLinkTitle'").length, 2);
 });
 
 test('an unknown or withdrawn link keeps its message and gains the way back to the home page', () => {
-  assert.match(indexHtml, /Results not available[\s\S]{0,200}hmHomeLinkHTML\(\)/);
-  assert.match(indexHtml, /typeof hmHomeLinkHTML === 'function' \? hmHomeLinkHTML\(\) : ''/);   // the event page does not depend on home.js loading
+  assert.match(indexHtml, /showMessage\('ev\.msg\.goneTitle', 'ev\.msg\.goneText', true\)/);
+  assert.match(indexHtml, /withHome && typeof hmHomeLinkHTML === 'function' \? hmHomeLinkHTML\(\) : ''/);   // the event page does not depend on home.js loading
   const { loadViewer, runViewer } = require('./lib/load-viewer');
   const v = loadViewer();
   assert.match(runViewer(v, 'hmHomeLinkHTML()'), /See all events/);
@@ -328,8 +328,11 @@ function focusRig() {
   return { doc, mkRegion, mkKid, byId };
 }
 function loadHomeWith(doc) {
-  const ctx = { console, Math, JSON, Date, Array, Object, String, Number, parseInt, parseFloat, isNaN, encodeURIComponent, setTimeout: () => 0, clearTimeout() {}, document: doc, window: {}, location: { hash: '' }, localStorage: { getItem: () => null, setItem() {}, removeItem() {} } };
-  vm.createContext(ctx); vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'viewer', 'home.js'), 'utf8'), ctx); return ctx;
+  const ctx = { console, Math, JSON, Date, Array, Object, String, Number, Intl, parseInt, parseFloat, isNaN, encodeURIComponent, setTimeout: () => 0, clearTimeout() {}, document: doc, window: {}, location: { hash: '', search: '' }, localStorage: { getItem: () => null, setItem() {}, removeItem() {} } };
+  vm.createContext(ctx);
+  const { I18N_FILES } = require('./lib/load-viewer');   // the language scripts the page loads before home.js
+  I18N_FILES.concat(['home.js']).forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'viewer', f), 'utf8'), ctx));
+  return ctx;
 }
 
 test('redrawing a region writes only when its HTML changed, and keeps keyboard focus on a tab (by id)', () => {

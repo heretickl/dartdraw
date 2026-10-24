@@ -1,6 +1,8 @@
 // Pure logic for the public event list: which events are live, upcoming or finished, and the small allow-listed
 // summary of each. No database, no DOM. The endpoint (api/events.js) feeds it rows of the public_tournaments view.
 // Only the fields copied in describe() ever leave this file; anything added to a tournament later stays private.
+// Codes and numbers only, never words: the page turns them into English or BM (viewer/i18n/*.js, home.js). The only text
+// sent is the organiser's own (event, tournament and winner names).
 
 const cfg = require('./listConfig');
 const { SLUG_RE, validFinalizedAt } = require('./publicView');
@@ -35,19 +37,20 @@ function counts(b) {
   roundsOf(b).forEach((round) => round.forEach((m) => { if (isReal(m)) { total++; if (m.winnerId) done++; } }));
   return { done, total };
 }
-function roundName(b, idx) {
+// The round as a code: final | semifinals | quarterfinals | r<N> (the round of N).
+function roundCode(b, idx) {
   const r = roundsOf(b), fromEnd = r.length - idx;
-  if (fromEnd === 1) return 'Final';
-  if (fromEnd === 2) return 'Semifinals';
-  if (fromEnd === 3) return 'Quarterfinals';
-  return 'Round of ' + r[idx].length * 2;
+  if (fromEnd === 1) return 'final';
+  if (fromEnd === 2) return 'semifinals';
+  if (fromEnd === 3) return 'quarterfinals';
+  return 'r' + r[idx].length * 2;
 }
 // The first round that still has a real match to play, with how many of that round's real matches are done.
 function currentRound(b) {
   const r = roundsOf(b);
   for (let i = 0; i < r.length; i++) {
     const real = r[i].filter(isReal);
-    if (real.some((m) => !m.winnerId)) return { name: roundName(b, i), done: real.filter((m) => m.winnerId).length, total: real.length };
+    if (real.some((m) => !m.winnerId)) return { round: roundCode(b, i), done: real.filter((m) => m.winnerId).length, total: real.length };
   }
   return null;
 }
@@ -90,31 +93,33 @@ function finalizedAt(d) {
 }
 
 // The matches of the stage the event is in, so the ring never drops because a later stage is generated.
-// Between two stages (every group played, the next stage not built yet) the same counts carry a fixed `next` string.
-// When the last stage of the format is finished but the organiser has not finalized the event, it is that stage, full, with the fixed next AWAITING.
-const AWAITING = 'Awaiting final results';
+// stage: groups | knockout | finals; round: the current round's code (roundCode) while a knockout or the Finals is live.
+// Between two stages (every group played, the next stage not built yet) the same counts carry `next`: knockout (the knockout
+// draw is next) or finals. When the last stage of the format is finished but the organiser has not finalized the event, it
+// is that stage, full, with next AWAITING.
+const AWAITING = 'awaiting';
 function progressOf(d, a) {
   d = d && typeof d === 'object' ? d : {};
   a = a || analyse(d);
   const sum = (list) => list.reduce((s, c) => ({ done: s.done + c.done, total: s.total + c.total }), { done: 0, total: 0 });
-  const group = (c) => (c.total > 0 ? { stage: 'Group stage', done: c.done, total: c.total } : null);
+  const group = (c) => (c.total > 0 ? { stage: 'groups', done: c.done, total: c.total } : null);
   const between = (p, next) => (p ? { stage: p.stage, done: p.done, total: p.total, next } : null);
   const complete = (stage, c) => ({ stage, done: c.total, total: c.total, next: AWAITING });
   const unfinalized = finalizedAt(d) === null;
-  const ko = (b, prefix) => { const c = currentRound(b); return c ? { stage: (prefix || '') + c.name, done: c.done, total: c.total } : null; };
-  if (a.type === 'roundrobin') return unfinalized && a.groupsDone ? complete('Group stage', sum(a.groups)) : group(sum(a.groups));
-  if (a.type === 'knockout') return unfinalized && finished(a.main) ? complete('Knockout', counts(a.main)) : ko(a.main);
+  const ko = (b, stage) => { const c = currentRound(b); return c ? { stage, round: c.round, done: c.done, total: c.total } : null; };
+  if (a.type === 'roundrobin') return unfinalized && a.groupsDone ? complete('groups', sum(a.groups)) : group(sum(a.groups));
+  if (a.type === 'knockout') return unfinalized && finished(a.main) ? complete('knockout', counts(a.main)) : ko(a.main, 'knockout');
   if (a.type === 'rrknockout') {
-    if (unfinalized && finished(a.main)) return complete('Knockout', counts(a.main));
-    if (a.groupsDone && !a.main) return between(group(sum(a.groups)), 'Knockout draw next');
-    return a.groupsDone && a.main ? (ko(a.main) || group(sum(a.groups))) : group(sum(a.groups));
+    if (unfinalized && finished(a.main)) return complete('knockout', counts(a.main));
+    if (a.groupsDone && !a.main) return between(group(sum(a.groups)), 'knockout');
+    return a.groupsDone && a.main ? (ko(a.main, 'knockout') || group(sum(a.groups))) : group(sum(a.groups));
   }
   if (a.type === 'podknockout') {
     const podsDone = a.pods.length > 0 && a.pods.every((p) => finished(p.bracket));
-    if (unfinalized && podsDone && a.fin && finished(a.fin)) return complete('Finals', counts(a.fin));
-    if (a.fin && (podsDone || started(a.fin))) return ko(a.fin, 'Finals · ');
+    if (unfinalized && podsDone && a.fin && finished(a.fin)) return complete('finals', counts(a.fin));
+    if (a.fin && (podsDone || started(a.fin))) return ko(a.fin, 'finals');
     const g = group(sum(a.pods.map((p) => counts(p.bracket))));
-    return podsDone && !a.fin ? between(g, 'Finals next') : g;
+    return podsDone && !a.fin ? between(g, 'finals') : g;
   }
   return null;
 }
@@ -123,7 +128,7 @@ function progressOf(d, a) {
 // Every value is a fixed enum string or an integer computed from counts; nothing is copied from tournament text.
 // key: groups | knockout | finals. state: groups -> notstarted | live | done; knockout/finals -> waiting | next | ready | live | done.
 // done/total: matches played / all matches (the current round while a knockout is live). groups: confirmed groups (groups stage only).
-// round: the current round's name (live knockout/finals only). advance: entries that go through (rrknockout, before the draw only).
+// round: the current round's code, final | semifinals | quarterfinals | r<N> (live knockout/finals only). advance: entries that go through (rrknockout, before the draw only).
 function stagesOf(d, a, status) {   // status is the event's overall status; the stages themselves do not depend on it
   d = d && typeof d === 'object' ? d : {};
   a = a || analyse(d);
@@ -136,7 +141,7 @@ function stagesOf(d, a, status) {   // status is the event's overall status; the
     if (finished(b)) { const c = counts(b); return { key, state: 'done', done: c.total, total: c.total }; }
     if (started(b)) {
       const cr = currentRound(b), c = cr || counts(b), s = { key, state: 'live', done: int(c.done), total: int(c.total) };
-      if (cr) s.round = cr.name;
+      if (cr) s.round = cr.round;
       return s;
     }
     return { key, state: 'ready', done: 0, total: 0 };
@@ -208,7 +213,7 @@ function describe(row, now, settings) {
   const event = clean(ec.eventName, 120), tournament = clean(ec.tournamentName, 120);
   const item = {
     slug: row.slug,
-    event: event || tournament || 'Untitled event',
+    event: event || tournament,   // '' when the organiser named neither: the page says "Untitled event" in its language
     tournament,
     date,
     start: typeof fmt.anticipatedStartTime === 'string' && TIME_RE.test(fmt.anticipatedStartTime) ? fmt.anticipatedStartTime : '',
@@ -247,4 +252,4 @@ function buildList(rows, now, settings) {
   };
 }
 
-module.exports = { analyse, finalizedAt, progressOf, stagesOf, describe, buildList, roundsOf, counts, currentRound, finished, started };
+module.exports = { analyse, finalizedAt, progressOf, stagesOf, describe, buildList, roundsOf, counts, currentRound, roundCode, finished, started };

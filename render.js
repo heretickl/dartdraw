@@ -3,10 +3,64 @@
    reads the global `state` (the tournament JSON) and builds HTML strings; it has
    no editing, saving or login behaviour. Keep it that way. */
 
+/* ---------- Words (EN | BM) ----------
+   Every word this file draws comes from a string table, by a stable key. The English table is here, so a page that loads
+   only render.js (the organiser app today) draws exactly the English it always did. A page that defines DD_T(key, vars)
+   (the public viewer: viewer/i18n/i18n.js) gets the words from DD_T instead, in the reader's language. The BM table for
+   these keys is i18n/render.ms.js (copied into viewer/i18n/ by npm run sync-viewer; tests/viewer-i18n.test.js checks that
+   both tables have the same keys and placeholders).
+   A value is a whole sentence with {named} placeholders, or { one, other } for an English plural (picked by vars.n). */
+var DD_RENDER_EN = {
+  'r.unknown': 'Unknown',
+  'r.sizeError': 'Bracket size {size} exceeds the {max}-slot maximum for this chart (organiser can select at most {seeds} seeds, and the bracket is fixed at 2× that count).',
+  'r.round.final': 'Final', 'r.round.semi': 'Semifinal', 'r.round.quarter': 'Quarterfinal', 'r.round.of': 'Round of {n}',
+  'r.podNoWinner': 'Group {g}: no winner', 'r.podWinner': 'Winner of Group {g}',
+  'r.bye': 'BYE', 'r.wo': 'WO', 'r.noShow': 'NO-SHOW', 'r.vs': 'VS', 'r.final': 'FINAL', 'r.champion': 'CHAMPION',
+  'r.markNoShow': 'Mark no-show…',
+  'r.th.pos': 'Pos.', 'r.th.entry': 'Entry', 'r.th.mp': 'MP', 'r.th.mw': 'MW', 'r.th.ml': 'ML', 'r.th.md': 'MD', 'r.th.lw': 'LW',
+  'r.th.diff': '+/-', 'r.th.pts': 'Pts', 'r.th.tb': 'TB', 'r.th.legs': 'Legs',
+  'r.tt.mp': 'Matches played', 'r.tt.mw': 'Matches won', 'r.tt.ml': 'Matches lost', 'r.tt.md': 'Matches drawn', 'r.tt.lw': 'Legs won',
+  'r.tt.diff': 'Leg difference (legs won minus legs lost)', 'r.tt.pts': 'Points', 'r.tt.tb': 'Tie-break that separated this entry from the one beside it',
+  'r.tt.miniMp': 'Matches played between these entries', 'r.tt.miniPts': 'Points from these matches', 'r.tt.miniLegs': 'Legs won–lost in these matches',
+  'r.tb.level': 'Level on points after every tie-break rule',
+  'r.tb.sep': 'Separated from the entry beside it on points by: {rule}',
+  'r.tb.sepMini': 'Separated from the entry beside it on points by: {rule} (mini-table of the {n} tied entries)',
+  'r.tb.way': '{n}-way {badge}',
+  'r.rule.h2h': 'Head-to-head result', 'r.rule.ld': 'Leg difference', 'r.rule.lw': 'Legs won', 'r.rule.org': 'Organiser decision / playoff',
+  'r.badge.h2h': 'H2H', 'r.badge.ld': 'LD', 'r.badge.lw': 'LW',
+  'r.list.and': ' and {last}',
+  'r.tie.levelPublic': '{names} are still level on {pts} pts after every tie-break rule — needs an organiser decision or a playoff.',
+  'r.tie.levelOrg': '{names} are still level on {pts} pts after every tie-break rule — needs an organiser decision or a playoff (use Adjust positions).',
+  'r.tie.h2h': '{hi} ahead of {lo} — level on {pts} pts, separated by head-to-head (won their match).',
+  'r.tie.h2hMini': '{hi} ahead of {lo} — level on {pts} pts, separated by head-to-head among the tied entries (mini-table points {a} vs {b}).',
+  'r.tie.ld': '{hi} ahead of {lo} — level on {pts} pts, separated by leg difference ({a} vs {b}).',
+  'r.tie.ldMini': '{hi} ahead of {lo} — level on {pts} pts, separated by leg difference among the tied entries ({a} vs {b}).',
+  'r.tie.lw': '{hi} ahead of {lo} — level on {pts} pts, separated by legs won ({a} vs {b}).',
+  'r.tie.lwMini': '{hi} ahead of {lo} — level on {pts} pts, separated by legs won among the tied entries ({a} vs {b}).',
+  'r.tie.other': '{hi} ahead of {lo} — level on {pts} pts, separated by {rule}.',
+  'r.tie.manual': 'Position set manually by the organiser.',
+  'r.tie.mini': 'Mini-table: {names} — level on {pts} pts, only the matches between them count.',
+  'r.tie.provisional': 'Provisional — ties may change as the remaining matches are played.'
+};
+/* Fills a table value: picks the plural form (vars.n === 1 gives `one`), then replaces each {name} that vars has. */
+function ddFormat(s, vars){
+  if(s && typeof s === 'object') s = (vars && Number(vars.n) === 1 && s.one != null) ? s.one : s.other;
+  s = String(s == null ? '' : s);
+  if(!vars) return s;
+  return s.replace(/\{(\w+)\}/g, function(m, k){ return Object.prototype.hasOwnProperty.call(vars, k) && vars[k] != null ? String(vars[k]) : m; });
+}
+function ddRT(key, vars){
+  if(typeof DD_T === 'function') return DD_T(key, vars);
+  return ddFormat(Object.prototype.hasOwnProperty.call(DD_RENDER_EN, key) ? DD_RENDER_EN[key] : key, vars);
+}
+/* The stored tie-break rule names are data (English ids); these are their keys. Anything else is shown as it is. */
+var DD_RULE_KEY = {'Head-to-head result':'h2h','Leg difference':'ld','Legs won':'lw','Organiser decision / playoff':'org'};
+function ddRuleName(rule){ return Object.prototype.hasOwnProperty.call(DD_RULE_KEY, rule) ? ddRT('r.rule.'+DD_RULE_KEY[rule]) : String(rule); }
+
 function bracketEntryName(t, entryId){
   if(!entryId) return null;
   const e = t.entriesList.find(x=>x.id===entryId);
-  return e ? e.name : 'Unknown';
+  return e ? e.name : ddRT('r.unknown');
 }
 
 function bracketIsComplete(bracket){
@@ -33,13 +87,17 @@ function bracketIsVoidFinal(bracket){
   return !!(last && last.void);
 }
 
+/* Which round this is, as a code: { code:'final'|'semi'|'quarter'|'of', n } (n: entries in a "Round of n"). */
+function koRoundInfo(bracket, idx){
+  const fromEnd = bracket.rounds.length-idx;
+  if(fromEnd===1) return {code:'final'};
+  if(fromEnd===2) return {code:'semi'};
+  if(fromEnd===3) return {code:'quarter'};
+  return {code:'of', n:bracket.rounds[idx].length*2};
+}
 function koRoundName(bracket, idx){
-  const total = bracket.rounds.length;
-  const fromEnd = total-idx;
-  if(fromEnd===1) return 'Final';
-  if(fromEnd===2) return 'Semifinal';
-  if(fromEnd===3) return 'Quarterfinal';
-  return 'Round of '+(bracket.rounds[idx].length*2);
+  const r = koRoundInfo(bracket, idx);
+  return ddRT('r.round.'+r.code, r.code==='of' ? {n:r.n} : null);
 }
 
 /* bracket.seeds ranks every entry 1..N for slot-placement purposes (byes,
@@ -117,7 +175,7 @@ const MKO_CENTRE_W = 2*MKO_BOX_W + MKO_CONN_W; // 308
 
 function mkoValidateBracketSize(size){
   if(size > MAX_BRACKET_SIZE){
-    return { ok:false, message:'Bracket size '+size+' exceeds the '+MAX_BRACKET_SIZE+'-slot maximum for this chart (organiser can select at most '+MAX_SEEDS+' seeds, and the bracket is fixed at 2× that count).' };
+    return { ok:false, message:ddRT('r.sizeError', {size:size, max:MAX_BRACKET_SIZE, seeds:MAX_SEEDS}) };
   }
   return { ok:true };
 }
@@ -186,12 +244,12 @@ function mkoSlot(m, side, t, ri, tokens){
     if(fromPod){
       const pod = (t.pods||[]).find(p=>p.id===fromPod);
       const noWinner = !!(pod && bracketIsVoidFinal(pod.bracket));
-      return { text:(noWinner ? 'Group '+escapeHtml(pod.label)+': no winner' : 'Winner of Group '+escapeHtml(pod ? pod.label : '?')), seed:'', legs:'', fw:400, color:tokens.muted, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
+      return { text:(noWinner ? escapeHtml(ddRT('r.podNoWinner', {g:pod.label})) : escapeHtml(ddRT('r.podWinner', {g:pod ? pod.label : '?'}))), seed:'', legs:'', fw:400, color:tokens.muted, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
     }
-    if(m.bye) return { text:'BYE', seed:'', legs:'', fw:600, color:tokens.muted, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
+    if(m.bye) return { text:escapeHtml(ddRT('r.bye')), seed:'', legs:'', fw:600, color:tokens.muted, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
     return { text:'', seed:'', legs:'', fw:400, color:tokens.ink, bg:(tokens.boxBg||'#fff'), border:'1px solid '+tokens.line, wo:false };
   }
-  const name = escapeHtml(bracketEntryName(t, id) || 'Unknown');
+  const name = escapeHtml(bracketEntryName(t, id) || ddRT('r.unknown'));
   const seed = (ri===0 && m.__seeds) ? (bracketSeedForDisplay(t, m.__seeds, m.__seedLabels, id) || '') : '';
   return {
     text: name, seed: escapeHtml(String(seed)), legs: legs!=null ? escapeHtml(String(legs)) : '',
@@ -252,8 +310,8 @@ function mkoBoxHTML(slot, boxHeight, fontSize, mirrored, readable){
     'display:flex;flex-direction:'+rowDir+';align-items:center;gap:5px;padding:0 6px;box-sizing:border-box;overflow:hidden;'+flip+'">'+
     '<span style="flex:0 0 auto;font-size:'+(fontSize*0.78).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+slot.seed+'</span>'+
     nameSpan+
-    (slot.wo ? '<span style="flex:0 0 auto;font-size:'+(fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
-    (slot.ns ? '<span style="flex:0 0 auto;font-size:'+(fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">NO-SHOW</span>' : '')+
+    (slot.wo ? '<span style="flex:0 0 auto;font-size:'+(fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+escapeHtml(ddRT('r.wo'))+'</span>' : '')+
+    (slot.ns ? '<span style="flex:0 0 auto;font-size:'+(fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+escapeHtml(ddRT('r.noShow'))+'</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+fontSize+'px;color:'+slot.color+';font-weight:'+slot.fw+';">'+slot.legs+'</span>'+
     '</div>';
 }
@@ -276,9 +334,13 @@ function mkoConnectorHTML(vsText, mirrored, lineColor, winColor, winSide){
     '<div style="position:absolute;left:15px;right:11px;top:25%;height:25%;border:1.5px solid '+topColor+';border-left:none;border-bottom:none;border-radius:0 4px 0 0;box-sizing:border-box;"></div>'+
     '<div style="position:absolute;left:15px;right:11px;top:50%;height:25%;border:1.5px solid '+botColor+';border-left:none;border-top:none;border-radius:0 0 4px 0;box-sizing:border-box;"></div>'+
     '<div style="position:absolute;right:0;width:11px;top:50%;border-top:1.5px solid '+stubColor+';"></div>'+
-    '<div style="position:absolute;left:0;width:15px;text-align:center;top:50%;transform:'+vsTransform+';font-size:9px;font-weight:700;letter-spacing:0.06em;color:var(--muted);">'+vsText+'</div>'+
+    '<div style="position:absolute;left:0;width:15px;text-align:center;top:50%;transform:'+vsTransform+';font-size:'+(vsText.length>2 ? '7px' : '9px')+';font-weight:700;letter-spacing:'+(vsText.length>2 ? '0' : '0.06em')+';color:var(--muted);">'+vsText+'</div>'+   // BM "LWN" is a letter longer than "VS": smaller, so it stays in its gap
     '</div>';
 }
+
+/* A round label stays on one line, as it always has. One longer than any English round name (BM "Pusingan 16 terakhir")
+   may wrap onto two lines in the 44 px header instead of running over the next column. */
+function mkoLabelWrap(label){ return String(label).length > 14 ? 'white-space:normal;text-align:center;line-height:1.15;' : 'white-space:nowrap;'; }
 
 function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice, interactive, bracketKey){
   slice = slice || {};
@@ -318,19 +380,19 @@ function mkoSideHTML(bracket, t, mirror, geom, tokens, showVs, slice, interactiv
       const bSlot = mkoSlot(m, 'b', t, ri, tokens);
       const clickable = interactive && m.aEntryId && m.bEntryId && !m.bye;
       const clickAttr = clickable ? ' class="mko-clickable" onclick="koMatchScoreModal(\''+mkoJsArg(bracketKey)+'\','+ri+','+mi+')"' : '';
-      const woLink = clickable && !m.void ? '<div style="flex:0 0 auto;text-align:center;font-size:'+Math.max(7,fontSize*0.6).toFixed(1)+'px;color:var(--blue);text-decoration:underline;cursor:pointer;padding:1px 0 0;'+(mirror===-1?'transform:scaleX(-1);':'')+'" onclick="event.stopPropagation();openKoNoShowPicker(\''+mkoJsArg(bracketKey)+'\','+ri+','+mi+')">Mark no-show…</div>' : '';
+      const woLink = clickable && !m.void ? '<div style="flex:0 0 auto;text-align:center;font-size:'+Math.max(7,fontSize*0.6).toFixed(1)+'px;color:var(--blue);text-decoration:underline;cursor:pointer;padding:1px 0 0;'+(mirror===-1?'transform:scaleX(-1);':'')+'" onclick="event.stopPropagation();openKoNoShowPicker(\''+mkoJsArg(bracketKey)+'\','+ri+','+mi+')">'+escapeHtml(ddRT('r.markNoShow'))+'</div>' : '';
       groupsHtml += '<div style="flex:1;display:flex;flex-direction:column;"'+clickAttr+'>'+
         '<div style="flex:1;display:flex;align-items:center;"><div style="position:relative;width:100%;">'+mkoBoxHTML(aSlot, boxHeight, fontSize, mirror===-1, geom.readable)+(m.bye ? '' : mkoTagHTML(koMatchTag(bracket, t, ri, mi), fontSize, mirror===-1))+'</div></div>'+
         '<div style="flex:1;display:flex;align-items:center;">'+mkoBoxHTML(bSlot, boxHeight, fontSize, mirror===-1, geom.readable)+'</div>'+
         woLink+
         '</div>';
       const winSide = m.winnerId ? (m.winnerId===m.aEntryId ? 'a' : 'b') : null;
-      connectorsHtml += mkoConnectorHTML(showVs ? 'VS' : '', mirror===-1, tokens.line, tokens.winLine, winSide);
+      connectorsHtml += mkoConnectorHTML(showVs ? escapeHtml(ddRT('r.vs')) : '', mirror===-1, tokens.line, tokens.winLine, winSide);
     });
 
     cols += '<div style="display:flex;align-items:stretch;width:'+MKO_COL_W+'px;">'+
       '<div style="width:'+MKO_BOX_W+'px;display:flex;flex-direction:column;">'+
-      '<div style="height:44px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:9px;box-sizing:border-box;font-size:11px;font-weight:800;letter-spacing:0.06em;color:var(--muted);white-space:nowrap;text-transform:uppercase;'+labelFlip+'">'+escapeHtml(label)+'</div>'+
+      '<div style="height:44px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:9px;box-sizing:border-box;font-size:11px;font-weight:800;letter-spacing:0.06em;color:var(--muted);'+mkoLabelWrap(label)+'text-transform:uppercase;'+labelFlip+'">'+escapeHtml(label)+'</div>'+
       '<div style="flex:1;display:flex;flex-direction:column;">'+groupsHtml+'</div>'+
       '</div>'+
       '<div style="width:'+MKO_CONN_W+'px;display:flex;flex-direction:column;">'+
@@ -356,7 +418,7 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interacti
   let championHtml = '';
   if(showChampion){
     championHtml = '<div style="position:absolute;left:0;right:0;top:calc(100% + 56px);display:flex;flex-direction:column;align-items:center;">'+
-      '<div style="font-size:15px;font-weight:800;letter-spacing:0.1em;color:var(--green);">CHAMPION</div>'+
+      '<div style="font-size:15px;font-weight:800;letter-spacing:0.1em;color:var(--green);">'+escapeHtml(ddRT('r.champion'))+'</div>'+
       '<div style="width:150px;height:'+finalBoxH+'px;margin-top:12px;background:var(--win-bg,#eaf7ee);border:3px solid var(--green);box-sizing:border-box;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:'+geom.fontSize+'px;font-weight:800;color:var(--ink);'+(geom.readable ? 'overflow:hidden;min-width:0;padding:0 6px;' : '')+'">'+
       (geom.readable ? mkoReadableNameSpan({ text:championName, color:'var(--ink)', fw:800 }, finalBoxH, geom.fontSize, 'text-align:center;') : championName)+'</div>'+
       '</div>';
@@ -367,22 +429,22 @@ function mkoCentreHTML(bracket, t, geom, tokens, showVs, showChampion, interacti
     '<div style="flex:1;position:relative;">'+
     '<div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;justify-content:center;">'+
     '<div style="position:relative;display:flex;flex-direction:column;align-items:center;">'+
-    '<div style="position:absolute;left:0;right:0;bottom:calc(100% + 14px);text-align:center;font-size:22px;font-weight:800;letter-spacing:0.03em;color:var(--final-ink,var(--navy));">FINAL</div>'+
+    '<div style="position:absolute;left:0;right:0;bottom:calc(100% + 14px);text-align:center;font-size:22px;font-weight:800;letter-spacing:0.03em;color:var(--final-ink,var(--navy));">'+escapeHtml(ddRT('r.final'))+'</div>'+
     '<div style="display:flex;align-items:center;"'+clickAttr+'>'+
     '<div style="position:relative;width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;">'+mkoTagHTML(koMatchTag(bracket, t, finalRi, 0), geom.fontSize, false)+
     '<div style="width:100%;height:100%;background:'+aSlot.bg+';border:'+aSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
     (geom.readable ? mkoReadableNameSpan(aSlot, finalBoxH, geom.fontSize, '') : '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+aSlot.text+'</span>')+
-    (aSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
-    (aSlot.ns ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">NO-SHOW</span>' : '')+
+    (aSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+escapeHtml(ddRT('r.wo'))+'</span>' : '')+
+    (aSlot.ns ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+escapeHtml(ddRT('r.noShow'))+'</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+aSlot.fw+';color:'+aSlot.color+';">'+aSlot.legs+'</span></div></div>'+
-    '<div style="width:'+MKO_CONN_W+'px;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.06em;color:var(--muted);">'+(showVs ? 'VS' : '')+'</div>'+
+    '<div style="width:'+MKO_CONN_W+'px;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.06em;color:var(--muted);">'+(showVs ? escapeHtml(ddRT('r.vs')) : '')+'</div>'+
     '<div style="width:'+MKO_BOX_W+'px;height:'+finalBoxH+'px;background:'+bSlot.bg+';border:'+bSlot.border+';border-radius:6px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;overflow:hidden;">'+
     (geom.readable ? mkoReadableNameSpan(bSlot, finalBoxH, geom.fontSize, '') : '<span style="flex:1;min-width:0;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+bSlot.text+'</span>')+
-    (bSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">WO</span>' : '')+
-    (bSlot.ns ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">NO-SHOW</span>' : '')+
+    (bSlot.wo ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+escapeHtml(ddRT('r.wo'))+'</span>' : '')+
+    (bSlot.ns ? '<span style="flex:0 0 auto;font-size:'+(geom.fontSize*0.68).toFixed(1)+'px;font-weight:700;color:var(--muted);">'+escapeHtml(ddRT('r.noShow'))+'</span>' : '')+
     '<span style="flex:0 0 auto;font-size:'+geom.fontSize+'px;font-weight:'+bSlot.fw+';color:'+bSlot.color+';">'+bSlot.legs+'</span></div>'+
     '</div>'+
-    (clickable && !finalMatch.void ? '<div style="font-size:11px;color:var(--blue);text-decoration:underline;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openKoNoShowPicker(\''+mkoJsArg(bracketKey)+'\','+finalRi+',0)">Mark no-show…</div>' : '')+
+    (clickable && !finalMatch.void ? '<div style="font-size:11px;color:var(--blue);text-decoration:underline;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openKoNoShowPicker(\''+mkoJsArg(bracketKey)+'\','+finalRi+',0)">'+escapeHtml(ddRT('r.markNoShow'))+'</div>' : '')+
     championHtml+
     '</div></div></div></div>';
 }
@@ -626,8 +688,12 @@ function standingsTableHTML(g, standings){
     const ent = t.entriesList.find(e=>e.id===st.id);
     const diff = st.legsFor - st.legsAgainst;
     let tb = '';
-    if(st.tieRule==='LEVEL') tb = '<span class="tb-badge level" title="Level on points after every tie-break rule">?</span>';
-    else if(st.tieRule) tb = '<span class="tb-badge" title="Separated from the entry beside it on points by: '+escapeHtml(st.tieRule)+(st.tieSize>2?' (mini-table of the '+st.tieSize+' tied entries)':'')+'">'+(st.tieSize>2?st.tieSize+'-way ':'')+(TIE_RULE_SHORT[st.tieRule]||escapeHtml(st.tieRule))+'</span>';
+    if(st.tieRule==='LEVEL') tb = '<span class="tb-badge level" title="'+escapeHtml(ddRT('r.tb.level'))+'">?</span>';
+    else if(st.tieRule){
+      const badge = TIE_RULE_SHORT[st.tieRule] ? escapeHtml(ddRT('r.badge.'+TIE_RULE_SHORT[st.tieRule].toLowerCase())) : escapeHtml(st.tieRule);
+      const tip = st.tieSize>2 ? ddRT('r.tb.sepMini', {rule:ddRuleName(st.tieRule), n:st.tieSize}) : ddRT('r.tb.sep', {rule:ddRuleName(st.tieRule)});
+      tb = '<span class="tb-badge" title="'+escapeHtml(tip)+'">'+(st.tieSize>2 ? ddRT('r.tb.way', {n:st.tieSize, badge:badge}) : badge)+'</span>';
+    }
     return '<tr>'+
       '<td class="pos">'+st.position+(st.manualOverride?'*':'')+'</td>'+
       '<td class="l">'+escapeHtml(ent?ent.name:'—')+'</td>'+
@@ -641,11 +707,12 @@ function standingsTableHTML(g, standings){
       (anyTie?'<td>'+tb+'</td>':'')+
     '</tr>';
   }).join('');
+  const th = (k, cls)=> '<th'+(cls ? ' class="'+cls+'"' : ' title="'+escapeHtml(ddRT('r.tt.'+k))+'"')+'>'+escapeHtml(ddRT('r.th.'+k))+'</th>';
   return '<table class="std-table"><thead><tr>'+
-    '<th class="l">Pos.</th><th class="l">Entry</th><th title="Matches played">MP</th><th title="Matches won">MW</th><th title="Matches lost">ML</th>'+
-    (showDraws?'<th title="Matches drawn">MD</th>':'')+
-    '<th title="Legs won">LW</th><th title="Leg difference (legs won minus legs lost)">+/-</th><th title="Points">Pts</th>'+
-    (anyTie?'<th title="Tie-break that separated this entry from the one beside it">TB</th>':'')+
+    th('pos', 'l')+th('entry', 'l')+th('mp')+th('mw')+th('ml')+
+    (showDraws?th('md'):'')+
+    th('lw')+th('diff')+th('pts')+
+    (anyTie?th('tb'):'')+
   '</tr></thead><tbody>'+rows+'</tbody></table>';
 }
 
@@ -658,11 +725,13 @@ function tieNotesHTML(g, standings, opts){
   const byId = {}; standings.forEach(s=> byId[s.id]=s);
   const nm = id=>{ const e = t.entriesList.find(x=>x.id===id); return '<b>'+escapeHtml(e?e.name:'—')+'</b>'; };
   const complete = groupIsComplete(g);
+  // "A, B and C": the names joined the way the English always was (the last ", " becomes the table's " and ").
+  const andList = list=> list.join(', ').replace(/, ([^,]*)$/, (m, last)=> ddRT('r.list.and', {last:last}));
   const lines = [];
   let levelRun = null; // consecutive still-level entries, reported as one line
   const flushLevel = ()=>{
     if(!levelRun) return;
-    lines.push('<div class="warn">'+levelRun.ids.map(nm).join(', ').replace(/, ([^,]*)$/, ' and $1')+' are still level on '+levelRun.pts+' pts after every tie-break rule'+' — needs an organiser decision or a playoff'+(forPublic ? '.' : ' (use Adjust positions).')+'</div>');
+    lines.push('<div class="warn">'+ddRT(forPublic ? 'r.tie.levelPublic' : 'r.tie.levelOrg', {names:andList(levelRun.ids.map(nm)), pts:levelRun.pts})+'</div>');
     levelRun = null;
   };
   notes.forEach(n=>{
@@ -677,21 +746,23 @@ function tieNotesHTML(g, standings, opts){
     flushLevel();
     // 3+ tied: the figures compared come from the mini-table (matches between the tied entries only).
     const mini = n.hiMini && n.loMini;
-    const among = mini ? ' among the tied entries' : '';
+    const v = {hi:nm(n.hi), lo:nm(n.lo), pts:n.pts};
     if(n.rule==='Head-to-head result'){
-      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by head-to-head'+(mini ? among+' (mini-table points '+n.hiMini.mpts+' vs '+n.loMini.mpts+')' : ' (won their match)')+'.</div>');
+      if(mini){ v.a = n.hiMini.mpts; v.b = n.loMini.mpts; }
+      lines.push('<div>'+ddRT(mini ? 'r.tie.h2hMini' : 'r.tie.h2h', v)+'</div>');
     } else if(n.rule==='Leg difference'){
-      const a = mini ? n.hiMini.ld : hi.legsFor-hi.legsAgainst, b = mini ? n.loMini.ld : lo.legsFor-lo.legsAgainst;
-      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by leg difference'+among+' ('+fmtLegDiff(a)+' vs '+fmtLegDiff(b)+').</div>');
+      v.a = fmtLegDiff(mini ? n.hiMini.ld : hi.legsFor-hi.legsAgainst); v.b = fmtLegDiff(mini ? n.loMini.ld : lo.legsFor-lo.legsAgainst);
+      lines.push('<div>'+ddRT(mini ? 'r.tie.ldMini' : 'r.tie.ld', v)+'</div>');
     } else if(n.rule==='Legs won'){
-      const a = mini ? n.hiMini.lf : hi.legsFor, b = mini ? n.loMini.lf : lo.legsFor;
-      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by legs won'+among+' ('+a+' vs '+b+').</div>');
+      v.a = mini ? n.hiMini.lf : hi.legsFor; v.b = mini ? n.loMini.lf : lo.legsFor;
+      lines.push('<div>'+ddRT(mini ? 'r.tie.lwMini' : 'r.tie.lw', v)+'</div>');
     } else if(n.rule){
-      lines.push('<div>'+nm(n.hi)+' ahead of '+nm(n.lo)+' — level on '+n.pts+' pts, separated by '+escapeHtml(n.rule)+'.</div>');
+      v.rule = escapeHtml(ddRuleName(n.rule));
+      lines.push('<div>'+ddRT('r.tie.other', v)+'</div>');
     }
   });
   flushLevel();
-  if(groupHasPositionOverrides(g)) lines.push('<div><b>*</b> Position set manually by the organiser.</div>');
+  if(groupHasPositionOverrides(g)) lines.push('<div><b>*</b> '+escapeHtml(ddRT('r.tie.manual'))+'</div>');
   // Mini-tables behind any 3+ way tie, so the organiser can see exactly what was compared.
   const minis = (standings.tieClusters||[]).filter(c=> !c.ids.some(id=> byId[id].manualOverride)).map(c=>{
     const names = c.ids.map(id=>{ const e = t.entriesList.find(x=>x.id===id); return '<b>'+escapeHtml(e?e.name:'—')+'</b>'; });
@@ -699,11 +770,12 @@ function tieNotesHTML(g, standings, opts){
       const m = c.mini[id];
       return '<tr><td class="l">'+nm(id)+'</td><td class="dim">'+m.mp+'</td><td>'+m.w+'</td><td>'+m.mpts+'</td><td>'+m.lf+'–'+m.la+'</td><td class="'+(m.ld<0?'neg':'')+'">'+fmtLegDiff(m.ld)+'</td></tr>';
     }).join('');
-    return '<div style="margin-top:10px"><div>Mini-table: '+names.join(', ').replace(/, ([^,]*)$/, ' and $1')+' — level on '+c.pts+' pts, only the matches between them count.</div>'+
-      '<table class="std-table" style="margin-top:4px;font-size:12px"><thead><tr><th class="l">Entry</th><th title="Matches played between these entries">MP</th><th title="Matches won">MW</th><th title="Points from these matches">Pts</th><th title="Legs won–lost in these matches">Legs</th><th>+/-</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    const th = (k, tip)=> '<th'+(tip ? ' title="'+escapeHtml(ddRT('r.tt.'+tip))+'"' : '')+'>'+escapeHtml(ddRT('r.th.'+k))+'</th>';
+    return '<div style="margin-top:10px"><div>'+ddRT('r.tie.mini', {names:andList(names), pts:c.pts})+'</div>'+
+      '<table class="std-table" style="margin-top:4px;font-size:12px"><thead><tr><th class="l">'+escapeHtml(ddRT('r.th.entry'))+'</th>'+th('mp', 'miniMp')+th('mw', 'mw')+th('pts', 'miniPts')+th('legs', 'miniLegs')+th('diff')+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
   }).join('');
   if(!lines.length && !minis) return '';
-  const hdr = complete ? '' : '<div>Provisional — ties may change as the remaining matches are played.</div>';
+  const hdr = complete ? '' : '<div>'+escapeHtml(ddRT('r.tie.provisional'))+'</div>';
   return '<div class="tie-notes">'+(notes.length&&!complete?hdr:'')+lines.join('')+minis+'</div>';
 }
 

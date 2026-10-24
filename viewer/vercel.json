@@ -2,6 +2,7 @@
   "regions": ["sin1"],
   "rewrites": [
     { "source": "/live/:slug", "destination": "/index.html" },
-    { "source": "/help", "destination": "/help.html" }
+    { "source": "/help", "destination": "/help.html" },
+    { "source": "/ms/help", "destination": "/ms/help.html" }
   ]
 }

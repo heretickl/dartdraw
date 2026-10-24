@@ -440,6 +440,9 @@ test('help: the Teams section answers how a match works, why a result is a total
   assert.doesNotMatch(t, /\b(plan|tier|Basic|Pro|admin)\b|@|\bmailto\b/i);
   // what it promises matches the page: the header text is made by the code in index.html
   const INDEX = fs.readFileSync(path.join(__dirname, '..', 'viewer', 'index.html'), 'utf8');
-  assert.match(INDEX, /' segments'\) \+ \(tb \? ' \+ tie-breaker' : ''\) \+ ' per match'/);
-  assert.match(INDEX, /'Find a '\+unitWord\(\)/);
+  // (the words are in the string table since i18n step 2)
+  const EN = require('../viewer/i18n/en.js');
+  assert.match(INDEX, /T\(tb \? 'ev\.seg\.tb' : 'ev\.seg\.plain', \{n:n\}\)/);
+  assert.equal(EN['ev.seg.tb'].other, '{n} segments + tie-breaker per match'); assert.equal(EN['ev.seg.plain'].one, '{n} segment per match');
+  assert.match(INDEX, /el\('finder'\)\.placeholder = TE\('ev\.find'\)/); assert.equal(EN['ev.find.team'], 'Find a team');
 });

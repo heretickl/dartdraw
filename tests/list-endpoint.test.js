@@ -106,7 +106,7 @@ test('rows shaped like the narrowed SELECT (only those keys) are classified corr
   assert.deepEqual(res.body.upcoming.map((i) => i.slug), ['upcoming11111']);
   assert.equal(res.body.upcoming[0].start, '19:00'); assert.equal(res.body.upcoming[0].entries, 4); assert.equal(res.body.upcoming[0].format, 'knockout');
   assert.deepEqual(res.body.live.map((i) => i.slug), ['liveevent1111']);
-  assert.equal(res.body.live[0].progress.stage, 'Semifinals'); assert.equal(res.body.live[0].progress.done, 1); assert.equal(res.body.live[0].progress.total, 2);
+  assert.equal(res.body.live[0].progress.stage, 'knockout'); assert.equal(res.body.live[0].progress.round, 'semifinals'); assert.equal(res.body.live[0].progress.done, 1); assert.equal(res.body.live[0].progress.total, 2);
   assert.deepEqual(res.body.results.map((i) => i.slug), ['doneevent1111']);
   assert.equal(res.body.results[0].winner, 'Alex Doe');
 });

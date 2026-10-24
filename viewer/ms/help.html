@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bantuan · DartDraw Live</title>
+<meta name="description" content="Cara mengikuti kejohanan dart secara langsung: mencari pemain, membaca jadual kumpulan dan bracket (carta kalah mati), dan apa yang perlu dilakukan jika ada yang kelihatan salah.">
+<link rel="canonical" href="https://dartdraw-viewer.vercel.app/ms/help">
+<link rel="alternate" hreflang="en" href="https://dartdraw-viewer.vercel.app/help">
+<link rel="alternate" hreflang="ms" href="https://dartdraw-viewer.vercel.app/ms/help">
+<link rel="alternate" hreflang="x-default" href="https://dartdraw-viewer.vercel.app/help">
+<script id="dd-lang">
+(function(){
+var L="ms",TWIN="/help",HASHOK=false,KEY='dartdraw.lang';
+var q=String(location.search||''),h=String(location.hash||''),m=/[?&]lang=(en|ms)(?=&|$)/.exec(q);
+if(m){
+  try{localStorage.setItem(KEY,m[1])}catch(e){}
+  var rest=q.replace(/([?&])lang=(en|ms)(&|$)/,function(a,b,c,d){return d?b:''}).replace(/[?&]$/,'');
+  if(m[1]!==L){location.replace(TWIN+rest+h);return}
+  try{history.replaceState(null,'',location.pathname+rest+h)}catch(e){}
+  return;
+}
+var s=null;try{s=localStorage.getItem(KEY)}catch(e){}
+if((s==='en'||s==='ms')&&s!==L&&(!h||(HASHOK&&s==='ms')))location.replace(TWIN+q+h);
+})();
+</script>
+<meta name="theme-color" content="#0a1624">
+<meta name="color-scheme" content="dark light">
+<script>try{var t=localStorage.getItem('dartdraw.viewer.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<link rel="stylesheet" href="/help.css">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <a class="allevents" href="/"><span class="am" aria-hidden="true">D</span>&lsaquo; Semua acara</a>
+    <div class="toprow">
+      <div class="over">DartDraw Live</div>
+      <div class="hdr-tools">
+        <div class="langsw" role="group" aria-label="Language / Bahasa"><a href="/help" lang="en" hreflang="en" aria-label="English" data-lang-set="en">EN</a><a href="/ms/help" lang="ms" hreflang="ms" aria-label="Bahasa Malaysia" data-lang-set="ms" aria-current="true">BM</a></div>
+        <div class="themesw" role="group" aria-label="Tema warna">
+          <button type="button" data-theme-set="auto" aria-pressed="true">Auto</button>
+          <button type="button" data-theme-set="light" aria-pressed="false">Cerah</button>
+          <button type="button" data-theme-set="dark" aria-pressed="false">Gelap</button>
+        </div>
+      </div>
+    </div>
+    <h1>Bantuan</h1>
+    <div class="sub">Ikuti kejohanan dart secara langsung</div>
+  </div>
+</header>
+
+<main>
+<div class="help-wrap help-main">
+  <a class="help-back" id="helpBack" href="/" hidden>&lsaquo; Kembali ke acara</a>
+  <p class="help-intro">Jawapan ringkas tentang cara mengikuti kejohanan di laman ini. Ketik soalan untuk membukanya.</p>
+
+  <div class="help-find" id="faqFind" role="search" hidden>
+    <input id="faqSearch" type="search" maxlength="120" placeholder="Cari bantuan, cth. &ldquo;mana anak saya&rdquo;" aria-label="Cari soalan bantuan" aria-describedby="faqStatus" aria-controls="faqResults" autocomplete="off" autocapitalize="off" spellcheck="false">
+  </div>
+  <div class="help-status" id="faqStatus" role="status" aria-live="polite" hidden></div>
+  <div class="help-none" id="faqNone" hidden>
+    <p class="none-h">Tiada jawapan untuk &ldquo;<span id="faqNoneQ"></span>&rdquo;.</p>
+    <p class="none-say" id="faqSay" hidden></p>
+    <p>Cuba kurangkan perkataan, atau gunakan perkataan lain. Atau mulakan dengan salah satu daripada yang berikut:</p>
+    <ul class="none-list">
+      <li><a href="#q-when-where">Bila dan di mana pemain saya bermain?</a></li>
+      <li><a href="#q-find-player">Bagaimana saya mencari pemain?</a></li>
+      <li><a href="#q-stuck-scores">Skor tidak berubah</a></li>
+      <li><a href="#q-columns">Apakah maksud Main, M, K, LM, +/-, Mata dan TB?</a></li>
+      <li><a href="#glossary">Istilah yang akan anda lihat</a></li>
+    </ul>
+    <p class="none-end">Masih tidak menemui jawapan? Tanya penganjur di meja urus setia.</p>
+  </div>
+  <div class="help-results" id="faqResults" hidden></div>
+
+  <section class="help-start" id="start" aria-labelledby="h-start">
+    <h2 id="h-start">Baru di sini? Tiga perkara yang perlu diketahui</h2>
+    <ol>
+      <li>Ketik acara di halaman utama. <b>Langsung</b>: sedang dimainkan sekarang; <b>Mendatang</b>: belum bermula; <b>Keputusan</b>: sudah tamat. Acara dibuka pada bahagian yang sedang dimainkan.</li>
+      <li>Cari pemain anda dengan kotak carian di halaman acara. Ketik <b>&#9734; Ikuti</b> untuk menyimpannya dalam tab Diikuti, atau <b>Ini saya</b> jika itu anda.</li>
+      <li>Skor dipaparkan apabila penganjur memasukkannya, biasanya seminit dua selepas perlawanan. Board dan masa diumumkan di tempat kejohanan (acara Group Boards memaparkannya dalam tab Board).</li>
+    </ol>
+    <p class="start-more">Tajuk pendek seperti Main dan Mata diterangkan dalam <a href="#glossary">Istilah yang akan anda lihat</a>.</p>
+  </section>
+
+  <nav class="help-quick" id="quick" aria-labelledby="h-quick">
+    <h2 id="h-quick">Jawapan pantas</h2>
+    <a class="qa" href="#q-find-player"><b>Di mana pemain saya?</b><span>Buka acaranya, taip sebahagian nama dalam <i>Cari pemain</i> dan ketik nama itu. Halamannya menyatakan perlawanan seterusnya.</span></a>
+    <a class="qa" href="#q-status-pill"><b>Adakah ia sedang berlangsung?</b><span>Lihat label di bawah nama acara. <i>Langsung</i> bermaksud perlawanan sedang dimainkan; <i>Perubahan skor terakhir</i> menunjukkan bila keputusan terakhir dimasukkan.</span></a>
+    <a class="qa" href="#q-columns"><b>Apakah maksud lajur?</b><span>Main (dimainkan), M (menang), K (kalah), LM (leg dimenangi), +/- (beza leg), Mata. Ketik <i>Apakah maksud lajur?</i> di bawah mana-mana jadual.</span></a>
+  </nav>
+
+  <section class="help-grp" id="g-players" aria-labelledby="h-players">
+    <h2 id="h-players">Mengikuti pemain</h2>
+    <details class="q" id="q-when-where" data-keywords="bila di mana masa pukul berapa jadual jadual masa board mana nombor board masa mula giliran susunan perlawanan dipanggil when where time schedule which board start time">
+      <summary>Bila dan di mana pemain saya bermain?</summary>
+      <div class="a">
+        <p>Ia bergantung pada jenis acara. (Dalam acara berpasukan, baca &ldquo;pemain&rdquo; sebagai &ldquo;pasukan&rdquo;.)</p>
+        <ul>
+          <li><b>Acara Group Boards</b> mempunyai tab <b>Board</b>. Ia memaparkan setiap board, perlawanan yang sedang berlangsung di situ, beberapa perlawanan seterusnya, dan anggaran masa. Halaman pemain juga menyatakan perkara seperti &ldquo;Board 2 &middot; selepas 1 perlawanan &middot; ~7:50 PTG&rdquo;. Masa dengan tanda ~ ialah anggaran dan boleh lewat.</li>
+          <li><b>Kumpulan round robin</b> memaparkan kumpulan pada halaman pemain, board kumpulan itu jika penganjur menetapkannya, dan siapa yang masih perlu ditentang. Ia tidak memaparkan susunan atau masa.</li>
+          <li><b>Acara kalah mati</b> memaparkan perlawanan sebaik sahaja kedua-dua pihak diketahui, contohnya &ldquo;Seterusnya: Separuh akhir (3-1) lwn Leo Ahmad&rdquo; (kod dalam kurungan ialah <a href="#glossary-match-codes">kod perlawanan</a>), atau &ldquo;lawan belum ditentukan&rdquo; semasa satu pihak masih belum diketahui. Ia tidak memaparkan board atau masa.</li>
+        </ul>
+        <p>Dalam acara Round robin dan Kalah mati, penganjur memanggil setiap perlawanan di tempat kejohanan, jadi laman ini tidak dapat menyatakan di mana atau bila. Dengar pengumuman, atau tanya di meja penganjur.</p>
+      </div>
+    </details>
+    <details class="q" id="q-find-player" data-keywords="cari pemain mencari pemain mencari cari nama nama anak anak saya anak lelaki anak perempuan suami isteri ayah ibu kawan pemain saya sebelum undian find player search name son daughter my player">
+      <summary>Bagaimana saya mencari pemain?</summary>
+      <div class="a">
+        <p>Taip sebahagian nama dalam kotak <b>Cari pemain</b> di bawah tab. Nama yang sepadan dipaparkan di bawah kotak. Ketik satu, atau tekan Enter untuk membuka yang pertama.</p>
+        <p>Anda juga boleh mengetik mana-mana nama dalam jadual atau bracket (carta kalah mati).</p>
+        <p>Halaman pemain memaparkan kedudukan, mata dan beza leg pemain itu, siapa yang telah ditentang, dan siapa lawan seterusnya.</p>
+        <p>Sebelum undian dibuat, halaman acara belum menyenaraikan sesiapa, jadi tiada kotak carian. Nama dipaparkan sebaik sahaja penganjur membuat undian.</p>
+      </div>
+    </details>
+    <details class="q" id="q-no-name" data-keywords="nama tiada tidak disenaraikan ejaan salah eja tak jumpa nama saya missing name not listed spelling cant find my name">
+      <summary>Saya tidak dapat mencari nama saya dalam carian</summary>
+      <div class="a">
+        <p>Cuba sebahagian nama anda yang lebih pendek, atau kelab anda jika anda tahu. Carian memadankan sebahagian nama, jadi anda tidak perlu mengejanya sepenuhnya. Jika masih tidak dijumpai, anda mungkin belum berada dalam undian, atau penganjur mungkin mengejanya secara berbeza.</p>
+      </div>
+    </details>
+    <details class="q" id="q-me-following" data-keywords="saya ini saya ikuti diikuti bintang kegemaran berhenti mengikuti biru emas jejak me follow following star favourite unfollow">
+      <summary>Apakah Saya dan Diikuti?</summary>
+      <div class="a">
+        <p>Pada halaman pemain, ketik <b>Ini saya</b> untuk menandakan pemain itu sebagai diri anda. Tab <b>Saya</b> kemudian terus membuka kedudukan kumpulan dan perlawanan seterusnya anda setiap kali anda kembali. Saya hanya boleh ditetapkan kepada seorang pemain.</p>
+        <p>Ketik <b>Ikuti</b> untuk memantau orang lain. Ikuti seberapa ramai yang anda mahu. Mereka semua dipaparkan bersama dalam tab <b>Diikuti</b>, yang menunjukkan bilangan yang anda ikuti.</p>
+        <p>Anda ditanda dengan warna biru dan pemain yang anda ikuti ditanda dengan bintang dan warna emas.</p>
+      </div>
+    </details>
+    <details class="q" id="q-come-back" data-keywords="kembali nanti datang semula buka semula kali seterusnya pautan sama come back later return again next time">
+      <summary>Bagaimana saya kembali kemudian?</summary>
+      <div class="a">
+        <p>Buka pautan yang sama sekali lagi, atau imbas kod QR sekali lagi. Jika anda telah menetapkan Saya atau mengikuti seseorang, halaman dibuka pada tab <b>Saya</b> atau <b>Diikuti</b>, melainkan pautan itu sendiri menyatakan skrin tertentu (sesetengah kod QR membuka satu kumpulan).</p>
+        <p>Saya dan Diikuti disimpan pada peranti ini, bagi setiap acara. Halaman utama menyenaraikan acara yang dipilih oleh penganjur untuk dipaparkan di situ.</p>
+      </div>
+    </details>
+    <details class="q" id="q-player-status" data-keywords="perlawanan seterusnya lawan seterusnya siapa main seterusnya status tersingkir kalah masih dalam menarik diri next match next opponent eliminated knocked out withdrawn">
+      <summary>Apakah yang dinyatakan oleh baris di bawah nama pemain?</summary>
+      <div class="a">
+        <p>Ia menyatakan status semasa pemain itu. Contohnya lawan seterusnya, berapa perlawanan lagi dalam kumpulannya, tempatnya apabila kumpulan selesai, atau bahawa dia telah tersingkir dan kepada siapa dia kalah.</p>
+        <p>Pemain yang meninggalkan acara dipaparkan sebagai <b>Menarik diri</b>.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="help-grp" id="g-fresh" aria-labelledby="h-fresh">
+    <h2 id="h-fresh"><span id="g-event"></span>Adakah ini terkini?</h2>
+    <details class="q" id="q-refresh" data-keywords="muat semula segar semula kemas kini skor langsung berapa kerap automatik refresh reload update live scores how often">
+      <summary>Berapa kerap halaman dimuat semula?</summary>
+      <div class="a">
+        <p>Halaman acara menyemak skor baharu kira-kira setiap 20 saat semasa ia dibuka. Anda tidak perlu memuat semula. Halaman utama menyemak kira-kira setiap 30 saat.</p>
+        <p>Mungkin ada sedikit kelewatan antara penganjur memasukkan skor dan anda melihatnya. Halaman yang kerap menyemak tidak bermakna skor kerap berubah. Lihat <b>Perubahan skor terakhir</b> untuk mengetahui bila skor kali terakhir berubah.</p>
+      </div>
+    </details>
+    <details class="q" id="q-stuck-scores" data-keywords="tidak dikemas kini tidak berubah tersekat beku lama skor sama lambat lewat salah masalah not updating not moving stuck frozen old stale delay wrong problem">
+      <summary>Skor tidak berubah</summary>
+      <div class="a">
+        <ol>
+          <li>Lihat <b>Perubahan skor terakhir</b> di sebelah label di bahagian atas. Itulah kali terakhir penganjur menyimpan perubahan. Jika ia baru, anda sudah mendapat skor terkini, dan keputusan seterusnya cuma belum dimasukkan.</li>
+          <li>Keputusan dipaparkan apabila penganjur menaipnya, selalunya seminit dua selepas perlawanan tamat. Perlawanan mungkin masih berlangsung.</li>
+          <li>Jika masa itu sudah lama dan anda tahu perlawanan telah tamat, muat semula halaman, atau bukanya semula dari halaman utama.</li>
+          <li>Jika label menyatakan <b>Luar talian</b>, lihat <a href="#q-offline">Ia menyatakan Luar talian</a>.</li>
+        </ol>
+        <p>Jika masih kelihatan salah, tanya penganjur.</p>
+      </div>
+    </details>
+    <details class="q" id="q-status-pill" data-keywords="label langsung akan bermula keputusan muktamad tamat perubahan skor terakhir skor terakhir diubah luar talian adakah ia langsung pill live starting soon final results finished offline is it live">
+      <summary>Apakah maksud &ldquo;Akan bermula&rdquo;, &ldquo;Langsung&rdquo; dan &ldquo;Keputusan muktamad&rdquo;?</summary>
+      <div class="a">
+        <dl class="legend">
+          <dt><span class="pillx soon">Akan bermula</span></dt><dd>Undian telah dibuat tetapi belum ada perlawanan dimainkan.</dd>
+          <dt><span class="pillx live">Langsung</span></dt><dd>Perlawanan sedang dimainkan dan skor sedang dimasukkan.</dd>
+          <dt><span class="pillx done">Keputusan muktamad</span></dt><dd>Penganjur telah menandakan acara sebagai tamat. Tiada apa-apa lagi akan berubah.</dd>
+          <dt><span class="pillx off">Luar talian</span></dt><dd>Telefon anda tidak dapat menghubungi laman ini untuk seketika. Halaman terus mencuba, dan skor pada skrin kekal seperti sebelumnya.</dd>
+        </dl>
+        <p>Di sebelah label itu anda akan melihat <b>Perubahan skor terakhir</b> dan satu masa. Itulah kali terakhir penganjur menyimpan perubahan pada acara, biasanya skor. Ia bukan kali terakhir telefon anda menyemak, jadi ia mungkin sudah agak lama apabila tiada perlawanan yang tamat. Jika bukan hari ini, tarikhnya juga dipaparkan.</p>
+      </div>
+    </details>
+    <details class="q" id="q-results-final" data-keywords="keputusan lama berapa lama disimpan kekal hilang tangkapan skrin menunggu rasmi tamat old results how long kept disappear screenshot awaiting official">
+      <summary>Bilakah acara berpindah ke Keputusan?</summary>
+      <div class="a">
+        <p>Hanya selepas penganjur menandakan acara sebagai <b>Keputusan muktamad</b>. Sebelum itu ia kekal dalam Langsung selagi penganjur masih mengemas kininya, walaupun perlawanan terakhir telah dimainkan, dan kadnya mungkin menyatakan &ldquo;Menunggu keputusan muktamad&rdquo;. Jika tiada kemas kini untuk seketika dan ia belum ditandakan muktamad, ia tidak dipaparkan di halaman utama sehingga ditandakan muktamad. Pautan yang diberikan kepada anda tetap berfungsi.</p>
+        <p>Keputusan kekal di halaman utama untuk tempoh terhad, kemudian dibuang. Jika anda mahu menyimpan sesuatu keputusan, catatkannya atau ambil tangkapan skrin.</p>
+      </div>
+    </details>
+    <details class="q" id="q-offline" data-keywords="luar talian menyambung semula tiada isyarat tiada liputan line wifi sambungan data mudah alih perayauan gagal memuatkan offline reconnecting no signal connection mobile data">
+      <summary>Ia menyatakan &ldquo;Luar talian&rdquo;, &ldquo;Menyambung semula&rdquo; atau &ldquo;Gagal memuatkan keputusan&rdquo;</summary>
+      <div class="a">
+        <p>Telefon anda tidak dapat menghubungi laman ini sekarang, mungkin kerana isyarat lemah atau Wi-Fi tempat kejohanan. Biarkan halaman terbuka. Ia terus mencuba dan akan dikemas kini secara automatik apabila sambungan pulih.</p>
+        <p>Semasa halaman tidak dapat dimuat semula, skor pada skrin kekal seperti sebelumnya. <b>Perubahan skor terakhir</b> memberitahu anda sudah berapa lama skor itu tidak berubah. <b>Semakan terakhir</b> ialah kali terakhir telefon anda berjaya menghubungi laman ini.</p>
+        <p>Cuba bertukar antara Wi-Fi dan data mudah alih.</p>
+      </div>
+    </details>
+    <details class="q" id="q-not-available" data-keywords="tidak tersedia ralat pautan rosak not available error broken link">
+      <summary>Ia menyatakan &ldquo;Keputusan tidak tersedia&rdquo;</summary>
+      <div class="a">
+        <p>Pautan itu tidak sah, atau penganjur telah menjadikan keputusan luar talian. Pastikan anda menyalin keseluruhan pautan. Jika penganjur menerbitkan semula acara, halaman akan dipaparkan semula secara automatik, jadi berbaloi untuk membiarkan tab terbuka. Jika tidak, ketik <b>Lihat semua acara</b> untuk ke halaman utama.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="help-grp" id="g-results" aria-labelledby="h-results">
+    <h2 id="h-results">Membaca keputusan</h2>
+    <details class="q" id="q-tabs" data-keywords="tab menu kumpulan bracket board undian kalah mati dibuka tab mana tabs groups boards draw knockout which tab">
+      <summary>Apakah tab di bahagian atas?</summary>
+      <div class="a">
+        <p>Tab yang anda lihat bergantung pada acara.</p>
+        <dl class="legend">
+          <dt><span class="k">Saya</span></dt><dd>Seorang pemain yang anda pilih sebagai diri anda.</dd>
+          <dt><span class="k">Diikuti</span></dt><dd>Mana-mana pemain yang anda pilih untuk diikuti.</dd>
+          <dt><span class="k">Kumpulan</span></dt><dd>Jadual dan grid keputusan bagi setiap kumpulan.</dd>
+          <dt><span class="k">Board</span></dt><dd>Perlawanan mana di board mana. Hanya dalam acara Group Boards.</dd>
+          <dt><span class="k">Bracket</span></dt><dd>Undian kalah mati, pusingan demi pusingan.</dd>
+        </dl>
+        <p>Halaman dibuka pada bahagian acara yang sedang dimainkan: contohnya <b>Bracket</b> selepas undian kalah mati dibuat, atau <b>Board</b> semasa kumpulan acara Group Boards sedang bermain. Jika anda menetapkan Saya atau mengikuti seseorang, ia dibuka pada Saya atau Diikuti. Ketik mana-mana tab untuk bertukar; halaman tidak akan mengalihkan anda semasa anda membaca.</p>
+        <p>Sebelum undian dibuat, halaman akan memaklumkannya dan meminta anda menyemak semula tidak lama lagi.</p>
+      </div>
+    </details>
+    <h3 class="help-sub" id="g-tables">Jadual kumpulan</h3>
+    <details class="q" id="q-columns" data-keywords="main m k s lm mata tb lajur singkatan huruf tajuk jadual leg dimenangi petunjuk mp mw ml md lw pts columns abbreviations headings legs won key legend">
+      <summary>Apakah maksud Main, M, K, LM, +/-, Mata dan TB?</summary>
+      <div class="a">
+        <dl class="legend">
+          <dt><span class="k">Main</span></dt><dd>Perlawanan dimainkan.</dd>
+          <dt><span class="k">M</span></dt><dd>Perlawanan dimenangi.</dd>
+          <dt><span class="k">K</span></dt><dd>Perlawanan kalah.</dd>
+          <dt><span class="k">S</span></dt><dd>Perlawanan seri. Lajur ini hanya muncul jika ada perlawanan seri dalam kumpulan.</dd>
+          <dt><span class="k">LM</span></dt><dd>Leg dimenangi, dalam semua perlawanan pemain itu.</dd>
+          <dt><span class="k">+/-</span></dt><dd>Beza leg: leg dimenangi tolak leg kalah.</dd>
+          <dt><span class="k">Mata</span></dt><dd>Mata. Lihat <a href="#q-points">Bagaimana mata dikira?</a></dd>
+          <dt><span class="k">TB</span></dt><dd>Lencana pemecah seri. Hanya muncul apabila pemain sama mata.</dd>
+        </dl>
+        <p>Lajur pertama ialah kedudukan dalam kumpulan.</p>
+        <p>Di bawah setiap jadual kumpulan, ketik <b>Apakah maksud lajur?</b> untuk petunjuk ringkas, termasuk pada telefon.</p>
+      </div>
+    </details>
+    <details class="q" id="q-points" data-keywords="mata markah sistem mata jadual points pts scoring table">
+      <summary>Bagaimana mata dikira?</summary>
+      <div class="a">
+        <p>Menang perlawanan: <b>2 mata</b>. Seri: <b>1 mata</b>. Kalah: <b>0 mata</b>. Pemain disusun mengikut mata dahulu.</p>
+      </div>
+    </details>
+    <details class="q" id="q-green-bar" data-keywords="bar hijau layak mara lepas 2 teratas siapa mara tempat kalah mati plate green bar qualify advance go through top 2">
+      <summary>Siapa yang mara ke kalah mati?</summary>
+      <div class="a">
+        <p>Dalam acara dengan kumpulan kemudian kalah mati, tempat teratas dalam setiap kumpulan mara. Baris di atas jadual kumpulan menyatakan bilangannya, contohnya &ldquo;2 teratas setiap kumpulan mara ke peringkat kalah mati&rdquo;.</p>
+        <p>Bar hijau di sebelah kedudukan menandakan tempat itu, dalam jadual di tab <b>Kumpulan</b> dan dalam ringkasan kumpulan pemain. Selagi kumpulan belum memainkan semua perlawanannya, tempat itu masih boleh berubah.</p>
+        <p>Jika acara itu juga mempunyai <a href="#q-plate">saingan Plate</a>, baris yang sama menyatakan siapa yang bermain di dalamnya. Dalam kumpulan yang pemainnya tidak melebihi bilangan itu, semua mara.</p>
+      </div>
+    </details>
+    <details class="q" id="q-ties" data-keywords="sama mata seri mata sama kedudukan sama pemecah seri perlawanan sesama mereka perlawanan penentuan tie tied level same points tie break head to head playoff">
+      <summary>Apakah yang berlaku apabila pemain sama mata?</summary>
+      <div class="a">
+        <p>Kedudukan sama mata ditentukan dengan peraturan, digunakan satu demi satu sehingga pemain dapat dipisahkan. Susunan biasa ialah:</p>
+        <ol>
+          <li><b>Keputusan perlawanan sesama mereka</b> (head-to-head): siapa yang menang apabila mereka bertemu.</li>
+          <li><b>Beza leg</b>: leg dimenangi tolak leg kalah.</li>
+          <li><b>Leg dimenangi</b>.</li>
+        </ol>
+        <p>Penganjur menetapkan susunan bagi setiap acara, jadi ia mungkin berbeza. Jika setiap peraturan masih meninggalkan pemain sama mata, penganjur akan membuat keputusan, atau perlawanan penentuan diadakan.</p>
+        <p>Semasa kumpulan masih dimainkan, nota sama mata ditanda <b>Sementara</b> kerana ia boleh berubah apabila perlawanan tamat.</p>
+      </div>
+    </details>
+    <details class="q" id="q-ties-three" data-keywords="tiga hala 3 hala tiga pemain sama mata jadual mini bulatan three way 3 way mini table circle">
+      <summary>Bagaimana jika tiga pemain atau lebih sama mata?</summary>
+      <div class="a">
+        <p>Jika begitu, hanya perlawanan <i>sesama pemain tersebut</i> dikira. Jadual mini kecil di bawah kumpulan menunjukkan dengan tepat apa yang dibandingkan. Ini penting kerana keputusan boleh membentuk kitaran: A menewaskan B, B menewaskan C, dan C menewaskan A.</p>
+        <p>Peraturan yang sama digunakan dalam jadual mini: keputusan perlawanan sesama mereka (mata jadual mini), kemudian beza leg, kemudian leg dimenangi.</p>
+      </div>
+    </details>
+    <details class="q" id="q-tb-badges" data-keywords="h2h bl lm tb lencana 3 hala tanda soal bintang petua tetikus ld lw badge badges question mark asterisk tooltip hover">
+      <summary>Apakah maksud lencana TB?</summary>
+      <div class="a">
+        <p>Lencana menunjukkan peraturan yang meletakkan seseorang pemain di hadapan pemain di sebelahnya apabila mereka sama mata.</p>
+        <dl class="legend">
+          <dt><span class="hb">H2H</span></dt><dd>Head-to-head (perlawanan sesama mereka). Dia memenangi perlawanan itu.</dd>
+          <dt><span class="hb">BL</span></dt><dd>Beza leg.</dd>
+          <dt><span class="hb">LM</span></dt><dd>Leg dimenangi.</dd>
+          <dt><span class="hb">BL 3 hala</span></dt><dd>Tiga pemain sama mata, jadi jadual mini perlawanan sesama mereka digunakan, dan beza leg memisahkan mereka. <span class="hb">H2H 3 hala</span> dan <span class="hb">LM 3 hala</span> berfungsi dengan cara yang sama, dan nombornya boleh lebih besar.</dd>
+          <dt><span class="hb level">?</span></dt><dd>Masih sama mata selepas setiap peraturan. Ia memerlukan keputusan penganjur atau perlawanan penentuan.</dd>
+        </dl>
+        <p>Tanda bintang (*) selepas kedudukan bermaksud penganjur menetapkan kedudukan itu secara manual.</p>
+        <p>Pada komputer, letakkan tetikus di atas lencana untuk penjelasan ringkas. Pada telefon, ketik <b>Apakah maksud lajur?</b> di bawah jadual.</p>
+      </div>
+    </details>
+    <details class="q" id="q-grid" data-keywords="grid grid keputusan warna merah hijau skor jadual grid results grid colours colors red green score table">
+      <summary>Bagaimana saya membaca grid keputusan?</summary>
+      <div class="a">
+        <p>Di bawah setiap jadual kumpulan ialah grid setiap perlawanan. Cari baris anda, kemudian baca ke kanan hingga lajur lawan. Skor memaparkan leg pemain baris itu dahulu.</p>
+        <dl class="legend">
+          <dt><span class="cell win">3&ndash;1</span></dt><dd>Hijau: pemain baris itu menang.</dd>
+          <dt><span class="cell loss">1&ndash;3</span></dt><dd>Merah: pemain baris itu kalah.</dd>
+          <dt><span class="cell draw">2&ndash;2</span></dt><dd>Tebal tanpa warna: seri.</dd>
+          <dt><span class="cell">&middot;</span></dt><dd>Belum dimainkan.</dd>
+          <dt><span class="cell diag">&nbsp;&nbsp;</span></dt><dd>Petak berlorek: pemain tidak boleh menentang dirinya sendiri.</dd>
+        </dl>
+        <p><b>WO</b> kecil di sebelah skor bermaksud walkover: seorang pemain tidak hadir. Pada telefon, grid boleh ditatal ke sisi jika lebih lebar daripada skrin.</p>
+      </div>
+    </details>
+    <h3 class="help-sub" id="g-brackets">Bracket</h3>
+    <details class="q" id="q-rounds-chart" data-keywords="pusingan carta paparan bracket muat skrin saiz penuh kalah mati undian rounds chart bracket view fit to screen full size knockout draw">
+      <summary>Apakah paparan Pusingan dan Carta?</summary>
+      <div class="a">
+        <p><b>Pusingan</b> memaparkan satu pusingan pada satu masa sebagai kad perlawanan yang besar. Gunakan butang pusingan (Suku akhir, Separuh akhir dan seterusnya) untuk beralih antaranya. Tanda pada butang bermaksud pusingan itu telah selesai. Ini paparan lalai pada telefon.</p>
+        <p><b>Carta</b> memaparkan keseluruhan undian sebagai carta kalah mati. Ini paparan lalai pada skrin lebar. Ketik <b>Muat skrin</b> untuk mengecilkannya mengikut lebar skrin, dan <b>Saiz penuh</b> untuk kembali.</p>
+        <p>Tukar pada bila-bila masa dengan butang Pusingan / Carta. Halaman mengingati pilihan anda pada peranti ini. Undian besar (32 peserta atau lebih) dibuka dalam Pusingan melainkan anda telah memilih Carta.</p>
+      </div>
+    </details>
+    <details class="q" id="q-match-labels" data-keywords="label belum dimainkan menunggu bye kedua dua tidak hadir tidak hadir walkover wo tidak dimainkan labels to play waiting neither attended no show not played did not show">
+      <summary>Apakah maksud Belum dimainkan, Menunggu, Bye dan label lain?</summary>
+      <div class="a">
+        <dl class="legend">
+          <dt><span class="k">Belum dimainkan</span></dt><dd>Kedua-dua pemain sudah diketahui dan perlawanan belum dimainkan.</dd>
+          <dt><span class="k">Menunggu</span></dt><dd>Sekurang-kurangnya seorang pemain belum ditentukan. Ia akan diisi apabila perlawanan sebelumnya tamat. Slot mungkin menyatakan &ldquo;Pemenang&rdquo; dan perlawanan asalnya.</dd>
+          <dt><span class="k">Bye</span></dt><dd>Pemain terus mara ke pusingan seterusnya tanpa bermain.</dd>
+          <dt><span class="k">Walkover</span></dt><dd>Seorang pemain tidak hadir, jadi pemain lawan mara. Pemain yang tidak hadir ditanda &ldquo;tidak hadir&rdquo;.</dd>
+          <dt><span class="k">Kedua-dua tidak hadir</span></dt><dd>Kedua-dua pemain tidak hadir, jadi tiada siapa mara daripada perlawanan itu.</dd>
+          <dt><span class="k">Tidak dimainkan</span></dt><dd>Perlawanan tidak berlangsung dan tiada pemain pernah ditentukan untuknya.</dd>
+        </dl>
+        <p>Dalam paparan Carta, perlawanan yang tiada siapa hadir memaparkan <b>TIDAK HADIR</b> di sebelah kedua-dua nama, dan bye memaparkan <b>BYE</b>.</p>
+        <p><b>WO</b> kecil di sebelah pemain dalam bracket (carta kalah mati) bermaksud walkover. Pemain itu tidak hadir, jadi pemain lawan mara. Pada halaman pemain, keputusannya ditulis penuh: &ldquo;Menang walkover 2&ndash;0&rdquo; untuk pemain yang mara, &ldquo;Kalah walkover 0&ndash;2&rdquo; untuk pemain yang tidak hadir.</p>
+        <p>Nombor atau label seperti A1 sebelum nama ialah <a href="#glossary-seed">seed atau tempat dalam kumpulan</a>. Di bawah setiap bracket, ketik <b>Apakah maksud label?</b> untuk petunjuk ringkas.</p>
+      </div>
+    </details>
+    <details class="q" id="q-winner" data-keywords="pemenang juara siapa menang naib juara akhir winner champion who won runner up final">
+      <summary>Bagaimana saya melihat siapa yang menang?</summary>
+      <div class="a">
+        <p>Dalam perlawanan yang tamat, pemenang dipaparkan dengan huruf tebal dan skor hijau, dan yang kalah dikelabukan. Apabila perlawanan akhir dimainkan, sepanduk <b>Pemenang</b> muncul di bahagian atas bracket (carta kalah mati), dengan naib juara di bawahnya.</p>
+        <p>Label <span class="pillx done">Keputusan muktamad</span> di pengepala halaman bermaksud penganjur telah mengesahkan keseluruhan acara.</p>
+      </div>
+    </details>
+    <details class="q" id="q-stages" data-keywords="peringkat kad peringkat kemajuan terbaik daripada berapa leg stage stages progress best of legs how many legs">
+      <summary>Apakah kad peringkat dan baris kemajuan?</summary>
+      <div class="a">
+        <p>Sesetengah acara mempunyai dua peringkat, contohnya kumpulan dahulu kemudian kalah mati, atau kumpulan kemudian Peringkat Akhir. Dua kad berhampiran bahagian atas menunjukkan kedudukan setiap peringkat: belum bermula, sedang berlangsung dengan bilangan perlawanan yang telah dimainkan, atau selesai. Ketik kad untuk pergi ke peringkat itu.</p>
+        <p>Di pengepala, baris seperti &ldquo;2 daripada 4 kumpulan selesai&rdquo; menunjukkan sejauh mana peringkat kumpulan telah berjalan. Di bawah tajuk anda mungkin juga melihat bilangan leg sesuatu perlawanan, contohnya &ldquo;Terbaik daripada 5 leg&rdquo; (lihat <a href="#glossary-best-of">Terbaik daripada</a>). Dalam acara berpasukan ia menyatakan bilangan segmen dalam satu perlawanan sebagai gantinya (lihat Berpasukan).</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="help-grp" id="g-kinds" aria-labelledby="h-kinds">
+    <h2 id="h-kinds">Jenis acara</h2>
+    <h3 class="help-sub" id="g-boards">Acara Group Boards</h3>
+    <details class="q" id="q-group-boards" data-keywords="group boards kumpulan board peringkat akhir kumpulan kecil finals groups">
+      <summary>Apakah acara Group Boards?</summary>
+      <div class="a">
+        <p>Pemain dibahagikan kepada kumpulan kecil, contohnya <b>Kumpulan 3</b>. Setiap kumpulan bermain kalah mati sendiri di satu atau beberapa board khas untuknya. Pemenang setiap kumpulan mara ke <b>Peringkat Akhir</b>.</p>
+        <p>Halaman pemain menunjukkan di mana dia diundi, seperti &ldquo;Kumpulan 3 &middot; Board 3&rdquo;.</p>
+      </div>
+    </details>
+    <details class="q" id="q-boards-tab" data-keywords="tab board board sekarang dipanggil seterusnya masa siapa bermain boards tab up now called next time who is playing">
+      <summary>Apakah yang ada dalam tab Board?</summary>
+      <div class="a">
+        <p>Satu kad bagi setiap board. Ia memaparkan perlawanan yang sedang berlangsung, kemudian beberapa perlawanan seterusnya. Anda mungkin melihat:</p>
+        <ul>
+          <li><b>Sekarang</b>: perlawanan ini ialah yang seterusnya dimainkan di board itu.</li>
+          <li><b>Dipanggil &mdash; pergi ke Board N</b>: pemain telah dipanggil ke board itu.</li>
+          <li><b>Menunggu perlawanan sebelumnya</b>: ia tidak boleh bermula sehingga perlawanan lain tamat.</li>
+          <li>Masa seperti &ldquo;~7:10 PTG&rdquo;: anggaran, bukan janji.</li>
+        </ul>
+        <p>Jika anda menetapkan diri sebagai <b>Saya</b>, halaman anda juga memaparkan board seterusnya anda dan berapa perlawanan sebelum giliran anda.</p>
+      </div>
+    </details>
+    <details class="q" id="q-group-picker" data-keywords="peringkat akhir kumpulan pemilih kumpulan saya tukar semua kumpulan finals groups picker my group switch all groups">
+      <summary>Bagaimana saya bertukar antara Peringkat Akhir dan kumpulan?</summary>
+      <div class="a">
+        <p>Dalam tab Bracket, gunakan pemilih di bahagian atas. Pilih <b>Peringkat Akhir</b>, <b>Semua kumpulan</b>, atau satu kumpulan. Kumpulan yang masih bermain disenaraikan berasingan daripada yang telah selesai. Jika anda ditetapkan sebagai Saya, butang <b>Kumpulan saya</b> membawa anda terus ke kumpulan anda.</p>
+        <p>Semasa kumpulan sedang bermain, tab Bracket dibuka pada Semua kumpulan (atau pada kumpulan anda sendiri, jika anda menetapkan Saya dan kumpulan anda masih bermain). Semua kumpulan memaparkan setiap kumpulan sebagai kad dengan board kumpulan itu, bilangan pemain, dan pemenangnya selepas selesai. Ketik kad untuk membuka kumpulan itu. Selepas setiap kumpulan selesai, tab itu dibuka pada Peringkat Akhir.</p>
+      </div>
+    </details>
+    <h3 class="help-sub" id="g-doubles">Beregu</h3>
+    <details class="q" id="q-doubles" data-keywords="beregu pasangan rakan beregu doubles pair pairs partner">
+      <summary>Bagaimana acara beregu dipaparkan?</summary>
+      <div class="a">
+        <p>Dalam acara beregu, setiap peserta ialah satu pasangan. Ia dipaparkan dengan nama pasangan yang diberikan oleh penganjur, yang selalunya gabungan nama kedua-dua pemain (contohnya &ldquo;Hakim / Iskandar&rdquo;). Nama pasangan yang panjang mungkin dipaparkan dalam dua baris. Halaman tidak menyenaraikan kedua-dua orang secara berasingan.</p>
+        <p>Halaman masih menyebut &ldquo;pemain&rdquo;. Semuanya berfungsi dengan cara yang sama: ketik pasangan untuk membuka halamannya, ikutinya, atau tandakannya sebagai Saya. Kotak carian memadankan nama pasangan atau kelab, jadi taip apa yang dipaparkan untuk pasangan itu.</p>
+      </div>
+    </details>
+    <h3 class="help-sub" id="g-teams">Berpasukan</h3>
+    <details class="q" id="q-teams-match" data-keywords="perlawanan pasukan segmen berempat pemecah seri cara ia berfungsi team match segments foursome tie breaker how it works">
+      <summary>Bagaimana perlawanan pasukan dimainkan?</summary>
+      <div class="a">
+        <p>Perlawanan pasukan dimainkan dalam segmen, berturut-turut mengikut urutan, contohnya segmen berempat, kemudian beberapa perseorangan dan beberapa beregu. Setiap segmen ialah terbaik daripada bilangan leg yang ditetapkan, dan penganjur memilih bilangan segmen dalam satu perlawanan.</p>
+        <p>Leg pasukan daripada setiap segmen dicampurkan. Pasukan yang mempunyai lebih banyak leg secara keseluruhan memenangi perlawanan.</p>
+        <p>Jika jumlahnya sama, segmen <b>pemecah seri</b> dimainkan, tetapi hanya dalam peringkat yang penganjur pilih untuk menggunakannya. Jika tiada, jumlah yang sama dikira seri dalam round robin, dan perlawanan kalah mati tidak dibenarkan berakhir seri.</p>
+      </div>
+    </details>
+    <details class="q" id="q-teams-total" data-keywords="keputusan pasukan jumlah skor leg team result total score legs">
+      <summary>Mengapa keputusan berupa jumlah seperti 7&ndash;3?</summary>
+      <div class="a">
+        <p>Halaman memaparkan satu keputusan untuk keseluruhan perlawanan: jumlah leg yang dimenangi setiap pasukan dalam semua segmennya, termasuk leg pemecah seri jika ia dimainkan. Jadi 7&ndash;3 bermaksud satu pasukan memenangi tujuh leg kesemuanya dan pasukan lain memenangi tiga.</p>
+        <p>Jadual, grid dan bracket (carta kalah mati) menggunakan jumlah itu sama seperti leg dalam acara lain, jadi <b>LM</b> dan <b>+/-</b> dikira daripada jumlah itu. Halaman tidak memecahkan keputusan mengikut segmen.</p>
+      </div>
+    </details>
+    <details class="q" id="q-teams-find" data-keywords="cari pasukan nama pasukan find team search team">
+      <summary>Bagaimana saya mencari pasukan?</summary>
+      <div class="a">
+        <p>Dalam acara berpasukan, setiap peserta ialah satu pasukan, dipaparkan dengan nama pasukannya. Taip sebahagian nama pasukan, atau kelabnya, dalam kotak <b>Cari pasukan</b> di bawah tab, kemudian ketik pasukan itu untuk membuka halamannya.</p>
+        <p>Anda boleh mengikuti pasukan atau menandakannya sebagai Saya, sama seperti pemain dalam acara lain. Halaman tidak menyenaraikan ahli pasukan.</p>
+      </div>
+    </details>
+    <details class="q" id="q-teams-header" data-keywords="segmen pemecah seri baris pengepala segments tie breaker header line">
+      <summary>Apakah maksud &ldquo;5 segmen + pemecah seri setiap perlawanan&rdquo; di bawah tajuk?</summary>
+      <div class="a">
+        <p>Dalam acara berpasukan, baris ini menggantikan &ldquo;Terbaik daripada 5 leg&rdquo;. Ia menyatakan bilangan segmen dalam setiap perlawanan, dan menambah <b>+ pemecah seri</b> apabila peringkat itu menggunakan pemecah seri (ia hanya dimainkan jika jumlahnya sama).</p>
+        <p>Jika round robin dan kalah mati berbeza, setiap satu dipaparkan berasingan, contohnya &ldquo;Round robin: 5 segmen setiap perlawanan &middot; Kalah mati: 5 segmen + pemecah seri setiap perlawanan&rdquo;. Dalam acara Group Boards, kumpulan dan Peringkat Akhir menggunakan tetapan kalah mati.</p>
+      </div>
+    </details>
+    <h3 class="help-sub" id="g-plate">Saingan Plate</h3>
+    <details class="q" id="q-plate" data-keywords="plate saingan plate saguhati bracket kedua tidak mara consolation second bracket did not go through">
+      <summary>Apakah saingan Plate?</summary>
+      <div class="a">
+        <p>Sesetengah acara dengan kumpulan kemudian kalah mati juga mengadakan <b>saingan Plate</b>: kalah mati kedua untuk pemain yang tidak mara ke bracket (carta kalah mati) utama. Baris di atas jadual kumpulan menyatakan siapa yang bermain di dalamnya.</p>
+        <p>Bracket saingan itu terdapat dalam tab <b>Bracket</b>, di bawah bracket utama, dan ia mempunyai pemenangnya sendiri. Kod perlawanannya bermula dengan P, contohnya P1-2.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="help-grp" id="g-home" aria-labelledby="h-home">
+    <h2 id="h-home">Mencari acara</h2>
+    <details class="q" id="q-live-upcoming-results" data-keywords="tab halaman utama langsung mendatang keputusan acara tamat tabs home page live upcoming results finished events">
+      <summary>Apakah maksud Langsung, Mendatang dan Keputusan?</summary>
+      <div class="a">
+        <p>Acara <b>Langsung</b> telah bermula: sekurang-kurangnya satu perlawanan telah dimainkan, dan skor sedang dimasukkan.</p>
+        <p>Acara <b>Mendatang</b> telah disenaraikan tetapi belum bermula. Ia memaparkan tarikh dan, jika penganjur menetapkannya, masa mula.</p>
+        <p><b>Keputusan</b> ialah acara yang telah tamat. Ketik satu untuk melihat pemenang dan setiap skor.</p>
+        <p>Nombor kecil pada setiap tab ialah bilangan acara di dalamnya. Ketik mana-mana acara untuk membukanya.</p>
+      </div>
+    </details>
+    <details class="q" id="q-search-events" data-keywords="cari acara carian acara search event find event">
+      <summary>Bagaimana saya mencari acara?</summary>
+      <div class="a">
+        <p>Taip dalam kotak carian di halaman utama. Ia mencari nama acara, nama kejohanan, format dan nama pemenang. Ia hanya mencari dalam tab yang sedang anda buka.</p>
+        <p>Anda juga boleh menampal pautan atau kod acara di situ untuk membukanya terus.</p>
+      </div>
+    </details>
+    <details class="q" id="q-missing-event" data-keywords="acara tiada tidak disenaraikan tak jumpa acara kod tampal pautan missing event not listed cant find event code paste link">
+      <summary>Mengapa saya tidak nampak sesuatu acara?</summary>
+      <div class="a">
+        <p>Halaman utama hanya menyenaraikan acara yang dipilih oleh penganjur untuk dipaparkan di situ. Sesetengah penganjur hanya berkongsi pautan atau kod.</p>
+        <p>Jika anda mempunyai pautan atau kod, tampalkannya dalam kotak carian di bahagian atas. Butang <b>Buka acara</b> akan muncul. Ketik butang itu.</p>
+        <p>Sebab lain acara mungkin tiada:</p>
+        <ul>
+          <li>Penganjur belum menerbitkannya.</li>
+          <li>Ia telah dijadikan luar talian.</li>
+          <li>Ia sudah lama tidak dikemas kini, jadi ia tidak lagi dipaparkan dalam Langsung.</li>
+          <li>Ia telah tamat, tetapi penganjur belum menandakannya sebagai muktamad, dan sudah lama tiada kemas kini (lihat <a href="#q-results-final">Bilakah acara berpindah ke Keputusan?</a>).</li>
+        </ul>
+        <p>Tidak pasti? Minta pautan acara daripada penganjur.</p>
+      </div>
+    </details>
+    <details class="q" id="q-home-cant-load" data-keywords="tidak dapat memuatkan tak boleh load ralat kosong tiada apa apa langsung cuba lagi cant load not loading error blank nothing is live">
+      <summary>Halaman utama menyatakan ia tidak dapat memuatkan acara</summary>
+      <div class="a">
+        <p>Halaman tidak dapat menghubungi laman ini pada kali pertama, jadi ia belum mempunyai senarai untuk dipaparkan. Ini <b>tidak</b> bermakna tiada acara yang berlangsung. Nombor pada tab hanya muncul selepas senarai dimuatkan.</p>
+        <p>Semak sambungan anda, contohnya isyarat lemah atau Wi-Fi tempat kejohanan, kemudian ketik <b>Cuba lagi</b>. Halaman juga terus mencuba secara automatik, jadi anda boleh membiarkannya terbuka.</p>
+        <p>Jika anda mempunyai pautan acara, anda boleh membukanya terus.</p>
+      </div>
+    </details>
+    <h3 class="help-sub" id="g-links">Pautan dan kod QR</h3>
+    <details class="q" id="q-qr" data-keywords="kod qr imbas kamera helaian kod cetak qr qr code scan camera sheet code print">
+      <summary>Apakah kod QR pada helaian penganjur?</summary>
+      <div class="a">
+        <p>Penganjur mungkin mencetak helaian dengan kod QR. Halakan kamera telefon anda pada kod itu dan buka pautan yang dipaparkan. Ia membawa anda ke halaman langsung acara itu, jadi anda tidak perlu menaip apa-apa. Sesetengah kod membuka kumpulan tertentu atau bracket (carta kalah mati) untuk Peringkat Akhir.</p>
+        <p>Anda juga boleh menaip atau menampal kod acara itu dalam kotak carian halaman utama.</p>
+      </div>
+    </details>
+    <details class="q" id="q-share" data-keywords="kongsi pautan hantar salin pautan kawan whatsapp share link send copy link friend">
+      <summary>Bolehkah saya berkongsi pautan kepada apa yang sedang saya lihat?</summary>
+      <div class="a">
+        <p>Boleh. Salin alamat dari pelayar anda dan hantarkannya. Bahagian selepas <code>#</code> menyatakan skrin yang hendak dibuka, seperti satu kumpulan, bracket (carta kalah mati), atau halaman seorang pemain, jadi orang lain akan tiba di tempat yang sama.</p>
+        <p>Pilihan Saya dan Diikuti anda tidak termasuk dalam pautan. Ia kekal pada peranti anda.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="help-grp" id="g-trouble" aria-labelledby="h-trouble">
+    <h2 id="h-trouble">Ada yang salah atau tiada</h2>
+    <details class="q" id="q-wrong-score" data-keywords="skor salah silap tidak betul ralat betulkan laporkan kesilapan aduan beritahu siapa wrong score mistake incorrect fix report complaint who do i tell">
+      <summary>Saya rasa ada skor yang salah. Siapa yang perlu saya beritahu?</summary>
+      <div class="a">
+        <p>Skor ditaip oleh penganjur di tempat kejohanan. Laman ini hanya memaparkannya, dan tidak mempunyai cara untuk menghantar mesej kepada penganjur.</p>
+        <p>Beritahu penganjur atau meja pencatat skor. Selepas mereka membetulkannya, halaman memaparkan perubahan itu secara automatik apabila ia dimuat semula seterusnya.</p>
+      </div>
+    </details>
+    <details class="q" id="q-slow" data-keywords="lambat perlahan terpotong ke sisi tatal lebar jadual memuatkan slow cut off sideways scroll wide table loading">
+      <summary>Halaman lambat atau jadual kelihatan terpotong</summary>
+      <div class="a">
+        <p>Pada sambungan yang perlahan, halaman mungkin mengambil sedikit masa untuk dimuatkan.</p>
+        <p>Jadual lebar dan carta kalah mati boleh ditatal ke sisi. Leret padanya. Untuk bracket (carta kalah mati), <b>Pusingan</b> lebih mudah pada skrin kecil.</p>
+      </div>
+    </details>
+    <details class="q" id="q-no-player" data-keywords="tidak ditemui pemain dikeluarkan pautan lama pautan rosak cant find player removed old link">
+      <summary>Ia menyatakan &ldquo;Kami tidak dapat mencari pemain itu&rdquo;</summary>
+      <div class="a">
+        <p>Pemain itu mungkin telah dikeluarkan daripada undian, atau pautan itu sudah lama. Kembali dan cari nama itu sekali lagi. (Dalam acara berpasukan halaman menyebut &ldquo;pasukan&rdquo;.) Jika anda menetapkan pemain itu sebagai Saya dan dia telah dikeluarkan, tab Saya akan meminta anda memilih semula.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="help-grp" id="g-glossary" aria-labelledby="h-glossary">
+    <h2 id="h-glossary">Istilah yang akan anda lihat</h2>
+    <details class="q" id="q-glossary" data-keywords="istilah glosari perkataan maksud makna definisi singkatan seed undian peringkat pasangan layak glossary words terms jargon definitions">
+      <summary><span id="glossary"></span>Istilah yang akan anda lihat: glosari ringkas</summary>
+      <div class="a">
+        <p>Maksud mudah bagi perkataan dan kod pendek pada halaman acara, dengan contoh di mana anda melihat setiap satu.</p>
+        <h4 id="glossary-leg">Leg</h4>
+        <p>Satu permainan dart. Perlawanan ialah sejumlah leg yang ditetapkan, dan skor perlawanan ialah leg yang dimenangi setiap pihak, contohnya 3&ndash;1.</p>
+        <h4 id="glossary-best-of">Terbaik daripada</h4>
+        <p>&ldquo;Terbaik daripada 5 leg&rdquo; bermaksud paling banyak 5 leg dimainkan: yang pertama memenangi 3 leg memenangi perlawanan. Baris di bawah nama acara menyatakan bilangannya, contohnya &ldquo;Kalah mati: terbaik daripada 3 leg, perlawanan akhir terbaik daripada 5&rdquo;.</p>
+        <h4 id="glossary-draw">Undian</h4>
+        <p>Cara penganjur meletakkan pemain ke dalam kumpulan atau bracket (carta kalah mati). Nama dipaparkan di halaman sebaik sahaja undian dibuat. (Perlawanan seri, iaitu leg yang sama banyak, ialah perkara lain: lihat S dalam lajur.)</p>
+        <h4 id="glossary-stage">Peringkat</h4>
+        <p>Satu bahagian acara, contohnya kumpulan dan kemudian kalah mati. Kad peringkat berhampiran bahagian atas memaparkan setiap satu.</p>
+        <h4 id="glossary-seed">Seed</h4>
+        <p>Nombor sebelum nama dalam pusingan pertama bracket, seperti &ldquo;1 Aiden Tan&rdquo;. Ia ialah susunan kedudukan oleh penganjur sebelum acara (seed ialah peserta pilihan): 1 ialah seed teratas.</p>
+        <h4 id="glossary-group-place">A1, B2 (tempat dalam kumpulan)</h4>
+        <p>Dalam kalah mati selepas kumpulan, label sebelum nama menyatakan tempat pemain itu dalam kumpulannya: <b>A1</b> menjuarai Kumpulan A, <b>B2</b> di tempat kedua Kumpulan B.</p>
+        <h4 id="glossary-match-codes">Kod perlawanan: 1-2, G2&middot;1-1, P2-1</h4>
+        <p>Setiap perlawanan bracket mempunyai kod: <b>1-2</b> ialah pusingan 1, perlawanan 2. Dalam acara Group Boards, <b>G2&middot;1-1</b> ialah bracket Kumpulan 2, pusingan 1, perlawanan 1. Dalam saingan Plate kod bermula dengan P, seperti <b>P2-1</b>. Halaman pemain juga menggunakannya: &ldquo;Seterusnya: Separuh akhir (3-1)&rdquo;.</p>
+        <h4 id="glossary-bye">Bye</h4>
+        <p>Tiada lawan dalam pusingan itu, jadi pemain terus mara. Dipaparkan sebagai <b>Bye</b> dalam Pusingan dan <b>BYE</b> dalam Carta.</p>
+        <h4 id="glossary-wo">Walkover (WO)</h4>
+        <p>Perlawanan yang dimenangi kerana lawan tidak hadir. Dalam carta bracket, <b>WO</b> kecil menandakan pemain yang tidak hadir, dan dalam grid keputusan ia mengikuti skor. Pada halaman pemain ia ditulis penuh: &ldquo;Menang walkover 2&ndash;0&rdquo; atau &ldquo;Kalah walkover 0&ndash;2&rdquo;.</p>
+        <h4 id="glossary-no-show">Tidak hadir, Kedua-dua tidak hadir</h4>
+        <p>Kedua-dua pemain tidak hadir, jadi tiada siapa mara daripada perlawanan itu. Pusingan menyatakan <b>Kedua-dua tidak hadir</b>; Carta memaparkan <b>TIDAK HADIR</b> di sebelah kedua-dua nama.</p>
+        <h4 id="glossary-board">Board</h4>
+        <p>Board dart tempat perlawanan dimainkan, bernombor di tempat kejohanan, contohnya &ldquo;Board 2&rdquo;. Sesuatu kumpulan mungkin memaparkan board kumpulan itu; acara Group Boards memaparkan board setiap perlawanan dalam tab Board.</p>
+        <h4 id="glossary-columns">Main, M, K, S, LM, +/-, Mata</h4>
+        <p>Perlawanan dimainkan, dimenangi, kalah dan seri; leg dimenangi; beza leg (leg dimenangi tolak leg kalah); mata (2 untuk menang, 1 untuk seri). Lihat <a href="#q-columns">lajur</a>.</p>
+        <h4 id="glossary-tb">TB, pemecah seri</h4>
+        <p><b>TB</b> dalam jadual kumpulan ialah lencana pemecah seri: peraturan yang meletakkan seorang pemain di hadapan pemain lain yang sama mata. <b>Pemecah seri</b> dalam acara berpasukan ialah perkara lain: segmen tambahan yang dimainkan apabila jumlah leg kedua-dua pasukan sama.</p>
+        <h4 id="glossary-h2h">H2H</h4>
+        <p>Head-to-head: keputusan perlawanan sesama dua pemain yang sama mata.</p>
+        <h4 id="glossary-3way">BL 3 hala</h4>
+        <p>Tiga pemain sama mata, jadi hanya perlawanan sesama mereka bertiga dikira (jadual mini), dan beza leg dalam jadual mini itu memisahkan mereka. &ldquo;H2H 3 hala&rdquo; dan &ldquo;LM 3 hala&rdquo; berfungsi dengan cara yang sama.</p>
+        <h4 id="glossary-qualify">Layak, mara</h4>
+        <p>Menamatkan kumpulan pada kedudukan yang cukup tinggi untuk bermain dalam kalah mati. Baris di atas jadual kumpulan menyatakan bilangannya, contohnya &ldquo;2 teratas setiap kumpulan mara ke peringkat kalah mati&rdquo;, dan bar hijau menandakan tempat itu.</p>
+        <h4 id="glossary-plate">Saingan Plate</h4>
+        <p>Kalah mati kedua untuk pemain yang tidak mara ke bracket utama, dengan pemenangnya sendiri. Lihat <a href="#q-plate">Apakah saingan Plate?</a></p>
+        <h4 id="glossary-group-boards">Group Boards</h4>
+        <p>Sejenis acara: pemain dibahagikan kepada kumpulan kecil, setiap kumpulan bermain kalah mati sendiri di board sendiri, dan pemenang setiap kumpulan mara ke Peringkat Akhir.</p>
+        <h4 id="glossary-final-results">Keputusan muktamad</h4>
+        <p>Penganjur telah menyemak dan menamatkan acara, jadi skor tidak akan berubah lagi. Label di bawah nama acara menyatakan <b>Keputusan muktamad</b>.</p>
+        <h4 id="glossary-segment">Segmen (Berpasukan)</h4>
+        <p>Satu bahagian perlawanan pasukan, seperti satu permainan perseorangan atau beregu. Leg daripada setiap segmen dicampurkan untuk keputusan pasukan, contohnya 7&ndash;3.</p>
+        <h4 id="glossary-pair">Pasangan (Beregu)</h4>
+        <p>Dua pemain yang bermain bersama sebagai satu peserta, dipaparkan dengan satu nama pasangan seperti &ldquo;Hakim / Iskandar&rdquo;. Halaman masih menyebut pasangan sebagai &ldquo;pemain&rdquo;.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="help-grp" id="g-privacy" aria-labelledby="h-privacy">
+    <h2 id="h-privacy"><span id="g-look"></span>Tetapan dan privasi</h2>
+    <details class="q" id="q-theme" data-keywords="mod gelap mod cerah mod malam tema warna terang dark mode light mode night mode theme colours">
+      <summary>Bagaimana saya bertukar antara cerah dan gelap?</summary>
+      <div class="a">
+        <p>Pada halaman acara dan halaman ini, gunakan suis <b>Auto / Cerah / Gelap</b> di bahagian atas sebelah kanan. <b>Auto</b> mengikut tetapan telefon anda.</p>
+        <p>Di halaman utama, ketik butang bulat di bahagian atas sebelah kanan. Setiap ketikan bertukar antara Auto, Cerah dan Gelap.</p>
+        <p>Pilihan anda diingati pada peranti ini, untuk setiap halaman di laman ini.</p>
+      </div>
+    </details>
+    <details class="q" id="q-account" data-keywords="akaun daftar log masuk kata laluan privasi perlu akaun account sign up register login password privacy">
+      <summary>Adakah saya memerlukan akaun?</summary>
+      <div class="a">
+        <p>Tidak. Anda boleh melihat mana-mana acara tanpa mendaftar atau memberikan nama anda.</p>
+      </div>
+    </details>
+    <details class="q" id="q-saved" data-keywords="privasi data kuki disimpan peranti padam buang kosongkan privacy data cookies stored saved device delete remove clear">
+      <summary>Di manakah Saya dan Diikuti disimpan?</summary>
+      <div class="a">
+        <p>Hanya pada peranti anda sendiri, dalam pelayar anda. Tiada apa-apa dihantar ke mana-mana. Ini juga bermakna ia tidak mengikut anda ke telefon atau pelayar lain, dan memadam data laman dalam pelayar akan membuangnya. Setiap acara menyimpan Saya dan Diikuti tersendiri.</p>
+        <p>Petua &ldquo;Baru di sini?&rdquo; diingati dengan cara yang sama selepas anda mengetik <b>Faham</b> di halaman utama, atau <b>&times;</b> pada halaman acara.</p>
+      </div>
+    </details>
+    <details class="q" id="q-what-shown" data-keywords="privasi data maklumat peribadi nama privacy data personal information names">
+      <summary>Apakah yang dipaparkan oleh halaman tentang pemain?</summary>
+      <div class="a">
+        <p>Hanya apa yang dipilih oleh penganjur untuk diterbitkan bagi acara itu: undian, nama, skor dan kedudukan. Halaman ini tidak boleh mengubah apa-apa.</p>
+      </div>
+    </details>
+  </section>
+
+  <p class="help-end"><a class="help-back-end" id="helpBackEnd" href="/" hidden>&lsaquo; Kembali ke acara</a> <a href="/">Lihat semua acara</a></p>
+</div>
+</main>
+<footer>Dikuasakan oleh DartDraw</footer>
+
+<script src="/help-search.js"></script>
+<script type="application/json" id="helpSearchData">{"lang":"ms","synonyms":[["anak","anak saya","anak lelaki","anak perempuan","suami","isteri","ayah","ibu","emak","abang","adik","kakak","kawan","rakan","cucu","pemain saya","cari","cari pemain","mencari","son","daughter","my player","where is","find","find player","find a player","cari nama","nama saya","anak sy"],["bila","pukul berapa","masa","waktu","jadual","jadual masa","board mana","nombor board","masa mula","giliran","susunan perlawanan","bila saya main","when","what time","time","schedule","which board","start time","anak saya main","pemain saya main","saya main","dia main","main bila","main pukul berapa","main di mana","bila main","pukul brp","board berapa","main kat mana"],["layak","kelayakan","mara","lepas","lulus","2 teratas","dua teratas","bar hijau","qualify","qualified","advance","go through","top 2","green bar"],["juara","pemenang","menang","siapa menang","naib juara","champion","winner","won","who won","runner up"],["tidak dikemas kini","tidak berubah","tak berubah","tersekat","beku","lama","skor lama","tiada skor baharu","lambat","lewat","not updating","not moving","stuck","frozen","stale","delay","tak update","tidak update","skor tak update","tak dikemas kini","skor tak masuk","skor tak keluar","markah tak keluar","result tak keluar","tak refresh"],["muat semula","segar semula","refresh","reload","kemas kini","skor langsung","live scores","live score","skor live","markah live"],["mod gelap","mod malam","mod cerah","tema","gelap","cerah","terang","dark mode","night mode","light mode","theme","dark","light"],["wo","walkover","walk over","tidak hadir","tak hadir","tidak datang","tak datang","tidak muncul","ponteng","kedua dua tidak hadir","no show","noshow","absent","forfeit","player tak datang","pemain tak datang","tak turun","x datang"],["h2h","head to head","perlawanan sesama mereka","tb","pemecah seri","bl","beza leg","3 hala","tiga hala","lencana","?","*","tanda soal","bintang","ld","leg difference","badge","question mark","asterisk"],["sama mata","seri","mata sama","kedudukan sama","tie","tied","level","same points","equal points"],["pasukan","berpasukan","pasangan","beregu","rakan beregu","team","teams","pair","pairs","doubles","partner"],["main","m","k","s","lm","mata","lajur","singkatan","huruf","tajuk jadual","mp","mw","ml","md","lw","pts","+/-","columns","abbreviations","headings"],["kod qr","qr","imbas","kamera","kod bar","qr code","scan","camera","barcode"],["kongsi","berkongsi","hantar pautan","salin pautan","whatsapp","hantar kepada kawan","pautan","share","send link","copy link","link"],["akaun","daftar","log masuk","kata laluan","account","sign up","register","login","log in","password","tak boleh login","perlu login"],["privasi","data","kuki","penjejakan","data peribadi","kebenaran","privacy","cookie","cookies","tracking","personal data","permission"],["luar talian","tiada isyarat","tiada liputan","line","takde line","wifi","wi fi","tiada internet","sambungan","menyambung semula","perayauan","data mudah alih","offline","no signal","no internet","connection","reconnecting","mobile data"],["nama tiada","tidak disenaraikan","tak jumpa","tidak jumpa","ejaan","salah eja","nama salah","missing","not listed","spelling","wrong name","cant find"],["terpotong","ke sisi","tatal","terlalu lebar","cut off","sideways","scroll","too wide"],["tamat","selesai","habis","keputusan muktamad","muktamad","menunggu","rasmi","finished","over","ended","final results","awaiting","official"],["saya","ini saya","diri saya","ikuti","diikuti","mengikuti","bintang","kegemaran","berhenti mengikuti","biru","emas","me","this is me","follow","following","favourite","favorite","unfollow"],["menarik diri","tarik diri","berhenti","withdrawn","withdraw","retired","pulled out","quit"],["tersingkir","kalah","masih dalam","perlawanan seterusnya","lawan seterusnya","siapa main seterusnya","main seterusnya","eliminated","knocked out","still in","next match","next opponent","who plays next"],["berapa lama","disimpan","kekal","luput","hilang","keputusan lama","how long","kept","disappear","old results"],["masalah","rosak","kosong","ralat","tidak berfungsi","tak jalan","salah","problem","broken","blank","error","not working","wrong","skor salah","score salah","markah salah","salah skor"],["segmen","berempat","perlawanan pasukan","segment","segments","foursome","team match"],["leg","legs","terbaik daripada","best of"],["bye","byes","lepas terus"],["padam","buang","kosongkan","lupakan","delete","remove","clear","forget"],["warna","merah hijau","merah","hijau","colour","color","colours","red","green"],["petua","tetikus","penjelasan","tooltip","hover","explanation"],["group boards","tab board","board","papan","boards tab","dart board"],["siapa bermain","sedang bermain","sekarang","who is playing","playing now","up now","on now"],["seed","seeds","seeding","seed teratas","peserta pilihan","a1","b2","top seed"],["plate","saingan plate","saguhati","bracket kedua","plate pool","consolation","second bracket"],["istilah","glosari","maksud","makna","perkataan","definisi","glossary","jargon","terms"],["kod perlawanan","nombor perlawanan","match code","match number"],["kembali","kembali nanti","datang semula","kemudian","kali seterusnya","come back","return","later","next time"],["bracket","carta kalah mati","kalah mati","carta","pusingan","bagan","knockout","chart","rounds","braket","breket"],["skor","markah","keputusan","score","scores","results"],["kumpulan","jadual kumpulan","group","groups","table"]],"noAnswer":[{"terms":["notifikasi","pemberitahuan","makluman","amaran","ingatkan","peringatan","sms","e mel","emel","notification","notify","alert","remind","push"],"say":"Laman ini tidak boleh menghantar pemberitahuan. Biarkan halaman acara terbuka: ia dimuat semula secara automatik."},{"terms":["hubungi","hubungi penganjur","penganjur","contact","organiser","organizer"],"say":"Laman ini tidak mempunyai cara untuk menghantar mesej kepada penganjur. Tanya di meja penganjur di tempat kejohanan."},{"terms":["bahasa","bahasa inggeris","inggeris","english","language","terjemah","terjemahan","translate"],"say":"Bantuan ini dan halaman acara juga ada dalam bahasa Inggeris: ketik EN di bahagian atas halaman. Laman ini mengingati pilihan anda pada peranti ini."},{"terms":["aplikasi","apps","app","pasang","muat turun aplikasi","skrin utama","tanda buku","bookmark","install","download app","home screen"],"say":"Tiada aplikasi untuk dipasang. Tandakan halaman acara dalam pelayar anda (bookmark), atau simpan pautan yang diberikan kepada anda: ia tetap berfungsi."},{"terms":["kebolehcapaian","pembaca skrin","buta warna","accessibility","screen reader","colour blind","color blind"],"say":"Bantuan ini belum mempunyai halaman tentang kebolehcapaian. Jika anda memerlukan keputusan dalam bentuk lain, tanya penganjur di meja urus setia."},{"terms":["tempat ketiga","tempat ke 3","gangsa","third place","bronze"],"say":"Tempat ketiga tidak diterangkan dalam Bantuan ini. Tanya penganjur di meja urus setia."},{"terms":["saiz teks","saiz huruf","fon","tulisan besar","huruf besar","tulisan kecil","zum","zoom","font","text size","bigger text"],"say":"Untuk membesarkan teks, gunakan zum pelayar anda (pada telefon, kembangkan dua jari pada skrin)."}],"strings":{"count":"{n} soalan sepadan","near":"Tiada jawapan tepat. {n} padanan yang hampir","nearLabel":"Padanan paling hampir:","showAll":"Tunjukkan kesemua {n} hasil"}}</script>
+<script id="faq-search">
+/* Help search: the shared module help-search.js (a copy of the root file, made by npm run sync-viewer) does the work.
+   This page gives it the questions, their groups, the synonyms above, and where to show the results. Without JavaScript
+   the box stays hidden and every question shows. The Start here card and the Quick answers step aside while a search
+   is showing results (they are passed as 'tocs' with no questions of their own). */
+(function(){
+  if(typeof document === 'undefined' || !document.querySelectorAll || typeof HelpSearch === 'undefined') return;
+  var input = document.getElementById('faqSearch');
+  if(!input) return;
+  var data = {};
+  try{ data = JSON.parse(document.getElementById('helpSearchData').textContent); }catch(e){}
+  var items = [].slice.call(document.querySelectorAll('details.q'));
+  var groups = [].slice.call(document.querySelectorAll('.help-grp')).map(function(g){
+    return { el: g, ids: [].slice.call(g.querySelectorAll('details.q')).map(function(d){ return d.id; }) };
+  });
+  var asides = ['start', 'quick'].map(function(id){ return document.getElementById(id); }).filter(Boolean).map(function(el){ return { el: el, ids: [] }; });
+  HelpSearch.attach({
+    input: input, reveal: document.getElementById('faqFind'), status: document.getElementById('faqStatus'), hideIdleStatus: true,
+    results: document.getElementById('faqResults'), empty: document.getElementById('faqNone'), emptyQ: document.getElementById('faqNoneQ'),
+    say: document.getElementById('faqSay'), items: items, groups: groups, tocs: asides, data: data,
+    groupOf: function(d){ var g = d.closest ? d.closest('.help-grp') : null, h = g ? g.querySelector('h2') : null; return h ? h.textContent : ''; }
+  });
+})();
+</script>
+<script id="faq-from">
+/* "Back to the event": the event page links here as /help?from=<its code>. Only a code of the shape the server accepts is
+   used, and the link is built from it alone; anything else leaves the links hidden (the header's All events goes home). */
+(function(){
+  if(typeof document === 'undefined' || typeof location === 'undefined') return;
+  var m = /[?&]from=([^&#]*)/.exec(String(location.search || '')), slug = '';
+  try{ slug = m ? decodeURIComponent(m[1]) : ''; }catch(e){ slug = ''; }
+  if(!/^[a-z0-9]{8,40}$/.test(slug)) return;
+  ['helpBack', 'helpBackEnd'].forEach(function(id){
+    var a = document.getElementById(id);
+    if(a){ a.setAttribute('href', '/live/' + slug); a.hidden = false; }
+  });
+})();
+</script>
+<script id="faq-theme">
+/* Same colour choice as the event page and the home page: Auto follows the phone; Light and Dark are remembered. */
+(function(){
+  var KEY = 'dartdraw.viewer.theme';
+  function saved(){ try{ var t = localStorage.getItem(KEY); return (t === 'light' || t === 'dark') ? t : 'auto'; }catch(e){ return 'auto'; } }
+  function apply(t){
+    var root = document.documentElement;
+    if(t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+    try{ if(t === 'auto') localStorage.removeItem(KEY); else localStorage.setItem(KEY, t); }catch(e){}
+    document.querySelectorAll('[data-theme-set]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-theme-set') === t ? 'true' : 'false'); });
+  }
+  document.querySelectorAll('[data-theme-set]').forEach(function(b){
+    b.setAttribute('aria-pressed', b.getAttribute('data-theme-set') === saved() ? 'true' : 'false');
+    b.addEventListener('click', function(){ apply(b.getAttribute('data-theme-set')); });
+  });
+})();
+</script>
+<script id="dd-lang-ui">
+(function(){
+var KEY='dartdraw.lang',NOTE='dartdraw.lang.note',FOCUS='dartdraw.lang.focus';
+function get(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function put(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+/* the other language's link keeps this address's query (?from=...) and #anchor, so the twin opens at the same place */
+function keep(){return String(location.search||'').replace(/([?&])lang=(en|ms)(&|$)/,function(a,b,c,d){return d?b:''}).replace(/[?&]$/,'')+String(location.hash||'')}
+function sync(){[].forEach.call(document.querySelectorAll('[data-lang-set]'),function(a){
+  if(a.getAttribute('aria-current')==='true')return;
+  var b=a.getAttribute('data-base')||String(a.getAttribute('href')||'').split(/[?#]/)[0];
+  a.setAttribute('data-base',b);a.setAttribute('href',b+keep());
+})}
+sync();
+window.addEventListener('hashchange',sync);
+[].forEach.call(document.querySelectorAll('[data-lang-set]'),function(a){
+  a.addEventListener('click',function(e){
+    var l=a.getAttribute('data-lang-set');
+    put(KEY,l);
+    try{sessionStorage.setItem(FOCUS,'1')}catch(x){}
+    if(a.getAttribute('aria-current')==='true')e.preventDefault();
+  });
+});
+try{if(sessionStorage.getItem(FOCUS)){sessionStorage.removeItem(FOCUS);var cur=document.querySelector('.langsw [aria-current="true"]');if(cur&&cur.focus)cur.focus()}}catch(e){}
+var bar=document.getElementById('langBar');
+if(bar){
+  var n=String((navigator.languages&&navigator.languages[0])||navigator.language||'');
+  var saved=get(KEY);
+  if(saved!=='en'&&saved!=='ms'&&/^ms/i.test(n)&&get(NOTE)!=='closed')bar.hidden=false;
+  var x=bar.querySelector('[data-langbar-close]');
+  if(x)x.addEventListener('click',function(){bar.hidden=true;put(NOTE,'closed')});
+}
+})();
+</script>
+</body>
+</html>

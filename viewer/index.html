@@ -15,15 +15,19 @@
 <link rel="stylesheet" href="/home.css">
 </head>
 <body>
+<div class="langbar" id="langBar" lang="ms" hidden><div class="wrap"><p>Bahasa Malaysia tersedia &mdash; <a href="?lang=ms" hreflang="ms" data-lang-set="ms" title="Switch to Bahasa Malaysia">Tukar ke BM<span class="vh" lang="en"> (Switch to Bahasa Malaysia)</span></a></p><button class="langbar-x" type="button" data-langbar-close aria-label="Tutup" title="Close">&times;</button></div></div>
 <header id="head" hidden>
   <div class="wrap">
-    <div class="headrow"><a class="allevents" href="/"><span class="am" aria-hidden="true">D</span>&lsaquo; All events</a><a class="evhelp" id="hHelp" href="/help">Help</a></div>
+    <div class="headrow"><a class="allevents" href="/"><span class="am" aria-hidden="true">D</span>&lsaquo; <span data-i18n="nav.allEvents">All events</span></a><a class="evhelp" id="hHelp" href="/help" data-i18n="nav.help">Help</a></div>
     <div class="toprow">
       <div class="over" id="hOver"></div>
-      <div class="themesw" role="group" aria-label="Colour theme">
-        <button type="button" data-theme-set="auto" aria-pressed="true">Auto</button>
-        <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
-        <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+      <div class="hdr-tools">
+        <div class="langsw" role="group" aria-label="Language / Bahasa"><button type="button" lang="en" aria-label="English" data-lang-set="en" aria-pressed="true">EN</button><button type="button" lang="ms" aria-label="Bahasa Malaysia" data-lang-set="ms" aria-pressed="false">BM</button></div>
+        <div class="themesw" role="group" aria-label="Colour theme" data-i18n-attr="aria-label:theme.group">
+          <button type="button" data-theme-set="auto" aria-pressed="true" data-i18n="theme.auto">Auto</button>
+          <button type="button" data-theme-set="light" aria-pressed="false" data-i18n="theme.light">Light</button>
+          <button type="button" data-theme-set="dark" aria-pressed="false" data-i18n="theme.dark">Dark</button>
+        </div>
       </div>
     </div>
     <h1 id="hTitle"></h1>
@@ -39,10 +43,18 @@
   <input id="finder" type="search" placeholder="Find a player" aria-label="Find a player" autocomplete="off" autocapitalize="off" spellcheck="false">
   <div id="finderResults"></div>
 </div>
-<main><div class="wrap" id="app"><div class="msg"><p class="empty">Loading results…</p></div></div></main>
-<footer>Results update automatically · Powered by DartDraw · <a href="/help">Help</a></footer>
+<main><div class="wrap" id="app"><div class="msg"><p class="empty" data-i18n="ev.loading">Loading results…</p></div></div></main>
+<footer><span data-i18n="foot.text">Results update automatically · Powered by DartDraw</span> · <a href="/help" data-i18n="nav.help">Help</a></footer>
 
 <script src="/render.js"></script>
+<script src="/i18n/en.js"></script>
+<script data-dd-ms>/* The Bahasa Malaysia tables: written here (so they run before i18n.js) only when BM is the language at start-up,
+   ?lang=ms or else the saved choice. English pages never download them; i18n/i18n.js fetches them on a switch to BM. */
+var DD_MS_FILES = ["/i18n/render.ms.js", "/i18n/ms.js"];
+(function(){ try{ var m = /[?&]lang=(en|ms)(?=&|$)/.exec(location.search), l = m ? m[1] : localStorage.getItem('dartdraw.lang');
+  if(l === 'ms') for(var i = 0; i < DD_MS_FILES.length; i++) document.write('<script src="' + DD_MS_FILES[i] + '"><\/script>'); }catch(e){} })();
+</script>
+<script src="/i18n/i18n.js"></script>
 <script src="/home.js"></script>
 <script>
 /* Read-only results viewer. Fetches the sanitized public copy of one
@@ -63,31 +75,35 @@ var SLUG = slugFromUrl();
 
 function el(id){ return document.getElementById(id); }
 
-/* A link to the spectator Help that knows which event it came from (/help?from=<slug>#anchor), so Help can offer
+/* A link to the spectator Help that knows which event it came from (/help?from=<slug>#anchor, or /ms/help... in BM), so Help can offer
    "Back to the event". Only a slug of the shape the server accepts is passed on; anything else gives the plain /help. */
 var SLUG_RE = /^[a-z0-9]{8,40}$/;
 function helpHref(anchor){
-  return '/help' + (SLUG_RE.test(SLUG || '') ? '?from=' + SLUG : '') + (anchor ? '#' + anchor : '');
+  var h = '/help' + (SLUG_RE.test(SLUG || '') ? '?from=' + SLUG : '') + (anchor ? '#' + anchor : '');
+  return typeof hmLangHref === 'function' ? hmLangHref(h) : h;   // /ms/help when BM was chosen on the Help page (home.js)
 }
 function setHelpLinks(){
   var h = el('hHelp'); if(h && h.setAttribute) h.setAttribute('href', helpHref(''));
-  var f = document.querySelector ? document.querySelector('footer a[href^="/help"]') : null;
+  var f = document.querySelector ? document.querySelector('footer a[href^="/help"], footer a[href^="/ms/help"]') : null;
   if(f && f.setAttribute) f.setAttribute('href', helpHref(''));
 }
 setHelpLinks();
 
+/* Words: every one comes from the string tables (i18n/en.js, i18n/ms.js, and render.js's own) through T(key, vars), in the
+   reader's language. The tournament's own text (names, event and tournament names) is never translated. */
 function boardLabel(g){
   var b = (g.boards||[]).filter(function(x){ return x!=null; });
-  return b.length ? (b.length>1 ? 'Boards ' : 'Board ') + b.join(', ') : '';
+  return b.length ? T('ev.boards', {n:b.length, list:b.join(', ')}) : '';
 }
+function groupLabel(label){ return T('ev.group', {g:label}); }
 function entryName(id){
   var e = state.entriesList.find(function(x){ return x.id===id; });
   return e ? e.name : '—';
 }
-/* What the page calls an entry: 'team' / 'teams' in a Teams event, 'player' / 'players' in every other one (a Doubles pair
-   is still 'player' here). The one place that decides the word, so the rest of the page just asks for it. */
+/* What the page calls an entry: a team in a Teams event, a player in every other one (a Doubles pair is still a player
+   here). The one place that decides it: sentences that name it have a .team and a .player key (TU). */
 function isTeamsEvent(s){ s = s || state; return !!(s && s.eventCreation && s.eventCreation.competitionUnit==='Teams'); }
-function unitWord(plural){ return isTeamsEvent() ? (plural ? 'teams' : 'team') : (plural ? 'players' : 'player'); }
+function TE(key, vars){ return TU(key, isTeamsEvent(), vars); }
 
 /* ---------- Colour theme: Auto follows the phone; Light / Dark override and are remembered ---------- */
 var THEME_KEY = 'dartdraw.viewer.theme';
@@ -130,7 +146,7 @@ function toggleFollow(id){
 }
 
 /* ---------- What a player has played / still has to play ---------- */
-function ordinal(n){ var s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function ordinal(n){ return ddOrdinal(n); }
 function scoreEntered(sc){
   return !!sc && sc.legs1!==undefined && sc.legs1!=='' && sc.legs2!==undefined && sc.legs2!=='' &&
     !isNaN(parseInt(sc.legs1)) && !isNaN(parseInt(sc.legs2));
@@ -139,7 +155,7 @@ function podOf(id){ return (state.pods||[]).find(function(p){ return p.entryIds.
 /* Where a Group Boards player is drawn: "Group 3 · Board 3". Empty for other formats. */
 function podPlace(id, withBoard){
   var p = podOf(id);
-  return p ? ['Group '+p.label, withBoard ? boardLabel(p) : ''].filter(Boolean).join(' · ') : '';
+  return p ? [groupLabel(p.label), withBoard ? boardLabel(p) : ''].filter(Boolean).join(' · ') : '';
 }
 function groupOf(id){ return (state.groups||[]).find(function(g){ return g.entryIds.indexOf(id)!==-1; }) || null; }
 function positionIn(g, id){
@@ -162,9 +178,9 @@ function groupRows(id){
 }
 function koLines(id){
   var out = [], multi = state.format.formatType==='rrknockout', brackets = [];
-  (state.pods||[]).forEach(function(p){ if(p.bracket && p.entryIds.indexOf(id)!==-1) brackets.push([p.bracket, 'Group '+p.label, p]); });
-  brackets.push([state.knockout, state.format.formatType==='podknockout' ? 'Finals' : (multi ? 'Main bracket' : 'Bracket')]);
-  brackets.push([state.knockoutLosers, 'Plate pool']);
+  (state.pods||[]).forEach(function(p){ if(p.bracket && p.entryIds.indexOf(id)!==-1) brackets.push([p.bracket, groupLabel(p.label), p]); });
+  brackets.push([state.knockout, T(state.format.formatType==='podknockout' ? 'ev.pod.finals' : (multi ? 'ev.br.main' : 'ev.br.bracket'))]);
+  brackets.push([state.knockoutLosers, T('ev.br.plate')]);
   brackets.forEach(function(pair){
     var b = pair[0];
     if(!b || !b.rounds) return;
@@ -177,131 +193,138 @@ function koLines(id){
   return out;
 }
 function koOpponent(l, id){ return l.m.aEntryId===id ? l.m.bEntryId : l.m.aEntryId; }
+/* A result as { txt, cls: 'w' won | 'l' lost | 't' anything else, wo: by walkover }. */
+function resultOf(kind, my, op, wo){
+  var score = my!=null && op!=null ? my+'–'+op : null;
+  if(kind==='drew') return {txt:T('ev.res.drew', {score:score}), cls:'t', wo:false};
+  var k = kind==='won' ? 'won' : 'lost';
+  return {txt:score!=null ? T('ev.res.'+k+(wo ? 'Wo' : ''), {score:score}) : T('ev.res.'+k+'Bare'+(wo ? 'Wo' : '')), cls:k==='won' ? 'w' : 'l', wo:!!wo};
+}
 function koResultText(l, id){
   var m = l.m, mine = m.aEntryId===id, my = mine ? m.aLegs : m.bLegs, op = mine ? m.bLegs : m.aLegs;
-  if(m.bye) return 'Bye';
-  if(m.void) return 'Neither attended';
-  if(!m.winnerId) return koOpponent(l, id) ? 'To play' : 'Waiting';
-  return (m.winnerId===id ? 'Won ' : 'Lost ') + (my!=null && op!=null ? my+'–'+op : '') + (m.wo ? ' by walkover' : '');
+  if(m.bye) return {txt:T('ev.res.bye'), cls:'t'};
+  if(m.void) return {txt:T('ev.res.void'), cls:'t'};
+  if(!m.winnerId) return {txt:T(koOpponent(l, id) ? 'ev.res.toPlay' : 'ev.res.waiting'), cls:'t'};
+  return resultOf(m.winnerId===id ? 'won' : 'lost', my, op, m.wo);
 }
 /* A result on a player's page, written in full: "Won 2–0 by walkover" (the opponent did not turn up) or "Lost 0–2 by
    walkover" (this player did not). The compact "WO" stays only in the grid and the bracket chart, where there is no room,
    and their keys say what it means. */
-function resultHTML(txt){
-  var cls = /^Won/.test(txt) ? 'w' : /^Lost/.test(txt) ? 'l' : 't';
-  return '<span class="res '+cls+(/walkover$/.test(txt) ? ' wo' : '')+'">'+escapeHtml(txt)+'</span>';
+function resultHTML(r){
+  return '<span class="res '+r.cls+(r.wo ? ' wo' : '')+'">'+escapeHtml(r.txt)+'</span>';
 }
 
 /* One line saying where a player is right now. */
 function statusLine(id){
   var e = entryObj(id);
   if(!e) return '';
-  if(e.withdrawn) return 'Withdrawn';
+  if(e.withdrawn) return T('ev.withdrawn');
   var ko = koLines(id);
   if(ko.length){
     var l = ko[ko.length-1], m = l.m, opp = koOpponent(l, id), inFinal = l.ri===l.b.rounds.length-1;
-    if(m.void) return 'Out in the '+l.round+(l.b.podLabel ? ' of '+l.title : l.b.podFinals ? ' of the Finals' : '')+' · neither '+unitWord()+' attended';
+    var where = l.b.podLabel ? 'In' : l.b.podFinals ? 'Finals' : '', v = {round:l.round, title:l.title, tag:l.tag, name:opp ? entryName(opp) : ''};
+    if(m.void) return TE('ev.st.outVoid'+where, v);
     if(m.winnerId){
       if(m.winnerId===id){
-        if(l.b.podLabel && inFinal) return 'Won '+l.title+' · through to the Finals';
-        return inFinal ? 'Winner of the '+l.title : (m.bye ? 'Bye in the '+l.round : 'Won the '+l.round)+' · waiting for the next round';
+        if(l.b.podLabel && inFinal) return T('ev.st.wonPod', v);
+        return inFinal ? T('ev.st.winnerOf', v) : T(m.bye ? 'ev.st.bye' : 'ev.st.won', v);
       }
-      return 'Out in the '+l.round+(l.b.podLabel ? ' of '+l.title : l.b.podFinals ? ' of the Finals' : '')+' · lost to '+entryName(opp);
+      return T('ev.st.lost'+where, v);
     }
-    return 'Next: '+(l.b.podLabel || l.b.podFinals ? l.title+', ' : '')+l.round+' ('+l.tag+')'+(opp ? ' vs '+entryName(opp) : ' · opponent not decided yet')+
-      (l.pod && l.pod.boards && l.pod.boards.length ? ' · Board '+l.pod.boards.join(', ') : '');
+    var next = T('ev.st.next'+(l.b.podLabel || l.b.podFinals ? 'In' : '')+(opp ? '' : 'Tbd'), v);
+    return [next, l.pod && l.pod.boards && l.pod.boards.length ? T('ev.board', {b:l.pod.boards.join(', ')}) : ''].filter(Boolean).join(' · ');
   }
   var gr = groupRows(id);
   if(!gr) return '';
-  var g = gr.g, lab = 'Group '+g.label;
-  if(!g.gameStarted) return lab+' · not started yet';
+  var g = gr.g, lab = groupLabel(g.label);
+  if(!g.gameStarted) return T('ev.st.notStarted', {group:lab});
   var todo = gr.rows.filter(function(r){ return !r.played; });
   if(todo.length){
     var names = todo.slice(0,3).map(function(r){ return entryName(r.opp); }).join(', ');
-    return lab+': to play '+names+(todo.length>3 ? ' and '+(todo.length-3)+' more' : '')+(boardLabel(g) ? ' · '+boardLabel(g) : '');
+    return [T(todo.length>3 ? 'ev.st.toPlayMore' : 'ev.st.toPlay', {group:lab, names:names, n:todo.length-3}), boardLabel(g)].filter(Boolean).join(' · ');
   }
   var pos = positionIn(g, id), done = groupIsComplete(g);
-  var s = lab+': all matches played'+(pos ? (done ? ' · '+ordinal(pos)+' place' : ' · currently '+ordinal(pos)) : '');
-  if(done && state.knockout) s += ' · not in the knockout';
+  var s = T(pos ? (done ? 'ev.st.allPlayedPlace' : 'ev.st.allPlayedNow') : 'ev.st.allPlayed', {group:lab, ord:pos ? ordinal(pos) : ''});
+  if(done && state.knockout) s += ' · '+T('ev.st.notInKo');
   return s;
 }
 
 /* ---------- Player page, Me tab, Following tab ---------- */
 function miniGroupHTML(g, id){
   if(!g.gameStarted){
-    return '<p class="empty">In this group: '+g.entryIds.map(function(x){ return escapeHtml(entryName(x)); }).join(', ')+'.</p>';
+    return '<p class="empty">'+T('ev.inGroup', {names:g.entryIds.map(function(x){ return escapeHtml(entryName(x)); }).join(', ')})+'</p>';
   }
   var st = computeStandings(g), q = state.format.formatType==='rrknockout' ? (state.format.qualifiersPerGroup||0) : 0;
   var rows = st.map(function(r){
     return '<tr'+(r.id===id ? ' class="is-me"' : '')+'><td'+(q && r.position<=q ? ' class="q"' : '')+'>'+r.position+'</td>'+
       '<td class="n tap" data-eid="'+escapeHtml(r.id)+'">'+escapeHtml(entryName(r.id))+'</td><td>'+r.played+'</td><td>'+fmtLegDiff(r.legsFor-r.legsAgainst)+'</td><td><b>'+r.pts+'</b></td></tr>';
   }).join('');
-  return '<table class="mini"><thead><tr><th>#</th><th class="n">Entry</th><th>MP</th><th>+/-</th><th>Pts</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    (q ? '<p class="note" style="margin:8px 0 0">Green bar: places that go through to the knockout.</p>' : '');
+  return '<table class="mini"><thead><tr><th>#</th><th class="n">'+escapeHtml(T('r.th.entry'))+'</th><th>'+escapeHtml(T('r.th.mp'))+'</th><th>'+escapeHtml(T('r.th.diff'))+'</th><th>'+escapeHtml(T('r.th.pts'))+'</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    (q ? '<p class="note" style="margin:8px 0 0">'+escapeHtml(T('ev.greenBar'))+'</p>' : '');
 }
 function matchesHTML(id){
   var rows = [], gr = groupRows(id);
   if(gr && gr.g.gameStarted){
     gr.rows.forEach(function(r){
-      var txt = !r.played ? 'To play' : (r.my>r.op ? 'Won ' : r.my<r.op ? 'Lost ' : 'Drew ')+r.my+'–'+r.op+(r.wo ? ' by walkover' : '');
-      rows.push('<div class="mrow"><span class="tap" data-eid="'+escapeHtml(r.opp)+'">vs '+escapeHtml(entryName(r.opp))+'</span>'+resultHTML(txt)+'</div>');
+      var res = !r.played ? {txt:T('ev.res.toPlay'), cls:'t'} : resultOf(r.my>r.op ? 'won' : r.my<r.op ? 'lost' : 'drew', r.my, r.op, r.wo);
+      rows.push('<div class="mrow"><span class="tap" data-eid="'+escapeHtml(r.opp)+'">'+escapeHtml(T('ev.vs', {name:entryName(r.opp)}))+'</span>'+resultHTML(res)+'</div>');
     });
   }
   koLines(id).forEach(function(l){
-    var opp = koOpponent(l, id), txt = koResultText(l, id);
+    var opp = koOpponent(l, id), res = koResultText(l, id);
     var info = bpMatchInfo(bpKeyOf(l.b), l.ri, l.mi);
-    rows.push('<div class="mrow"><span>'+escapeHtml((state.format.formatType==='podknockout' ? l.title+' · ' : '')+l.round)+' <span class="note">'+escapeHtml(l.tag)+'</span>'+(info ? ' · Board '+escapeHtml(info.board) : '')+
-      (opp ? ' · <span class="tap" data-eid="'+escapeHtml(opp)+'">vs '+escapeHtml(entryName(opp))+'</span>' : '')+'</span>'+resultHTML(txt)+'</div>');
+    rows.push('<div class="mrow"><span>'+escapeHtml((state.format.formatType==='podknockout' ? l.title+' · ' : '')+l.round)+' <span class="note">'+escapeHtml(l.tag)+'</span>'+(info ? ' · '+escapeHtml(T('ev.board', {b:info.board})) : '')+
+      (opp ? ' · <span class="tap" data-eid="'+escapeHtml(opp)+'">'+escapeHtml(T('ev.vs', {name:entryName(opp)}))+'</span>' : '')+'</span>'+resultHTML(res)+'</div>');
   });
-  return rows.length ? rows.join('') : '<p class="empty">No matches yet.</p>';
+  return rows.length ? rows.join('') : '<p class="empty">'+escapeHtml(T('ev.noMatches'))+'</p>';
 }
 /* Big-number tiles under the status line: position, points, leg difference. */
 function tilesHTML(g, id){
   if(!g || !g.gameStarted) return '<div style="height:12px"></div>';
   var r = computeStandings(g).find(function(s){ return s.id===id; });
   if(!r) return '<div style="height:12px"></div>';
-  return '<div class="tiles"><div class="tile"><b>'+ordinal(r.position)+'</b><span>Position</span></div>'+
-    '<div class="tile"><b>'+r.pts+'</b><span>Points</span></div>'+
-    '<div class="tile"><b>'+fmtLegDiff(r.legsFor-r.legsAgainst)+'</b><span>Leg diff</span></div></div>';
+  return '<div class="tiles"><div class="tile"><b>'+escapeHtml(ordinal(r.position))+'</b><span>'+escapeHtml(T('ev.tile.pos'))+'</span></div>'+
+    '<div class="tile"><b>'+r.pts+'</b><span>'+escapeHtml(T('ev.tile.pts'))+'</span></div>'+
+    '<div class="tile"><b>'+fmtLegDiff(r.legsFor-r.legsAgainst)+'</b><span>'+escapeHtml(T('ev.tile.diff'))+'</span></div></div>';
 }
 function playerPageHTML(id, opts){
   var e = entryObj(id);
-  if(!e) return '<section class="card"><p class="empty">We can\'t find that '+unitWord()+'. They may have been taken out of the draw.</p></section>';
+  if(!e) return '<section class="card"><p class="empty">'+TE('ev.notFound')+'</p></section>';
   var g = groupOf(id), me = myId()===id, fol = isFollowing(id);
-  var sub = [e.org, g ? 'Group '+g.label : '', g ? boardLabel(g) : '', g ? '' : podPlace(id, true)].filter(Boolean).join(' · ');
+  var sub = [e.org, g ? groupLabel(g.label) : '', g ? boardLabel(g) : '', g ? '' : podPlace(id, true)].filter(Boolean).join(' · ');
   var safe = escapeHtml(id);
   var html = '<section class="card pcard'+(me ? ' is-me' : '')+'">'+
-    ((opts && opts.back) ? '<a class="back" href="#" data-act="back">← Back</a><br>' : '')+
-    '<h2>'+escapeHtml(e.name)+(me ? ' <span class="you">You</span>' : '')+'</h2>'+
+    ((opts && opts.back) ? '<a class="back" href="#" data-act="back">'+escapeHtml(T('ev.back'))+'</a><br>' : '')+
+    '<h2>'+escapeHtml(e.name)+(me ? ' <span class="you">'+escapeHtml(T('ev.you'))+'</span>' : '')+'</h2>'+
     (sub ? '<div class="psub">'+escapeHtml(sub)+'</div>' : '')+
     '<div class="pstatus">'+escapeHtml(statusLine(id))+'</div>'+
     boardLineHTML(id)+
     tilesHTML(g, id)+
     '<div class="pbtns">'+
-      (me ? '<button type="button" class="pb blue on" data-act="notme">✓ This is me</button>'
-          : '<button type="button" class="pb blue" data-act="me" data-id="'+safe+'">This is me</button>'+
-            '<button type="button" class="pb gold'+(fol ? ' on' : '')+'" data-act="follow" data-id="'+safe+'">'+(fol ? '★ Following' : '☆ Follow')+'</button>')+
+      (me ? '<button type="button" class="pb blue on" data-act="notme">'+escapeHtml(T('ev.me.on'))+'</button>'
+          : '<button type="button" class="pb blue" data-act="me" data-id="'+safe+'">'+escapeHtml(T('ev.me.btn'))+'</button>'+
+            '<button type="button" class="pb gold'+(fol ? ' on' : '')+'" data-act="follow" data-id="'+safe+'">'+escapeHtml(T(fol ? 'ev.fol.on' : 'ev.fol.btn'))+'</button>')+
     '</div>'+
-    '<p class="note" style="margin:8px 0 0">Saved on this device only.</p></section>';
+    '<p class="note" style="margin:8px 0 0">'+escapeHtml(T('ev.savedHere'))+'</p></section>';
   var rest = '';
-  if(g) rest += '<section class="card"><h2>Group '+escapeHtml(g.label)+'</h2>'+miniGroupHTML(g, id)+'</section>';
-  rest += '<section class="card"><h2>Matches</h2>'+matchesHTML(id)+'</section>';
+  if(g) rest += '<section class="card"><h2>'+escapeHtml(groupLabel(g.label))+'</h2>'+miniGroupHTML(g, id)+'</section>';
+  rest += '<section class="card"><h2>'+escapeHtml(T('ev.matches'))+'</h2>'+matchesHTML(id)+'</section>';
   return '<div class="pgrid"><div>'+html+'</div><div>'+rest+'</div></div>';
 }
 function meHTML(){
   var id = myId();
-  if(!id) return '<section class="card"><h2>Are you playing?</h2><p class="empty">Search for your '+(isTeamsEvent() ? 'team name' : 'name')+' above and tap <b>This is me</b>. Your group standing and next match will be here each time you open this page on this device.</p></section>';
+  if(!id) return '<section class="card"><h2>'+escapeHtml(T('ev.me.title'))+'</h2><p class="empty">'+TE('ev.me.empty', {btn:escapeHtml(T('ev.me.btn'))})+'</p></section>';
   return playerPageHTML(id, {});
 }
 function followingHTML(){
   var ids = followIds();
-  if(!ids.length) return '<section class="card"><h2>Following</h2><p class="empty">Follow '+unitWord(true)+' to keep them all in one place. Search for a '+(isTeamsEvent() ? 'team name' : 'name')+' above, or tap any name in a table, then tap <b>Follow</b>.</p><p class="note">Saved on this device only.</p></section>';
+  if(!ids.length) return '<section class="card"><h2>'+escapeHtml(T('ev.fol.title'))+'</h2><p class="empty">'+TE('ev.fol.empty', {btn:escapeHtml(T('ev.fol.word'))})+'</p><p class="note">'+escapeHtml(T('ev.savedHere'))+'</p></section>';
   return '<div class="fgrid">'+ids.map(function(id){
     var g = groupOf(id), pos = g ? positionIn(g, id) : null;
-    var sub = [(entryObj(id)||{}).org, g ? 'Group '+g.label+(pos ? ' · '+ordinal(pos) : '') : podPlace(id, true)].filter(Boolean).join(' · ');
+    var sub = [(entryObj(id)||{}).org, g ? groupLabel(g.label)+(pos ? ' · '+ordinal(pos) : '') : podPlace(id, true)].filter(Boolean).join(' · ');
     return '<div class="fcard"><div class="fmain" data-eid="'+escapeHtml(id)+'"><b>'+escapeHtml(entryName(id))+'</b>'+
       (sub ? '<div class="psub">'+escapeHtml(sub)+'</div>' : '')+'<div class="fst">'+escapeHtml(statusLine(id))+'</div></div>'+
-      '<button type="button" class="unf" data-act="follow" data-id="'+escapeHtml(id)+'" aria-label="Stop following '+escapeHtml(entryName(id))+'">★</button></div>';
+      '<button type="button" class="unf" data-act="follow" data-id="'+escapeHtml(id)+'" aria-label="'+escapeHtml(T('ev.fol.stop', {name:entryName(id)}))+'">★</button></div>';
   }).join('')+'</div>';
 }
 
@@ -368,7 +391,7 @@ var appliedSel = null;
 /* All the groups, or only the one a #/groups/<label> address names (with a way back to the rest). */
 function groupsTabHTML(label){
   var one = label ? state.groups.find(function(g){ return g.label===label; }) : null;
-  return one ? '<a class="back" href="#/groups">← All groups</a>'+qualifyLineHTML()+groupCardHTML(one) : qualifyLineHTML()+state.groups.map(groupCardHTML).join('');
+  return one ? '<a class="back" href="#/groups">'+escapeHtml(T('ev.allGroupsBack'))+'</a>'+qualifyLineHTML()+groupCardHTML(one) : qualifyLineHTML()+state.groups.map(groupCardHTML).join('');
 }
 function applyBracketSel(r){
   if(r.name!=='bracket' || !r.sel){ appliedSel = null; return; }
@@ -377,7 +400,7 @@ function applyBracketSel(r){
   var lm = /^group-(.+)$/.exec(r.sel), p = lm ? (state.pods||[]).find(function(x){ return x.label===lm[1]; }) : null;
   if(p) podSel = p.id; else if(r.sel==='finals') podSel = 'finals';
 }
-var TAB_LABEL = {me:'Me', following:'Following', groups:'Groups', boards:'Boards', bracket:'Bracket'};
+function tabLabel(t){ return T('ev.tab.'+t); }
 
 /* Make names in tables and brackets tappable, and mark Me / Following. */
 function markEntry(row, cell, id){
@@ -420,9 +443,9 @@ function showFinderResults(){
   if(!q || !state){ box.innerHTML = ''; return; }
   var hits = state.entriesList.filter(function(e){ return (e.name||'').toLowerCase().indexOf(q)!==-1 || (e.org||'').toLowerCase().indexOf(q)!==-1; }).slice(0, 8);
   box.innerHTML = hits.length ? hits.map(function(e){
-    var g = groupOf(e.id), sub = [e.org, g ? 'Group '+g.label : podPlace(e.id, false)].filter(Boolean).join(' · ');
-    return '<button type="button" class="fres" data-eid="'+escapeHtml(e.id)+'"><span>'+escapeHtml(e.name)+(myId()===e.id ? ' <span class="you">You</span>' : isFollowing(e.id) ? ' ★' : '')+'</span><span class="sub">'+escapeHtml(sub)+'</span></button>';
-  }).join('') : '<div class="fnone">No '+unitWord()+' with that name.</div>';
+    var g = groupOf(e.id), sub = [e.org, g ? groupLabel(g.label) : podPlace(e.id, false)].filter(Boolean).join(' · ');
+    return '<button type="button" class="fres" data-eid="'+escapeHtml(e.id)+'"><span>'+escapeHtml(e.name)+(myId()===e.id ? ' <span class="you">'+escapeHtml(T('ev.you'))+'</span>' : isFollowing(e.id) ? ' ★' : '')+'</span><span class="sub">'+escapeHtml(sub)+'</span></button>';
+  }).join('') : '<div class="fnone">'+escapeHtml(TE('ev.find.none'))+'</div>';
 }
 
 /* Compact results grid: row entry's legs first, same orientation rule the organiser chart uses. */
@@ -438,7 +461,7 @@ function resultsGridHTML(g){
       var my = parseInt(first ? sc.legs1 : sc.legs2), opp = parseInt(first ? sc.legs2 : sc.legs1);
       if(isNaN(my) || isNaN(opp)) return '<td>·</td>';
       var cls = my>opp ? 'win' : my<opp ? 'loss' : 'draw';
-      return '<td class="'+cls+'">'+my+'–'+opp+(sc.wo?' <small>WO</small>':'')+'</td>';
+      return '<td class="'+cls+'">'+my+'–'+opp+(sc.wo?' <small>'+escapeHtml(T('r.wo'))+'</small>':'')+'</td>';
     }).join('');
     return '<tr><td class="name">'+(ri+1)+'. '+escapeHtml(entryName(rowId))+'</td>'+cells+'</tr>';
   }).join('');
@@ -455,17 +478,17 @@ function qualifiersPerGroup(){
 function plateRuleText(q){
   if(!state.format.losersPool) return '';
   var cap = parseInt(state.format.plateQualifiersPerGroup, 10);
-  if(cap >= 1) return (cap===1 ? 'Place '+(q+1)+' plays' : 'Places '+(q+1)+'–'+(q+cap)+' play')+' in the Plate pool; anyone below that is out.';
-  return 'Everyone else plays in the Plate pool.';
+  if(cap >= 1) return cap===1 ? T('ev.q.plateOne', {p:q+1}) : T('ev.q.plateRange', {a:q+1, b:q+cap});
+  return T('ev.q.plateAll');
 }
 function qualifyLineHTML(){
   var q = qualifiersPerGroup();
   if(!q || !(state.groups||[]).length) return '';
-  var drawn = !!state.knockout, go = drawn ? 'went' : 'go', goes = drawn ? 'went' : 'goes';
-  var main = q===1 ? 'The winner of each group '+goes+' through to the knockout.' : 'Top '+q+' in each group '+go+' through to the knockout.';
+  var drawn = !!state.knockout;
+  var main = T((q===1 ? 'ev.q.one' : 'ev.q.top')+(drawn ? 'Done' : ''), {n:q});
   var plate = plateRuleText(q);
   return '<p class="qline"><span class="qbar" aria-hidden="true"></span><span><b>'+escapeHtml(main)+'</b>'+(plate ? ' '+escapeHtml(plate) : '')+
-    ' <span class="qkey">The green bar marks the places that '+go+' through.</span></span></p>';
+    ' <span class="qkey">'+escapeHtml(T(drawn ? 'ev.q.keyDone' : 'ev.q.key'))+'</span></span></p>';
 }
 /* The standings table with the places that go through marked (a green bar on the position, and words for a screen reader). */
 function markedStandingsHTML(g, st){
@@ -473,7 +496,7 @@ function markedStandingsHTML(g, st){
   var html = standingsTableHTML(g, st);
   if(!q) return html;
   return html.replace(/<td class="pos">([^<]*)<\/td>/g, function(all, pos){
-    return (i++ < q) ? '<td class="pos q">'+pos+'<span class="sr"> (goes through)</span></td>' : all;
+    return (i++ < q) ? '<td class="pos q">'+pos+'<span class="sr"> ('+escapeHtml(T('ev.q.sr'))+')</span></td>' : all;
   });
 }
 
@@ -497,17 +520,19 @@ function keyToggleHTML(id, label, items, foot){
       return '<dt>'+it[0]+'</dt><dd>'+it[1]+'</dd>';
     }).join('')+'</dl>'+(foot ? '<p class="note keyfoot">'+foot+'</p>' : '')+'</div></div>';
 }
+function keyLinksHTML(anchor){
+  return '<a href="'+escapeHtml(helpHref(anchor))+'">'+escapeHtml(T('ev.key.more'))+'</a> · <a href="'+escapeHtml(helpHref('glossary'))+'">'+escapeHtml(T('ev.key.words'))+'</a>';
+}
 function tableKeyHTML(g, st){
-  var teams = isTeamsEvent(), u = unitWord(), us = unitWord(true);
+  var teams = isTeamsEvent(), ab = function(k){ return escapeHtml(T('r.th.'+k)); };
   var showDraws = st.some(function(s){ return s.draws>0; }), anyTie = st.some(function(s){ return s.tieRule; });
-  var items = [['MP', 'Matches played'], ['MW', 'Matches won'], ['ML', 'Matches lost']];
-  if(showDraws) items.push(['MD', 'Matches drawn']);
-  items.push(['LW', 'Legs won'+(teams ? ', adding up the team totals of every match' : '')], ['+/-', 'Leg difference: legs won minus legs lost'], ['Pts', 'Points: 2 for a win, 1 for a draw']);
-  if(anyTie) items.push(['TB', 'Tie-break: why two '+us+' level on points are in this order. <b>H2H</b> head-to-head, <b>LD</b> leg difference, <b>LW</b> legs won; <b>3-way</b> means three were level, so only their matches against each other count; <b>?</b> still level']);
-  if(qualifiersPerGroup()) items.push(['<span class="qbar" aria-hidden="true"></span><span class="sr">Green bar</span>', 'Goes through to the knockout']);
-  items.push(['Grid', 'Read across from a '+u+'&rsquo;s row: their legs come first. Green won, red lost, · not played yet, <b>WO</b> walkover (one side did not turn up)']);
-  return keyToggleHTML('g:'+g.id, 'What do the columns mean?', items,
-    '<a href="'+escapeHtml(helpHref('q-columns'))+'">More in Help</a> · <a href="'+escapeHtml(helpHref('glossary'))+'">Words you will see</a>');
+  var items = [[ab('mp'), T('ev.key.mp')], [ab('mw'), T('ev.key.mw')], [ab('ml'), T('ev.key.ml')]];
+  if(showDraws) items.push([ab('md'), T('ev.key.md')]);
+  items.push([ab('lw'), T(teams ? 'ev.key.lwTeams' : 'ev.key.lw')], [ab('diff'), T('ev.key.diff')], [ab('pts'), T('ev.key.pts')]);
+  if(anyTie) items.push([ab('tb'), TE('ev.key.tb')]);
+  if(qualifiersPerGroup()) items.push(['<span class="qbar" aria-hidden="true"></span><span class="sr">'+escapeHtml(T('ev.key.greenBar'))+'</span>', T('ev.key.goesThrough')]);
+  items.push([escapeHtml(T('ev.key.grid')), TE('ev.key.gridText')]);
+  return keyToggleHTML('g:'+g.id, T('ev.key.columns'), items, keyLinksHTML('q-columns'));
 }
 function bracketKeyHTML(b, key){
   var items = [], seeds = [], any = { bye:false, wo:false, nil:false, from:false, pod:false };
@@ -520,36 +545,36 @@ function bracketKeyHTML(b, key){
     if(ri===0) ['a','b'].forEach(function(s){ var id = m[s+'EntryId'], sd = id ? bracketSeedForDisplay(state, b.seeds, b.seedLabels, id) : null; if(sd) seeds.push(String(sd)); });
   }); });
   if(seeds.length){
-    if(seeds.every(function(s){ return /^\d+$/.test(s); })) items.push(['1, 2 …', 'Seed: the organiser&rsquo;s ranking before the event (1 is the top seed). Shown in the first round only']);
+    if(seeds.every(function(s){ return /^\d+$/.test(s); })) items.push(['1, 2 …', T('ev.key.seed')]);
     else {
       var sm = /^(.*?)(\d+)$/.exec(seeds[0]);
-      items.push([escapeHtml(seeds[0]), 'Where they finished in their group'+(sm && sm[1] ? ': '+escapeHtml(seeds[0])+' means Group '+escapeHtml(sm[1])+', '+ordinal(parseInt(sm[2], 10))+' place' : '')]);
+      items.push([escapeHtml(seeds[0]), sm && sm[1] ? T('ev.key.seedGroupEx', {label:escapeHtml(seeds[0]), g:escapeHtml(sm[1]), ord:escapeHtml(ordinal(parseInt(sm[2], 10)))}) : T('ev.key.seedGroup')]);
     }
   }
-  var t0 = koMatchTag(b, state, 0, b.rounds[0].length>1 ? 1 : 0);
-  items.push([escapeHtml(t0), 'Match code: '+(b.podLabel ? 'Group '+escapeHtml(b.podLabel)+'&rsquo;s bracket, ' : b===state.knockoutLosers ? 'P for the Plate pool, then ' : '')+'round '+t0.replace(/^.*?(\d+)-(\d+)$/, '$1, match $2')]);
-  if(any.from) items.push(['Winner of …', 'Filled in when that earlier match is played']);
-  if(any.pod) items.push(['Winner of Group …', 'Filled in when that group finishes']);
-  if(any.bye) items.push(['Bye', 'No opponent this round: straight through']);
-  if(any.wo) items.push(['WO', 'Walkover: that '+unitWord()+' did not turn up, so the other went through. Rounds says &ldquo;did not show&rdquo;']);
-  if(any.nil) items.push(['NO-SHOW', 'Neither turned up (Rounds says &ldquo;Neither attended&rdquo;), so nobody goes through']);
-  return keyToggleHTML('b:'+key, 'What do the labels mean?', items,
-    '<a href="'+escapeHtml(helpHref('q-match-labels'))+'">More in Help</a> · <a href="'+escapeHtml(helpHref('glossary'))+'">Words you will see</a>');
+  var t0 = koMatchTag(b, state, 0, b.rounds[0].length>1 ? 1 : 0), rm = /(\d+)-(\d+)$/.exec(t0) || [t0, t0, ''];
+  var cv = {r:rm[1], m:rm[2], g:escapeHtml(b.podLabel || '')};
+  items.push([escapeHtml(t0), T(b.podLabel ? 'ev.key.codePod' : b===state.knockoutLosers ? 'ev.key.codePlate' : 'ev.key.code', cv)]);
+  if(any.from) items.push([escapeHtml(T('ev.key.from')), T('ev.key.fromText')]);
+  if(any.pod) items.push([escapeHtml(T('ev.key.pod')), T('ev.key.podText')]);
+  if(any.bye) items.push([escapeHtml(T('ev.key.bye')), T('ev.key.byeText')]);
+  if(any.wo) items.push([escapeHtml(T('r.wo')), TE('ev.key.woText')]);
+  if(any.nil) items.push([escapeHtml(T('r.noShow')), T('ev.key.noShowText')]);
+  return keyToggleHTML('b:'+key, T('ev.key.labels'), items, keyLinksHTML('q-match-labels'));
 }
 
 function groupCardHTML(g){
   var started = g.gameStarted;
   var body, q = qualifiersPerGroup();
   if(!started){
-    body = '<p class="empty">This group hasn\'t started yet.</p>';
+    body = '<p class="empty">'+T('ev.grp.notStarted')+'</p>';
   } else {
     var st = computeStandings(g);
     body = '<div class="scroll">'+markedStandingsHTML(g, st)+'</div>'+
-      (q && st.length && st.length<=q ? '<p class="note qall">Everyone in this group goes through.</p>' : '')+
+      (q && st.length && st.length<=q ? '<p class="note qall">'+escapeHtml(T('ev.q.all'))+'</p>' : '')+
       tableKeyHTML(g, st)+tieNotesHTML(g, st, {public:true})+
-      '<h3>Results</h3>'+resultsGridHTML(g);
+      '<h3>'+escapeHtml(T('ev.grp.results'))+'</h3>'+resultsGridHTML(g);
   }
-  return '<section class="card" id="group-'+escapeHtml(g.label)+'" data-gid="'+escapeHtml(g.id)+'"><h2>Group '+escapeHtml(g.label)+(boardLabel(g)?'<span class="sub">'+escapeHtml(boardLabel(g))+'</span>':'')+'</h2>'+body+'</section>';
+  return '<section class="card" id="group-'+escapeHtml(g.label)+'" data-gid="'+escapeHtml(g.id)+'"><h2>'+escapeHtml(groupLabel(g.label))+(boardLabel(g)?'<span class="sub">'+escapeHtml(boardLabel(g))+'</span>':'')+'</h2>'+body+'</section>';
 }
 
 /* ---------- Group Boards: pick Finals, all groups, or one group ---------- */
@@ -558,21 +583,22 @@ function podFinished(p){ return !!(p.bracket && (bracketIsComplete(p.bracket) ||
 function podsPickerHTML(){
   var pods = state.pods||[], open = pods.filter(function(p){ return !podFinished(p); }), done = pods.filter(podFinished);
   var mine = myId() ? pods.find(function(p){ return p.entryIds.indexOf(myId())!==-1; }) : null;
-  function opt(p){ return '<option value="'+escapeHtml(p.id)+'"'+(podSel===p.id ? ' selected' : '')+'>Group '+escapeHtml(p.label)+'</option>'; }
-  return '<section class="card"><div class="podpick"><select id="podSelect" aria-label="Show">'+
-    (state.knockout ? '<option value="finals"'+(podSel==='finals' ? ' selected' : '')+'>Finals</option>' : '')+
-    '<option value="all"'+(podSel==='all' ? ' selected' : '')+'>All groups</option>'+
-    (open.length ? '<optgroup label="In progress">'+open.map(opt).join('')+'</optgroup>' : '')+
-    (done.length ? '<optgroup label="Completed">'+done.map(opt).join('')+'</optgroup>' : '')+'</select>'+
-    (mine ? '<button type="button" class="chipbtn" data-pod="'+escapeHtml(mine.id)+'">My group</button>' : '')+'</div></section>';
+  function opt(p){ return '<option value="'+escapeHtml(p.id)+'"'+(podSel===p.id ? ' selected' : '')+'>'+escapeHtml(groupLabel(p.label))+'</option>'; }
+  return '<section class="card"><div class="podpick"><select id="podSelect" aria-label="'+escapeHtml(T('ev.pod.show'))+'">'+
+    (state.knockout ? '<option value="finals"'+(podSel==='finals' ? ' selected' : '')+'>'+escapeHtml(T('ev.pod.finals'))+'</option>' : '')+
+    '<option value="all"'+(podSel==='all' ? ' selected' : '')+'>'+escapeHtml(T('ev.pod.all'))+'</option>'+
+    (open.length ? '<optgroup label="'+escapeHtml(T('ev.pod.inProgress'))+'">'+open.map(opt).join('')+'</optgroup>' : '')+
+    (done.length ? '<optgroup label="'+escapeHtml(T('ev.pod.completed'))+'">'+done.map(opt).join('')+'</optgroup>' : '')+'</select>'+
+    (mine ? '<button type="button" class="chipbtn" data-pod="'+escapeHtml(mine.id)+'">'+escapeHtml(T('ev.pod.mine'))+'</button>' : '')+'</div></section>';
 }
 function podsAllHTML(){
   var pods = state.pods||[];
-  return '<section class="card"><h2>All groups <span class="sub">'+pods.filter(podFinished).length+' of '+pods.length+' finished</span></h2><div class="podgrid">'+pods.map(function(p){
+  return '<section class="card"><h2>'+escapeHtml(T('ev.pod.all'))+' <span class="sub">'+escapeHtml(T('ev.doneOf', {done:pods.filter(podFinished).length, n:pods.length}))+'</span></h2><div class="podgrid">'+pods.map(function(p){
     var done = podFinished(p), w = done ? bracketChampion(p.bracket) : null;
-    return '<button type="button" class="podcard" data-pod="'+escapeHtml(p.id)+'"><b>Group '+escapeHtml(p.label)+'</b>'+
-      '<span class="note">'+(p.boards && p.boards.length ? 'Board '+p.boards.join(', ')+' · ' : '')+p.entryIds.length+' '+unitWord(true)+(podStartLine(p) ? ' · '+escapeHtml(podStartLine(p)) : '')+'</span>'+
-      '<span class="'+(w ? 'pw' : 'pp')+'">'+(w ? 'Winner: '+escapeHtml(entryName(w)) : done ? 'No winner' : 'In progress')+'</span></button>';
+    var line = [p.boards && p.boards.length ? T('ev.board', {b:p.boards.join(', ')}) : '', TE('ev.count', {n:p.entryIds.length}), podStartLine(p)].filter(Boolean).join(' · ');
+    return '<button type="button" class="podcard" data-pod="'+escapeHtml(p.id)+'"><b>'+escapeHtml(groupLabel(p.label))+'</b>'+
+      '<span class="note">'+escapeHtml(line)+'</span>'+
+      '<span class="'+(w ? 'pw' : 'pp')+'">'+escapeHtml(w ? T('ev.pod.winner', {name:entryName(w)}) : T(done ? 'ev.pod.noWinner' : 'ev.pod.inProgress'))+'</span></button>';
   }).join('')+'</div></section>';
 }
 function podsBracketTabHTML(){
@@ -582,8 +608,8 @@ function podsBracketTabHTML(){
   if(podSel!=='finals' && podSel!=='all' && !sel) podSel = state.knockout ? 'finals' : 'all';
   var html = podsPickerHTML();
   if(podSel==='all') html += podsAllHTML();
-  else if(podSel==='finals') html += bracketCardHTML(state.knockout, 'ko', 'Finals');
-  else html += bracketCardHTML(sel.bracket, 'pod:'+sel.id, 'Group '+sel.label+(sel.boards && sel.boards.length ? ' · Board '+sel.boards.join(', ') : '')+(podStartLine(sel) ? ' · '+podStartLine(sel) : ''));
+  else if(podSel==='finals') html += bracketCardHTML(state.knockout, 'ko', T('ev.pod.finals'));
+  else html += bracketCardHTML(sel.bracket, 'pod:'+sel.id, [groupLabel(sel.label), sel.boards && sel.boards.length ? T('ev.board', {b:sel.boards.join(', ')}) : '', podStartLine(sel)].filter(Boolean).join(' · '));
   return html;
 }
 function bracketForKey(key){
@@ -619,48 +645,48 @@ function bpKeyOf(b){
   var p = (state.pods||[]).find(function(x){ return x.bracket === b; });
   return p ? 'pod:'+p.id : null;
 }
-function estLabel(ms){ return '~'+new Date(ms).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }
+function estLabel(ms){ return '~'+ddClock(new Date(ms)); }
 function bpMatchOfEntry(e){ var b = bracketForKey(e.key); return b && b.rounds[e.ri] ? b.rounds[e.ri][e.mi] : null; }
 function bpSideText(m, side){
   var id = m[side+'EntryId'], from = m[side+'FromPod'];
   if(id) return entryName(id);
-  if(from){ var p = (state.pods||[]).find(function(x){ return x.id===from; }); return p && bracketIsVoidFinal(p.bracket) ? 'Group '+p.label+': no winner' : 'Winner of Group '+(p ? p.label : '?'); }
-  return 'To be decided';
+  if(from){ var p = (state.pods||[]).find(function(x){ return x.id===from; }); return p && bracketIsVoidFinal(p.bracket) ? T('r.podNoWinner', {g:p.label}) : T('r.podWinner', {g:p ? p.label : '?'}); }
+  return T('ev.slot.tbd');
 }
-function bpMatchText(e){ var m = bpMatchOfEntry(e); return m ? bpSideText(m, 'a')+' v '+bpSideText(m, 'b') : ''; }
+function bpMatchText(e){ var m = bpMatchOfEntry(e); return m ? T('ev.match.v', {a:bpSideText(m, 'a'), b:bpSideText(m, 'b')}) : ''; }
 function bpWhereText(e){
   var b = bracketForKey(e.key), round = b ? koRoundName(b, e.ri) : '';
-  if(e.key==='ko') return 'Finals · '+round;
+  if(e.key==='ko') return T('ev.pod.finals')+' · '+round;
   var p = (state.pods||[]).find(function(x){ return 'pod:'+x.id===e.key; });
-  return 'Group '+(p ? p.label : '?')+' · '+round;
+  return groupLabel(p ? p.label : '?')+' · '+round;
 }
 function boardCardHTML(b, entries){
   var pending = entries.filter(function(e){ return e.status !== 'done'; });
   var up = pending[0], more = pending.slice(1, 3), rest = pending.length - 1 - more.length;
-  var html = '<section class="card bcard"><h2>Board '+escapeHtml(b)+' <span class="sub">'+(pending.length ? pending.length+' to play' : 'Finished')+'</span></h2>';
-  if(!up) return html+'<p class="empty">All matches on this board are finished.</p></section>';
-  var head = up.called ? 'Called — go to Board '+b : (up.ready ? 'Up now' : 'Waiting for an earlier match');
+  var html = '<section class="card bcard"><h2>'+escapeHtml(T('ev.board', {b:b}))+' <span class="sub">'+escapeHtml(pending.length ? T('ev.bd.toPlay', {n:pending.length}) : T('ev.bd.finished'))+'</span></h2>';
+  if(!up) return html+'<p class="empty">'+escapeHtml(T('ev.bd.allDone'))+'</p></section>';
+  var head = up.called ? T('ev.bd.called', {b:b}) : T(up.ready ? 'ev.bd.upNow' : 'ev.bd.waiting');
   html += '<div class="bup'+(up.called ? ' called' : '')+'"><b>'+escapeHtml(head)+'</b>'+
     '<div class="bm">'+escapeHtml(bpMatchText(up))+'</div><div class="note">'+escapeHtml(bpWhereText(up))+'</div></div>';
   more.forEach(function(e){
-    html += '<div class="bnext"><span>'+(e.called ? '<b class="calledtag">Called — go to Board '+escapeHtml(b)+'</b>' : '<b>Next</b>')+' '+escapeHtml(bpMatchText(e))+'<span class="note"> · '+escapeHtml(bpWhereText(e))+'</span></span>'+
+    html += '<div class="bnext"><span>'+(e.called ? '<b class="calledtag">'+escapeHtml(T('ev.bd.called', {b:b}))+'</b>' : '<b>'+escapeHtml(T('ev.bd.next'))+'</b>')+' '+escapeHtml(bpMatchText(e))+'<span class="note"> · '+escapeHtml(bpWhereText(e))+'</span></span>'+
       '<span class="bt">'+(e.estMs != null ? escapeHtml(estLabel(e.estMs)) : '')+'</span></div>';
   });
-  if(rest > 0) html += '<p class="note" style="margin:8px 0 0">'+rest+' more after these</p>';
+  if(rest > 0) html += '<p class="note" style="margin:8px 0 0">'+escapeHtml(T('ev.bd.more', {n:rest}))+'</p>';
   return html+'</section>';
 }
 var TV_PER_PAGE = 6, tvPage = 0, tvTimer = null;
 function boardsTabHTML(tv){
   var bp = state.boardPlan;
   var nums = Object.keys((bp && bp.boards) || {}).sort(function(a, b){ return a - b; });
-  if(!nums.length) return '<section class="card"><p class="empty">The board schedule isn\'t available yet.</p></section>';
+  if(!nums.length) return '<section class="card"><p class="empty">'+T('ev.bd.none')+'</p></section>';
   var pages = 1, list = nums;
   if(tv){
     pages = Math.max(1, Math.ceil(nums.length / TV_PER_PAGE));
     var page = tvPage % pages;
     list = nums.slice(page * TV_PER_PAGE, (page + 1) * TV_PER_PAGE);
   }
-  var head = tv && pages > 1 ? '<p class="note tvpage">Page '+((tvPage % pages) + 1)+' of '+pages+'</p>' : '';
+  var head = tv && pages > 1 ? '<p class="note tvpage">'+escapeHtml(T('ev.bd.page', {p:(tvPage % pages) + 1, n:pages}))+'</p>' : '';
   return head+'<div class="bgrid">'+list.map(function(b){ return boardCardHTML(b, bp.boards[b]); }).join('')+'</div>';
 }
 /* The player's next not-done match on any board: { board, ahead, e }, or null. */
@@ -682,9 +708,9 @@ function boardLineHTML(id){
   var n = bpPlayerNext(id);
   if(!n) return '';
   var text;
-  if(n.e.called) text = 'Called — go to Board '+n.board;
-  else if(n.e.status === 'up') text = n.e.ready ? 'Up now on Board '+n.board : 'Board '+n.board+' · waiting for an earlier match';
-  else text = 'Board '+n.board+' · '+n.ahead+(n.ahead === 1 ? ' match' : ' matches')+' ahead'+(n.e.estMs != null ? ' · '+estLabel(n.e.estMs) : '');
+  if(n.e.called) text = T('ev.bd.called', {b:n.board});
+  else if(n.e.status === 'up') text = T(n.e.ready ? 'ev.bd.upNowOn' : 'ev.bd.waitingOn', {b:n.board});
+  else text = [T('ev.bd.ahead', {b:n.board, n:n.ahead}), n.e.estMs != null ? estLabel(n.e.estMs) : ''].filter(Boolean).join(' · ');
   return '<div class="pboard'+(n.e.called ? ' called' : '')+'">'+escapeHtml(text)+'</div>';
 }
 /* "starts ~7:10 pm" for a group that has not begun and has an estimate; empty otherwise. */
@@ -697,14 +723,14 @@ function podStartLine(p){
     if(e.status === 'done' || e.status === 'up') started = true;
     if(e.estMs != null && (est == null || e.estMs < est)) est = e.estMs;
   }); });
-  return (!started && est != null) ? 'starts '+estLabel(est) : '';
+  return (!started && est != null) ? T('ev.pod.starts', {time:estLabel(est)}) : '';
 }
 
 function bracketCardHTML(bracket, key, title){
   var champ = bracketIsComplete(bracket) ? bracketChampion(bracket) : null;
   var runner = champ ? bracketRunnerUp(bracket) : null;
   return '<section class="card" id="'+key+'"><h2>'+escapeHtml(title)+'</h2>'+
-    (champ ? '<div class="champ"><b>Winner: '+escapeHtml(entryName(champ))+'</b>'+(runner?'<div>Runner-up: '+escapeHtml(entryName(runner))+'</div>':'')+'</div>' : '')+
+    (champ ? '<div class="champ"><b>'+escapeHtml(T('ev.br.winner', {name:entryName(champ)}))+'</b>'+(runner?'<div>'+escapeHtml(T('ev.br.runnerUp', {name:entryName(runner)}))+'</div>':'')+'</div>' : '')+
     bracketToolsHTML(key, bracketView(bracket))+
     (bracketView(bracket)==='rounds' ? roundsViewHTML(bracket, key)
       : '<div class="scroll" data-bracket="'+key+'">'+mirroredChartHTML(bracket, state, {interactive:false, readable:true})+'</div>')+
@@ -726,27 +752,29 @@ function bracketView(b){
 
 function bracketToolsHTML(key, view){
   var rounds = view==='rounds';
-  return '<div class="tools"><div class="vsw" role="group" aria-label="Bracket view">'+
-      '<button type="button" data-bview="rounds" aria-pressed="'+rounds+'">Rounds</button>'+
-      '<button type="button" data-bview="chart" aria-pressed="'+(!rounds)+'">Chart</button></div>'+
-    (rounds ? '' : '<button type="button" data-fit="'+key+'">'+(fitBracket[key]?'Full size':'Fit to screen')+'</button>')+'</div>';
+  return '<div class="tools"><div class="vsw" role="group" aria-label="'+escapeHtml(T('ev.br.view'))+'">'+
+      '<button type="button" data-bview="rounds" aria-pressed="'+rounds+'">'+escapeHtml(T('ev.br.rounds'))+'</button>'+
+      '<button type="button" data-bview="chart" aria-pressed="'+(!rounds)+'">'+escapeHtml(T('ev.br.chart'))+'</button></div>'+
+    (rounds ? '' : '<button type="button" data-fit="'+key+'">'+escapeHtml(T(fitBracket[key] ? 'ev.br.full' : 'ev.br.fit'))+'</button>')+'</div>';
 }
 function matchIsPending(m){ return !m.winnerId && !m.bye && (m.aEntryId || m.bEntryId); }
 function currentRoundIdx(b){
   for(var ri=0; ri<b.rounds.length; ri++){ if(b.rounds[ri].some(matchIsPending)) return ri; }
   return b.rounds.length-1;
 }
+/* The round buttons' short names: R16 / P16, Quarters, Semis, Final (in BM: P16, Suku akhir, Separuh akhir, Akhir; the
+   row wraps on a phone rather than hiding a button off-screen). */
 function roundShortName(b, ri){
-  var n = koRoundName(b, ri);
-  return n==='Quarterfinal' ? 'Quarters' : n==='Semifinal' ? 'Semis' : n.replace('Round of ', 'R');
+  var r = koRoundInfo(b, ri);
+  return T('ev.rd.'+r.code, {n:r.n});
 }
 function rsSlotHTML(b, ri, mi, side){
   var m = b.rounds[ri][mi], id = m[side+'EntryId'], legs = m[side+'Legs'];
   if(!id){
-    var txt = 'To be decided', fromPod = m[side+'FromPod'];
-    if(fromPod){ var pp = (state.pods||[]).find(function(p){ return p.id===fromPod; }); txt = (pp && bracketIsVoidFinal(pp.bracket)) ? 'Group '+pp.label+': no winner' : 'Winner of Group '+(pp ? pp.label : '?'); }
-    else if(m.bye) txt = 'Bye';
-    else if(ri>0){ var fi = 2*mi + (side==='a' ? 0 : 1); if(b.rounds[ri-1][fi]) txt = 'Winner of '+koMatchTag(b, state, ri-1, fi); }
+    var txt = T('ev.slot.tbd'), fromPod = m[side+'FromPod'];
+    if(fromPod){ var pp = (state.pods||[]).find(function(p){ return p.id===fromPod; }); txt = (pp && bracketIsVoidFinal(pp.bracket)) ? T('r.podNoWinner', {g:pp.label}) : T('r.podWinner', {g:pp ? pp.label : '?'}); }
+    else if(m.bye) txt = T('ev.mt.bye');
+    else if(ri>0){ var fi = 2*mi + (side==='a' ? 0 : 1); if(b.rounds[ri-1][fi]) txt = T('ev.slot.winnerOf', {tag:koMatchTag(b, state, ri-1, fi)}); }
     return '<div class="rs ph"><span>'+escapeHtml(txt)+'</span></div>';
   }
   var won = !!m.winnerId && m.winnerId===id, lost = !!m.winnerId && !won;
@@ -755,20 +783,21 @@ function rsSlotHTML(b, ri, mi, side){
   return '<div class="rs'+(won ? ' won' : '')+(lost ? ' lost' : '')+who+'">'+
     (seed ? '<i class="sd">'+escapeHtml(String(seed))+'</i>' : '')+
     '<span class="tap" data-eid="'+escapeHtml(id)+'">'+(who===' is-fol' ? '★ ' : '')+escapeHtml(entryName(id))+'</span>'+
-    (m.wo && lost ? '<small class="note wo">did not show</small>' : '')+
+    (m.wo && lost ? '<small class="note wo">'+escapeHtml(T('ev.slot.noShow'))+'</small>' : '')+
     '<b>'+(legs!=null ? legs : '')+'</b></div>';
 }
 function rsMatchHTML(b, ri, mi){
   var m = b.rounds[ri][mi], tag = koMatchTag(b, state, ri, mi);
-  var status = m.void ? '<span class="mt dim">'+((m.aEntryId || m.bEntryId) ? 'Neither attended' : 'Not played')+'</span>'
-    : m.bye ? '<span class="mt dim">Bye</span>'
-    : m.winnerId ? (m.wo ? '<span class="mt dim">Walkover</span>' : '')
-    : (m.aEntryId && m.bEntryId) ? '<span class="mt rdy">To play</span>'
-    : '<span class="mt dim">Waiting</span>';
+  var mt = function(cls, k){ return '<span class="mt '+cls+'">'+escapeHtml(T('ev.mt.'+k))+'</span>'; };
+  var status = m.void ? mt('dim', (m.aEntryId || m.bEntryId) ? 'void' : 'notPlayed')
+    : m.bye ? mt('dim', 'bye')
+    : m.winnerId ? (m.wo ? mt('dim', 'wo') : '')
+    : (m.aEntryId && m.bEntryId) ? mt('rdy', 'toPlay')
+    : mt('dim', 'waiting');
   var mine = m.aEntryId===myId() || m.bEntryId===myId();
   var fol = !mine && (isFollowing(m.aEntryId) || isFollowing(m.bEntryId));
   var info = bpMatchInfo(bpKeyOf(b), ri, mi);
-  return '<div class="rm'+(mine ? ' me' : fol ? ' fol' : '')+'"><div class="rmh"><span class="mtag">'+escapeHtml(tag)+'</span>'+(info ? '<span class="mbd">Board '+escapeHtml(info.board)+'</span>' : '')+status+'</div>'+
+  return '<div class="rm'+(mine ? ' me' : fol ? ' fol' : '')+'"><div class="rmh"><span class="mtag">'+escapeHtml(tag)+'</span>'+(info ? '<span class="mbd">'+escapeHtml(T('ev.board', {b:info.board}))+'</span>' : '')+status+'</div>'+
     rsSlotHTML(b, ri, mi, 'a')+rsSlotHTML(b, ri, mi, 'b')+'</div>';
 }
 function roundsViewHTML(b, key){
@@ -781,8 +810,8 @@ function roundsViewHTML(b, key){
   var round = b.rounds[sel], real = round.filter(function(m){ return !m.bye; });
   var finished = real.filter(function(m){ return m.winnerId; }).length;
   var cards = round.map(function(m, mi){ return rsMatchHTML(b, sel, mi); }).join('');
-  return '<div class="rseg" role="group" aria-label="Round">'+seg+'</div>'+
-    '<p class="note" style="margin:0 0 2px">'+escapeHtml(koRoundName(b, sel))+' · '+finished+' of '+real.length+' finished'+(sel===cur && finished<real.length ? ' · current round' : '')+'</p>'+cards;
+  return '<div class="rseg" role="group" aria-label="'+escapeHtml(T('ev.rd.group'))+'">'+seg+'</div>'+
+    '<p class="note" style="margin:0 0 2px">'+escapeHtml([koRoundName(b, sel), T('ev.doneOf', {done:finished, n:real.length}), sel===cur && finished<real.length ? T('ev.rd.current') : ''].filter(Boolean).join(' · '))+'</p>'+cards;
 }
 
 /* Scale a bracket down to the screen width when "Fit to screen" is on. */
@@ -805,14 +834,13 @@ function progressText(){
   var groups = state.groups || [];
   if(groups.length && state.format.formatType!=='knockout'){
     var done = groups.filter(function(g){ return g.gameStarted && groupIsComplete(g); }).length;
-    return done+' of '+groups.length+' groups finished';
+    return T('ev.progress', {done:done, n:groups.length});
   }
   return '';
 }
 
 /* Best-of-legs summary for the header. Mirrors the organiser's legsForKnockoutRound / koStageKey rules. */
 var LEG_STAGES = ['early','quarterfinal','semifinal','final'];
-var LEG_STAGE_NAMES = { early:'early rounds', quarterfinal:'quarterfinals', semifinal:'semifinals', final:'final' };
 function legInt(v){ var n = parseInt(v, 10); return n > 0 ? n : 0; }
 function legStagesFor(bracket){
   var n = bracket && bracket.rounds && bracket.rounds.length;
@@ -837,16 +865,16 @@ function koLegsText(f, which, bracket){
   var vals = stages.map(function(st){ return legsForStage(f, which, st); });
   var last = vals.length - 1;
   var allSame = vals.every(function(v){ return v === vals[0]; });
-  if(allSame) return 'best of ' + vals[0] + ' legs';
+  if(allSame) return T('ev.legs.flat', {n:vals[0]});
   var restSame = vals.slice(0, last).every(function(v){ return v === vals[0]; });
-  if(restSame) return 'best of ' + vals[0] + ' legs, final best of ' + vals[last];
+  if(restSame) return T('ev.legs.final', {n:vals[0], f:vals[last]});
   var groups = [];
   stages.forEach(function(st, i){
-    var g = groups[groups.length - 1];
-    if(g && g.v === vals[i]) g.names.push(LEG_STAGE_NAMES[st]);
-    else groups.push({ v: vals[i], names: [LEG_STAGE_NAMES[st]] });
+    var g = groups[groups.length - 1], name = T('ev.legs.st.'+st);
+    if(g && g.v === vals[i]) g.names.push(name);
+    else groups.push({ v: vals[i], names: [name] });
   });
-  return groups.map(function(g){ return g.names.join(' & ') + ' best of ' + g.v; }).join(', ');
+  return groups.map(function(g){ return T('ev.legs.stages', {stages:g.names.join(' & '), n:g.v}); }).join(', ');
 }
 /* Teams: a match has several segments, so "best of N legs" means nothing. The header says how many segments a match has and
    whether the tie-breaker is played, for each stage that has one. Group Boards and the Plate pool follow the knockout tick.
@@ -854,34 +882,34 @@ function koLegsText(f, which, bracket){
 function teamsParts(f){
   var n = parseInt(f.segmentCount, 10);
   if(!(n >= 1)) return [];
-  var text = function(tb){ return n + (n === 1 ? ' segment' : ' segments') + (tb ? ' + tie-breaker' : '') + ' per match'; };
+  var text = function(tb){ return T(tb ? 'ev.seg.tb' : 'ev.seg.plain', {n:n}); };
   var rr = f.segmentTieBreakerRR === true, ko = f.segmentTieBreakerKO === true;
   if(f.formatType === 'roundrobin') return [{ label:'', text:text(rr) }];
   if(f.formatType === 'knockout' || f.formatType === 'podknockout') return [{ label:'', text:text(ko) }];
-  if(f.formatType === 'rrknockout') return rr === ko ? [{ label:'', text:text(ko) }] : [{ label:'Round robin', text:text(rr) }, { label:'Knockout', text:text(ko) }];
+  if(f.formatType === 'rrknockout') return rr === ko ? [{ label:'', text:text(ko) }] : [{ label:T('ev.legs.lab.rr'), text:text(rr) }, { label:T('ev.legs.lab.ko'), text:text(ko) }];
   return [];
 }
 function legsParts(s){
   var f = s && s.format;
   if(!f || typeof f !== 'object') return [];
   if(isTeamsEvent(s)) return teamsParts(f);
-  var rr = 'best of ' + (legInt(f.bestOfLegs) || 5) + ' legs';
+  var rr = T('ev.legs.flat', {n:legInt(f.bestOfLegs) || 5});
   var cap = function(t){ return t.charAt(0).toUpperCase() + t.slice(1); };
   var parts;
   if(f.formatType === 'roundrobin') parts = [{ label:'', text:rr }];
   else if(f.formatType === 'knockout') parts = [{ label:'', text:koLegsText(f, 'main', s.knockout) }];
-  else if(f.formatType === 'rrknockout') parts = [{ label:'Round robin', text:rr }, { label:'Knockout', text:koLegsText(f, 'main', s.knockout) }];
+  else if(f.formatType === 'rrknockout') parts = [{ label:T('ev.legs.lab.rr'), text:rr }, { label:T('ev.legs.lab.ko'), text:koLegsText(f, 'main', s.knockout) }];
   else if(f.formatType === 'podknockout'){
     var pod = legInt(f.podLegs) || legInt(f.bestOfLegs) || 5;
     var finals = s.knockout && s.knockout.podFinals ? s.knockout : null;
-    parts = [{ label:'Groups', text:'best of ' + pod + ' legs' }, { label:'Finals', text:koLegsText(f, 'main', finals) }];
+    parts = [{ label:T('ev.legs.lab.groups'), text:T('ev.legs.flat', {n:pod}) }, { label:T('ev.legs.lab.finals'), text:koLegsText(f, 'main', finals) }];
   } else return [];
-  if(s.knockoutLosers && f.formatType === 'rrknockout') parts.push({ label:'Plate pool', text:koLegsText(f, 'plate', s.knockoutLosers) });
+  if(s.knockoutLosers && f.formatType === 'rrknockout') parts.push({ label:T('ev.legs.lab.plate'), text:koLegsText(f, 'plate', s.knockoutLosers) });
   parts.forEach(function(p){ if(!p.label) p.text = cap(p.text); });
   return parts;
 }
 function legsLine(s){
-  return legsParts(s).map(function(p){ return p.label ? p.label + ': ' + p.text : p.text; }).join(' · ');
+  return legsParts(s).map(function(p){ return p.label ? T('ev.legs.labeled', {label:p.label, text:p.text}) : p.text; }).join(' · ');
 }
 
 /* Stage cards for events with two stages (round robin + knockout, or Group Boards + Finals): each card is a link to that
@@ -898,7 +926,7 @@ function stageStripHTML(r, tabs){
   var second = type==='podknockout' ? '#/bracket/finals' : '#/bracket';
   var onSecond = r.name==='bracket' && (type==='rrknockout' || podSel==='finals');
   var kind = it.winner ? 'results' : 'live';
-  return '<div class="evstages" role="group" aria-label="Event stages">'+stages.map(function(s, i){
+  return '<div class="evstages" role="group" aria-label="'+escapeHtml(T('ev.stages'))+'">'+stages.map(function(s, i){
     var on = i===1 ? onSecond : !onSecond;
     var href = i===1 ? second : first, tab = href.split('/')[1], card = hmStageHTML(kind, it, s, i, 2);
     if(tabs.indexOf(tab)===-1 || (i===1 && !state.knockout)) return '<div class="evstage">'+card+'</div>';   // that stage has nothing to show yet (no knockout drawn)
@@ -907,14 +935,22 @@ function stageStripHTML(r, tabs){
   }).join('')+'</div>';
 }
 
+/* "Open · Singles" / "Perseorangan Terbuka": the stored category and unit are English codes, shown through the tables as
+   one phrase (BM puts the unit first). A value the tables do not know is shown as it was stored. */
+function catUnitLabel(ec){
+  var has = function(k){ return Object.prototype.hasOwnProperty.call(DD_TABLES.en, k); };
+  var cat = ec.eventType ? (has('cat.'+ec.eventType) ? T('cat.'+ec.eventType) : String(ec.eventType)) : '';
+  var unit = ec.competitionUnit ? (has('unit.'+ec.competitionUnit) ? T('unit.'+ec.competitionUnit) : String(ec.competitionUnit)) : '';
+  return cat && unit ? T('ev.sub.catUnit', {cat:cat, unit:unit}) : (cat || unit);
+}
 function render(){
   var ec = state.eventCreation || {};
-  document.title = (ec.eventName || ec.tournamentName || 'Live results') + ' · Live results';
+  document.title = T('page.titleEvent', {name:ec.eventName || ec.tournamentName || T('page.title')});
   el('hOver').textContent = ec.tournamentName || '';
-  el('hTitle').textContent = ec.eventName || ec.tournamentName || 'Results';
-  el('hSub').textContent = [ec.eventType, ec.competitionUnit, ec.date].filter(Boolean).join(' · ');
+  el('hTitle').textContent = ec.eventName || ec.tournamentName || T('ev.titleFallback');
+  el('hSub').textContent = [catUnitLabel(ec), ddDateNum(ec.date)].filter(Boolean).join(' · ');
   el('hLegs').textContent = legsLine(state);
-  el('finder').placeholder = 'Find a '+unitWord(); el('finder').setAttribute('aria-label', 'Find a '+unitWord());
+  el('finder').placeholder = TE('ev.find'); el('finder').setAttribute('aria-label', TE('ev.find'));
   var prog = progressText();
   el('hProgress').hidden = !prog; el('hProgress').textContent = prog;
   el('head').hidden = false;
@@ -927,7 +963,7 @@ function render(){
   var type = state.format.formatType;
   var tabs = availableTabs();
   if(!tabs.length){
-    el('app').innerHTML = '<div class="card"><p class="empty">The draw hasn\'t been made yet. Check back soon.</p></div>';
+    el('app').innerHTML = '<div class="card"><p class="empty">'+T('ev.noDraw')+'</p></div>';
     el('nav').hidden = true; el('finderWrap').hidden = true; el('startCard').hidden = true;
     return;
   }
@@ -944,15 +980,15 @@ function render(){
     applyBracketSel(r);
     if((state.pods||[]).length) body += podsBracketTabHTML();
     else {
-      if(state.knockout) body += bracketCardHTML(state.knockout, 'ko', type==='rrknockout' ? 'Main bracket' : 'Bracket');
-      if(state.knockoutLosers) body += bracketCardHTML(state.knockoutLosers, 'kol', 'Plate pool');
+      if(state.knockout) body += bracketCardHTML(state.knockout, 'ko', T(type==='rrknockout' ? 'ev.br.main' : 'ev.br.bracket'));
+      if(state.knockoutLosers) body += bracketCardHTML(state.knockoutLosers, 'kol', T('ev.br.plate'));
     }
   }
   el('app').innerHTML = stageStripHTML(r, tabs) + body;
   var activeTab = r.name==='p' ? (r.id===myId() ? 'me' : '') : r.name;
   el('navLinks').innerHTML = tabs.map(function(t){
     var n = t==='following' ? followIds().length : 0;
-    return '<a href="#/'+t+'"'+(t===activeTab ? ' class="on" aria-current="page"' : '')+'>'+TAB_LABEL[t]+(n ? ' ('+n+')' : '')+'</a>';
+    return '<a href="#/'+t+'"'+(t===activeTab ? ' class="on" aria-current="page"' : '')+'>'+escapeHtml(n ? T('ev.tab.count', {label:tabLabel(t), n:n}) : tabLabel(t))+'</a>';
   }).join('');
   document.body.classList.toggle('tv', !!r.tv);
   setStartCard(!!r.tv);
@@ -1029,9 +1065,12 @@ window.addEventListener('resize', function(){
   applyBracketFit();
 });
 
-function showMessage(title, text, extraHTML){
+/* A whole-page message, by its table keys (kept, so a language switch can show it again). withHome: the "See all events" link. */
+var shownMessage = null;
+function showMessage(titleKey, textKey, withHome){
+  shownMessage = [titleKey, textKey, !!withHome];
   el('head').hidden = true; el('nav').hidden = true; el('finderWrap').hidden = true; el('startCard').hidden = true;
-  el('app').innerHTML = '<div class="msg"><h1>'+title+'</h1><p class="empty">'+text+'</p>'+(extraHTML || '')+'</div>';
+  el('app').innerHTML = '<div class="msg"><h1>'+T(titleKey)+'</h1><p class="empty">'+T(textKey)+'</p>'+(withHome && typeof hmHomeLinkHTML === 'function' ? hmHomeLinkHTML() : '')+'</div>';
 }
 /* Has any match been played? A group score, or a bracket match with a winner (a bye does not count) or marked void.
    Until then the header says "Starting soon" rather than "Live". */
@@ -1052,33 +1091,33 @@ function eventStarted(s){
 }
 /* "Scores last changed": the time the server last saved the event (updatedAt), as a clock time, with the date when it is not
    today. A missing or invalid time gives '' so the page never prints "Invalid Date" or NaN. */
-var MONTHS_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function toDate(v){
   if(v == null || v === '' || v === 0) return null;
   var d = new Date(v);
   return isNaN(d.getTime()) ? null : d;
 }
-function clockShort(d){ return d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }
+function clockShort(d){ return ddClock(d); }   // 2:32 pm / 2:32 PTG (Intl en-GB / ms-MY)
 function changedLabel(v, now){
   var t = toDate(v);
   if(!t) return '';
   var n = toDate(now) || new Date(), hm = clockShort(t);
   if(t.getFullYear()===n.getFullYear() && t.getMonth()===n.getMonth() && t.getDate()===n.getDate()){
     var mins = Math.max(0, Math.floor((n.getTime() - t.getTime()) / 60000));
-    return hm + (mins < 1 ? ' (just now)' : mins < 60 ? ' ('+mins+' min ago)' : '');
+    return mins < 1 ? T('ev.chg.justNow', {time:hm}) : mins < 60 ? T('ev.chg.minAgo', {time:hm, n:mins}) : hm;
   }
-  return t.getDate() + ' ' + MONTHS_ABBR[t.getMonth()] + (t.getFullYear()!==n.getFullYear() ? ' '+t.getFullYear() : '') + ', ' + hm;
+  return T(t.getFullYear()!==n.getFullYear() ? 'ev.chg.otherYear' : 'ev.chg.otherDay', {d:t.getDate(), mon:ddMonth(t.getMonth()), y:t.getFullYear(), time:hm});
 }
 /* updatedAt: when the organiser last saved (from the server). lastOkAt: when this phone last reached the site. */
 function statusPillHTML(started, stale, updatedAt, finished, lastOkAt, now){
-  var chg = changedLabel(updatedAt, now), changed = chg ? ' Scores last changed ' + chg : '';
+  var chg = changedLabel(updatedAt, now), changed = chg ? ' ' + escapeHtml(T('ev.changed', {when:chg})) : '';
+  var pill = function(cls, k, dot){ return '<span class="live-pill'+(cls ? ' '+cls : '')+'">'+(dot ? '<i></i>' : '')+escapeHtml(T('ev.pill.'+k))+'</span>'; };
   if(stale){
     var chk = toDate(lastOkAt);
-    return '<span class="live-pill off">Offline</span> Can’t refresh right now. Trying again…' + changed +
-      (chk ? ' <span class="chk">Last checked ' + clockShort(chk) + '</span>' : '');
+    return pill('off', 'offline') + ' ' + escapeHtml(T('ev.offlineMsg')) + changed +
+      (chk ? ' <span class="chk">' + escapeHtml(T('ev.checked', {time:clockShort(chk)})) + '</span>' : '');
   }
-  if(finished) return '<span class="live-pill done">Final results</span>' + changed;
-  return started ? '<span class="live-pill"><i></i>Live</span>' + changed : '<span class="live-pill soon">Starting soon</span>' + changed;
+  if(finished) return pill('done', 'final') + changed;
+  return started ? pill('', 'live', true) + changed : pill('soon', 'soon') + changed;
 }
 /* Events with no board or time on this page (everything except Group Boards): once the draw is made, and until the event is
    over, matches are called at the venue. Shown as one calm line under the status. */
@@ -1096,7 +1135,7 @@ function venueNoteNeeded(s){
 function setVenueNote(){
   var on = venueNoteNeeded(state), v = el('hVenue');
   v.hidden = !on;
-  v.innerHTML = on ? 'Board and time for each match are announced at the venue. <a href="'+escapeHtml(helpHref('q-when-where'))+'">More</a>' : '';
+  v.innerHTML = on ? escapeHtml(T('ev.venue'))+' <a href="'+escapeHtml(helpHref('q-when-where'))+'">'+escapeHtml(T('ev.venueMore'))+'</a>' : '';
 }
 /* "New here?" bar (home.js builds it): a slim line under the header, only for a first-time visitor who came straight in,
    from a QR code or a shared link, not from the home page (which shows its own card). Decided once per page view. The
@@ -1136,7 +1175,7 @@ function setStatus(){
 
 async function load(){
   if(!SLUG){                                              // the bare address: the home page (home.js), or the plain message if that script did not load
-    if(typeof showHome === 'function') showHome(); else showMessage('No results link', 'Open the link the organiser shared with you.');
+    if(typeof showHome === 'function') showHome(); else showMessage('ev.msg.noLinkTitle', 'ev.msg.noLinkText');
     return false;
   }
   try{
@@ -1144,7 +1183,7 @@ async function load(){
     if(res.status===404){
       // Keep polling: the organiser may republish, and the page should come back on its own.
       state = null; lastUpdatedAt = null;
-      showMessage('Results not available', 'This link isn\'t valid, or the organiser has taken the results offline.', typeof hmHomeLinkHTML === 'function' ? hmHomeLinkHTML() : '');
+      showMessage('ev.msg.goneTitle', 'ev.msg.goneText', true);
       return true;
     }
     if(!res.ok) throw new Error('HTTP '+res.status);
@@ -1156,16 +1195,33 @@ async function load(){
       state = body.view;
       if(!state.tieBreakOrder) state.tieBreakOrder = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
       state.entriesList = state.entriesList || []; state.groups = state.groups || []; state.format = state.format || {};
+      shownMessage = null;
       render();
     }
     setStatus();
     return true;
   }catch(e){
-    if(!state) showMessage('Couldn\'t load results', 'Check your connection — this page will keep trying.');
+    if(!state) showMessage('ev.msg.failTitle', 'ev.msg.failText');
     setStatus();
     return true;
   }
 }
+
+/* EN | BM: the switch redraws the page in place. The address (tab, group, player), the open keys, the bracket view and
+   round, Me / Following and the scroll position stay as they were. */
+function relang(){
+  var y = typeof window.scrollY === 'number' ? window.scrollY : 0;
+  setHelpLinks();
+  if(state) render();
+  else if(shownMessage) showMessage(shownMessage[0], shownMessage[1], shownMessage[2]);
+  else if(SLUG) document.title = T('page.title');
+  setStatus();
+  if(y && window.scrollTo) window.scrollTo(0, y);
+}
+if(typeof ddOnLang === 'function') ddOnLang(relang);
+ddApplyStatic(); ddSyncSwitches();   // the header, footer and loading words in the reader's language from the start
+if(SLUG) document.title = T('page.title');
+if(typeof ddNoteUpdate === 'function') ddNoteUpdate();
 
 var timer = null;
 async function tick(){
