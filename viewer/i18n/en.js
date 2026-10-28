@@ -127,7 +127,7 @@ var DD_VIEWER_EN = {
   'ev.grp.results': 'Results',
 
   /* "What do ... mean?" keys under tables and brackets */
-  'ev.key.columns': 'What do the columns mean?', 'ev.key.labels': 'What do the labels mean?',
+  'ev.key.columns': 'What do the columns mean?', 'ev.key.labels': 'What do the labels mean?', 'ev.key.ties': 'How were ties decided?',
   'ev.key.more': 'More in Help', 'ev.key.words': 'Words you will see',
   'ev.key.mp': 'Matches played', 'ev.key.mw': 'Matches won', 'ev.key.ml': 'Matches lost', 'ev.key.md': 'Matches drawn',
   'ev.key.lw': 'Legs won', 'ev.key.lwTeams': 'Legs won, adding up the team totals of every match',

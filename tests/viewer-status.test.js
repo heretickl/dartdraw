@@ -97,8 +97,10 @@ test('the venue line: only for an event with a draw that is not Group Boards and
   assert.equal(venue({ format: { formatType: 'knockout' }, knockout: { rounds: [] } }), false, 'odd data: no guess');
 });
 
-test('phone-width standings: long names may break, and a narrow-screen block tightens the table', () => {
-  assert.match(THEME, /\.std-table td\.l\s*\{[^}]*overflow-wrap:\s*anywhere/);
+test('phone-width standings: names stay on one line, columns are ruled, MW and ML hide on an upright phone, and a narrow-screen block tightens the table', () => {
+  assert.match(THEME, /\.std-table td\.l\s*\{[^}]*white-space:\s*nowrap/);
+  assert.match(THEME, /\.std-table th\+th,\.std-table td\+td\{border-left:1px solid var\(--line\)\}/);
+  assert.match(THEME, /@media \(max-width: 600px\) and \(orientation: portrait\)\{[\s\S]*?td:nth-child\(4\),#app \.scroll > \.std-table td:nth-child\(5\)\{display:none\}/);
   const m = /@media \(max-width:\s*420px\)\s*\{([\s\S]*?)\n\}/.exec(THEME);
   assert.ok(m, 'a max-width: 420px block exists');
   assert.match(m[1], /\.std-table/);

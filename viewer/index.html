@@ -520,6 +520,14 @@ function keyToggleHTML(id, label, items, foot){
       return '<dt>'+it[0]+'</dt><dd>'+it[1]+'</dd>';
     }).join('')+'</dl>'+(foot ? '<p class="note keyfoot">'+foot+'</p>' : '')+'</div></div>';
 }
+/* The tie-break notes and mini-tables: closed until tapped, like the keys (same button, same remembered state). */
+function tieToggleHTML(g, st){
+  var notes = tieNotesHTML(g, st, {public:true});
+  if(!notes) return '';
+  var id = 't:'+g.id, open = !!keysOpen[id], dom = keyDomId(id);
+  return '<div class="tkey"><button type="button" class="keybtn" data-key="'+escapeHtml(id)+'" aria-expanded="'+open+'" aria-controls="'+dom+'">'+escapeHtml(T('ev.key.ties'))+'</button>'+
+    '<div class="keybody" id="'+dom+'"'+(open ? '' : ' hidden')+'>'+notes+'</div></div>';
+}
 function keyLinksHTML(anchor){
   return '<a href="'+escapeHtml(helpHref(anchor))+'">'+escapeHtml(T('ev.key.more'))+'</a> · <a href="'+escapeHtml(helpHref('glossary'))+'">'+escapeHtml(T('ev.key.words'))+'</a>';
 }
@@ -571,7 +579,7 @@ function groupCardHTML(g){
     var st = computeStandings(g);
     body = '<div class="scroll">'+markedStandingsHTML(g, st)+'</div>'+
       (q && st.length && st.length<=q ? '<p class="note qall">'+escapeHtml(T('ev.q.all'))+'</p>' : '')+
-      tableKeyHTML(g, st)+tieNotesHTML(g, st, {public:true})+
+      tableKeyHTML(g, st)+tieToggleHTML(g, st)+
       '<h3>'+escapeHtml(T('ev.grp.results'))+'</h3>'+resultsGridHTML(g);
   }
   return '<section class="card" id="group-'+escapeHtml(g.label)+'" data-gid="'+escapeHtml(g.id)+'"><h2>'+escapeHtml(groupLabel(g.label))+(boardLabel(g)?'<span class="sub">'+escapeHtml(boardLabel(g))+'</span>':'')+'</h2>'+body+'</section>';
@@ -815,6 +823,29 @@ function roundsViewHTML(b, key){
 }
 
 /* Scale a bracket down to the screen width when "Fit to screen" is on. */
+/* Group tables: each name stays on one line. When a table is wider than its card, first every name in
+   that table gets the same smaller font (down to 11px), then the whole table shrinks together, numbers
+   included, so names never end up tiny next to big numbers. Below 8px names the table scrolls sideways. */
+function fitStandingNames(){
+  var tables = document.querySelectorAll('#app .scroll > .std-table');
+  for(var i=0;i<tables.length;i++){
+    var tb = tables[i], box = tb.parentNode, names = tb.querySelectorAll('td.l'), all = tb.querySelectorAll('th,td');
+    if(!names.length || !box.clientWidth) continue;
+    var c, over = function(){ return tb.scrollWidth > box.clientWidth + 1; };
+    for(c=0;c<all.length;c++) all[c].style.fontSize = '';
+    var size = parseFloat(getComputedStyle(names[0]).fontSize);
+    while(over() && size > 11){
+      size -= 0.5;
+      for(c=0;c<names.length;c++) names[c].style.fontSize = size+'px';
+    }
+    if(!over()) continue;
+    var base = [];
+    for(c=0;c<all.length;c++) base.push(parseFloat(getComputedStyle(all[c]).fontSize));
+    for(var k=0.95; over() && k*size >= 8; k -= 0.05){
+      for(c=0;c<all.length;c++) all[c].style.fontSize = (base[c]*k).toFixed(1)+'px';
+    }
+  }
+}
 function applyBracketFit(){
   document.querySelectorAll('[data-bracket]').forEach(function(box){
     var art = box.querySelector('.mko-artboard');
@@ -985,6 +1016,7 @@ function render(){
     }
   }
   el('app').innerHTML = stageStripHTML(r, tabs) + body;
+  fitStandingNames();
   var activeTab = r.name==='p' ? (r.id===myId() ? 'me' : '') : r.name;
   el('navLinks').innerHTML = tabs.map(function(t){
     var n = t==='following' ? followIds().length : 0;
@@ -1063,6 +1095,7 @@ window.addEventListener('resize', function(){
   var n = isNarrow();
   if(n!==lastNarrow){ lastNarrow = n; if(state && bracketPref==='auto') render(); }
   applyBracketFit();
+  fitStandingNames();
 });
 
 /* A whole-page message, by its table keys (kept, so a language switch can show it again). withHome: the "See all events" link. */

@@ -131,7 +131,16 @@ main{padding:16px}
 .std-table th,.std-table td{padding-left:4px;padding-right:4px}
 .std-table th{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.1em}
 .std-table td{font-family:var(--display);font-size:17px;font-weight:600}
-.std-table td.l{font-family:var(--body);font-size:15px;font-weight:600;overflow-wrap:anywhere}
+.std-table td.l{font-family:var(--body);font-size:15px;font-weight:600;white-space:nowrap}
+/* A thin line between columns, so each number sits under its heading. */
+.std-table th+th,.std-table td+td{border-left:1px solid var(--line)}
+.tkey .tie-notes{margin-top:0}
+/* Phones held upright: hide MW and ML (the 4th and 5th columns) to give names room.
+   Wider screens, and a phone turned sideways, keep the full table. */
+@media (max-width: 600px) and (orientation: portrait){
+  #app .scroll > .std-table th:nth-child(4),#app .scroll > .std-table th:nth-child(5),
+  #app .scroll > .std-table td:nth-child(4),#app .scroll > .std-table td:nth-child(5){display:none}
+}
 .std-table td.pts{font-size:20px;font-weight:700}
 /* A phone is about 309px wide inside the card: tighter cells so Pts and TB stay on screen even with long doubles names. */
 @media (max-width: 420px){

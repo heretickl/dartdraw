@@ -125,7 +125,7 @@ var DD_VIEWER_MS = {
   'ev.grp.results': 'Keputusan',
 
   /* keys under tables and brackets */
-  'ev.key.columns': 'Apakah maksud lajur?', 'ev.key.labels': 'Apakah maksud label?',
+  'ev.key.columns': 'Apakah maksud lajur?', 'ev.key.labels': 'Apakah maksud label?', 'ev.key.ties': 'Bagaimana keputusan sama mata ditentukan?',
   'ev.key.more': 'Lagi dalam Bantuan', 'ev.key.words': 'Istilah yang akan anda lihat',
   'ev.key.mp': 'Perlawanan dimainkan', 'ev.key.mw': 'Perlawanan dimenangi', 'ev.key.ml': 'Perlawanan kalah', 'ev.key.md': 'Perlawanan seri',
   'ev.key.lw': 'Leg dimenangi', 'ev.key.lwTeams': 'Leg dimenangi, dikira dengan menjumlahkan leg pasukan dalam setiap perlawanan',
