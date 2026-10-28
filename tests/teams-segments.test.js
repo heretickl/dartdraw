@@ -50,6 +50,13 @@ function printPack(t) {
   try { if (t.format.formatType === 'podknockout') f('podsPrintClick')(); else f('runPrintPack')((t.groups || []).filter((g) => g.confirmed)); } finally { app.document = DOC; }
   return mount.innerHTML;
 }
+// An older event: a round robin match was saved level (a draw) before draws were removed. Such an event keeps the old
+// rules (no forced tie-breaker, the round robin tick as stored) and the draw is worth 0 points. Returns the group.
+function storeDraw(t) {
+  f('buildGroups')(t); const g = t.groups[0]; g.gameStarted = true;
+  f('setScore')(g, g.entryIds[0], g.entryIds[1], 5, 5);
+  return g;
+}
 const DEFAULTS = [
   { type: 'foursome', startingScore: 1001, legs: 1 }, { type: 'singles', startingScore: 501, legs: 3 }, { type: 'doubles', startingScore: 501, legs: 3 },
   { type: 'singles', startingScore: 501, legs: 3 }, { type: 'doubles', startingScore: 501, legs: 3 }];
@@ -65,14 +72,22 @@ test('Teams is offered for a new event, and a new event starts from the default 
   assert.equal('teamHandoutEnabled' in t.printSettings, false);
 });
 
-test('the cap per stage: 9, or 10 in a stage that uses the tie-breaker; a walkover is every main segment', () => {
+test('the cap per stage: 9, or 10 in a stage that uses the tie-breaker (a round robin always does, unless an older draw is stored); a walkover is every main segment', () => {
   reset(); const t = teamsEvent('rrknockout');
   assert.equal(f('teamMatchCap')(t, 'rr'), 10); assert.equal(f('teamMatchCap')(t, 'ko'), 10);
   t.format.teamTieBreaker.inRoundRobin = false;
-  assert.equal(f('teamMatchCap')(t, 'rr'), 9); assert.equal(f('teamMatchCap')(t, 'ko'), 10);
+  assert.equal(f('teamRrTieBreakerForced')(t), true);
+  assert.equal(f('teamMatchCap')(t, 'rr'), 10, 'no draws: the round robin counts its tie-breaker whatever the stored tick says'); assert.equal(f('teamMatchCap')(t, 'ko'), 10);
   t.format.teamTieBreaker.inKnockout = false;
   assert.equal(f('teamMatchCap')(t, 'ko'), 9);
+  assert.equal(f('teamMatchCap')(t, 'rr'), 10);
   assert.equal(f('teamWalkoverLegs')(t), 9);
+  // an older event with a drawn result stored keeps the old rule: its round robin follows the tick, so 9 without it
+  const old = teamsEvent('rrknockout'); old.format.teamTieBreaker.inRoundRobin = false; storeDraw(old);
+  assert.equal(f('teamRrTieBreakerForced')(old), false);
+  assert.equal(f('teamTieBreakerFor')(old, 'rr'), null); assert.equal(f('teamMatchCap')(old, 'rr'), 9); assert.equal(f('teamMatchCap')(old, 'ko'), 10);
+  old.format.teamTieBreaker.inRoundRobin = true; assert.equal(f('teamMatchCap')(old, 'rr'), 10);
+  assert.equal(f('teamRrTieBreakerForced')(teamsEvent('knockout')), false, 'a format without a round robin is never forced');
   // a stage the format does not have never counts the tie-breaker
   const rr = teamsEvent('roundrobin'); assert.equal(f('teamTieBreakerFor')(rr, 'ko'), null);
   const ko = teamsEvent('podknockout'); assert.equal(f('teamTieBreakerFor')(ko, 'rr'), null); assert.ok(f('teamTieBreakerFor')(ko, 'ko'));
@@ -118,9 +133,10 @@ test('the format picker has exactly three formats; Group Boards is a Knockout op
 
 /* ---------- Format & branding: the segment editor ---------- */
 const tbTicks = (html) => [...html.matchAll(/id="f_team_tb_(rr|ko)"( checked)?/g)].map((m) => m[1] + (m[2] ? '+' : '-'));
-test('stage 2 shows the segment editor for Teams in Basic and Advanced setup in every format, with only the tie-breaker ticks that apply', () => {
+test('stage 2 shows the segment editor for Teams in Basic and Advanced setup in every format, with only the tie-breaker ticks that apply (a round robin has a fixed line, not a tick)', () => {
   reset();
-  const ticks = { roundrobin: ['rr+'], knockout: ['ko+'], rrknockout: ['rr+', 'ko+'], podknockout: ['ko+'] };
+  const ticks = { roundrobin: [], knockout: ['ko+'], rrknockout: ['ko+'], podknockout: ['ko+'] };
+  const rrAlways = /Round robin matches: played only when the total legs are level after the main segments \(there are no draws\)/;
   [false, true].forEach((advanced) => Object.keys(ticks).forEach((ft) => {
     const t = teamsEvent(ft, 8, { advanced, plate: true });
     t.format.knockoutLegs.main.variable = true; t.format.knockoutLegs.plate.variable = true;
@@ -130,6 +146,7 @@ test('stage 2 shows the segment editor for Teams in Basic and Advanced setup in 
     assert.match(html, /Team match segments \(played in order\)/, label);
     assert.equal((html.match(/class="team-seg-row"/g) || []).length, 6, label + ': 5 segments + the tie-breaker');
     assert.deepEqual(tbTicks(html), ticks[ft], label);
+    if (ft === 'roundrobin' || ft === 'rrknockout') assert.match(html, rrAlways, label); else assert.doesNotMatch(html, rrAlways, label);
     assert.match(html, /A tie-breaker might be needed/, label);
     assert.match(html, /\+ Add segment/, label);
     assert.match(html, /Up to 8 segments, so the lineup sheet fits on one page\./, label);
@@ -141,12 +158,18 @@ test('stage 2 shows the segment editor for Teams in Basic and Advanced setup in 
     // every row's controls have their own names
     ['Segment 1 type', 'Segment 5 starting score', 'Segment 3 legs (best of)', 'Move segment 2 up', 'Remove segment 4', 'Tie-breaker type', 'Tie-breaker legs (best of)'].forEach((a) => assert.ok(html.includes('aria-label="' + a + '"'), label + ' ' + a));
   }));
-  // rrknockout with different caps per stage
+  // rrknockout: the round robin always has the tie-breaker (even with the stored tick off), so the caps differ only if the knockout has none
   const t = teamsEvent('rrknockout'); t.format.teamTieBreaker.inRoundRobin = false; run(app, 'teamSegDraft = null');
-  assert.match(render(2), /at most <b>9<\/b> legs in a round robin match and <b>10<\/b> in a knockout match/);
-  assert.deepEqual(tbTicks(render(2)), ['rr-', 'ko+']);
+  assert.match(render(2), /A team can win at most <b>10<\/b> legs in a match\./);
+  assert.deepEqual(tbTicks(render(2)), ['ko+']);
   t.format.teamTieBreaker.inKnockout = false; run(app, 'teamSegDraft = null');
+  assert.match(render(2), /at most <b>10<\/b> legs in a round robin match and <b>9<\/b> in a knockout match/);
+  assert.deepEqual(tbTicks(render(2)), ['ko-']);
+  assert.equal((render(2).match(/class="team-seg-row"/g) || []).length, 6, 'the round robin still has its tie-breaker row');
+  // no stage uses it: a knockout with the tick off has no tie-breaker row
+  const kn = teamsEvent('knockout'); kn.format.teamTieBreaker.inKnockout = false; run(app, 'teamSegDraft = null');
   assert.equal((render(2).match(/class="team-seg-row"/g) || []).length, 5, 'no tie-breaker row when no stage uses it');
+  // (the step 2 text for an older event with a drawn round robin result stored: see the test below)
   // Singles keeps its Best of legs field and has no segment editor
   const s = f('blankTournament')(); useState(app, s); s.eventCreation.saved = true;
   ['roundrobin', 'knockout', 'rrknockout', 'podknockout'].forEach((ft) => {
@@ -158,6 +181,15 @@ test('stage 2 shows the segment editor for Teams in Basic and Advanced setup in 
   assert.equal(require('fs').readFileSync(require('path').join(__dirname, '..', 'app.html'), 'utf8').includes('@media (pointer: coarse){ .team-seg-btn{min-width:40px;min-height:40px} }'), true);
 });
 
+// Was a bug (fixed): teamDraftEvent() (app.html) built the
+// event the step 2 cap text and time estimate are worked out from WITHOUT its groups, so teamRrTieBreakerForced() sees no
+// stored draw there and counts the round robin tie-breaker for an older event that really has a draw saved.
+test('stage 2 cap text for an older event with a drawn round robin result: 9 in the round robin, 10 in the knockout', () => {
+  reset(); const old = teamsEvent('rrknockout'); old.format.teamTieBreaker.inRoundRobin = false; storeDraw(old); run(app, 'teamSegDraft = null');
+  assert.equal(f('teamMatchCap')(old, 'rr'), 9);
+  assert.match(render(2), /at most <b>9<\/b> legs in a round robin match and <b>10<\/b> in a knockout match/);
+});
+
 test('segment edits go into a draft: the event changes only on Save format & branding; leaving step 2 drops them', () => {
   reset(); const t = teamsEvent('rrknockout');
   let renders = 0; app.render = () => { renders++; };
@@ -167,11 +199,12 @@ test('segment edits go into a draft: the event changes only on Save format & bra
   f('setTeamSegmentField')(5, 'startingScore', '701');
   f('setTeamSegmentField')(5, 'legs', '4');
   f('moveTeamSegment')(5, -1);
-  f('setTeamTieBreakerStage')('rr', false);
+  f('setTeamTieBreakerStage')('rr', false);                                        // the round robin always has one: this changes nothing that counts
+  f('setTeamTieBreakerStage')('ko', false);
   f('setTeamSegmentField')('tb', 'legs', '3');
   assert.equal(renders, 0, 'only the editor is redrawn, so other unsaved fields on step 2 are kept');
   assert.match(els.teamSegEditor.innerHTML, /class="team-seg-row"/);
-  assert.match(els.teamSegSummary.innerHTML, /at most <b>12<\/b> legs in a round robin match and <b>14<\/b> in a knockout match/);
+  assert.match(els.teamSegSummary.innerHTML, /at most <b>14<\/b> legs in a round robin match and <b>12<\/b> in a knockout match/);
   assert.equal(els.segHint_5.textContent, 'Even numbers can end in a tie — an odd number is recommended.');
   f('setTeamSegmentField')(5, 'legs', '');                                         // a half-typed box changes nothing
   f('setTeamSegmentField')(5, 'type', '<b>x</b>');                                 // never an unknown type
@@ -228,8 +261,8 @@ test('the segments lock once either stage has begun: read-only list, the handler
   assert.doesNotMatch(html, /class="team-seg-row"|\+ Add segment/);
   assert.match(html, /Games have started, so the segments are locked/);
   assert.match(html, /<li>Foursome \(1001, best of 1\)<\/li>/);
-  assert.match(html, /Round robin matches: tie-breaker Foursome \(1001, best of 1\) <span[^>]*>\(this stage has begun with it, so it stays on\)/);
-  assert.equal(tickHTML(html, 'rr'), null, 'the round robin tick (on, stage begun) can not be switched off');
+  assert.match(html, /Round robin matches: played only when the total legs are level after the main segments \(there are no draws\)/, 'the fixed round robin line');
+  assert.equal(tickHTML(html, 'rr'), null, 'the round robin has no tick: it can not be switched off');
   domStub({});
   f('addTeamSegment')(); f('removeTeamSegment')(0); f('setTeamSegmentField')(0, 'legs', '7'); f('setTeamTieBreakerStage')('rr', false); f('setTeamSegmentField')('tb', 'legs', '3');
   app.document = DOC;
@@ -247,6 +280,15 @@ test('the segments lock once either stage has begun: read-only list, the handler
   late.groups[0].gameStarted = true;
   saveStep2();
   assert.deepEqual(plain(late.format.teamSegments), DEFAULTS);
+  // an older event whose begun round robin holds a drawn result and played WITH the tie-breaker: the old locked line
+  const od = teamsEvent('roundrobin', 4); storeDraw(od);
+  assert.equal(f('teamRrTieBreakerForced')(od), false);
+  const odHtml = render(2);
+  assert.match(odHtml, /Round robin matches: tie-breaker Foursome \(1001, best of 1\) <span[^>]*>\(this stage has begun with it, so it stays on\)/);
+  assert.equal(tickHTML(odHtml, 'rr'), null);
+  domStub({}); f('setTeamTieBreakerStage')('rr', false); app.document = DOC;
+  assert.equal(saveStep2(), null);
+  assert.equal(od.format.teamTieBreaker.inRoundRobin, true, 'it was played with it: it stays on');
 });
 
 test('a knockout has begun with a started round, a called match or any result; byes alone do not count', () => {
@@ -317,15 +359,21 @@ test('each stage\'s tick locks only when THAT stage begins; the knockout tick ca
   assert.deepEqual(plain(k.format.teamTieBreaker), { type: 'doubles', startingScore: 1001, legs: 3, inRoundRobin: false, inKnockout: true });
 });
 
-test('the round robin tick can be switched on after the start only while no drawn result is stored; the locked list says so', () => {
+test('after the start the round robin has a fixed tie-breaker line, no tick; only an older event with a drawn result stored has the old tick rules, and the locked list says so', () => {
   reset();
   const t = teamsEvent('rrknockout', 4); t.format.teamTieBreaker.inRoundRobin = false;
   f('buildGroups')(t); const g = t.groups[0]; g.gameStarted = true;
   const [a, b, c] = g.entryIds;
   f('setScore')(g, a, b, 6, 3);
+  assert.equal(f('teamRrTieBreakerForced')(t), true);
   assert.equal(f('teamTieBreakerTickChange')(t, 'rr').canTurnOn, true);
-  assert.match(tickHTML(render(2), 'rr'), /onchange/);
-  f('setScore')(g, a, c, 5, 5);                                                  // a draw
+  const fixed = render(2);
+  assert.equal(tickHTML(fixed, 'rr'), null, 'no tick while the tie-breaker is forced');
+  assert.match(fixed, /Round robin matches: played only when the total legs are level after the main segments \(there are no draws\)/);
+  assert.doesNotMatch(fixed, /a drawn result is already saved/);
+  run(app, 'teamSegDraft = null');
+  f('setScore')(g, a, c, 5, 5);                                                  // a draw (an older event)
+  assert.equal(f('teamRrTieBreakerForced')(t), false);
   assert.equal(f('teamTieBreakerTickChange')(t, 'rr').canTurnOn, false);
   run(app, 'teamSegDraft = null');
   const html = render(2);
@@ -384,9 +432,24 @@ test('Save refuses an even best of for any segment and for a tie-breaker in use,
   m = saveStep2();
   assert.equal(m.body, 'The tie-breaker is best of 2. It needs an odd best of (1, 3, 5…), so it can\'t end level and always settles the match. Change it, then save.');
   domStub({}); f('setTeamTieBreakerStage')('rr', false); f('setTeamTieBreakerStage')('ko', false); app.document = DOC;
-  assert.equal(saveStep2(), null, 'an even tie-breaker no stage uses is fine');
+  m = saveStep2();
+  assert.match(m.body, /^The tie-breaker is best of 2\./, 'a round robin always has the tie-breaker, so an even one is refused even with both ticks off');
+  assert.equal(t.format.saved, false, 'nothing saved');
+  domStub({}); f('setTeamSegmentField')('tb', 'legs', '3'); app.document = DOC;
+  assert.equal(saveStep2(), null);
   assert.equal(t.format.saved, true);
   assert.equal(t.format.teamSegments[1].legs, 5);
+  assert.equal(t.format.teamTieBreaker.legs, 3); assert.equal(t.format.teamTieBreaker.inRoundRobin, true, 'stored on: the round robin always has one');
+  // an even tie-breaker that no stage uses is still fine: a knockout with its tick off
+  const k = teamsEvent('knockout', 8);
+  domStub({}); f('setTeamTieBreakerStage')('ko', false); f('setTeamSegmentField')('tb', 'legs', '2'); app.document = DOC;
+  assert.equal(saveStep2(), null, 'an even tie-breaker no stage uses is fine');
+  assert.equal(k.format.teamTieBreaker.legs, 2);
+  // ... and so is an older round robin event with a drawn result stored and the tick off (nothing uses the tie-breaker there)
+  const old = teamsEvent('roundrobin', 8); old.format.teamTieBreaker.inRoundRobin = false; storeDraw(old);
+  domStub({}); f('setTeamSegmentField')('tb', 'legs', '2'); app.document = DOC;
+  assert.equal(saveStep2(), null, 'the tie-breaker of an older event with a drawn result is unused when its tick is off');
+  assert.equal(old.format.teamTieBreaker.legs, 2); assert.equal(old.format.teamTieBreaker.inRoundRobin, false);
 });
 
 test('a stored result with a blank leg count is not a result: typed 0-0 or a level total get every check', () => {
@@ -439,12 +502,16 @@ test('the Scheduling box works for Group Boards (it used to fail: the estimate h
 function beginKnockout(k) { f('checkInAll')(); f('regenerateKnockoutBracket')(); const m = k.knockout.rounds[0].find((x) => x.aEntryId && x.bEntryId && !x.bye); m.aLegs = 6; m.bLegs = 3; m.winnerId = m.aEntryId; return m; }
 test('an even tie-breaker that begun matches were played with never blocks Save; one whose settings can change is refused', () => {
   reset();
-  // review 3, scenario A: an unused even tie-breaker, the format switched to Knockout, the knockout begins
-  const t = teamsEvent('roundrobin', 4);
+  // review 3, scenario A: an unused even tie-breaker, the format switched to Knockout, the knockout begins.
+  // A round robin now always has its tie-breaker, so only an older event holding a drawn result can leave it unused.
+  const t = teamsEvent('roundrobin', 4); t.format.teamTieBreaker.inRoundRobin = false;
+  domStub({}); f('setTeamTieBreakerStage')('rr', false); f('setTeamSegmentField')('tb', 'legs', '2'); app.document = DOC;
+  assert.match(saveStep2().body, /^The tie-breaker is best of 2\./, 'a round robin without a stored draw always uses it, so an even one is refused');
+  run(app, 'teamSegDraft = null'); storeDraw(t);
   domStub({}); f('setTeamTieBreakerStage')('rr', false); f('setTeamSegmentField')('tb', 'legs', '2'); app.document = DOC;
   assert.equal(saveStep2(), null, 'an even tie-breaker no stage uses can be saved');
   assert.deepEqual(plain(t.format.teamTieBreaker), { type: 'foursome', startingScore: 1001, legs: 2, inRoundRobin: false, inKnockout: false }, 'the hidden knockout tick is stored off');
-  f('setFormatType')('knockout');
+  t.format.formatType = 'knockout';                                                // (the app blocks the card once games began: the format change is set directly)
   assert.equal(f('teamTieBreakerFor')(t, 'ko'), null, 'switching to Knockout brings in no tie-breaker nobody saw');
   assert.doesNotMatch(tickHTML(render(2), 'ko'), /" checked onchange/, 'it shows unticked: the organiser chooses');
   beginKnockout(t);
@@ -584,7 +651,10 @@ test('migration: a foursome Teams event becomes one Foursome segment with its be
   app.__t = t; run(app, 'migrateTeamSegments(__t)');
   assert.deepEqual(plain(t.format.teamSegments), [{ type: 'foursome', startingScore: 501, legs: 7 }]);
   assert.deepEqual(plain(t.format.teamTieBreaker), Object.assign({}, TB_DEFAULT, { inRoundRobin: false, inKnockout: false }));
-  assert.equal(f('teamMatchCap')(t, 'rr'), 4);
+  assert.equal(f('teamMatchCap')(t, 'rr'), 5, 'no draws: the round robin counts the default tie-breaker (1) even though the migrated event has none ticked');
+  assert.equal(f('teamTieBreakerFor')(t, 'rr') !== null, true);
+  t.groups = [{ id: 'g1', label: 'A', entryIds: ['a', 'b'], boards: [1], scores: { 'a|b': { legs1: 3, legs2: 3 } } }];   // the event already holds a draw
+  assert.equal(f('teamMatchCap')(t, 'rr'), 4, 'an older event with a drawn result keeps its no-tie-breaker cap');
   const m = legacy('mixed', { mixedRubbers: [{ name: 'a', type: 'singles', legs: 3 }, { name: 'b', type: 'doubles', legs: 3 }] });
   app.__t = m; run(app, 'migrateTeamSegments(__t)');
   assert.equal(m.format.teamSegments.length, 2); assert.equal(m.format.teamTieBreaker.inRoundRobin, false); assert.equal(m.format.teamTieBreaker.inKnockout, false);
@@ -680,26 +750,58 @@ test('round robin with the tie-breaker (the default): capped at 10, a level tota
   assert.deepEqual(plain(f('getScore')(g, a, b)), a < b ? { legs1: 10, legs2: 4 } : { legs1: 4, legs2: 10 });
 });
 
-test('round robin without the tie-breaker: capped at 9, a level total is a draw; standings use the totals', () => {
+test('round robin with the stored tick off (an older event, no draw saved): the tie-breaker is still counted, a level total refused; a win is 1 point', () => {
   reset(); const t = teamsEvent('roundrobin', 4); t.format.teamTieBreaker.inRoundRobin = false;
   f('buildGroups')(t); const g = t.groups[0]; g.confirmed = true; g.gameStarted = true;
   const [a, b, c] = g.entryIds;
   f('promptScore')(g.id, a, b, 'Team A', 'Team B');
   const m = modals.pop();
+  assert.match(m.bodyHTML, /max="10"/);
+  assert.match(m.bodyHTML, /A team can win at most 10 legs\. The totals can't be level: if they are level after the main segments, play the tie-breaker and include its legs\./);
+  assert.doesNotMatch(m.bodyHTML, /draw/i);
+  assert.match(enter(m, 11, 2), /at most 10 legs/);
+  assert.match(enter(m, 5, 5), /^The totals can't be level: this round robin match uses the tie-breaker\. Play it and include its legs in the totals\.$/);
+  assert.equal(enter(m, 7, 2), null);
+  f('promptScore')(g.id, a, c, 'Team A', 'Team C');
+  assert.match(enter(modals.pop(), 4, 4), /can't be level/, 'still refused after another result is saved');
+  f('promptScore')(g.id, a, c, 'Team A', 'Team C');
+  assert.equal(enter(modals.pop(), 6, 5), null);
+  f('promptScore')(g.id, a, b, 'Team A', 'Team B');
+  assert.match(modals.pop().bodyHTML, /id="scA" type="number" min="0" max="10"[^>]*value="7"/, 'reopening shows the saved totals');
+  const st = f('computeStandings')(g); const A = st.find((x) => x.id === a);
+  assert.equal(A.pts, 2, 'a win is 1 point'); assert.equal(A.legsFor, 13); assert.equal(A.legsAgainst, 7); assert.equal(A.wins, 2); assert.equal(A.draws, 0);
+  assert.equal(st.find((x) => x.id === b).pts, 0, 'a loss is 0 points');
+  // in round robin -> knockout the same
+  const rk = teamsEvent('rrknockout', 4); rk.format.teamTieBreaker.inRoundRobin = false;
+  f('buildGroups')(rk); const rg = rk.groups[0]; rg.gameStarted = true;
+  f('promptScore')(rg.id, rg.entryIds[0], rg.entryIds[1], 'x', 'y');
+  assert.match(enter(modals.pop(), 4, 4), /can't be level/);
+});
+
+test('legacy: an older round robin event that already holds a drawn result keeps the old rules, and the draw is worth 0 points', () => {
+  reset(); const t = teamsEvent('roundrobin', 4); t.format.teamTieBreaker.inRoundRobin = false;
+  f('buildGroups')(t); const g = t.groups[0]; g.confirmed = true; g.gameStarted = true;
+  const [a, b, c, d] = g.entryIds;
+  f('setScore')(g, a, c, 5, 5);                                                  // the draw saved before draws were removed
+  assert.equal(f('teamRrTieBreakerForced')(t), false);
+  f('promptScore')(g.id, a, b, 'Team A', 'Team B');
+  const m = modals.pop();
   assert.match(m.bodyHTML, /max="9"/);
-  assert.match(m.bodyHTML, /A team can win at most 9 legs\. Level totals are a draw \(1 point each\)\./);
+  assert.match(m.bodyHTML, /A team can win at most 9 legs\. Level totals are a draw \(no points for either team\)\./);
   assert.doesNotMatch(m.bodyHTML, /tie-breaker/);
   assert.match(enter(m, 10, 2), /at most 9 legs/);
   assert.equal(enter(m, 7, 2), null);
-  f('promptScore')(g.id, a, c, 'Team A', 'Team C');
-  assert.equal(enter(modals.pop(), 5, 5), null, 'level is a draw here');
+  f('promptScore')(g.id, a, d, 'Team A', 'Team D');
+  assert.equal(enter(modals.pop(), 5, 5), null, 'level is still a draw here');
   f('promptScore')(g.id, a, b, 'Team A', 'Team B');
   assert.match(modals.pop().bodyHTML, /id="scA" type="number" min="0" max="9"[^>]*value="7"/, 'reopening shows the saved totals');
   const st = f('computeStandings')(g); const A = st.find((x) => x.id === a);
-  assert.equal(A.pts, 3); assert.equal(A.legsFor, 12); assert.equal(A.legsAgainst, 7); assert.equal(A.wins, 1); assert.equal(A.draws, 1);
-  // in round robin -> knockout the round robin follows its own tick, the knockout its own
+  assert.equal(A.pts, 1, 'one win = 1 point; the two draws score nothing'); assert.equal(A.legsFor, 17); assert.equal(A.legsAgainst, 12); assert.equal(A.wins, 1); assert.equal(A.draws, 2);
+  assert.equal(st.find((x) => x.id === c).pts, 0, 'a draw is worth 0 points');
+  // in round robin -> knockout the round robin follows its own stored tick, the knockout its own
   const rk = teamsEvent('rrknockout', 4); rk.format.teamTieBreaker.inRoundRobin = false;
   f('buildGroups')(rk); const rg = rk.groups[0]; rg.gameStarted = true;
+  f('setScore')(rg, rg.entryIds[0], rg.entryIds[2], 3, 3);
   f('promptScore')(rg.id, rg.entryIds[0], rg.entryIds[1], 'x', 'y');
   assert.equal(enter(modals.pop(), 4, 4), null);
 });
@@ -713,7 +815,13 @@ test('a stored result above the cap (an older event, or a lower cap) can be save
   const m = modals.pop();
   assert.match(m.bodyHTML, /value="12"/);
   assert.equal(enter(m, 12, 3), null, 'unchanged: saved again');
-  assert.match(enter(m, 12, 4), /at most 9 legs/);
+  assert.match(enter(m, 12, 4), /at most 10 legs/, 'the round robin counts its tie-breaker (no draws), so the cap is 10');
+  // an older event with a drawn result stored has the lower cap of 9
+  f('setScore')(g, a, g.entryIds[2], 5, 5);
+  f('promptScore')(g.id, a, b, 'A', 'B');
+  const lm = modals.pop();
+  assert.equal(enter(lm, 12, 3), null, 'unchanged: saved again');
+  assert.match(enter(lm, 12, 4), /at most 9 legs/);
   // knockout too
   const k = teamsEvent('knockout', 4); f('checkInAll')(); f('regenerateKnockoutBracket')();
   const km = k.knockout.rounds[0][0]; km.aLegs = 4; km.bLegs = 11; km.winnerId = km.bEntryId;
@@ -820,6 +928,8 @@ test('time estimate: a Teams match is every segment\'s legs, the tie-breaker\'s 
   assert.equal(f('matchDurationMinutes')(t, { isKnockout: false }), 100);                 // 14 legs x 7 min (amateur), to the next 5
   assert.equal(f('matchDurationMinutes')(t, { isKnockout: true, legs: 11 }), 100, 'a round\'s best-of does not apply');
   t.format.teamTieBreaker.inRoundRobin = false;
+  assert.equal(f('matchDurationMinutes')(t, { isKnockout: false }), 100, 'the round robin always counts its tie-breaker');
+  storeDraw(t);                                                                            // an older event holding a drawn result: the tick is read
   assert.equal(f('matchDurationMinutes')(t, { isKnockout: false }), 95);                  // 13 x 7 = 91
   assert.equal(f('matchDurationMinutes')(t, { isKnockout: true }), 100, 'the knockout keeps its tie-breaker');
   t.format.teamTieBreaker.inKnockout = false;
@@ -873,10 +983,19 @@ test('the lineup sheet: a bar per segment, TIE-BREAKER before the last block TOT
   assert.match(ko, /TOTAL POINTS[\s\S]*<div class="lineup-sig"><div class="lineup-sig-space"><\/div><div class="lineup-sig-line">Captain\/Manager Signature<\/div><\/div>/, 'the signature area comes after TOTAL POINTS');
   assert.match(ko, /<div class="lineup-topline"><div class="logo-placeholder"[^>]*>[\s\S]*?<\/div><div class="lineup-teamname"><span class="tag">Team Name<\/span>Team A<\/div><\/div>/, 'the logo box beside the team name');
   assert.match(ko, /vs Team B/);
-  // without the tie-breaker (this round robin does not use it): TOTAL POINTS follows the main segments
+  // a round robin always has the tie-breaker (no draws), even with the stored tick off
   const rr = f('lineupCardHTML')(a, b, { groupLabel: 'A', board: 2, gameNo: 1, stage: 'rr' });
-  assert.doesNotMatch(rr, /TIE-BREAKER/);
-  assert.deepEqual(lineupBlocks(rr).map((x) => x[0].split(' ')[0]).slice(-2), ['TRIOS', 'TOTAL']);
+  assert.match(rr, /TIE-BREAKER/);
+  assert.deepEqual(lineupBlocks(rr).map((x) => x[0].split(' ')[0]).slice(-3), ['TRIOS', 'TIE-BREAKER', 'TOTAL']);
+  // without the tie-breaker (an older event holding a drawn result, tick off): TOTAL POINTS follows the main segments
+  const old = teamsEvent('rrknockout', 4); old.format.teamSegments.push({ type: 'trios', startingScore: 701, legs: 3 });
+  old.format.teamTieBreaker.inRoundRobin = false; storeDraw(old);
+  const [oa, ob] = old.entriesList;
+  const rrOld = f('lineupCardHTML')(oa, ob, { groupLabel: 'A', board: 2, gameNo: 1, stage: 'rr' });
+  assert.doesNotMatch(rrOld, /TIE-BREAKER/);
+  assert.deepEqual(lineupBlocks(rrOld).map((x) => x[0].split(' ')[0]).slice(-2), ['TRIOS', 'TOTAL']);
+  assert.match(f('lineupCardHTML')(oa, ob, { groupLabel: 'Bracket', board: 'Final', gameNo: 1, stage: 'ko' }), /TIE-BREAKER/, 'the knockout keeps its own tick');
+  useState(app, t);
   assert.match(ko, /^<div class="lineup-card">/, 'the usual spacing');
   // the CSS that makes it work: fixed segments, a compact TOTAL POINTS (half the old ~128px), a flexible signature area
   const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.html'), 'utf8');
@@ -897,8 +1016,11 @@ test('the lineup sheet: a bar per segment, TIE-BREAKER before the last block TOT
   const big = f('lineupCardHTML')(a, b, { groupLabel: 'B', board: 'F', gameNo: 1, stage: 'ko' });
   assert.match(big, /^<div class="lineup-card dense">/);
   assert.ok(lineupBlocks(big).slice(0, 9).every((x) => x[1] === 65), JSON.stringify(lineupBlocks(big)));
-  // in the pack: round robin sheets without, knockout sheets with
+  // in the pack: round robin sheets with it (no draws), knockout sheets with their own tick
   f('buildGroups')(t); t.groups.forEach((g) => { g.confirmed = true; });
+  assert.match(f('teamLineupSheetsHTML')(), /TIE-BREAKER/);
+  // ... except in an older event that already holds a drawn result with the tick off
+  f('setScore')(t.groups[0], t.groups[0].entryIds[0], t.groups[0].entryIds[1], 4, 4);
   assert.doesNotMatch(f('teamLineupSheetsHTML')(), /TIE-BREAKER/);
 });
 
@@ -950,22 +1072,35 @@ test('the rules sheet follows the tie-breaker of each stage, with no contradicti
   const rr = teamsEvent('roundrobin', 8);
   let L = lines(rr);
   assert.ok(L.includes(SEGS + ' Tie-breaker if the totals are level: Foursome (1001, best of 1). The team with more total legs wins.'), L);
-  assert.match(L, /Scoring: Win = 2 points, Loss = 0 points\. .*level totals go to the tie-breaker, so there are no draws\./);
-  assert.doesNotMatch(L, /[Dd]raw = 1|are a draw/);
-  // round robin without: draws, and no tie-breaker named
+  assert.match(L, /Scoring: Win = 1 point, Loss = 0 points\. .*level totals go to the tie-breaker, so there are no draws\./);
+  assert.doesNotMatch(L, /[Dd]raw = |are a draw/);
+  // round robin with the stored tick off: no draws either (the tie-breaker is always there), and it is named
   rr.format.teamTieBreaker.inRoundRobin = false;
+  assert.equal(lines(rr), L, 'the stored tick makes no difference while no draw is stored');
+  // an older event holding a drawn result, tick off: the old text, draws worth nothing, and no tie-breaker named
+  storeDraw(rr);
   L = lines(rr);
-  assert.match(L, /Win = 2 points, Draw = 1 point, Loss = 0 points\. .*level totals are a draw\./);
-  assert.doesNotMatch(L, /[Tt]ie-breaker/);
-  // round robin -> knockout, the knockout only
+  assert.match(L, /Win = 1 point, Loss = 0 points\. .*level totals are a draw \(no points\)\./);
+  assert.doesNotMatch(L, /Draw = 1|[Tt]ie-breaker/);
+  // round robin -> knockout: the round robin always has the tie-breaker, the knockout follows its tick
   const rk = teamsEvent('rrknockout', 8, { plate: true }); rk.format.teamTieBreaker.inRoundRobin = false;
   L = lines(rk);
-  assert.match(L, /Group stage scoring: Win = 2 points, Draw = 1 point/);
+  assert.match(L, /Group stage scoring: Win = 1 point, Loss = 0 points\. .*level totals go to the tie-breaker, so there are no draws\./);
   assert.match(L, /Knockout stage matches \(and the Plate pool\) use the same segments and cannot end level: level totals go to the tie-breaker\./);
-  assert.ok(L.includes(SEGS + ' Tie-breaker in knockout matches if the totals are level: Foursome (1001, best of 1).'), L);
-  rk.format.teamTieBreaker.inRoundRobin = true; rk.format.teamTieBreaker.inKnockout = false;
+  assert.ok(L.includes(SEGS + ' Tie-breaker if the totals are level: Foursome (1001, best of 1).'), L);
+  rk.format.teamTieBreaker.inKnockout = false;
   assert.ok(lines(rk).includes(' Tie-breaker in round robin matches if the totals are level'));
   assert.match(lines(rk), /use the same segments and cannot end level\.\n/);
+  // an older event with a drawn group result and the round robin tick off: only the knockout has a tie-breaker
+  const ro = teamsEvent('rrknockout', 8, { plate: true }); ro.format.teamTieBreaker.inRoundRobin = false; storeDraw(ro);
+  L = lines(ro);
+  assert.match(L, /Group stage scoring: Win = 1 point, Loss = 0 points\. .*level totals are a draw \(no points\)\./);
+  assert.doesNotMatch(L, /Draw = 1/);
+  assert.match(L, /Knockout stage matches \(and the Plate pool\) use the same segments and cannot end level: level totals go to the tie-breaker\./);
+  assert.ok(L.includes(SEGS + ' Tie-breaker in knockout matches if the totals are level: Foursome (1001, best of 1).'), L);
+  ro.format.teamTieBreaker.inRoundRobin = true; ro.format.teamTieBreaker.inKnockout = false;
+  assert.ok(lines(ro).includes(' Tie-breaker in round robin matches if the totals are level'));
+  assert.match(lines(ro), /use the same segments and cannot end level\.\n/);
   // knockout and Group Boards
   const ko = teamsEvent('knockout', 8); ko.format.knockoutLegs.main.variable = true;
   assert.match(lines(ko), /Knockout matches cannot end level: level totals go to the tie-breaker\./);
@@ -976,10 +1111,14 @@ test('the rules sheet follows the tie-breaker of each stage, with no contradicti
   assert.doesNotMatch(L, /[Tt]ie-breaker/);
   [rr, rk, ko, gb].forEach((t) => assert.doesNotMatch(lines(t), /best of 5|first to|Legs increase|named players|rubber/i));
   const one = teamsEvent('roundrobin', 8); one.format.teamTieBreaker.inRoundRobin = false; one.format.teamSegments = [{ type: 'trios', startingScore: 701, legs: 5 }];
+  assert.ok(plain(f('formatDescriptionLines')(one)).includes('Each match has 1 segment: Trios (701, best of 5). Tie-breaker if the totals are level: Foursome (1001, best of 1). The team with more total legs wins.'));
+  // an older event holding a drawn result, tick off: no tie-breaker named
+  storeDraw(one);
   assert.ok(plain(f('formatDescriptionLines')(one)).includes('Each match has 1 segment: Trios (701, best of 5). The team with more total legs wins.'));
-  // headers
-  f('buildGroups')(one); one.groups.forEach((g) => { g.confirmed = true; });
-  assert.match(f('chartSheetHTML')(one.groups[0], true), /Team Night<\/div><div class="sheet-sub">Open Teams · Round Robin Stage · 1 segment · 2026-10-25/);
+  assert.match(f('chartSheetHTML')(one.groups[0], true), /Team Night<\/div><div class="sheet-sub">Open Teams · Round Robin Stage · 1 segment · 2026-10-25/, 'the header: no tie-breaker for the older event');
+  // headers (the draw removed again: back to no draws)
+  one.groups.forEach((g) => { g.scores = {}; g.confirmed = true; });
+  assert.match(f('chartSheetHTML')(one.groups[0], true), /Team Night<\/div><div class="sheet-sub">Open Teams · Round Robin Stage · 1 segment \+ tie-breaker · 2026-10-25/);
   const k = teamsEvent('knockout', 8); f('checkInAll')(); f('regenerateKnockoutBracket')();
   k.format.knockoutLegs.main.variable = true;
   const sheet = f('knockoutBracketSheetHTML')(k.knockout);
@@ -990,6 +1129,8 @@ test('the rules sheet follows the tie-breaker of each stage, with no contradicti
   assert.match(f('schedulingContextHTML')(), /<b>5 segments \+ tie-breaker<\/b> per match/);
   assert.doesNotMatch(f('formatSummaryCard')() + f('schedulingContextHTML')(), /Best of|best of/);
   const r2 = teamsEvent('rrknockout', 8); r2.format.teamTieBreaker.inRoundRobin = false;
+  assert.match(f('formatSummaryCard')(), /5 segments \+ tie-breaker<\/strong>/, 'the round robin always has it, so both stages do');
+  storeDraw(r2);                                                                   // an older event holding a drawn result: only the knockout has it
   assert.match(f('formatSummaryCard')(), /5 segments \+ tie-breaker \(knockout\)/);
   // the format names: Group Boards is a knockout
   assert.match(f('formatSummaryCard')(), /<label>Format<\/label><strong>Round Robin → Knockout<\/strong>/);

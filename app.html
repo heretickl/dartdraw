@@ -237,6 +237,10 @@ input[type="date"]::-webkit-date-and-time-value,input[type="time"]::-webkit-date
 .score-cell.win{background:#eaf7ee}
 .score-cell.loss{background:#fdf1f0}
 .standing{font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;font-size:15px}
+.score-cell.split,.standing.split{position:relative;flex-direction:column;align-items:stretch;justify-content:stretch;padding:0}
+.score-cell.split::before,.standing.split::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px solid #aeb8c3}
+.split .hf{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;gap:3px}
+.score-cell .hf.opp{font-size:15px}
 .standing.with-legs{flex-direction:column;gap:1px;line-height:1.1}
 .legs-sub{font-size:12px;font-weight:700}
 .legs-won{color:var(--ink)}
@@ -854,7 +858,7 @@ function blankTournament(){
     activeGroupId: null,
     /* sheetLang: the language of every printed sheet (i18n step 4), the organiser's screen language when the event is made */
     printSettings: { sponsorFooterEnabled:true, rulesSheetEnabled:true, lineupSheetEnabled:false, koPaperSize:'A4', playersSheetEnabled:true, boardsSheetEnabled:true, sheetLang: ddUiLang() },
-    tieBreakOrder: ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'],
+    tieBreakOrder: ['Legs won','Leg difference','Head-to-head result','Organiser decision / playoff'],
     /* Disciplinary / incident log (Day-of-the-event) — organiser-only record, not printed. */
     incidents: []
   };
@@ -884,6 +888,8 @@ function catUnitText(t){ return T('catUnit', {cat: escapeHtml(catLabel(t.eventCr
    saved: the tie-breaker is played and its legs counted. In a stage without it, a level total is a draw in a round
    robin, and refused in a knockout (a knockout needs a winner). "stage" below is 'rr' or 'ko'.
    "Trios" is the name for three players (an older event's 'triples' segment is migrated to 'trios'). */
+const DEFAULT_TIE_BREAK_ORDER = ['Legs won','Leg difference','Head-to-head result','Organiser decision / playoff'];
+const OLD_DEFAULT_TIE_BREAK_ORDER = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];   // the default before Oct 2026
 const TEAM_SEGMENT_TYPES = [['singles','Singles'],['doubles','Doubles'],['trios','Trios'],['foursome','Foursome']];
 const TEAM_SEGMENT_PLAYERS = { singles:1, doubles:2, trios:3, foursome:4 };
 const TEAM_STARTING_SCORES = [301,501,701,1001];
@@ -927,7 +933,7 @@ function formatHasStage(t, stage){
 /* The tie-breaker segment for a stage's matches, or null when that stage does not use one. */
 function teamTieBreakerFor(t, stage){
   const tb = teamTieBreakerDef(t);
-  const on = stage==='rr' ? tb.inRoundRobin : tb.inKnockout;
+  const on = stage==='rr' ? (tb.inRoundRobin || teamRrTieBreakerForced(t)) : tb.inKnockout;
   return (on && formatHasStage(t, stage)) ? cleanSegment(tb) : null;
 }
 /* The most legs one side can win in a segment: a majority of its best-of. */
@@ -1009,6 +1015,9 @@ function teamStageStarted(t, stage){
 /* The segments are locked once either stage has begun, like a group's lineup: every match of the event is played with
    the same segments. */
 function teamSegmentsLocked(t){ return teamStageStarted(t, 'rr') || teamStageStarted(t, 'ko'); }
+/* No draws: a round robin team match is always settled, so its tie-breaker is always played when the totals are level.
+   Only an event that already holds a drawn round robin result (saved before draws were removed) keeps playing without. */
+function teamRrTieBreakerForced(t){ return formatHasStage(t, 'rr') && !teamRoundRobinHasLevel(t); }
 /* A round robin result stored level (a draw): the round robin tie-breaker can't be switched on any more. */
 function teamRoundRobinHasLevel(t){
   return (t.groups||[]).some(g=> Object.keys(g.scores||{}).some(k=>{ const s = g.scores[k]; const r = s && teamStoredResult(s.legs1, s.legs2); return !!(r && r.a===r.b); }));
@@ -4552,7 +4561,10 @@ function loadTournamentRow(id, row){
     dbUpdatedAtCache[id] = row.updated_at;
     tournamentsCache[id] = state;
     if(isLocked(state)) lockedIds.add(id); else lockedIds.delete(id);
-    if(!state.tieBreakOrder) state.tieBreakOrder = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
+    if(!state.tieBreakOrder) state.tieBreakOrder = DEFAULT_TIE_BREAK_ORDER.slice();
+    /* The default order changed (Legs won first). An event still on the old default whose round robin has not begun
+       takes the new one; an event under way or finalized, or one whose order the organiser set, keeps its own. */
+    else if(!isLocked(state) && state.tieBreakOrder.join('|')===OLD_DEFAULT_TIE_BREAK_ORDER.join('|') && !(state.groups||[]).some(g=> g.gameStarted || (g.scores && Object.keys(g.scores).length))) state.tieBreakOrder = DEFAULT_TIE_BREAK_ORDER.slice();
     if(!state.printSettings) state.printSettings = {sponsorFooterEnabled:true};
     if(state.format.sponsors && state.format.sponsors.length){
       state.format.sponsors = state.format.sponsors.map(s=> typeof s==='string' ? {src:s, shape:'rect'} : s);
@@ -5110,7 +5122,8 @@ function stage1(){
       '<div class="field"><label>'+T('s1.date')+'</label><input id="f_date" type="date" value="'+escapeHtml(e.date)+'"></div>'+
       '<div class="field"><label id="f_entries_label">'+entriesLabelFor(e.competitionUnit).label+'</label><input id="f_entries" type="number" min="2" value="'+escText(e.entries)+'">'+entriesHintHTML(e.competitionUnit)+entryLimitHintHTML()+'</div>'+
     '</div>'+
-    '<div class="hint">'+T('s1.boardsHint')+'</div>'+
+    '<div class="field" style="max-width:260px"><label>'+T('sched.boardsLabel')+'</label><input id="f_boards1" type="number" min="1" value="'+escText(e.boards||4)+'"></div>'+
+    '<div class="hint" style="margin-top:-6px">'+T('s1.boardsHint')+'</div>'+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="newTournament()">'+T('s1.discard')+'</button>'+
       '<button class="btn primary" onclick="saveStage1()">'+T('s1.save')+'</button>'+
@@ -5145,6 +5158,8 @@ function saveStage1(){
   e.eventType = document.getElementById('f_etype').value;
   if(!teamsFormatLocked(state)) e.competitionUnit = document.getElementById('f_unit').value;   // a started Teams event stays Teams (its results are team totals)
   e.date = document.getElementById('f_date').value;
+  const boardsEl = document.getElementById('f_boards1');
+  if(boardsEl) e.boards = Math.max(1, parseInt(boardsEl.value)||e.boards||4);   // also on step 2, Scheduling
   e.entries = requested;
   e.saved = true;
   ensureEntries(state);
@@ -5601,13 +5616,16 @@ function toggleKnockoutLegsVariable(key){
    the ticks redraw only the editor, so other typed-but-unsaved fields on the page stay as they are. Once games have
    started (teamSegmentsLocked) the segments are shown read-only. */
 function teamDraft(){
-  if(!teamSegDraft || teamSegDraft.id!==state.id) teamSegDraft = { id:state.id, segments:teamSegmentsOf(state), tieBreaker:teamTieBreakerDef(state) };
+  if(!teamSegDraft || teamSegDraft.id!==state.id){
+    teamSegDraft = { id:state.id, segments:teamSegmentsOf(state), tieBreaker:teamTieBreakerDef(state) };
+    if(teamRrTieBreakerForced(state)) teamSegDraft.tieBreaker.inRoundRobin = true;
+  }
   return teamSegDraft;
 }
 /* The event as it would be with the draft saved: what the cap and the time estimate on step 2 are worked out from. */
 function teamDraftEvent(){
   const d = teamDraft();
-  return { eventCreation: state.eventCreation, format: Object.assign({}, state.format, { teamSegments:d.segments, teamTieBreaker:d.tieBreaker }) };
+  return { eventCreation: state.eventCreation, groups: state.groups, format: Object.assign({}, state.format, { teamSegments:d.segments, teamTieBreaker:d.tieBreaker }) };   // groups: a stored draw (teamRrTieBreakerForced)
 }
 function segmentTypeOptionsHTML(cur){
   return TEAM_SEGMENT_TYPES.map(([v])=>'<option value="'+v+'"'+(segmentTypeKey(cur)===v?' selected':'')+'>'+segmentTypeLabel(v)+'</option>').join('');
@@ -5677,6 +5695,7 @@ function teamTieBreakerControlsHTML(d, ev){
   const key = (s)=> s==='rr' ? 'inRoundRobin' : 'inKnockout';
   const on = (s)=> d.tieBreaker[key(s)]===true;
   const ticks = stages.map(s=>{
+    if(s==='rr' && teamRrTieBreakerForced(state)) return '<div class="hint" style="margin:4px 0;font-size:12px;color:var(--ink)">'+T('tb.rrAlways')+'</div>';
     const ch = teamTieBreakerTickChange(state, s);
     if(!ch.locked || ch.canTurnOn){
       return '<div class="toggle-row" style="margin:4px 0"><input type="checkbox" id="f_team_tb_'+s+'" '+(on(s)?'checked':'')+' onchange="setTeamTieBreakerStage(\''+s+'\',this.checked)"> <label for="f_team_tb_'+s+'">'+teamTieBreakerStageLabel(ev, s)+'</label>'+
@@ -5717,6 +5736,7 @@ function moveTeamSegment(i, dir){
 }
 /* stage: 'rr' or 'ko'. Before the stage has begun, either way; after, only where it may be switched on. */
 function setTeamTieBreakerStage(stage, v){
+  if(stage==='rr' && teamRrTieBreakerForced(state)) return;   // no draws: the round robin always has it
   const ch = teamTieBreakerTickChange(state, stage);
   if(ch.locked && !ch.canTurnOn) return;
   teamDraft().tieBreaker[stage==='rr' ? 'inRoundRobin' : 'inKnockout'] = !!v;
@@ -5759,6 +5779,7 @@ function teamDraftTieBreakerToApply(d){
   /* A tick for a stage the format does not have is not shown, so it is stored OFF: switching the format later then
      shows it unticked (the organiser chooses), instead of bringing in a tie-breaker nobody saw. Never switches one ON. */
   [['rr','inRoundRobin'],['ko','inKnockout']].forEach(([s,k])=>{ if(!formatHasStage(state, s)) next[k] = false; });
+  if(teamRrTieBreakerForced(state)) next.inRoundRobin = true;   // no draws: the round robin always has one
   return next;
 }
 /* Save format & branding refuses an even best of (it can end level): every main segment while they can still change,
@@ -6810,13 +6831,16 @@ function chartSheetHTML(g, forPrint){
         rows += '<div class="cell diag">'+diagLogoBoxHTML()+'</div>';
       } else {
         const sc = getScore(g, rowEnt.id, colEnt.id);
-        let display='', cls='empty';
+        let display='', cls='empty', top='', bottom='';
         if(sc){
           const firstIsRow = rowEnt.id < colEnt.id;
           const myLegs = firstIsRow? sc.legs1 : sc.legs2;
           const oppLegs = firstIsRow? sc.legs2 : sc.legs1;
           if(myLegs!==undefined && myLegs!=='' && oppLegs!==undefined && oppLegs!==''){
             display = escText(myLegs)+'–'+escText(oppLegs)+(sc.wo?' <span class="wo-tag">'+T('r.wo')+'</span>':'');
+            // points this row took from the match (win 1, loss 0, as computeStandings) above; the score below
+            const ml = parseInt(myLegs), ol = parseInt(oppLegs);
+            top = String(ml>ol ? 1 : 0); bottom = display;
             cls = parseInt(myLegs)>parseInt(oppLegs)?'win':(parseInt(myLegs)<parseInt(oppLegs)?'loss':'');
           }
         }
@@ -6827,14 +6851,17 @@ function chartSheetHTML(g, forPrint){
             : ' onclick="lockedScoreClick(\''+escJs(g.id)+'\')"';
         }
         const lockedCls = (!forPrint && !g.gameStarted) ? ' locked' : '';
-        rows += '<div class="cell score-cell '+cls+lockedCls+'"'+editAttr+'>'+ (display||(forPrint?'':'—')) +'</div>';
+        /* Split by a line across the middle: the points this row took above, the score below (blank to write in). */
+        rows += '<div class="cell score-cell split '+cls+lockedCls+'"'+editAttr+'><span class="hf">'+top+'</span><span class="hf opp">'+bottom+'</span></div>';
       }
     });
     const st = posById[rowEnt.id];
     const ptsInner = g.gameStarted ? (st?st.pts:0) : '—';
     const legsInner = (g.gameStarted && st && st.played) ? '<span class="legs-sub"><span class="legs-won">'+st.legsFor+'</span>–<span class="legs-lost">'+st.legsAgainst+'</span></span>' : '';
     const posInner = g.gameStarted ? (st?(st.position+(st.manualOverride?'*':'')):'') : '—';
-    rows += '<div class="cell standing'+(legsInner?' with-legs':'')+'">'+ptsInner+legsInner+'</div><div class="cell standing">'+posInner+'</div>';
+    /* Points split like the match cells: points above, legs won–lost below. Position stays a single figure. */
+    const ptsTop = g.gameStarted ? (st?st.pts:0) : '';
+    rows += '<div class="cell standing split"><span class="hf">'+ptsTop+'</span><span class="hf">'+legsInner+'</span></div><div class="cell standing">'+posInner+'</div>';
   });
   const hasOverrides = groupHasPositionOverrides(g);
   const matches = groupMatches(g);
@@ -7027,7 +7054,7 @@ function teamsFormatDescriptionLines(t){
 function rulesSheetHTML(){
   if(ddLang()!==ddPrintLang()) return ddWithLang(ddPrintLang(), ()=> rulesSheetHTML.apply(null, arguments));   // printed: the print language
   const t = state;
-  const order = t.tieBreakOrder || ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
+  const order = t.tieBreakOrder || ['Legs won','Leg difference','Head-to-head result','Organiser decision / playoff'];
   const lines = formatDescriptionLines(t);
   return '<div class="print-sheet ro-sheet">'+
     '<div class="sheet-top">'+
@@ -7140,7 +7167,8 @@ function promptScore(groupId, aId, bId, aName, bName){
   });
 }
 /* Teams, round robin: one plain result, the total legs each team won across all its segments. Capped at the most a team
-   can win (teamMatchCap); level totals are allowed here (a draw, 1 point each), as they are not in a knockout. */
+   can win (teamMatchCap). A level total goes to the tie-breaker (no draws); only an older event that already saved a draw keeps
+   allowing one (teamRrTieBreakerForced), worth no points. */
 function promptScoreTeams(g, aId, bId, aName, bName){
   const sc = getScore(g,aId,bId);
   const firstIsA = aId<bId;

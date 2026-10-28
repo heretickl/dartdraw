@@ -171,7 +171,7 @@ test('no English left: every printed sheet of every event, printed in BM (Englis
   // and the BM words are there, from every kind of sheet
   const all = out.map((o) => visibleText(o.html)).join('\n');
   ['PERATURAN & FORMAT', 'Sila baca sebelum bermain', 'Susunan pemecah seri', 'Keputusan perlawanan sesama mereka', 'SUSUNAN PERLAWANAN', 'Susunan induk perlawanan — mengikut board', '1 lwn 2',
-    'Perseorangan Terbuka', 'Beregu Terbuka', 'Berpasukan Terbuka', 'Perseorangan Wanita', '07/11/2026', 'PESERTA', 'MATA', 'KED.', 'KUMPULAN A', 'Perlawanan 1', 'Pencatat', 'Mata: Menang 2 · Seri 1 · Kalah 0',
+    'Perseorangan Terbuka', 'Beregu Terbuka', 'Berpasukan Terbuka', 'Perseorangan Wanita', '07/11/2026', 'PESERTA', 'MATA', 'KED.', 'KUMPULAN A', 'Perlawanan 1', 'Marker', 'Mata: Menang 1 · Kalah 0',
     'Keputusan langsung', 'Imbas, atau layari', 'Dijana dengan DartDraw', 'Peringkat Kalah Mati', 'Undian 16 slot', 'Separuh akhir', 'Suku akhir', 'Akhir', 'JUARA', 'BRACKET', 'BRACKET UTAMA', 'SAINGAN PLATE',
     'Unjuran Penempatan Kalah Mati', 'BRACKET UTAMA (UNJURAN)', 'Label menunjukkan kumpulan', 'tiada unjuran', 'Lakukan ini sebelum undian kalah mati dibuat.',
     'Bil.', 'Perlawanan', 'Nama Pasukan', 'JUMLAH MATA', 'PEMECAH SERI', 'Tandatangan Kapten/Pengurus', 'PERSEORANGAN 1', 'BEREGU 1', 'BEREMPAT 1', 'Mata', 'lwn ',

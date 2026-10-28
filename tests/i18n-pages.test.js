@@ -150,11 +150,12 @@ test('glossary: the forbidden BM words are absent, a tie is "sama mata", the dra
   const FORBIDDEN = [/\bbagan\b/i, /\bpapan\b/i, /\bmengundi(nya)?\b/i, /\bundi kumpulan\b/i, /\bdua belah\b/i, /\bkaki penaja\b/i, /\bbersemuka\b/i, /\bmelog keluar\b/i,
     /\bkata sandi\b/i, /\bunduh\b/i, /\bsurel\b/i, /\bpemarkahan\b/i, /\bsenarai rata\b/i, /\bjejak organisasi\b/i, /\btidak pernah\b/i, /\bnama keluarga\b/i];
   texts.forEach(([f, t]) => FORBIDDEN.forEach((re) => assert.doesNotMatch(t, re, f + ' ' + re)));
-  // "keputusan seri" only for a drawn match: the two places that mean one
+  // "keputusan seri" only for a drawn match: where there are none, or one was saved in an older event
   const seri = texts.reduce((a, [f, t]) => a.concat((t.match(/.{0,40}keputusan seri.{0,30}/gi) || []).map((x) => f + ': ' + x)), []);
-  assert.ok(seri.every((x) => /Tiada keputusan seri\. Pemenang|tiada keputusan seri disimpan/.test(x)), seri.join('\n'));
+  assert.ok(seri.every((x) => /Tiada keputusan seri[.:]|tiada keputusan seri disimpan|keputusan seri yang disimpan dalam acara|kini tiada keputusan seri/.test(x)), seri.join('\n'));
   const help = texts.find(([f]) => f === 'ms/help.html')[1];
-  ['sama mata', 'kedudukan sama mata', 'membuat undian', 'carta dua bahagian', 'Keputusan muktamad', 'pencatat skor (marker)', 'Mendatang', 'Group Boards', 'peserta'].forEach((w) => assert.ok(help.includes(w), 'uses ' + w));
+  // "Marker" stays "Marker" in BM (owner, 2026-10-29)
+  ['sama mata', 'kedudukan sama mata', 'membuat undian', 'carta dua bahagian', 'Keputusan muktamad', 'Marker', 'Mendatang', 'Group Boards', 'peserta'].forEach((w) => assert.ok(help.includes(w), 'uses ' + w));
   // the first running-text mention of bracket in an article (not a label in <b>) carries the gloss
   const missing = [];
   MS_HELP.sections.forEach((s) => s.items.forEach((it) => {

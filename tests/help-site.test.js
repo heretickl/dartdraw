@@ -281,7 +281,7 @@ test('the buttons, labels and messages the guide quotes still exist in app.html 
     'Flat list', 'Grouped view', 'Confirm this chart', 'Generate bracket', 'Regenerate bracket', 'Print bracket pack',
     'Include the rules & format sheet as the first page of the pack', 'Include sponsor footer on printed charts',
     'Team match segments (played in order)', '+ Add segment', 'A tie-breaker might be needed', 'A team can win at most ', 'Use a tie-breaker in round robin matches', 'Use a tie-breaker in knockout matches', 'Games have started, so the segments are locked', 'Games have started, so the format of this Teams event can', 'play one more deciding leg and include it in the totals', 'Use an odd best of', 'Start round',
-    'Knockout type', 'Single bracket', 'Group Boards, then finals', 'This is a knockout match — it can\'t end level', 'Level totals are a draw (1 point each).',
+    'Knockout type', 'Single bracket', 'Group Boards, then finals', 'This is a knockout match — it can\'t end level', 'Level totals are a draw (no points for either team).',
     'Also print a lineup/scorecard sheet for each fixture, for captains to fill in on the day', 'TOTAL POINTS', 'Team name', 'Pair name',
     'Knockout bracket paper size', 'Players A–Z', 'Draw groups', 'Move…', 'Winner of Group', 'no winner',
     'Print all ready lineup sheets', 'Print lineup', 'Print again', 'Print empty lineup sheet', 'Lineup sheets', '>Printed<', ' (recommended)', 'Split over ', ' A4 sheets', 'Keep ',

@@ -29,7 +29,7 @@ const holes = (v) => [...new Set(forms(v).join(' ').match(/\{\w+\}/g) || [])].so
 
 /* Values that are deliberately the same in both languages: codes, symbols, kept darts words, names, numbers and patterns
    whose words are all kept (Round Robin, Group Boards, Board N, OK, Pro, Edit, Format, Logo). */
-const SAME = new Set(['m.ok', 'list.sep', 'fmt.roundrobin', 'seg.numbered', 'ko.cl.score', 'ko.cl.scoreWo', 'ko.cl.line', 'dur.line', 'dur.rr', 'org.pro',
+const SAME = new Set(['m.ok', 'sheet.marker', 'list.sep', 'fmt.roundrobin', 'seg.numbered', 'ko.cl.score', 'ko.cl.scoreWo', 'ko.cl.line', 'dur.line', 'dur.rr', 'org.pro',
   'saved.line', 'cw.sub', 'sum.edit', 'sum.format', 'sum.logo', 'cc.board', 'boards.list', 'tooMany.withHint', 'sheet.tbItem', 'paper.fitItem', 'nw.rr', 'jump.rr',
   's2.rr', 's2.secFormat', 'pods.countOf', 'bp.board', 'br.bracket', 's1.basic' /* no: Asas */, 'pods.boardsLabel', 's3.boardsLabel', 'dur.rr']);
 SAME.delete('s1.basic');

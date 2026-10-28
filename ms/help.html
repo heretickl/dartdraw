@@ -721,7 +721,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <li><b>Tukar dengan&hellip;</b> membuka senarai kumpulan dan kedudukan. Pilih satu. Jika ia sudah diisi, dua peserta bertukar tempat. Jika ia kosong, peserta berpindah ke situ.</li>
 <li>Setiap kumpulan mempunyai board. Dalam Paparan kumpulan anda menanda <b>Board</b>. Kumpulan di board yang sama bermain secara bergilir-gilir. Tandakan lebih daripada satu board untuk berkongsi perlawanan sesuatu kumpulan antara board itu.</li>
 </ul>
-<p>Perlawanan pertama pada setiap carta ialah 1 lwn 2. Setiap carta juga menyenaraikan susunan perlawanan dan mencadangkan pencatat skor (marker) bagi setiap perlawanan, dipilih daripada peserta lain dalam kumpulan. Acara berpasukan tidak mempunyai pencatat skor: setiap pasukan mencatat skor perlawanannya sendiri pada borang barisan.</p>
+<p>Perlawanan pertama pada setiap carta ialah 1 lwn 2. Setiap carta juga menyenaraikan susunan perlawanan dan mencadangkan Marker (orang yang mencatat skor) bagi setiap perlawanan, dipilih daripada peserta lain dalam kumpulan. Acara berpasukan tidak mempunyai pencatat skor: setiap pasukan mencatat skor perlawanannya sendiri pada borang barisan.</p>
 
 <h4 id="draw-knockout">Membuat undian bracket kalah mati</h4>
 <p><b>Kalah mati</b> tidak mempunyai kumpulan untuk diundi. Tetapkan seed di langkah 3 jika anda mahu (lihat <a href="#seeds">Seed</a>), kemudian klik <b>Jana bracket</b> di langkah 4. Bye diberikan kepada seed terbaik; lihat <a href="#faq-byes">Bagaimana bye ditentukan dalam kalah mati?</a></p>
@@ -1223,8 +1223,8 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <dl class="glossary">
 <dt id="glossary-leg">Leg, dan terbaik daripada</dt>
 <dd>Leg ialah satu permainan dart. Perlawanan ialah &ldquo;terbaik daripada&rdquo; sejumlah leg: dalam terbaik daripada 5, yang pertama memenangi 3 leg memenangi perlawanan. Anda menaip leg yang dimenangi setiap pihak, contohnya 3 dan 1. <span class="eg">Langkah 2: <b>Leg (terbaik daripada)</b>; carta bercetak: &ldquo;Terbaik daripada 5 Leg&rdquo;.</span></dd>
-<dt id="glossary-marker">Pencatat skor (marker)</dt>
-<dd>Orang yang mencatat skor di board bagi sesuatu perlawanan, biasanya peserta lain dari kumpulan yang sama yang tidak bermain. DartDraw mencadangkan seorang bagi setiap perlawanan; acara berpasukan tidak mempunyainya. <span class="eg">Senarai perlawanan pada setiap carta: &ldquo;Perlawanan 1 &middot; 1 lwn 2 &middot; Pencatat: 3&rdquo; (nombor ialah tempat dalam kumpulan).</span></dd>
+<dt id="glossary-marker">Marker</dt>
+<dd>Orang yang mencatat skor di board bagi sesuatu perlawanan, biasanya peserta lain dari kumpulan yang sama yang tidak bermain. DartDraw mencadangkan seorang bagi setiap perlawanan; acara berpasukan tidak mempunyainya. <span class="eg">Senarai perlawanan pada setiap carta: &ldquo;Perlawanan 1 &middot; 1 lwn 2 &middot; Marker: 3&rdquo; (nombor ialah tempat dalam kumpulan).</span></dd>
 <dt id="glossary-start">Mulakan semua perlawanan, Mulakan pusingan</dt>
 <dd><b>Mulakan semua perlawanan</b> membuka pencatatan skor bagi setiap kumpulan yang disahkan serentak. <b>Mulakan pusingan</b> dalam kalah mati memberitahu DartDraw bila sesuatu pusingan bermula, supaya ia boleh membandingkan jam dengan anggarannya. Dalam acara berpasukan, memulakan perlawanan juga mengunci segmen. <span class="eg">Langkah 5.</span></dd>
 <dt id="glossary-walkover">Walkover (WO)</dt>
@@ -1246,11 +1246,11 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <dt id="glossary-standings">Kedudukan</dt>
 <dd>Jadual di bawah setiap carta kumpulan: siapa di tempat mana, dikira daripada keputusan. <span class="eg">Langkah 5: &ldquo;Kedudukan&rdquo;; langkah 6: <b>Muktamadkan Kedudukan</b>.</span></dd>
 <dt id="glossary-columns">Ked., Main, M, K, S, LM, +/-, Mata</dt>
-<dd>Kedudukan; perlawanan dimainkan; perlawanan dimenangi; perlawanan kalah; perlawanan seri (hanya round robin berpasukan boleh ada seri); leg dimenangi; beza leg (leg dimenangi tolak leg kalah); mata. Menang bernilai 2 mata, seri 1, kalah 0. <span class="eg">Jadual kedudukan; carta bercetak: &ldquo;Mata: Menang 2 &middot; Seri 1 &middot; Kalah 0&rdquo;.</span></dd>
+<dd>Kedudukan; perlawanan dimainkan; perlawanan dimenangi; perlawanan kalah; perlawanan seri (hanya untuk keputusan seri yang disimpan dalam acara lama: kini tiada keputusan seri); leg dimenangi; beza leg (leg dimenangi tolak leg kalah); mata. Menang bernilai 1 mata dan kalah 0. <span class="eg">Jadual kedudukan; carta bercetak: &ldquo;Mata: Menang 1 &middot; Kalah 0&rdquo;.</span></dd>
 <dt id="glossary-tb">TB, H2H, BL, LM dan ?</dt>
 <dd>Lajur TB menunjukkan pemecah seri mana yang memisahkan dua peserta yang sama mata: H2H (head-to-head, iaitu keputusan perlawanan sesama mereka), BL (beza leg) atau LM (leg dimenangi). &ldquo;3 hala&rdquo; bermaksud tiga peserta sama mata. Tanda <b>?</b> bermaksud mereka masih sama mata selepas setiap peraturan: anda yang menentukan. <span class="eg">Lajur TB dalam jadual kedudukan.</span></dd>
 <dt id="glossary-tie-break">Susunan pemecah seri</dt>
-<dd>Susunan peraturan tersebut. Anda boleh mengubahnya dalam persediaan Lanjutan. <span class="eg">Langkah 2: <b>Susunan pemecah seri</b>; carta bercetak: &ldquo;Pemecah seri: 1) Keputusan perlawanan sesama mereka&hellip;&rdquo;.</span></dd>
+<dd>Susunan peraturan tersebut. Anda boleh mengubahnya dalam persediaan Lanjutan. <span class="eg">Langkah 2: <b>Susunan pemecah seri</b>; carta bercetak: &ldquo;Pemecah seri: 1) Leg dimenangi&hellip;&rdquo;.</span></dd>
 <dt id="glossary-manual">* (bintang)</dt>
 <dd>Kedudukan yang anda tetapkan secara manual. <span class="eg"><b>Laraskan kedudukan&hellip;</b>; carta bercetak: &ldquo;* Kedudukan ditetapkan secara manual oleh penganjur&rdquo;.</span></dd>
 <dt id="glossary-qualifier">Yang layak, mara</dt>
@@ -1373,12 +1373,12 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
     <details class="faq" id="faq-tie-breaks" data-item data-group="faq" data-kind="faq" data-keywords="sama mata kedudukan sama mata seri mata sama pemecah seri h2h perlawanan sesama mereka head to head tie tied level tiebreak tie break">
       <summary>Bagaimana pemecah seri berfungsi?</summary>
       <div class="faq-body">
-<p>Peserta disusun mengikut mata dahulu. Menang bernilai 2 mata, seri 1 dan kalah 0. Keputusan dimasukkan sebagai perlawanan yang telah tamat, jadi sentiasa ada pemenang, kecuali dalam round robin berpasukan tanpa pemecah seri, kerana dalam format itu jumlah yang sama dikira seri.</p>
+<p>Peserta disusun mengikut mata dahulu. Menang bernilai 1 mata dan kalah 0. Tiada keputusan seri: setiap skor mesti ada pemenang, dan dalam round robin berpasukan jumlah leg yang sama diputuskan oleh pemecah seri.</p>
 <p>Apabila peserta mempunyai mata yang sama, DartDraw menggunakan <b>Susunan pemecah seri</b> anda. Susunan lalai ialah:</p>
 <ol>
-<li><b>Keputusan perlawanan sesama mereka</b> (head-to-head): sesiapa yang memenangi perlawanan antara mereka berada di hadapan.</li>
-<li><b>Beza leg</b>: leg dimenangi tolak leg kalah bagi seluruh kumpulan.</li>
 <li><b>Leg dimenangi</b>: leg paling banyak dimenangi bagi seluruh kumpulan.</li>
+<li><b>Beza leg</b>: leg dimenangi tolak leg kalah bagi seluruh kumpulan.</li>
+<li><b>Keputusan perlawanan sesama mereka</b> (head-to-head): sesiapa yang memenangi perlawanan antara mereka berada di hadapan.</li>
 <li><b>Keputusan penganjur / perlawanan penentuan</b>: tiada yang automatik. Ia terserah kepada anda.</li>
 </ol>
 <p>Apabila tiga atau lebih peserta sama mata, ketiga-tiga peraturan (keputusan perlawanan sesama mereka, beza leg dan leg dimenangi) hanya menggunakan perlawanan sesama peserta tersebut. Jika sesuatu peraturan memisahkan sebahagian daripada mereka, peserta yang masih sama mata disusun semula dengan peraturan yang sama, mengikut urutan.</p>

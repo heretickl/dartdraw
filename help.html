@@ -1247,11 +1247,11 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <dt id="glossary-standings">Standings</dt>
 <dd>The table under each group chart: who is where, worked out from the results. <span class="eg">Step 5: &ldquo;Standings&rdquo;; step 6: <b>Finalize Standings</b>.</span></dd>
 <dt id="glossary-columns">Pos., MP, MW, ML, MD, LW, +/-, Pts</dt>
-<dd>Position; matches played; matches won; matches lost; matches drawn (only a Teams round robin can have draws); legs won; leg difference (legs won minus legs lost); points. A win is 2 points, a draw 1, a loss 0. <span class="eg">The standings table; printed charts: &ldquo;Points: Win 2 &middot; Draw 1 &middot; Loss 0&rdquo;.</span></dd>
+<dd>Position; matches played; matches won; matches lost; matches drawn (shown only for a draw saved in an older event: there are no draws now); legs won; leg difference (legs won minus legs lost); points. A win is 1 point and a loss 0. <span class="eg">The standings table; printed charts: &ldquo;Points: Win 1 &middot; Loss 0&rdquo;.</span></dd>
 <dt id="glossary-tb">TB, H2H, LD, LW and ?</dt>
 <dd>The TB column shows which tie-break separated two entries level on points: H2H (head-to-head: the match between them), LD (leg difference) or LW (legs won). &ldquo;3-way&rdquo; means three entries were level. A <b>?</b> means they are still level after every rule: you decide. <span class="eg">The TB column of the standings table.</span></dd>
 <dt id="glossary-tie-break">Tie-break order</dt>
-<dd>The order of those rules. You can change it in Advanced setup. <span class="eg">Step 2: <b>Tie-break order</b>; printed charts: &ldquo;Tie-break: 1) Head-to-head result&hellip;&rdquo;.</span></dd>
+<dd>The order of those rules. You can change it in Advanced setup. <span class="eg">Step 2: <b>Tie-break order</b>; printed charts: &ldquo;Tie-break: 1) Legs won&hellip;&rdquo;.</span></dd>
 <dt id="glossary-manual">* (asterisk)</dt>
 <dd>A position you set by hand. <span class="eg"><b>Adjust positions&hellip;</b>; printed charts: &ldquo;* Position set manually by organiser&rdquo;.</span></dd>
 <dt id="glossary-qualifier">Qualifier, goes through</dt>
@@ -1374,12 +1374,12 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
     <details class="faq" id="faq-tie-breaks" data-item data-group="faq" data-kind="faq" data-keywords="tie tied level h2h head to head tiebreak tie break level on points">
       <summary>How do tie-breaks work?</summary>
       <div class="faq-body">
-<p>Entries are ranked by points first. A win is 2 points, a draw 1 and a loss 0. Results are entered as finished matches, so there is always a winner, except in a Teams round robin without a tie-breaker, where a level total is a draw.</p>
+<p>Entries are ranked by points first. A win is 1 point and a loss 0. There are no draws: a score must have a winner, and in a Teams round robin a level total goes to the tie-breaker.</p>
 <p>When entries have the same points, DartDraw uses your <b>Tie-break order</b>. The default is:</p>
 <ol>
-<li><b>Head-to-head result</b>: whoever won the match between them goes ahead.</li>
-<li><b>Leg difference</b>: legs won minus legs lost over the whole group.</li>
 <li><b>Legs won</b>: the most legs won over the whole group.</li>
+<li><b>Leg difference</b>: legs won minus legs lost over the whole group.</li>
+<li><b>Head-to-head result</b>: whoever won the match between them goes ahead.</li>
 <li><b>Organiser decision / playoff</b>: nothing automatic. It is down to you.</li>
 </ol>
 <p>With three or more entries level, head-to-head, leg difference and legs won use only the matches those entries played against each other. If a rule separates some of them, the entries still level are sorted again by the rules, in order.</p>
