@@ -494,6 +494,8 @@ function qualifyLineHTML(){
 function markedStandingsHTML(g, st){
   var q = qualifiersPerGroup(), i = 0;
   var html = standingsTableHTML(g, st);
+  // MD only shows when a match was drawn; the class tells the phone layout which columns are LW and +/-
+  if(st.some(function(s){ return s.draws>0; })) html = html.replace('<table class="std-table">', '<table class="std-table has-draws">');
   if(!q) return html;
   return html.replace(/<td class="pos">([^<]*)<\/td>/g, function(all, pos){
     return (i++ < q) ? '<td class="pos q">'+pos+'<span class="sr"> ('+escapeHtml(T('ev.q.sr'))+')</span></td>' : all;
