@@ -216,8 +216,7 @@ test('the BM spectator Help quotes every on-screen label exactly as the BM viewe
   // Help prose, examples and codes that are not screen labels
   const PROSE = new Set(['', 'tidak', 'pemain', 'pasukan', 'Hakim / Iskandar', 'mana anak saya', 'Kumpulan round robin', 'Acara kalah mati', 'Acara Group Boards', 'Di mana pemain saya?',
     'Adakah ia sedang berlangsung?', '2 mata', '1 mata', '0 mata', '1 Aiden Tan', 'A1', 'B2', '1-2', 'P2-1', 'G2·1-1', '×', '1-1', 'Pemecah seri', 'pemecah seri']);
-  // Labels the Help names that the viewer does not show (known, reported): "Reconnecting" was never on the page.
-  const KNOWN_GAP = new Set(['Menyambung semula']);
+  const KNOWN_GAP = new Set();
   const values = Object.values(MS).concat(Object.values(RMS)).map((v) => require('./lib/viewer-screens').decode(v.replace(/<[^>]+>/g, '')));
   const pattern = (v) => new RegExp('^' + v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\{\w+\\\}/g, '.+?') + '$');
   const pats = values.map(pattern);
