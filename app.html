@@ -227,6 +227,7 @@ input[type="date"]::-webkit-date-and-time-value,input[type="time"]::-webkit-date
 .num{border:1px solid #8997a6;background:#eef1f3;border-radius:50%;width:20px;height:20px;display:grid;place-items:center;font-size:10px;flex-shrink:0}
 .diag{background:repeating-linear-gradient(-45deg,#e7eaed 0,#e7eaed 4px,#f8f8f8 4px,#f8f8f8 8px);display:grid;place-items:stretch;color:#71808d;font-size:8px;padding:3px;box-sizing:border-box}
 .diag-logo{width:100%;height:100%;min-width:0;min-height:0;border:1px solid #1a1a1a;border-radius:6px;background:#fff;display:grid;place-items:stretch;font-size:5px;font-weight:800;overflow:hidden;box-sizing:border-box;padding:0}
+.diag:has(.diag-logo img){background:#fff}
 .diag-logo:not(:has(img)){padding:2px;place-items:center;border:1px dashed #8192a1}
 .diag-logo.diag-logo-blank{padding:0;border:1px solid #000;background:#000}
 .diag-logo img{width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;display:block}
@@ -5887,7 +5888,10 @@ function mainLogoBoxHTML(){
 function diagLogoBoxHTML(){
   const t = state;
   if(t.format.logo){
-    return '<span class="diag-logo"><img src="'+imgSrc(t.format.logo)+'"></span>';
+    /* The same size as the logo at the top of the sheet (mainLogoBoxHTML), centred in the cell: a full-cell logo made
+       every row as tall as the image and pushed the footer (sponsor logos) off an A4 page. */
+    const box = fitBox(t.format.logoAspect||1, 88, 64, 40, 40);
+    return '<span class="diag-logo" style="width:'+box.w+'px;height:'+box.h+'px;max-width:100%;max-height:100%;place-self:center"><img src="'+imgSrc(t.format.logo)+'"></span>';
   }
   return '<span class="diag-logo diag-logo-blank"></span>';
 }
