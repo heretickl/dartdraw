@@ -1140,6 +1140,54 @@ function filterCheckinList(){
 }
 function toggleCheckedIn(id, val){ const e=state.entriesList.find(x=>x.id===id); if(e){ e.checkedIn=val; persist(); render(); } }
 function checkInAll(){ state.entriesList.forEach(e=>{ if(!e.withdrawn) e.checkedIn=true; }); persist(); render(); }
+/* ---------- Draw timing: draw before check-in, or after it ----------
+   state.drawAfterCheckIn: undefined = not chosen yet (asked at the first draw: Random draw, Generate bracket, the
+   Group Boards draw), false = draw now as before, true = the draw waits until every entry is checked in or marked
+   absent (withdrawn, so left out). Only the FIRST draw asks or waits; a re-draw never does. */
+function drawCheckInStatus(){
+  const active = state.entriesList.filter(e=> !e.withdrawn);
+  const ready = active.filter(e=> e.checkedIn).length;
+  return { total: active.length, ready, ok: active.length>0 && ready===active.length };
+}
+function drawWaitsForCheckIn(){ return state.drawAfterCheckIn===true && !drawCheckInStatus().ok; }
+function drawTimingGate(go){
+  if(state.drawAfterCheckIn===false){ go(); return; }
+  if(state.drawAfterCheckIn===true){
+    const s = drawCheckInStatus();
+    if(s.ok){ go(); return; }
+    openModal({ title:T('dt.waitTitle'), body:T('dt.waitText', {ready: s.ready, n: s.total}), confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{} });
+    return;
+  }
+  openModal({ title:T('dt.title'), bodyHTML:'<p>'+T('dt.text')+'</p>',
+    confirmLabel:T('dt.now'), confirmClass:'primary',
+    secondaryLabel:T('dt.after'), secondaryClass:'secondary',
+    onConfirm:()=>{ state.drawAfterCheckIn = false; persist(); setTimeout(go, 0); },   // after the box has closed, so a box the draw opens stays
+    onSecondary:()=>{ state.drawAfterCheckIn = true; persist(); render(); } });
+}
+function setDrawAfterCheckIn(v){ state.drawAfterCheckIn = !!v; persist(); render(); }
+function markAbsent(id){ const e = state.entriesList.find(x=> x.id===id); if(e && !withdrawBlock(state, id)){ e.withdrawn = true; e.checkedIn = false; persist(); render(); } }
+function undoAbsent(id){ const e = state.entriesList.find(x=> x.id===id); if(e){ e.withdrawn = false; persist(); render(); } }
+/* The check-in list shown before the draw while it waits for check-in (step 3, or step 4 for a knockout). '' otherwise. */
+function drawCheckInPanelHTML(drawn){
+  if(state.drawAfterCheckIn!==true || drawn) return '';
+  const s = drawCheckInStatus();
+  const unitWord = unitNoun(state.eventCreation.competitionUnit, 1);
+  const active = state.entriesList.filter(e=> !e.withdrawn), absent = state.entriesList.filter(e=> e.withdrawn);
+  const row = (e)=> '<div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-top:1px solid var(--line)">'+
+    '<label style="display:flex;align-items:center;gap:9px;flex:1;cursor:pointer"><input type="checkbox" style="width:auto;height:auto" '+(e.checkedIn?'checked':'')+' onchange="toggleCheckedIn(\''+escJs(e.id)+'\',this.checked)"> '+escapeHtml(e.name)+'</label>'+
+    '<button class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="markAbsent(\''+escJs(e.id)+'\')">'+T('dt.absent')+'</button></div>';
+  const absentRow = (e)=> '<div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-top:1px solid var(--line);color:var(--muted)">'+
+    '<span style="flex:1;text-decoration:line-through">'+escapeHtml(e.name)+'</span><span style="font-size:11px">'+T('dt.isAbsent')+'</span>'+
+    '<button class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="undoAbsent(\''+escJs(e.id)+'\')">'+T('dt.undo')+'</button></div>';
+  return '<div class="card"><h2>'+T('dt.panelTitle')+'</h2><p class="intro">'+T('dt.panelIntro', {unit: unitWord})+'</p>'+
+    '<div class="buttonrow" style="margin:0 0 10px;align-items:center">'+
+      '<button class="btn ghost" '+(s.ok?'disabled':'')+' onclick="checkInAll()">'+T('checkin.all')+'</button>'+
+      '<span class="hint" style="margin:0"><b>'+T('dt.ready', {ready: s.ready, n: s.total})+'</b></span>'+
+      '<span style="margin-left:auto;font-size:12px;text-decoration:underline;cursor:pointer;color:var(--muted)" onclick="setDrawAfterCheckIn(false)">'+T('dt.drawNowInstead')+'</span>'+
+    '</div>'+
+    '<div class="checkin-list">'+active.map(row).join('')+absent.map(absentRow).join('')+'</div>'+
+  '</div>';
+}
 function notCheckedInEntries(ids){
   const set = ids ? new Set(ids) : null;
   return state.entriesList.filter(e=> !e.withdrawn && !e.checkedIn && (!set || set.has(e.id)));
@@ -3024,7 +3072,14 @@ function buildGroups(t){
   const activeEntries = t.entriesList.filter(e=>!e.withdrawn);
   const n = activeEntries.length;
   const maxPer = parseInt(t.format.maxPerGroup)||4;
-  const numGroups = Math.max(1, Math.ceil(n/maxPer));
+  /* How many groups: the started ones keep their entries (even above maxPer, e.g. after the maximum was lowered), and
+     only the entries NOT in a started group are split by maxPer. Counting every entry against maxPer instead added
+     empty groups at the end whenever started groups held more than the new maximum. A started group is never
+     dropped (the count reaches at least the last one). */
+  const activeIds = new Set(activeEntries.map(e=> e.id));
+  const startedAt = t.groups.map((g,i)=> g.gameStarted ? i : -1).filter(i=> i>=0);
+  const inStarted = t.groups.filter(g=> g.gameStarted).reduce((sum,g)=> sum + g.entryIds.filter(id=> activeIds.has(id)).length, 0);
+  const numGroups = Math.max(1, startedAt.length ? startedAt[startedAt.length-1]+1 : 0, startedAt.length + Math.ceil((n - inStarted)/maxPer));
   const numBoards = Math.max(1, parseInt(t.eventCreation.boards)||4);
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const existing = {};
@@ -3039,7 +3094,12 @@ function buildGroups(t){
   }
   // distribute entries round-robin across groups for balance, preserving existing assignment where possible
   const assigned = new Set();
-  newGroups.forEach(g=>{ g.entryIds = g.entryIds.filter(id=> activeEntries.some(e=>e.id===id)); g.entryIds.forEach(id=>assigned.add(id)); });
+  newGroups.forEach(g=>{
+    g.entryIds = g.entryIds.filter(id=> activeIds.has(id));
+    /* A group that has not started gives back what is over the maximum (the last entries), to be placed again below. */
+    if(!g.gameStarted && g.entryIds.length > maxPer) g.entryIds = g.entryIds.slice(0, maxPer);
+    g.entryIds.forEach(id=>assigned.add(id));
+  });
   const unassigned = activeEntries.filter(e=>!assigned.has(e.id));
   /* A group's lineup locks the moment its games start — buildGroups will
      never place a new/unassigned entry into one, even if it has room
@@ -3116,10 +3176,10 @@ function shuffleGroups(){
 }
 function confirmShuffleGroups(){
   /* The very first draw has nothing to lose — no existing arrangement to
-     discard, nothing to un-confirm — so it runs immediately with no
-     confirmation. Only a re-draw (groups already exist) is destructive
-     enough to warn about. */
-  if(!state.groups.length){ shuffleGroups(); return; }
+     discard, nothing to un-confirm — so it runs with no confirmation, only
+     the draw-timing question (drawTimingGate). Only a re-draw (groups
+     already exist) is destructive enough to warn about. */
+  if(!state.groups.length){ drawTimingGate(shuffleGroups); return; }
   const busy = groupsInPlayLabels(state);
   if(busy.length){ rosterLockedModal('redraw', busy); return; }
   openModal({
@@ -4136,7 +4196,22 @@ function goStage(n){
   if(n>2 && !state.format.saved){ return; }
   if(n>3 && !state.entriesList.length){ return; }
   if(n>=6 && blockForUnresolvedTies()) return;
-  if(n!==2) teamSegDraft = null;   // leaving Format & branding without Save drops unsaved segment edits
+  /* Steps 1 and 2 keep what was typed only on their Save button. Leaving one with a box changed would drop it without
+     a word, so ask: save (then go on), leave without saving, or stay (Cancel). Run after the dialog has closed, so a
+     message the save opens (a check that failed, groups re-arranged) stays on screen. */
+  if((currentStage===1 || currentStage===2) && n!==currentStage && (stageFormDirty() || (currentStage===2 && stage2Changed()))){
+    const from = currentStage;
+    openModal({ title:T('leave.title'), body:T('leave.text'),
+      confirmLabel:T('leave.save'), confirmClass:'primary',
+      secondaryLabel:T('leave.discard'), secondaryClass:'secondary',
+      onSecondary:()=>{ setTimeout(()=>{ if(from===2 && stage2Entry && stage2Entry.id===state.id) state.format.formatType = stage2Entry.formatType; goStageNow(n); }, 0); },
+      onConfirm:()=>{ setTimeout(()=>{ (from===1 ? saveStage1 : saveStage2)(); if(currentStage!==from && currentStage!==n) goStageNow(n); }, 0); } });
+    return;
+  }
+  goStageNow(n);
+}
+function goStageNow(n){
+  if(n!==2){ teamSegDraft = null; stage2Entry = null; }   // leaving Format & branding without Save drops unsaved segment edits
   currentStage = n;
   render();
 }
@@ -5240,8 +5315,20 @@ function collapsibleSectionHTML(key, title, subHTML, bodyHTML){
   '</div>';
 }
 /* ---------- Stage 2: Format & Branding ---------- */
+/* What step 2 looked like when it was opened: the format cards change state.format.formatType at once (not a box), so
+   leaving without Save compares against this, and "Leave without saving" puts it back. */
+let stage2Entry = null;
+function stage2Changed(){
+  if(!stage2Entry || !state || stage2Entry.id!==state.id) return false;
+  if(state.format.formatType!==stage2Entry.formatType) return true;
+  const d = teamSegDraft;
+  if(!d || d.id!==state.id || !isTeamsEvent(state)) return false;
+  const tbKey = (tb)=> JSON.stringify([tb.type, tb.startingScore, tb.legs, !!tb.inKnockout, teamRrTieBreakerForced(state) ? true : !!tb.inRoundRobin]);
+  return JSON.stringify(d.segments.map(cleanSegment))!==JSON.stringify(teamSegmentsOf(state)) || tbKey(cleanTieBreaker(d.tieBreaker))!==tbKey(teamTieBreakerDef(state));
+}
 function stage2(){
   const f = state.format;
+  if(!stage2Entry || stage2Entry.id!==state.id) stage2Entry = { id:state.id, formatType:f.formatType };
   const n = state.eventCreation.entries;
   const rec = recommendGroups(n);
   const bracket = nearestBracket(n);
@@ -5888,9 +5975,12 @@ async function handleLogoUpload(input){
   const { dataUrl, w, h } = await resizeImageFile(file, 600, 600);
   state.format.logo = dataUrl;
   state.format.logoAspect = w/h;
+  /* Saved at once, like the sponsor shape: an image the organiser picked must not depend on Save format & branding
+     (leaving the step, a reload or a background refresh on a later step would lose it). */
+  persist();
   render();
 }
-function clearLogo(){ state.format.logo = null; state.format.logoAspect = null; render(); }
+function clearLogo(){ state.format.logo = null; state.format.logoAspect = null; persist(); render(); }
 /* Issue 1: logo box hugs the actual uploaded logo's aspect ratio (bounded by a max
    envelope) instead of forcing every logo into the same fixed square — no more
    letterboxed empty space, and nothing gets clipped since box == image shape. */
@@ -5924,12 +6014,14 @@ async function handleSponsorUpload(input){
     // a tall or squarish logo gets the square box, a wide one the wide box (the organiser can still change it)
     state.format.sponsors.push({ src:dataUrl, shape: w/h < 1.6 ? 'square' : 'rect' });
   }
+  persist();   // saved at once (see handleLogoUpload)
   render();
 }
-function removeSponsor(i){ state.format.sponsors.splice(i,1); render(); }
+function removeSponsor(i){ state.format.sponsors.splice(i,1); persist(); render(); }
 function setSponsorShape(i, shape){ state.format.sponsors[i].shape = shape; persist(); render(); }
 function saveStage2(){
   const f = state.format;
+  const maxBefore = parseInt(f.maxPerGroup)||4;
   const advanced = !!state.eventCreation.advancedMode;
   /* Teams: an even best of can end level; nothing is saved until it is odd. */
   const oddLegs = teamDraftOddLegsError();
@@ -5999,10 +6091,18 @@ function saveStage2(){
      ungrouped in the flat list until then. Once a draw has happened,
      format edits here (max per group, org-split, etc.) keep reconciling
      it automatically, same as before. */
-  if((f.formatType==='roundrobin' || f.formatType==='rrknockout') && state.groups.length){ buildGroups(state); }
+  stage2Entry = null;   // saved: nothing left to compare
+  const regroup = (f.formatType==='roundrobin' || f.formatType==='rrknockout') && state.groups.length;
+  if(regroup){ buildGroups(state); }
   persist();
   currentStage = 3;
   render();
+  /* Max per group changed after the draw: say what happened to the groups (started ones keep their entries). */
+  if(regroup && (parseInt(f.maxPerGroup)||4)!==maxBefore){
+    const started = state.groups.filter(g=> g.gameStarted).map(g=> escText(g.label));
+    openModal({ title:T('s2.maxChangedTitle'), body: started.length ? T('s2.maxChangedStarted', {n: escText(f.maxPerGroup), groups: started.join(', ')}) : T('s2.maxChanged', {n: escText(f.maxPerGroup)}),
+      confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{} });
+  }
 }
 function formatSummaryCard(){
   const f = state.format;
@@ -6029,7 +6129,7 @@ function stage3(){
      withdrawals, etc.) — never performs the first draw itself. Entries
      stay ungrouped until the organiser explicitly clicks Random draw. */
   if(state.groups.length) buildGroups(state);
-  return competitionDurationSummaryHTML(state) + entriesPanel() + printControls();
+  return competitionDurationSummaryHTML(state) + drawCheckInPanelHTML(!!state.groups.length) + entriesPanel() + printControls();
 }
 /* Pure knockout only — which of the (already fully-ordered) seed list
    counts as officially "seeded" for display on the printed chart. Every
@@ -6154,7 +6254,7 @@ function entriesPanel(){
     ? T('s3.busy', {n: busy.length, labels: busy.join(', ')})
     : T(drawn ? (org ? 's3.redealOrg' : 's3.redeal') : (org ? 's3.notDrawnOrg' : 's3.notDrawn'));
   const viewToggle = '<div class="buttonrow" style="margin:0 0 10px;align-items:center">'+
-      '<button class="'+drawBtnClass+'"'+(busy.length?' disabled':'')+' onclick="confirmShuffleGroups()">'+T('s3.randomDraw')+'</button>'+
+      '<button class="'+drawBtnClass+'"'+(busy.length || (!drawn && drawWaitsForCheckIn())?' disabled':'')+' onclick="confirmShuffleGroups()">'+T('s3.randomDraw')+'</button>'+
       '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" style="width:auto;height:auto" '+(state.format.orgSplit?'checked':'')+' onchange="setStage3OrgSplit(this.checked)"> '+T('s3.avoidOrg')+'</label>'+
     '</div>'+
     '<div class="hint" style="margin:0 0 14px">'+drawHint+'</div>'+
@@ -7284,11 +7384,11 @@ function lineupSheetToggleHTML(){
 function stage4Knockout(){
   ensureSeedOrder(state);
   const seeded = !!state.format.seedingEnabled;
-  let html = competitionDurationSummaryHTML(state) + checkInCardHTML();
+  let html = competitionDurationSummaryHTML(state) + (state.drawAfterCheckIn===true && !state.knockout ? drawCheckInPanelHTML(false) : checkInCardHTML());
   html += '<div class="card"><h2>'+T('s4k.title')+'</h2><p class="intro">'+T(seeded ? 's4k.introSeeded' : 's4k.introRandom')+'</p>'+
     (state.knockout ? publishForQrNoteHTML() : '')+
     '<div class="buttonrow">'+
-      '<button class="btn primary" onclick="regenerateKnockoutBracket()">'+T(state.knockout ? 's4k.regenerate' : 's4k.generate')+'</button>'+
+      '<button class="btn primary"'+(!state.knockout && drawWaitsForCheckIn() ? ' disabled' : '')+' onclick="regenerateKnockoutBracket()">'+T(state.knockout ? 's4k.regenerate' : 's4k.generate')+'</button>'+
       (state.knockout?'<button class="btn secondary" onclick="doFinalPrint()">'+T('s4.printPack')+'</button>':'')+
       (state.knockout?'<button class="btn primary" onclick="goStage(5)">'+T('s4.continue')+'</button>':'')+
     '</div>'+sheetLangRowHTML()+lineupSheetToggleHTML()+(state.knockout ? koPaperPanelHTML() : '')+'</div>';
@@ -7296,6 +7396,10 @@ function stage4Knockout(){
   return html;
 }
 function regenerateKnockoutBracket(){
+  if(!state.knockout && state.drawAfterCheckIn!==false && !regenerateKnockoutBracket.asked){
+    drawTimingGate(()=>{ regenerateKnockoutBracket.asked = true; try{ regenerateKnockoutBracket(); } finally { regenerateKnockoutBracket.asked = false; } });
+    return;
+  }
   const seeded = !!state.format.seedingEnabled;
   ensureSeedOrder(state);
   if(state.seedOrder.length > BRACKET_MAX_ENTRIES){

@@ -397,9 +397,9 @@ test('Teams round robin: no markers are assigned or printed; Singles and Doubles
   const t = rrEvent(8, 4, 2, { unit: 'Teams' });
   const sheet = f('chartSheetHTML')(t.groups[0], true);
   assert.doesNotMatch(sheet, /Marker/);
-  assert.match(sheet, /<strong>Match 1<\/strong> · 1 v 2/);
+  assert.match(sheet, /<strong>Match 1<\/strong><strong>:<\/strong><\/span><span>1 v 2<\/span>/);
   const s = rrEvent(8, 4, 2, { unit: 'Singles' });
-  assert.match(f('chartSheetHTML')(s.groups[0], true), /Marker: \d/);
+  assert.match(f('chartSheetHTML')(s.groups[0], true), /<strong>Marker:<\/strong><\/span><span>\d/);
 });
 
 test('Teams knockout: a lineup sheet is ready once both teams are known, printed state is kept per match, print-all prints the rest', () => {

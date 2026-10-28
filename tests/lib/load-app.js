@@ -62,6 +62,9 @@ function loadApp(opts) {
   steps.forEach((s) => vm.runInContext(s.file ? fs.readFileSync(path.join(dir, s.file), 'utf8') : s.code, ctx, { filename: s.file || s.name }));
   (opts.extraFiles || []).forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f }));
   scripts.forEach((s, i) => vm.runInContext(s, ctx, { filename: 'app.html#' + i }));
+  /* The first draw asks "draw before or after check-in?" (drawTimingGate). Tests that press a draw button get the
+     answer "Draw now", as the app behaved before the question existed; opts.askDrawTiming keeps the real question. */
+  if (!opts.askDrawTiming) vm.runInContext('if(typeof drawTimingGate === "function") drawTimingGate = function(go){ go(); };', ctx);
   return ctx;
 }
 /* The BM table files a page's data-dd-ms script names (var DD_MS_FILES = [...]), in order. */

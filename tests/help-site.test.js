@@ -617,7 +617,7 @@ test('Organisation box: always there in a round robin, only after ticking Track 
 
 test('Group Boards check-in: the card is on step 4, the "Withdraw the N not checked in" button is on step 3 before the draw (and the guide says so)', () => {
   assert.match(fnBody(podsUi, 'podsStage4'), /checkInCardHTML\(\)/);
-  assert.match(fnBody(podsUi, 'podsStage3'), /pods\.length \? podsCountWarningHTML\(\) \+ podsRosterWarningHTML\(\) : podsCheckInBoxHTML\(\)/, 'only before the draw');
+  assert.match(fnBody(podsUi, 'podsStage3'), /pods\.length \? podsCountWarningHTML\(\) \+ podsRosterWarningHTML\(\) : \(state\.drawAfterCheckIn===true \? '' : podsCheckInBoxHTML\(\)\)/, 'only before the draw (the check-in panel replaces it while the draw waits for check-in)');
   assert.match(fnBody(podsUi, 'podsCheckInBoxHTML'), /Withdraw the '\+s\.missing\.length\+' not checked in/);
   assert.match(fnBody(podsUi, 'podsCheckInBoxHTML'), /if\(!s\.checked\) return ''/, 'only once someone is ticked');
   assert.match(articleText('check-in-and-start'), /tick people in on step 4\. Then, on step 3, before you click Draw groups, a Withdraw the N not checked in button/);

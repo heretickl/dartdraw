@@ -154,13 +154,13 @@ function podsCheckInGuard(podIds, go){
 
 function podsStage3(){
   var t = state, pods = podsList(t), v = podsValidate(t), scored = podsAnyScores(t);
-  var html = stage3Knockout({ noControls:true, intro:T('pods.drawBelow') });   // the Participants & Seeding panel, same as the knockout format
+  var html = drawCheckInPanelHTML(pods.length > 0) + stage3Knockout({ noControls:true, intro:T('pods.drawBelow') });   // the Participants & Seeding panel, same as the knockout format
   html += '<div class="card"><h2>'+T('pods.groups')+'</h2><p class="intro">'+
     (pods.length ? T('pods.checkDraw')
                  : T('pods.dealText', { noun: podsNoun(1), n: (parseInt(t.format.podCount) || 0) }))+'</p>'+
     (!v.ok ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>'+T('s2.checkGroups')+'</b>'+escapeHtml(v.message)+' <span style="text-decoration:underline;cursor:pointer" onclick="goStage(2)">'+T('pods.changeIt')+'</span></div>' : '')+
-    (pods.length ? podsCountWarningHTML() + podsRosterWarningHTML() : podsCheckInBoxHTML())+
-    '<div class="buttonrow"><button class="btn '+(pods.length ? 'secondary' : 'primary')+'" '+(v.ok && !scored ? '' : 'disabled ')+'onclick="podsDrawClick()">'+T(pods.length ? 'pods.redraw' : 'pods.draw')+'</button>'+
+    (pods.length ? podsCountWarningHTML() + podsRosterWarningHTML() : (state.drawAfterCheckIn===true ? '' : podsCheckInBoxHTML()))+
+    '<div class="buttonrow"><button class="btn '+(pods.length ? 'secondary' : 'primary')+'" '+(v.ok && !scored && (pods.length || !drawWaitsForCheckIn()) ? '' : 'disabled ')+'onclick="podsDrawClick()">'+T(pods.length ? 'pods.redraw' : 'pods.draw')+'</button>'+
       '<button class="btn secondary" onclick="goStage(2)">'+T('s3.makeChanges')+'</button>'+
       (pods.length ? '<button class="btn primary" onclick="goStage(4)">'+T('pods.continueConfirm')+'</button>' : '')+'</div>'+
     (scored ? '<div class="hint">'+T('pods.noRedraw')+'</div>' : '')+
@@ -175,6 +175,10 @@ function podsDrawNow(){
 }
 function podsDrawClick(){
   if(podsAnyScores(state)) return;
+  if(!podsList(state).length && state.drawAfterCheckIn!==false && !podsDrawClick.asked){
+    drawTimingGate(function(){ podsDrawClick.asked = true; try{ podsDrawClick(); } finally { podsDrawClick.asked = false; } });
+    return;
+  }
   if(!podsList(state).length){
     var missing = podsCheckInStatus().missing;
     if(!missing.length){ podsDrawNow(); return; }
