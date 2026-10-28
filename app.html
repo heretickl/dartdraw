@@ -246,7 +246,7 @@ input[type="date"]::-webkit-date-and-time-value,input[type="time"]::-webkit-date
 .legs-won{color:var(--ink)}
 .legs-lost{color:var(--red)}
 .schedule{margin-top:14px;display:grid;border:1px solid #b5bdc5;border-radius:5px;overflow:hidden;flex-shrink:0}
-.match{padding:7px 9px;border-right:1px solid #b5bdc5;border-bottom:1px solid #b5bdc5;font-size:10px}
+.match{padding:7px 9px;border-right:1px solid #b5bdc5;border-bottom:1px solid #b5bdc5;font-size:10px;display:grid;grid-template-columns:auto 1fr;column-gap:6px;align-content:start}
 .match strong{color:var(--navy)}
 .footer{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #cbd1d6;margin-top:14px;padding-top:10px;flex-shrink:0;flex-wrap:wrap;row-gap:8px}
 .footer small{font-size:9px;color:#6c7883;flex:1;min-width:220px}
@@ -6856,12 +6856,13 @@ function chartSheetHTML(g, forPrint){
       }
     });
     const st = posById[rowEnt.id];
-    const ptsInner = g.gameStarted ? (st?st.pts:0) : '—';
     const legsInner = (g.gameStarted && st && st.played) ? '<span class="legs-sub"><span class="legs-won">'+st.legsFor+'</span>–<span class="legs-lost">'+st.legsAgainst+'</span></span>' : '';
     const posInner = g.gameStarted ? (st?(st.position+(st.manualOverride?'*':'')):'') : '—';
-    /* Points split like the match cells: points above, legs won–lost below. Position stays a single figure. */
-    const ptsTop = g.gameStarted ? (st?st.pts:0) : '';
-    rows += '<div class="cell standing split"><span class="hf">'+ptsTop+'</span><span class="hf">'+legsInner+'</span></div><div class="cell standing">'+posInner+'</div>';
+    /* Points split like the match boxes: points above the line, legs won–lost below. Position: one figure, no line.
+       A printed chart of a group not yet started leaves both empty to write in (the screen shows a dash). */
+    const blank = forPrint && !g.gameStarted;
+    const ptsTop = g.gameStarted ? (st?st.pts:0) : (blank ? '' : '—');
+    rows += '<div class="cell standing split"><span class="hf">'+ptsTop+'</span><span class="hf">'+legsInner+'</span></div><div class="cell standing">'+(blank ? '' : posInner)+'</div>';
   });
   const hasOverrides = groupHasPositionOverrides(g);
   const matches = groupMatches(g);

@@ -1260,7 +1260,7 @@ test('scheduling, round robin: one fixture per team match, each on one board, th
   const ro = f('runningOrderSheetHTML')([g]);
   assert.equal((ro.match(/<div class="ro-m"><i>\d+\.<\/i>\d+ v \d+/g) || []).length, 6);
   assert.equal((ro.match(/class="ro-col"/g) || []).length, 2, 'one column per board');
-  assert.equal((f('chartSheetHTML')(g, true).match(/<div class="match"><strong>Match \d+<\/strong>/g) || []).length, 6);
+  assert.equal((f('chartSheetHTML')(g, true).match(/<div class="match"><span><strong>Match \d+<\/strong>/g) || []).length, 6);
   // the estimate on Format & branding: largest group's matches x one Teams match, groups queued per board
   t.eventCreation.boards = 2;
   assert.equal(f('estimateTotalMinutes')(t).minutes, 6 * PER_MATCH);
