@@ -2706,6 +2706,7 @@ function koPrintModels(t, section){
   const out = [];
   const real = (b)=> out.push({ label: b===t.knockoutLosers ? 'Plate pool' : 'Main bracket', model: KBP.fromBracket(b, t) });
   if(section==='knockout' || section==='knockoutLosers'){ if(t[section]) real(t[section]); return out; }
+  if(!koSheetOn(t)) return out;   // the pack leaves the bracket out (printSettings.koSheetEnabled)
   if(t.knockout){ real(t.knockout); if(t.knockoutLosers) real(t.knockoutLosers); return out; }
   projectedPrintList(t).forEach(x=> out.push({ label: x.title, model: KBP.fromBracket(projectedBracketFor(x.entries, x.title), t, { projected:true, tagPrefix: x.plate ? 'P' : '' }) }));
   return out;
@@ -7203,7 +7204,7 @@ function stage4(){
     '</div>'+
     '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(state.printSettings.sponsorFooterEnabled?'checked':'')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">'+T('s4.includeSponsor')+'</label></div>'+
     sheetLangRowHTML()+lineupSheetToggleHTML()+
-    rulesSheetToggleHTML()+
+    rulesSheetToggleHTML()+koSheetToggleHTML()+
     (koPrintModels(state).length ? koPaperPanelHTML() : '')+
     '<div class="hint" style="margin-bottom:6px">'+T('s4.runningOrder')+'</div>'+
     '<div class="printlist">'+ state.groups.map(g=> '<div><span>'+T('s4.groupBoard', {g: escText(g.label), boards: groupBoardLabel(g)})+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">'+T('chart.confirmed')+'</b>':'<b style="color:#c0392b">'+T('chart.notConfirmed')+'</b>')+'</span></div>' ).join('') +'</div>'+
@@ -7219,6 +7220,14 @@ function stage4(){
 }
 function toggleSponsorFooter(v){ state.printSettings.sponsorFooterEnabled = v; persist(); render(); }
 function toggleRulesSheet(v){ state.printSettings.rulesSheetEnabled = v; persist(); render(); }
+/* Round robin -> Knockout: the print pack can leave out the knockout bracket (projected before the draw, real after).
+   Missing means on, so events saved before this setting keep printing it. Other formats always print theirs. */
+function koSheetOn(t){ t = t||state; return t.format.formatType!=='rrknockout' || !t.printSettings || t.printSettings.koSheetEnabled!==false; }
+function toggleKoSheet(v){ state.printSettings.koSheetEnabled = v; persist(); render(); }
+function koSheetToggleHTML(){
+  if(state.format.formatType!=='rrknockout') return '';
+  return '<div class="toggle-row"><input type="checkbox" id="koSheetToggle" '+(koSheetOn(state)?'checked':'')+' onchange="toggleKoSheet(this.checked)"> <label for="koSheetToggle">'+T('s4.includeKo')+'</label></div>';
+}
 function rulesSheetToggleHTML(){
   return '<div class="toggle-row"><input type="checkbox" id="rulesToggle" '+(state.printSettings.rulesSheetEnabled?'checked':'')+' onchange="toggleRulesSheet(this.checked)"> <label for="rulesToggle">'+T('s4.includeRules')+'</label></div>';
 }
@@ -7847,7 +7856,7 @@ function stage7(){
     '</div>'+
     '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(state.printSettings.sponsorFooterEnabled?'checked':'')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">'+T('s4.includeSponsor')+'</label></div>'+
     sheetLangRowHTML()+lineupSheetToggleHTML()+
-    rulesSheetToggleHTML()+
+    rulesSheetToggleHTML()+koSheetToggleHTML()+
     (koPrintModels(state).length ? koPaperPanelHTML() : '')+
     (confirmed.length && startedCount<confirmed.length ? '<div class="confirm-box" style="background:#fff8e5;border-color:#e8c86e;color:#65501d"><b>'+T('s7.someNot')+'</b>'+T('s7.someNotText', {n: notStarted})+'</div>' : '')+
     '<div class="printlist">'+ state.groups.map(g=> '<div><span>'+T('s4.groupBoard', {g: escText(g.label), boards: groupBoardLabel(g)})+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">'+T('chart.confirmed')+'</b>':'<b style="color:#c0392b">'+T('chart.notConfirmed')+'</b>')+(g.confirmed?' · '+(g.gameStarted?'<b style="color:#1d8a4a">'+T('s7.started')+'</b>':'<b style="color:#c0392b">'+T('grp.notStarted')+'</b>'):'')+'</span></div>' ).join('') +'</div>'+
@@ -8152,7 +8161,8 @@ function printPackNow(confirmed){
   let html = '';
   if(state.printSettings.rulesSheetEnabled) html += rulesSheetHTML();
   if(confirmed && confirmed.length) html += runningOrderSheetHTML(confirmed) + confirmed.map(g=> chartSheetHTML(g, true) ).join('');
-  if(state.knockout){
+  if(!koSheetOn(state)){ /* the organiser left the knockout bracket out of this pack */ }
+  else if(state.knockout){
     html += knockoutBracketSheetHTML(state.knockout);
     if(state.knockoutLosers) html += knockoutBracketSheetHTML(state.knockoutLosers);
   } else if(state.format.formatType==='rrknockout' && state.format.advanceMode==='seeded'){

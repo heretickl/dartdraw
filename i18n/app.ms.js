@@ -763,6 +763,7 @@ var DD_APP_MS = {
   's4.someNot': 'Ada carta yang belum disahkan',
   's4.someNotText': 'Anda masih boleh mencetak carta yang telah disahkan sekarang, atau kembali dan sahkan yang lain dahulu.',
   's4.continue': 'Teruskan ke Urus Kejohanan →',
+  's4.includeKo': 'Sertakan bracket kalah mati dalam set',
   's4.includeRules': 'Sertakan helaian peraturan &amp; format sebagai halaman pertama set',
   's4.includeLineup': 'Cetak juga borang barisan/kad skor bagi setiap perlawanan, untuk diisi oleh kapten pada hari kejohanan',
   's3.searchFlat': 'Cari nama atau organisasi…',

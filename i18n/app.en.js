@@ -768,6 +768,7 @@ var DD_APP_EN = {
   's4.someNot': 'Some charts are not confirmed yet',
   's4.someNotText': 'You can still print the confirmed charts now, or go back and confirm the rest first.',
   's4.continue': 'Continue to manage tournament →',
+  's4.includeKo': 'Include the knockout bracket in the pack',
   's4.includeRules': 'Include the rules &amp; format sheet as the first page of the pack',
   's4.includeLineup': 'Also print a lineup/scorecard sheet for each fixture, for captains to fill in on the day',
   's3.searchFlat': 'Search name or organisation…',
