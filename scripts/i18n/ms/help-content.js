@@ -892,7 +892,7 @@ const sections = [
 <dt id="glossary-columns">Ked., Main, M, K, S, LM, +/-, Mata</dt>
 <dd>Kedudukan; perlawanan dimainkan; perlawanan dimenangi; perlawanan kalah; perlawanan seri (hanya untuk keputusan seri yang disimpan dalam acara lama: kini tiada keputusan seri); leg dimenangi; beza leg (leg dimenangi tolak leg kalah); mata. Menang bernilai 1 mata dan kalah 0. <span class="eg">Jadual kedudukan; carta bercetak: &ldquo;Mata: Menang 1 &middot; Kalah 0&rdquo;.</span></dd>
 <dt id="glossary-tb">TB, H2H, BL, LM dan ?</dt>
-<dd>Lajur TB menunjukkan pemecah seri mana yang memisahkan dua peserta yang sama mata: H2H (head-to-head, iaitu keputusan perlawanan sesama mereka), BL (beza leg) atau LM (leg dimenangi). &ldquo;3 hala&rdquo; bermaksud tiga peserta sama mata. Tanda <b>?</b> bermaksud mereka masih sama mata selepas setiap peraturan: anda yang menentukan. <span class="eg">Lajur TB dalam jadual kedudukan.</span></dd>
+<dd>Lajur TB menunjukkan pemecah seri mana yang memisahkan dua peserta yang sama mata: H2H (head-to-head, iaitu keputusan pertemuan), BL (beza leg) atau LM (leg dimenangi). &ldquo;3 hala&rdquo; bermaksud tiga peserta sama mata. Tanda <b>?</b> bermaksud mereka masih sama mata selepas setiap peraturan: anda yang menentukan. <span class="eg">Lajur TB dalam jadual kedudukan.</span></dd>
 <dt id="glossary-tie-break">Susunan pemecah seri</dt>
 <dd>Susunan peraturan tersebut. Anda boleh mengubahnya dalam persediaan Lanjutan. <span class="eg">Langkah 2: <b>Susunan pemecah seri</b>; carta bercetak: &ldquo;Pemecah seri: 1) Leg dimenangi&hellip;&rdquo;.</span></dd>
 <dt id="glossary-manual">* (bintang)</dt>
@@ -1038,17 +1038,17 @@ const sections = [
       {
         id: 'faq-tie-breaks',
         title: 'Bagaimana pemecah seri berfungsi?',
-        keywords: 'sama mata kedudukan sama mata seri mata sama pemecah seri h2h perlawanan sesama mereka head to head tie tied level tiebreak tie break',
+        keywords: 'sama mata kedudukan sama mata seri mata sama pemecah seri h2h keputusan pertemuan perlawanan sesama mereka head to head tie tied level tiebreak tie break',
         body: `
 <p>Peserta disusun mengikut mata dahulu. Menang bernilai 1 mata dan kalah 0. Tiada keputusan seri: setiap skor mesti ada pemenang, dan dalam round robin berpasukan jumlah leg yang sama diputuskan oleh pemecah seri.</p>
 <p>Apabila peserta mempunyai mata yang sama, DartDraw menggunakan <b>Susunan pemecah seri</b> anda. Susunan lalai ialah:</p>
 <ol>
 <li><b>Leg dimenangi</b>: leg paling banyak dimenangi bagi seluruh kumpulan.</li>
 <li><b>Beza leg</b>: leg dimenangi tolak leg kalah bagi seluruh kumpulan.</li>
-<li><b>Keputusan perlawanan sesama mereka</b> (head-to-head): sesiapa yang memenangi perlawanan antara mereka berada di hadapan.</li>
+<li><b>Keputusan pertemuan (head-to-head)</b>: sesiapa yang memenangi perlawanan antara mereka berada di hadapan.</li>
 <li><b>Keputusan penganjur / perlawanan penentuan</b>: tiada yang automatik. Ia terserah kepada anda.</li>
 </ol>
-<p>Apabila tiga atau lebih peserta sama mata, ketiga-tiga peraturan (keputusan perlawanan sesama mereka, beza leg dan leg dimenangi) hanya menggunakan perlawanan sesama peserta tersebut. Jika sesuatu peraturan memisahkan sebahagian daripada mereka, peserta yang masih sama mata disusun semula dengan peraturan yang sama, mengikut urutan.</p>
+<p>Apabila tiga atau lebih peserta sama mata, ketiga-tiga peraturan, iaitu keputusan pertemuan (head-to-head), beza leg dan leg dimenangi, hanya menggunakan perlawanan sesama peserta tersebut. Jika sesuatu peraturan memisahkan sebahagian daripada mereka, peserta yang masih sama mata disusun semula dengan peraturan yang sama, mengikut urutan.</p>
 <p>Jika setiap peraturan masih meninggalkan dua peserta sama mata, lencana <b>?</b> dipaparkan dan amaran menyatakan mereka memerlukan keputusan penganjur atau perlawanan penentuan. Selesaikannya, kemudian tetapkan susunan dengan <b>Laraskan kedudukan&hellip;</b>. Langkah 6 dan 7, serta undian kalah mati apabila peserta yang sama mata berada pada garisan kelayakan, kekal dikunci sehingga anda berbuat demikian. Dalam persediaan Lanjutan anda boleh menyusun semula peraturan di bawah Peraturan di langkah 2.</p>`
       },
       {
@@ -1206,7 +1206,7 @@ const search = {
     ['pemain', 'peserta', 'nama', 'nama pemain', 'nama peserta', 'player', 'players', 'entry', 'entries', 'names'],
     ['pasukan', 'berpasukan', 'acara berpasukan', 'kapten', 'liga', 'team', 'teams'],
     ['pasangan', 'beregu', 'rakan beregu', 'pair', 'pairs', 'doubles', 'partner'],
-    ['seri', 'sama mata', 'kedudukan sama mata', 'mata sama', 'pemecah seri', 'perlawanan sesama mereka', 'perlawanan penentuan', 'tie', 'tied', 'tie break', 'tiebreak', 'tie breaker', 'h2h', 'head to head', 'playoff', 'play off'],
+    ['seri', 'sama mata', 'kedudukan sama mata', 'mata sama', 'pemecah seri', 'keputusan pertemuan', 'perlawanan sesama mereka', 'perlawanan penentuan', 'tie', 'tied', 'tie break', 'tiebreak', 'tie breaker', 'h2h', 'head to head', 'playoff', 'play off'],
     ['leg', 'legs', 'terbaik daripada', 'best of', 'apa itu leg'],
     ['bye', 'byes', 'lepas terus', 'tiada lawan', 'free pass'],
     ['namakan semula', 'tukar nama', 'ubah nama', 'edit nama', 'rename'],

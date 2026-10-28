@@ -101,7 +101,7 @@ no italics, no plural ("5 leg", "2 bye"):
 | standings / position | **kedudukan** | |
 | points / Pts | **mata / Mata** | |
 | MP / MW / ML / MD / LW / +/- / Pts | **Main / M / K / S / LM / +/- / Mata** | |
-| head-to-head (rule) / H2H badge | **Keputusan perlawanan sesama mereka / H2H** | Never *bersemuka* |
+| head-to-head (rule) / H2H badge | **Keputusan pertemuan (head-to-head) / H2H** | Never *bersemuka*. Owner chose this on 2026-10-29 (was *Keputusan perlawanan sesama mereka*) |
 | TB / LD / LW badges / 3-way LD | **TB / BL / LM / BL 3 hala** | |
 | tie-break order / tie-breaker | **susunan pemecah seri / pemecah seri** | Bar TIE-BREAKER = **PEMECAH SERI** |
 | Provisional | **Sementara** | |
@@ -163,7 +163,7 @@ Labels the Help needed that the table did not have are in `ui-strings-needed.md`
 | 5 | Group Boards | **Group Boards** (English feature name) | **Owner decision (2026-10-23)**, together with *board* for every dartboard (*papan* rejected) because Malaysian players say "board". |
 | 6 | Plate pool | **saingan Plate** | "Plate" is the familiar consolation name; *saingan* (competition) is clear. |
 | 7 | Table headings | **Main / M / K / S / LM / +/- / Mata**; badges **H2H, BL, LM, BL 3 hala** | Malaysian football tables use *Main, Menang, Seri, Kalah, Mata*; *3 hala* is short and clear. |
-| 8 | head-to-head | **Keputusan perlawanan sesama mereka** (badge H2H) | *bersemuka* means meeting in person; Malaysian competition rules write "keputusan perlawanan sesama pasukan terbabit". Players say "head-to-head". |
+| 8 | head-to-head | **Keputusan pertemuan (head-to-head)** (badge H2H; owner 2026-10-29, was *Keputusan perlawanan sesama mereka*) | *bersemuka* means meeting in person; Malaysian competition rules write "keputusan perlawanan sesama pasukan terbabit". Players say "head-to-head". |
 | 9 | marker | **pencatat skor** (sheet: *Pencatat*), gloss "(marker)" once | Correct BM, clear to everyone; clubs say "marker". |
 | 10 | Trios / Foursome | **Trio / Berempat** | *Trio* is BM (DBP); *Berempat* follows *Beregu*. |
 | 11 | Upcoming | **Mendatang** | Standard ("acara mendatang") and one word on a 390 px phone. |
