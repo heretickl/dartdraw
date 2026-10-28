@@ -130,7 +130,7 @@ var DD_VIEWER_MS = {
   'ev.key.mp': 'Perlawanan dimainkan', 'ev.key.mw': 'Perlawanan dimenangi', 'ev.key.ml': 'Perlawanan kalah', 'ev.key.md': 'Perlawanan seri',
   'ev.key.lw': 'Leg dimenangi', 'ev.key.lwTeams': 'Leg dimenangi, dikira dengan menjumlahkan leg pasukan dalam setiap perlawanan',
   'ev.key.diff': 'Beza leg: leg dimenangi tolak leg kalah',
-  'ev.key.pts': 'Mata: 2 untuk menang, 1 untuk seri',
+  'ev.key.pts': 'Mata: 1 untuk menang',
   'ev.key.tb.player': 'Pemecah seri: sebab dua pemain yang sama mata berada dalam susunan ini. <b>H2H</b> keputusan perlawanan sesama mereka, <b>BL</b> beza leg, <b>LM</b> leg dimenangi; <b>3 hala</b> bermaksud tiga sama mata, jadi hanya perlawanan sesama mereka dikira; <b>?</b> masih sama mata',
   'ev.key.tb.team': 'Pemecah seri: sebab dua pasukan yang sama mata berada dalam susunan ini. <b>H2H</b> keputusan perlawanan sesama mereka, <b>BL</b> beza leg, <b>LM</b> leg dimenangi; <b>3 hala</b> bermaksud tiga sama mata, jadi hanya perlawanan sesama mereka dikira; <b>?</b> masih sama mata',
   'ev.key.greenBar': 'Bar hijau', 'ev.key.goesThrough': 'Mara ke peringkat kalah mati',

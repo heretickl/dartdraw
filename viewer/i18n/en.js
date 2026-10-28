@@ -132,7 +132,7 @@ var DD_VIEWER_EN = {
   'ev.key.mp': 'Matches played', 'ev.key.mw': 'Matches won', 'ev.key.ml': 'Matches lost', 'ev.key.md': 'Matches drawn',
   'ev.key.lw': 'Legs won', 'ev.key.lwTeams': 'Legs won, adding up the team totals of every match',
   'ev.key.diff': 'Leg difference: legs won minus legs lost',
-  'ev.key.pts': 'Points: 2 for a win, 1 for a draw',
+  'ev.key.pts': 'Points: 1 for a win',
   'ev.key.tb.player': 'Tie-break: why two players level on points are in this order. <b>H2H</b> head-to-head, <b>LD</b> leg difference, <b>LW</b> legs won; <b>3-way</b> means three were level, so only their matches against each other count; <b>?</b> still level',
   'ev.key.tb.team': 'Tie-break: why two teams level on points are in this order. <b>H2H</b> head-to-head, <b>LD</b> leg difference, <b>LW</b> legs won; <b>3-way</b> means three were level, so only their matches against each other count; <b>?</b> still level',
   'ev.key.greenBar': 'Green bar', 'ev.key.goesThrough': 'Goes through to the knockout',

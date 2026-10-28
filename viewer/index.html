@@ -1228,7 +1228,7 @@ async function load(){
     if(body.updatedAt !== lastUpdatedAt || !state){
       lastUpdatedAt = body.updatedAt;
       state = body.view;
-      if(!state.tieBreakOrder) state.tieBreakOrder = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
+      if(!state.tieBreakOrder) state.tieBreakOrder = ['Legs won','Leg difference','Head-to-head result','Organiser decision / playoff'];
       state.entriesList = state.entriesList || []; state.groups = state.groups || []; state.format = state.format || {};
       shownMessage = null;
       render();

@@ -318,7 +318,7 @@ test('results show as the plain total of legs: group grids, standings and bracke
   const st = plain(call('computeStandings(__g)'));
   const size = g.entryIds.length;
   assert.equal(st[0].legsFor, 6 * (size - 1)); assert.equal(st[0].legsAgainst, 4 * (size - 1));
-  assert.equal(st[0].pts, 2 * (size - 1));
+  assert.equal(st[0].pts, 1 * (size - 1));   // win 1, loss 0
   const bk = show(v, '#/bracket');
   assert.match(bk.app, /<b>7<\/b>/, 'a bracket card shows the winner\'s total');
   assert.match(bk.app, /<b>3<\/b>/);

@@ -566,11 +566,12 @@ function computeStandings(g){
     table[a].played++; table[b].played++;
     table[a].legsFor+=la; table[a].legsAgainst+=lb;
     table[b].legsFor+=lb; table[b].legsAgainst+=la;
-    if(la>lb){ table[a].pts+=2; table[a].wins++; table[b].losses++; table[a].h2h[b]='W'; table[b].h2h[a]='L'; }
-    else if(lb>la){ table[b].pts+=2; table[b].wins++; table[a].losses++; table[b].h2h[a]='W'; table[a].h2h[b]='L'; }
-    else { table[a].pts+=1; table[b].pts+=1; table[a].draws++; table[b].draws++; table[a].h2h[b]='D'; table[b].h2h[a]='D'; }
+    // Win 1 point, loss 0. A level score can no longer be saved; one stored before that is a draw worth nothing to either side.
+    if(la>lb){ table[a].pts+=1; table[a].wins++; table[b].losses++; table[a].h2h[b]='W'; table[b].h2h[a]='L'; }
+    else if(lb>la){ table[b].pts+=1; table[b].wins++; table[a].losses++; table[b].h2h[a]='W'; table[a].h2h[b]='L'; }
+    else { table[a].draws++; table[b].draws++; table[a].h2h[b]='D'; table[b].h2h[a]='D'; }
   });
-  const order = (state && state.tieBreakOrder) || ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];
+  const order = (state && state.tieBreakOrder) || ['Legs won','Leg difference','Head-to-head result','Organiser decision / playoff'];
   /* Ranking: points first, then ties on points are resolved per cluster.
      - Two level: the usual rules in order (head-to-head, then overall leg
        difference, then overall legs won).
@@ -589,7 +590,7 @@ function computeStandings(g){
       if(!ms[r.a] || !ms[r.b]) return;
       ms[r.a].mp++; ms[r.b].mp++;
       ms[r.a].lf+=r.la; ms[r.a].la+=r.lb; ms[r.b].lf+=r.lb; ms[r.b].la+=r.la;
-      if(r.la>r.lb){ ms[r.a].mpts+=2; ms[r.a].w++; } else if(r.lb>r.la){ ms[r.b].mpts+=2; ms[r.b].w++; } else { ms[r.a].mpts++; ms[r.b].mpts++; }
+      if(r.la>r.lb){ ms[r.a].mpts+=1; ms[r.a].w++; } else if(r.lb>r.la){ ms[r.b].mpts+=1; ms[r.b].w++; }
     });
     ids.forEach(id=> ms[id].ld = ms[id].lf - ms[id].la);
     return ms;

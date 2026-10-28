@@ -175,7 +175,7 @@ test('the column key: a real button with aria-expanded that opens a short key, c
   const btn = /<button type="button" class="keybtn" data-key="g:g1" aria-expanded="false" aria-controls="(key-[^"]+)">What do the columns mean\?<\/button>/.exec(card);
   assert.ok(btn, 'the toggle');
   assert.match(card, new RegExp('<div class="keybody" id="' + btn[1] + '" hidden>'));
-  ['<dt>MP</dt><dd>Matches played', '<dt>LW</dt><dd>Legs won', '<dt>Pts</dt><dd>Points: 2 for a win, 1 for a draw', 'Goes through to the knockout', '<b>WO</b> walkover'].forEach((s) => assert.ok(card.includes(s), s));
+  ['<dt>MP</dt><dd>Matches played', '<dt>LW</dt><dd>Legs won', '<dt>Pts</dt><dd>Points: 1 for a win', 'Goes through to the knockout', '<b>WO</b> walkover'].forEach((s) => assert.ok(card.includes(s), s));
   assert.match(card, /href="\/help\?from=testslug12#glossary">Words you will see/);
   assert.doesNotMatch(card, /<dt>MD<\/dt>/, 'only the columns this table shows: no drawn match, so no MD');
   assert.match(card, /<dt>TB<\/dt><dd>Tie-break: why two players level on points/, 'a tie-break badge is shown, so TB is explained');
