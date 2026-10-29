@@ -55,7 +55,7 @@ test('tables: BM printed words follow the glossary and the proofread print captu
   assert.equal(PMS['pr.lu.gameNo'], 'Bil.'); assert.equal(PMS['pr.lu.fixture'], 'Perlawanan'); assert.equal(PMS['pr.lu.group'], 'Kumpulan');
   assert.equal(PMS['pr.lu.total'], 'JUMLAH MATA'); assert.equal(PMS['pr.lu.sig'], 'Tandatangan Kapten/Pengurus'); assert.equal(PMS['pr.lu.team'], 'Nama Pasukan');
   assert.equal(PMS['pr.rules.title'], 'PERATURAN &amp; FORMAT'); assert.equal(PMS['pr.rules.read'], 'Sila baca sebelum bermain'); assert.equal(PMS['pr.rules.tb'], 'Susunan pemecah seri');
-  assert.equal(PMS['pr.ro.title'], 'SUSUNAN PERLAWANAN'); assert.equal(PMS['pr.ko.stage'], 'Peringkat Kalah Mati'); assert.equal(PMS['pr.proj.stage'], 'Unjuran Penempatan Kalah Mati');
+  assert.equal(PMS['pr.ro.title'], 'SUSUNAN PERLAWANAN'); assert.equal(PMS['pr.ko.stage'], 'Peringkat Kalah Mati'); assert.equal(PMS['pr.proj.stage'], undefined);   /* the printed sheets never say projected / unjuran (2026-10-29) */
   assert.equal(PMS['pr.lu.vs'], 'lwn {name}'); assert.equal(PMS['pr.kb.short.of'], 'P{n}', 'the approved short form (glossary: P16)');
   ['quarter', 'semi', 'final'].forEach((k) => assert.equal(PMS['pr.kb.short.' + k], RMS['r.round.' + k], 'no BM abbreviation for ' + k));
   assert.equal(AMS['seg.tbName'].toUpperCase(), 'PEMECAH SERI'); assert.equal(AMS['credit'], 'Dijana dengan DartDraw'); assert.equal(AMS['seg.numbered'].replace('{type}', AMS['seg.type.singles']).replace('{n}', 1), 'Perseorangan 1');

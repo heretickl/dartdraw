@@ -68,11 +68,11 @@ test('16 entries, 4 groups x 2: the projected sheet is the real draw, A1 v D2 | 
   const mount = { innerHTML: '' };
   const DOC = app.document; app.document = { getElementById: () => mount };
   try { f('runPrintPack')(u.groups); } finally { app.document = DOC; }
-  const sheet = mount.innerHTML.slice(mount.innerHTML.indexOf('MAIN BRACKET (PROJECTED)'));
+  const sheet = mount.innerHTML.slice(mount.innerHTML.indexOf('data-label="MAIN BRACKET"'));
   const r0 = boxes(sheet).filter((b) => b.r === 0).sort((a, b) => a.m - b.m || a.s.localeCompare(b.s));
   const printed = []; for (let i = 0; i < r0.length; i += 2) printed.push(r0[i].text + ' v ' + r0[i + 1].text);
   assert.deepEqual(printed, ['A1 v D2', 'C1 v B2', 'B1 v C2', 'D1 v A2']);
-  assert.match(mount.innerHTML, /data-kb="two-sided" data-paper="A4"[^>]*data-label="MAIN BRACKET \(PROJECTED\)"/, 'the projected bracket is two-sided, like the real one');
+  assert.match(mount.innerHTML, /data-kb="two-sided" data-paper="A4"[^>]*data-label="MAIN BRACKET"/, 'the projected bracket is two-sided, like the real one');
   assert.ok(boxes(sheet).every((b) => !/kb-bx[^"]*"/.test(b.text)), 'parsed');
   assert.match(sheet, /class="kb-ink kb-bx lbl blank" data-r="0"/, 'the first-round boxes are left empty for writing the names in');
 });
@@ -109,14 +109,14 @@ test('the old plain layout is gone: the projected sheet never pairs a group\'s q
   const t = event(16, 4, 2);
   const html = f('projectedBracketSheetHTML')(f('projectedQualifierEntries')(t), 'Main bracket (projected)');
   assert.doesNotMatch(html, /<span>A1<\/span><\/div><div class="bracket-side"><span>D2<\/span>[\s\S]*?<span>D1<\/span><\/div><div class="bracket-side"><span>A2<\/span>[\s\S]*?<span>B1<\/span>/, 'not A1 v D2 | D1 v A2 | B1 v C2 | C1 v B2');
-  assert.match(html, /Projected Knockout Placement/);
+  assert.match(html, /Knockout Stage/); assert.doesNotMatch(html.replace(/<[^>]*>/g, ' '), /projected/i, 'the printed sheets never say projected');
   assert.match(html, /8-slot draw · 8 qualifiers/);
   // random placement is unknown until the draw: nothing is projected then
   t.format.advanceMode = 'random';
   const mount = { innerHTML: '' };
   const DOC = app.document; app.document = { getElementById: () => mount };
   try { f('runPrintPack')(t.groups); } finally { app.document = DOC; }
-  assert.doesNotMatch(mount.innerHTML, /PROJECTED/);
+  assert.doesNotMatch(mount.innerHTML, /data-label="MAIN BRACKET"/);
 });
 
 /* ---------- round 6: what the printed projected sheets show ---------- */
@@ -153,40 +153,40 @@ test('the footer warns clearly when any entry has an organisation, and only then
 test('the printed pack: the Plate pool sheet with the Plate pool on, none without a main bracket, none above 128 entries', () => {
   const t = event(16, 4, 2, { plate: true });
   const html = pack(t);
-  assert.match(html, /MAIN BRACKET \(PROJECTED\)/); assert.match(html, /PLATE POOL \(PROJECTED\)/);
-  const plateSheet = html.slice(html.indexOf('PLATE POOL (PROJECTED)'));
+  assert.match(html, /data-label="MAIN BRACKET"/); assert.match(html, /data-label="PLATE POOL"/);
+  const plateSheet = html.slice(html.indexOf('data-label="PLATE POOL"'));
   assert.deepEqual(boxes(plateSheet).filter((x) => x.r === 0).map((x) => x.text).sort(), ['A3', 'A4', 'B3', 'B4', 'C3', 'C4', 'D3', 'D4']);
   assert.match(plateSheet, />P1-1</, 'Plate pool match numbers carry the P');
   // 1 group, 1 qualifier: the real draw makes no knockout at all, so no Plate pool is projected either
   const one = event(4, 4, 1, { plate: true });
   const h1 = pack(one);
-  assert.doesNotMatch(h1, /PROJECTED/);
+  assert.doesNotMatch(h1, /data-label="MAIN BRACKET"|data-label="PLATE POOL"/);
   // more than 128 qualifiers: no bracket that big exists: one line says so instead (and printing never stalls)
   const huge = event(260, 4, 3);
   assert.equal(f('projectedQualifierEntries')(huge).length, 195);
   const t0 = Date.now();
   const hh = pack(huge);
   assert.ok(Date.now() - t0 < 3000);
-  assert.match(hh, /MAIN BRACKET \(PROJECTED\)<\/strong><span>not projected<\/span>/);
+  assert.match(hh, /MAIN BRACKET<\/strong><span>not drawn<\/span>/);
   assert.match(hh, /195 entries would go into the main bracket, but the largest bracket holds 128\./);
   assert.doesNotMatch(hh, /bracket-col/);
   // exactly 128 (64 groups of 2, top 2) is projected; 130 (65 groups) is not
   const edge = event(128, 2, 2);
   assert.equal(f('projectedQualifierEntries')(edge).length, 128);
-  assert.match(pack(edge), /data-label="MAIN BRACKET \(PROJECTED\)"[\s\S]*128-slot draw · 128 qualifiers/);
+  assert.match(pack(edge), /data-label="MAIN BRACKET"[\s\S]*128-slot draw · 128 qualifiers/);
   assert.match(pack(event(130, 2, 2)), /130 entries would go into the main bracket, but the largest bracket holds 128\./);
   // a Plate pool over 128 (22 groups of 8, top 2, the rest in the Plate): the main bracket is projected, the Plate gets the line
   const ph = pack(event(176, 8, 2, { plate: true }));
-  assert.match(ph, /data-label="MAIN BRACKET \(PROJECTED\)"[\s\S]*64-slot draw · 44 qualifiers/);
-  assert.match(ph, /PLATE POOL \(PROJECTED\)<\/strong><span>not projected<\/span>/);
+  assert.match(ph, /data-label="MAIN BRACKET"[\s\S]*64-slot draw · 44 qualifiers/);
+  assert.match(ph, /PLATE POOL<\/strong><span>not drawn<\/span>/);
   assert.match(ph, /132 entries would go into the Plate pool, but the largest bracket holds 128\./);
   assert.match(ph, /Set or lower (&quot;|")Plate entries per group(&quot;|") in Format &amp; branding, or turn the Plate pool off\. Do this before the knockout is drawn\./);
   // the note says what to change: the cut-off for the main bracket, and only fewer groups when only the winners go through
   assert.match(hh, /Lower (&quot;|")Entries per group \(advance to knockout\)/);
-  assert.doesNotMatch(hh, /Plate pool is not projected either/);
+  assert.doesNotMatch(hh, /Plate pool is not drawn either/);
   assert.match(pack(event(260, 2, 1)), /130 entries would go into the main bracket, but the largest bracket holds 128\. Use fewer groups \(only each group winner goes through already\)\./);
   // main over 128 with the Plate pool on: the main note also says the Plate is not projected (the real draw makes neither)
   const both = pack(event(260, 4, 3, { plate: true }));
-  assert.match(both, /195 entries would go into the main bracket.*The Plate pool is not projected either/);
-  assert.doesNotMatch(both, /PLATE POOL \(PROJECTED\)/);
+  assert.match(both, /195 entries would go into the main bracket.*The Plate pool is not drawn either/);
+  assert.doesNotMatch(both, /PLATE POOL<\/strong>|data-label="PLATE POOL"/);
 });

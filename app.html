@@ -2831,7 +2831,7 @@ function koPrintModels(t, section){
   const out = [];
   const real = (b)=> out.push({ label: b===t.knockoutLosers ? 'Plate pool' : 'Main bracket', model: KBP.fromBracket(b, t) });
   if(section==='knockout' || section==='knockoutLosers'){ if(t[section]) real(t[section]); return out; }
-  if(!koSheetOn(t)) return out;   // the pack leaves the bracket out (printSettings.koSheetEnabled)
+  if(section!=='all' && !koSheetOn(t)) return out;   // the pack leaves the bracket out (printSettings.koSheetEnabled); 'all': the bracket-only print
   if(t.knockout){ real(t.knockout); if(t.knockoutLosers) real(t.knockoutLosers); return out; }
   projectedPrintList(t).forEach(x=> out.push({ label: x.title, model: KBP.fromBracket(projectedBracketFor(x.entries, x.title), t, { projected:true, tagPrefix: x.plate ? 'P' : '' }) }));
   return out;
@@ -2910,6 +2910,9 @@ function koPaperApplyChoice(mode, adv){
 const fmtPt = (v)=> (Math.floor(v*10+1e-6)/10).toFixed(1);
 /* A print model's label ('Main bracket', 'Plate pool', their projected forms: English data) in the UI language;
    mid: the form used inside a sentence. */
+/* A bracket's name as printed: the sheets never say "projected" (owner, 2026-10-29), so the blank bracket printed before
+   the round robin is headed MAIN BRACKET / PLATE POOL like the one printed after the draw. */
+function koPrintedLabel(title){ return koModelLabel(String(title).replace(/ \(projected\)$/, '')).toUpperCase(); }
 function koModelLabel(label, mid){
   const k = {'Main bracket':'main', 'Plate pool':'plate', 'Main bracket (projected)':'mainProj', 'Plate pool (projected)':'plateProj'}[label];
   return k ? T('kolabel.'+k+(mid ? 'Mid' : '')) : String(label);
@@ -3107,8 +3110,8 @@ function projectedTooBigSheetHTML(title, message, hint){
   return '<div class="print-sheet">'+
     '<div class="sheet-top">'+ mainLogoBoxHTML()+
       '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
-      '<div class="sheet-sub">'+catUnitText(t)+' · '+T('pr.proj.stage')+'</div></div>'+
-      '<div class="group-label"><strong>'+escapeHtml(koModelLabel(title).toUpperCase())+'</strong><span>'+T('pr.proj.none')+'</span></div>'+
+      '<div class="sheet-sub">'+catUnitText(t)+' · '+T('pr.ko.stage')+'</div></div>'+
+      '<div class="group-label"><strong>'+escapeHtml(koPrintedLabel(title))+'</strong><span>'+T('pr.proj.none')+'</span></div>'+
     '</div>'+
     '<p class="projected-too-big" style="margin-top:24px;font-size:14px">'+escapeHtml(message)+' '+escapeHtml(hint)+T('pr.proj.doBefore')+'</p>'+
     '<div class="footer"><small></small><div class="footer-right">'+ddCreditHTML()+'</div></div>'+
@@ -3128,9 +3131,9 @@ function projectedBracketSheetHTML(entries, title){
   const n = koBracketEntryCount(bracket);
   const orgNote = t.entriesList.some(e=> !e.withdrawn && e.org) ? T('pr.proj.org') : '';
   const chrome = koSheetChrome(t, bracket, {
-    stage: T('pr.proj.stage'), legsSub: '',
+    stage: T('pr.ko.stage'), legsSub: '',
     legend: T('pr.proj.legend')+orgNote,
-    label: koModelLabel(String(title)).toUpperCase(), detail: T('pr.ko.detailQ', {size: bracket.size, n}), cls: 'kb-projected',
+    label: koPrintedLabel(title), detail: T('pr.ko.detailQ', {size: bracket.size, n}), cls: 'kb-projected',
     qr: printQrBlockHTML(t, 'bracket')
   });
   return kbBracketSheetsHTML(KBP.fromBracket(bracket, t, { projected:true, tagPrefix: plate ? 'P' : '' }), chrome);
@@ -7384,7 +7387,7 @@ function stage4(){
     '<div class="toggle-row"><input type="checkbox" id="sponsorToggle" '+(state.printSettings.sponsorFooterEnabled?'checked':'')+' onchange="toggleSponsorFooter(this.checked)"> <label for="sponsorToggle">'+T('s4.includeSponsor')+'</label></div>'+
     sheetLangRowHTML()+lineupSheetToggleHTML()+
     rulesSheetToggleHTML()+koSheetToggleHTML()+
-    (koPrintModels(state).length ? koPaperPanelHTML() : '')+
+    (koPrintModels(state, state.format.formatType==='rrknockout' ? 'all' : undefined).length ? koPaperPanelHTML() : '')+
     '<div class="hint" style="margin-bottom:6px">'+T('s4.runningOrder')+'</div>'+
     '<div class="printlist">'+ state.groups.map(g=> '<div><span>'+T('s4.groupBoard', {g: escText(g.label), boards: groupBoardLabel(g)})+'</span><span>'+(g.confirmed?'<b style="color:#1d8a4a">'+T('chart.confirmed')+'</b>':'<b style="color:#c0392b">'+T('chart.notConfirmed')+'</b>')+'</span></div>' ).join('') +'</div>'+
     (!allConfirmed ? '<div class="confirm-box"><b>'+T('s4.someNot')+'</b>'+T('s4.someNotText')+'</div>' : '')+
@@ -7392,6 +7395,7 @@ function stage4(){
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="goStage(3)">'+T('s3.makeChanges')+'</button>'+
       '<button class="btn '+(confirmed.length?'primary':'secondary')+'" '+(confirmed.length?'':'disabled')+' onclick="doFinalPrint()">'+T('s4.printPack')+'</button>'+
+      koOnlyButtonHTML()+
       '<button class="btn '+(allConfirmed?'primary':'secondary')+'" onclick="goStage(5)">'+T('s4.continue')+'</button>'+
     '</div>'+
   '</div>';
@@ -7403,6 +7407,23 @@ function toggleRulesSheet(v){ state.printSettings.rulesSheetEnabled = v; persist
    Missing means on, so events saved before this setting keep printing it. Other formats always print theirs. */
 function koSheetOn(t){ t = t||state; return t.format.formatType!=='rrknockout' || !t.printSettings || t.printSettings.koSheetEnabled!==false; }
 function toggleKoSheet(v){ state.printSettings.koSheetEnabled = v; persist(); render(); }
+/* Round robin -> Knockout: print only the knockout bracket sheet(s), the blank one before the draw or the real one after,
+   whatever the pack's other settings say (owner, 2026-10-29). Nothing is marked as printed (that is the pack's). */
+function koOnlyButtonHTML(){
+  if(state.format.formatType!=='rrknockout' || !koPrintModels(state, 'all').length) return '';
+  return '<button class="btn secondary" onclick="printKoOnly()">'+T('s4.printKoOnly')+'</button>';
+}
+function printKoOnly(){
+  if(!sheetsLangReady()) return;
+  const models = koPrintModels(state, 'all');
+  if(!models.length) return;
+  koPaperGate(models, ()=> KBP.whenReady(()=> printKoOnlyNow()));
+}
+function printKoOnlyNow(){
+  if(ddLang()!==ddPrintLang()) return ddWithLang(ddPrintLang(), ()=> printKoOnlyNow());   // printed: the print language
+  document.getElementById('printSheets').innerHTML = koPackSheetsHTML();
+  setTimeout(()=>{ window.print(); }, 60);
+}
 function koSheetToggleHTML(){
   if(state.format.formatType!=='rrknockout') return '';
   return '<div class="toggle-row"><input type="checkbox" id="koSheetToggle" '+(koSheetOn(state)?'checked':'')+' onchange="toggleKoSheet(this.checked)"> <label for="koSheetToggle">'+T('s4.includeKo')+'</label></div>';
@@ -8345,8 +8366,16 @@ function printPackNow(confirmed){
   let html = '';
   if(state.printSettings.rulesSheetEnabled) html += rulesSheetHTML();
   if(confirmed && confirmed.length) html += runningOrderSheetHTML(confirmed) + confirmed.map(g=> chartSheetHTML(g, true) ).join('');
-  if(!koSheetOn(state)){ /* the organiser left the knockout bracket out of this pack */ }
-  else if(state.knockout){
+  if(koSheetOn(state)) html += koPackSheetsHTML();   // else the organiser left the knockout bracket out of this pack
+  if(state.printSettings.lineupSheetEnabled) html += teamLineupSheetsHTML() + knockoutLineupSheetsHTML();
+  mount.innerHTML = html;
+  setTimeout(()=>{ window.print(); }, 60);
+}
+/* The knockout bracket sheets of the pack: the real bracket(s) once drawn, else (Round robin -> Knockout, seeded) the
+   blank brackets placed by group position. */
+function koPackSheetsHTML(){
+  let html = '';
+  if(state.knockout){
     html += knockoutBracketSheetHTML(state.knockout);
     if(state.knockoutLosers) html += knockoutBracketSheetHTML(state.knockoutLosers);
   } else if(state.format.formatType==='rrknockout' && state.format.advanceMode==='seeded'){
@@ -8366,9 +8395,7 @@ function printPackNow(confirmed){
         + (state.format.losersPool ? T('pr.proj.plateToo') : ''), tooManyMainHint(state));
     }
   }
-  if(state.printSettings.lineupSheetEnabled) html += teamLineupSheetsHTML() + knockoutLineupSheetsHTML();
-  mount.innerHTML = html;
-  setTimeout(()=>{ window.print(); }, 60);
+  return html;
 }
 
 /* ---------- Language: EN | BM (i18n/app-i18n.js holds the choice, T() and the switch) ----------

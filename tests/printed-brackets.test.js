@@ -681,7 +681,7 @@ test('bracket sheets show the date and the organiser footer text; the blank brac
   rr.format.sponsors = [{ src: 'data:image/png;base64,iVBORw0KGgo=', shape: 'wide' }];
   rr.printSettings.koPaperSize = 'A3';
   const blank = f('projectedBracketSheetHTML')(f('projectedQualifierEntries')(rr), 'Main bracket (projected)');
-  assert.match(blank, /class="kb-sb[^"]*"[^>]*>[^<]*Projected Knockout Placement · 2026-10-31</, 'the date after the stage');
+  assert.match(blank, /class="kb-sb[^"]*"[^>]*>[^<]*Knockout Stage · 2026-10-31</, 'the date after the stage');
   assert.match(blank, /&nbsp;\|&nbsp; Eco Venture &amp; Co/, 'the organiser footer text, escaped');
   assert.match(blank, /class="kb-qrs"[\s\S]*<svg[\s\S]*class="kb-sps"/, 'the code, then the sponsors under it');
   // the real bracket after the draw: the same date and footer text

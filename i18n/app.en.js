@@ -774,6 +774,7 @@ var DD_APP_EN = {
   's4.confirmSelected': 'Confirm selected ({n})',
   's4.plannedStart': ' · planned start {time}',
   's4.unconfirm': 'Un-confirm',
+  's4.printKoOnly': 'Print knockout bracket only',
   's4.printPack': 'Print bracket pack',
   's4.printHelp': 'printing the blank pack',
   's4.printIntro': 'Prints the blank charts (no scores yet) so boards, times and entries are locked in on paper before play begins.',

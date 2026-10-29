@@ -769,6 +769,7 @@ var DD_APP_MS = {
   's4.confirmSelected': 'Sahkan yang dipilih ({n})',
   's4.plannedStart': ' · jangkaan mula {time}',
   's4.unconfirm': 'Batal pengesahan',
+  's4.printKoOnly': 'Cetak bracket kalah mati sahaja',
   's4.printPack': 'Cetak set bracket',
   's4.printHelp': 'mencetak set kosong',
   's4.printIntro': 'Mencetak carta kosong (belum ada skor) supaya board, masa dan peserta tercatat di atas kertas sebelum permainan bermula.',
