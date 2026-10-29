@@ -17,7 +17,7 @@ function statusEl() {
 function setup() {
   Object.keys(ORIG).forEach((n) => { app[n] = ORIG[n]; });
   const t = f('blankTournament')(); useState(app, t); t.id = 't_ss1';
-  run(app, 'lockedIds.clear(); staleIds.clear(); staleCurrent = {}; pendingSaves.clear(); sentCopies.clear(); keepaliveSave = null; staleReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; saveTimer = null; saveInFlight = false; savePendingId = null; finalizing = false; lastSaveStatus = ""');
+  run(app, 'lockedIds.clear(); staleIds.clear(); if(typeof netOffline!=="undefined"){ netOffline = false; clearTimeout(retryTimer); retryTimer = null; for(const k in offlineQueued) delete offlineQueued[k]; } staleCurrent = {}; pendingSaves.clear(); sentCopies.clear(); keepaliveSave = null; staleReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; saveTimer = null; saveInFlight = false; savePendingId = null; finalizing = false; lastSaveStatus = ""');
   app.render = () => {}; app.renderSavedList = () => {};
   return t;
 }
@@ -49,15 +49,15 @@ test('saving, saved and finalizing keep their wording and are not clickable', ()
   f('setSaveStatus')('finalizing'); assert.equal(el.textContent, 'Finalizing…');
 });
 
-test('a server error, a network error and a 403 that is not a lock all show Couldn’t save, never Updated elsewhere', async () => {
+test('a server error and a 403 that is not a lock show Couldn’t save, a network error No connection; never Updated elsewhere', async () => {
   for (const kind of ['500', 'network', '403']) {
     setup(); const el = statusEl();
     app.apiFetch = kind === 'network' ? () => Promise.reject(new Error('offline'))
       : () => Promise.resolve({ ok: false, status: kind === '500' ? 500 : 403, json: async () => ({ error: 'nope' }) });
     const ok = await f('flushSaveOnce')();
     assert.equal(ok, false, kind);
-    assert.equal(f('lastSaveStatus'), 'failed', kind);
-    assert.equal(el.textContent, 'Couldn’t save — click to retry', kind);
+    assert.equal(f('lastSaveStatus'), kind === 'network' ? 'offline' : 'failed', kind);
+    assert.equal(el.textContent, kind === 'network' ? 'No connection — 1 waiting' : 'Couldn’t save — click to retry', kind);
   }
 });
 

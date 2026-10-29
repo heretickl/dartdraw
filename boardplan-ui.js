@@ -29,7 +29,7 @@ function bpEntryRowHTML(t, e, label){
     : '';
   return '<div style="padding:8px 0;border-top:1px solid var(--line)">'+
     '<div style="font-size:12px"><b>'+(m.called ? T('bp.called') : label)+'</b> · '+escapeHtml(bpWhere(t, e))+(e.estMs != null ? ' · ~'+escapeHtml(epochClockLabel(e.estMs)) : '')+'</div>'+
-    '<div style="font-size:13px;margin:2px 0 6px">'+T('ko.vs', { a: escapeHtml(bpSlotName(t, m, 'a')), b: escapeHtml(bpSlotName(t, m, 'b')) })+(e.ready ? '' : ' <span class="hint" style="margin:0">'+T('bp.waiting')+'</span>')+'</div>'+
+    '<div style="font-size:13px;margin:2px 0 6px">'+(typeof matchMarkHTML === 'function' && m.aEntryId && m.bEntryId ? matchMarkHTML('ko:'+bpOrgKey(e.key)+':'+m.aEntryId+'|'+m.bEntryId) : '')+T('ko.vs', { a: escapeHtml(bpSlotName(t, m, 'a')), b: escapeHtml(bpSlotName(t, m, 'b')) })+(e.ready ? '' : ' <span class="hint" style="margin:0">'+T('bp.waiting')+'</span>')+'</div>'+
     (buttons ? '<div class="buttonrow" style="margin:0">'+buttons+'</div>' : '')+'</div>';
 }
 function bpPanelHTML(){

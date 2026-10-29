@@ -55,7 +55,7 @@ function setup() {
   Object.keys(ORIG).forEach((n) => { app[n] = ORIG[n]; });
   const t = tournament('t_X', 'Spring');
   useState(app, t);
-  run(app, 'lockedIds.clear(); staleIds.clear(); staleCurrent = {}; staleReloading = false; lockedReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; clearTimeout(saveTimer); saveTimer = null; saveInFlight = false; savePendingId = null; saveWaiters = []; savePending = false; saveRev = 0; pendingSaves.clear(); sentCopies.clear(); keepaliveSave = null; silentRefreshBusy = false; silentRefreshAt = {}; finalizing = false; lastSaveStatus = ""; popoutMode = false; currentStage = 5; adminState.view = null');
+  run(app, 'lockedIds.clear(); staleIds.clear(); if(typeof netOffline!=="undefined"){ netOffline = false; clearTimeout(retryTimer); retryTimer = null; for(const k in offlineQueued) delete offlineQueued[k]; } staleCurrent = {}; staleReloading = false; lockedReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; clearTimeout(saveTimer); saveTimer = null; saveInFlight = false; savePendingId = null; saveWaiters = []; savePending = false; saveRev = 0; pendingSaves.clear(); sentCopies.clear(); keepaliveSave = null; silentRefreshBusy = false; silentRefreshAt = {}; finalizing = false; lastSaveStatus = ""; popoutMode = false; currentStage = 5; adminState.view = null');
   server = { t_X: { data: copy(t), updated_at: 'S1', n: 1 } };
   run(app, 'tournamentsCache[state.id] = state; dbUpdatedAtCache[state.id] = "S1"');
   app.render = () => {}; app.renderSavedList = () => {};
@@ -156,7 +156,7 @@ test('M1: a 409 whose server copy is this window’s own earlier save (its answe
   const real = app.apiFetch;
   app.apiFetch = async (url, o) => { await real(url, o); throw new Error('connection reset'); };
   assert.equal(await f('flushSave')(), false);
-  assert.equal(dom.els.saveStatus.textContent, 'Couldn’t save — click to retry');
+  assert.equal(dom.els.saveStatus.textContent, 'No connection — 1 waiting', 'no answer: no connection (offline scoring)');
   app.apiFetch = real;
   run(app, 'state.b = 2'); f('persist')(); noDebounce();
   assert.equal(await f('flushSave')(), true, 'the retry is accepted after taking its own stamp');

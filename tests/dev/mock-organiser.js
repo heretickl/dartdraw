@@ -6,6 +6,7 @@ if (process.argv.includes('--no-library')) process.env.MOCK_NO_LIBRARY = '1';
 const http = require('http'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const db = {};   // id -> { data, updated_at }
+let mockOffline = 0;   // see /__offline
 const mockPlayers = require('./mock-players');   // /api/players/* and /api/admin/players* (MOCK_NO_LIBRARY=1: not set up)
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png' };
 const readBody = (req) => new Promise((resolve) => { let s = ''; req.on('data', (c) => { s += c; }); req.on('end', () => resolve(s ? JSON.parse(s) : {})); });
@@ -13,6 +14,10 @@ const readBody = (req) => new Promise((resolve) => { let s = ''; req.on('data', 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const send = (code, obj) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(obj)); };
+  /* Pretend the signal is gone (offline scoring): /__offline?on=1 drops every /api/* request unanswered, on=2 drops
+     everything (the service worker's copy of the app must answer), on=0 is back to normal. */
+  if (url.pathname === '/__offline') { mockOffline = Number(url.searchParams.get('on')) || 0; return send(200, { offline: mockOffline }); }
+  if (mockOffline === 2 || (mockOffline === 1 && url.pathname.startsWith('/api/'))) { req.socket.destroy(); return; }
   if (url.pathname === '/api/auth/me') return send(200, { id: 'u1', name: 'Test organiser', email: 'test@example.com', publicMode: true, viewerUrl: '', role: process.env.MOCK_ADMIN === '1' ? 'admin' : 'organizer' });
   if (url.pathname === '/api/admin/organizers' && process.env.MOCK_ADMIN === '1') return send(200, { organizers: [{ id: 'u1', name: 'Test organiser', email: 'test@example.com', role: 'admin', tier: 'pro', verified: true, eventCount: Object.keys(db).length }, { id: 'u2', name: 'Other organiser', email: 'other@example.com', role: 'organizer', tier: 'basic', verified: true, eventCount: 0 }] });
   if (await mockPlayers.handle(req, url, send, readBody, db)) return;

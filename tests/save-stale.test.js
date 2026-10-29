@@ -39,7 +39,7 @@ function setup(id) {
   Object.keys(ORIG).forEach((n) => { app[n] = ORIG[n]; });
   const t = tournament(id || 't_st1', 'Spring Open');
   useState(app, t);
-  run(app, 'lockedIds.clear(); staleIds.clear(); staleCurrent = {}; pendingSaves.clear(); sentCopies.clear(); keepaliveSave = null; staleReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; clearTimeout(saveTimer); saveTimer = null; saveInFlight = false; savePendingId = null; saveWaiters = []; savePending = false; saveRev = 0; finalizing = false; lastSaveStatus = ""; popoutMode = false; currentStage = 5');
+  run(app, 'lockedIds.clear(); staleIds.clear(); if(typeof netOffline!=="undefined"){ netOffline = false; clearTimeout(retryTimer); retryTimer = null; for(const k in offlineQueued) delete offlineQueued[k]; } staleCurrent = {}; pendingSaves.clear(); sentCopies.clear(); keepaliveSave = null; staleReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; clearTimeout(saveTimer); saveTimer = null; saveInFlight = false; savePendingId = null; saveWaiters = []; savePending = false; saveRev = 0; finalizing = false; lastSaveStatus = ""; popoutMode = false; currentStage = 5');
   run(app, 'tournamentsCache[state.id] = state; dbUpdatedAtCache[state.id] = "S1"');
   app.render = () => {}; app.renderSavedList = () => {};
   app.openModal = (o) => { modals.push(o.title); };
@@ -251,14 +251,15 @@ test('finalizing a stale event is refused before anything is sent', async () => 
   assert.equal(puts().length, 1);
 });
 
-test('a plain network failure still says Couldn’t save, is not a lock, and the retry is sent', async () => {
+test('a plain network failure says No connection (the change waits on the device), is not a lock, and the retry is sent', async () => {
   setup();
   app.apiFetch = () => Promise.reject(new Error('offline'));
   f('persist')(); clearDebounce();
   assert.equal(await f('flushSave')(), false);
-  assert.equal(els.saveStatus.textContent, 'Couldn’t save — click to retry');
+  assert.equal(els.saveStatus.textContent, 'No connection — 1 waiting');
   assert.equal(run(app, 'staleIds.size'), 0);
   assert.equal(els.staleBanner.hidden, true);
+  run(app, 'netOffline = false');   // the next answer from the server says so (apiFetch is stubbed here)
   // back online: clicking the message retries the save
   app.apiFetch = (url, o) => { calls.push({ method: o.method, id: 't_st1', body: JSON.parse(o.body) }); return Promise.resolve({ ok: true, status: 200, json: async () => ({ updated_at: 'S2' }) }); };
   els.saveStatus.onclick(); await settle();

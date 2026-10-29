@@ -412,6 +412,7 @@ function copyTeamFrom(tid, eid){
 /* ---------- the Players page ---------- */
 var playersPage = { open: false, q: '', shown: 50, ticked: {} };
 function showPlayersPage(){
+  if(typeof needsConnection === 'function' && needsConnection()) return;   // offline scoring: the players list needs signal
   playersPage.open = true; playersPage.q = ''; playersPage.shown = 50; playersPage.ticked = {};
   if(typeof adminState !== 'undefined') adminState.view = null;
   loadLibrary(true);

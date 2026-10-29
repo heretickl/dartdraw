@@ -299,6 +299,7 @@ function renderAdminView(){
 /* ---------- loading and navigation ---------- */
 async function adminShow(view){
   if(!isAdminUser() || ADMIN_VIEWS.indexOf(view) < 0) return;
+  if(typeof needsConnection === 'function' && needsConnection()) return;   // offline scoring: Admin needs signal
   adminState.view = view; adminState.notice = '';
   if(typeof playersPage !== 'undefined') playersPage.open = false;
   await adminLoad();
@@ -603,7 +604,8 @@ async function adminOpenEvent(id){
   } else foreignOpenIds.delete(id);
   var ok = false;
   try{ ok = await openTournament(id, function(){ adminOpenEvent(id); }); }catch(e){ ok = false; }
-  if(!ok && typeof lastOpenBlocked!=='undefined' && lastOpenBlocked){
+  /* Refused because a change is waiting, or no connection (openTournament said "Needs a connection" itself) */
+  if(!ok && ((typeof lastOpenBlocked!=='undefined' && lastOpenBlocked) || (typeof lastOpenOffline!=='undefined' && lastOpenOffline))){
     /* Refused because a change to the open event is still waiting (its own message is showing, with Leave without
        saving, which comes back here): nothing changes meanwhile, so the previous foreign marks are put back. */
     if(hadForeign) foreignOpenIds.set(id, prevForeign); else foreignOpenIds.delete(id);

@@ -48,7 +48,7 @@ function setup() {
   Object.keys(ORIG).forEach((n) => { app[n] = ORIG[n]; });
   const t = tournament('t_X', 'Spring');
   useState(app, t);
-  run(app, 'lockedIds.clear(); staleIds.clear(); staleCurrent = {}; staleReloading = false; lockedReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; clearTimeout(saveTimer); saveTimer = null; saveInFlight = false; savePendingId = null; saveWaiters = []; savePending = false; saveRev = 0; if(typeof pendingSaves!=="undefined") pendingSaves.clear(); if(typeof sentCopies!=="undefined") sentCopies.clear(); keepaliveSave = null; try{ KEEPALIVE_WAIT_MS = 8000; }catch(e){} silentRefreshBusy = false; silentRefreshAt = {}; finalizing = false; lastSaveStatus = ""; popoutMode = false; currentStage = 5; adminState.view = null; foreignOpenIds.clear()');
+  run(app, 'lockedIds.clear(); staleIds.clear(); if(typeof netOffline!=="undefined"){ netOffline = false; clearTimeout(retryTimer); retryTimer = null; for(const k in offlineQueued) delete offlineQueued[k]; } staleCurrent = {}; staleReloading = false; lockedReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; clearTimeout(saveTimer); saveTimer = null; saveInFlight = false; savePendingId = null; saveWaiters = []; savePending = false; saveRev = 0; if(typeof pendingSaves!=="undefined") pendingSaves.clear(); if(typeof sentCopies!=="undefined") sentCopies.clear(); keepaliveSave = null; try{ KEEPALIVE_WAIT_MS = 8000; }catch(e){} silentRefreshBusy = false; silentRefreshAt = {}; finalizing = false; lastSaveStatus = ""; popoutMode = false; currentStage = 5; adminState.view = null; foreignOpenIds.clear()');
   server = { t_X: { data: copy(t), updated_at: 'S1', n: 1 } };
   run(app, 'tournamentsCache[state.id] = state; dbUpdatedAtCache[state.id] = "S1"');
   app.render = () => {}; app.renderSavedList = () => {};
@@ -129,7 +129,7 @@ test('M1: Log out first sends a waiting change; if it cannot be sent it asks (an
 });
 
 function storageStub() { const m = {}; return { getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); }, removeItem: (k) => { delete m[k]; }, m }; }
-test('M1: signed out mid-save (401): the unsent copy is kept, and after signing in again it is offered back and restored with its stamp', async () => {
+test('M1: signed out mid-save (401): the unsent copy stays in the device queue, and after signing in again it is sent with its stamp', async () => {
   setup(); resetR4();
   const store = storageStub(); const replaced = []; const WIN = app.window;
   app.window = new Proxy(WIN, { get: (t, k) => (k === 'location' ? { replace: (u) => replaced.push(u) } : k === 'localStorage' ? store : t[k]) });
@@ -140,18 +140,19 @@ test('M1: signed out mid-save (401): the unsent copy is kept, and after signing 
     run(app, 'state.score = "typed before the session ended"'); f('persist')(); noDebounce();
     assert.equal(await f('flushSave')(), false);
     assert.deepEqual(replaced, ['/?login=1']);
-    const kept = JSON.parse(store.m['dartdraw.unsavedChanges']);
-    assert.equal(kept[0].id, 't_X'); assert.equal(kept[0].owner, 'org1'); assert.equal(kept[0].expectedUpdatedAt, 'S1');
-    assert.equal(kept[0].data.score, 'typed before the session ended');
-    // next page load, signed in again: the list is loaded from the server (which never got the change)
+    assert.equal(store.m['dartdraw.unsavedChanges'], undefined, 'the old localStorage stash is not written any more');
+    const kept = await run(app, 'DDOffline').getQueue('org1', 't_X');
+    assert.equal(kept.expectedUpdatedAt, 'S1');
+    assert.equal(kept.data.score, 'typed before the session ended');
+    // next page load, signed in again: the list is loaded from the server (which never got the change), then the queue
     setup(); resetR4();
     run(app, 'currentOrganizer = { id: "org1", name: "O" }; tournamentsCache.t_X = ' + JSON.stringify(server.t_X.data) + '; dbUpdatedAtCache.t_X = "S1"');
-    assert.equal(await f('offerRecoveredChanges')(), 'offered');
-    assert.equal(store.m['dartdraw.unsavedChanges'], undefined, 'offered once only');
-    assert.equal(modals[0].title, 'Restore your unsaved change?');
-    modals[0].onConfirm(); await settle();
+    assert.equal(await f('restoreQueues')(), 1);
+    assert.equal(await f('flushSave')(), true);
     assert.equal(server.t_X.data.score, 'typed before the session ended');
-    assert.equal(puts()[0].body.expectedUpdatedAt, 'S1', 'restored with the stamp it was based on');
+    assert.equal(puts()[0].body.expectedUpdatedAt, 'S1', 'sent with the stamp it was based on');
+    await settle();
+    assert.equal(await run(app, 'DDOffline').getQueue('org1', 't_X'), null, 'and the queue is gone');
   } finally { app.window = WIN; run(app, 'currentOrganizer = null'); }
 });
 
@@ -258,7 +259,7 @@ test('M3: a save answered 404 (deleted elsewhere) is never retried, says so, and
 });
 
 /* ---------------- L1: Admin opening another organiser's event while blocked ---------------- */
-test('L1: an Admin opening an event while a change is waiting gets the right message, keeps the foreign marks, and Leave opens it properly', async () => {
+test('L1: an Admin opening an event with no connection while a change is waiting: the change stays queued, "Needs a connection", the marks are put back; online it opens', async () => {
   setup(); resetR4();
   const other = tournament('t_F', 'Their event'); server.t_F = { data: copy(other), updated_at: 'F1', n: 1 };
   run(app, 'currentOrganizer = { id: "adm", role: "admin" }; adminState.events = { events: [{ id: "t_F", tournamentName: "Their event", owner: { id: "o9", name: "Zed", email: "z@x" } }], total: 1 }');
@@ -266,10 +267,12 @@ test('L1: an Admin opening an event while a change is waiting gets the right mes
     run(app, 'state.a = 1'); f('persist')();
     offline = true;
     assert.equal(await f('adminOpenEvent')('t_F'), false);
-    assert.equal(modals.map((m) => m.title).join('|'), 'Last change not saved yet', 'not "Could not open that event"');
+    assert.equal(modals.map((m) => m.title).join('|'), 'Needs a connection', 'not "Could not open that event" as well');
     assert.equal(run(app, 'foreignOpenIds.has("t_F")'), false, 'marks put back as they were');
+    assert.ok(await run(app, 'DDOffline').getQueue('adm', 't_X'), 'the waiting change is kept on the device');
     offline = false;
-    modals[0].onConfirm(); await settle();
+    assert.equal(await f('adminOpenEvent')('t_F'), true); await settle();
+    assert.equal(server.t_X.data.a, 1, 'the waiting change was sent first');
     assert.equal(run(app, 'state.id'), 't_F');
     assert.equal(run(app, 'foreignOpenIds.has("t_F")'), true, 'opened as someone else’s event');
   } finally { run(app, 'currentOrganizer = null; foreignOpenIds.clear(); adminEditing = null'); }

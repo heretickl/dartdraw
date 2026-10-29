@@ -52,7 +52,7 @@ function setup() {
   Object.keys(ORIG).forEach((n) => { app[n] = ORIG[n]; });
   const t = tournament('t_X', 'Spring');
   useState(app, t);
-  run(app, 'lockedIds.clear(); staleIds.clear(); staleCurrent = {}; staleReloading = false; lockedReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; clearTimeout(saveTimer); saveTimer = null; saveInFlight = false; savePendingId = null; saveWaiters = []; savePending = false; saveRev = 0; if(typeof pendingSaves!=="undefined") pendingSaves.clear(); if(typeof sentCopies!=="undefined") sentCopies.clear(); keepaliveSave = null; try{ KEEPALIVE_WAIT_MS = 8000; }catch(e){} silentRefreshBusy = false; silentRefreshAt = {}; finalizing = false; lastSaveStatus = ""; popoutMode = false; currentStage = 5; adminState.view = null; foreignOpenIds.clear()');
+  run(app, 'lockedIds.clear(); staleIds.clear(); if(typeof netOffline!=="undefined"){ netOffline = false; clearTimeout(retryTimer); retryTimer = null; for(const k in offlineQueued) delete offlineQueued[k]; } staleCurrent = {}; staleReloading = false; lockedReloading = false; tournamentsCache = {}; dbUpdatedAtCache = {}; clearTimeout(saveTimer); saveTimer = null; saveInFlight = false; savePendingId = null; saveWaiters = []; savePending = false; saveRev = 0; if(typeof pendingSaves!=="undefined") pendingSaves.clear(); if(typeof sentCopies!=="undefined") sentCopies.clear(); keepaliveSave = null; try{ KEEPALIVE_WAIT_MS = 8000; }catch(e){} silentRefreshBusy = false; silentRefreshAt = {}; finalizing = false; lastSaveStatus = ""; popoutMode = false; currentStage = 5; adminState.view = null; foreignOpenIds.clear()');
   server = { t_X: { data: copy(t), updated_at: 'S1', n: 1 } };
   run(app, 'tournamentsCache[state.id] = state; dbUpdatedAtCache[state.id] = "S1"');
   app.render = () => {}; app.renderSavedList = () => {};
@@ -166,7 +166,7 @@ test('M1: a waiting edit that cannot be sent (offline) blocks the switch: still 
   assert.equal(run(app, 'state.lastScore'), 'A-edit');
   assert.equal(gets().length, 0, 'B was not even fetched');
   assert.equal(modals[0].title, 'Last change not saved yet');
-  assert.equal(dom.els.saveStatus.textContent, 'Couldn’t save — click to retry');
+  assert.equal(dom.els.saveStatus.textContent, 'No connection — 1 waiting', 'no answer at all: no connection');
   // back online: the retry delivers it, and then the switch works
   offline = false;
   dom.els.saveStatus.onclick(); await settle();

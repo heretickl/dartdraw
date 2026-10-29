@@ -235,6 +235,14 @@ the page data (`strings`), so a language's wording goes there, not in the module
 they mix in; `search.toEnglish` (and `alias` in `viewer/help.html`) lets a BM word typed on the English Help search for its
 English meaning. Real BM phrases are regression-tested in `tests/fixtures/help-search-ms-*.json`.
 
+## Offline scoring
+
+The organiser app keeps a copy of itself on the device (`sw.js`, a service worker for `/app` only) and every unsent change
+(`offline.js`, IndexedDB), so scoring on Manage Tournament carries on with no signal. When you add, remove or rename a
+file the app loads, update `SHELL` in `sw.js` and bump its `VERSION` (network first already serves changed files after
+a deploy; the bump clears old caches). Locally, `node tests/dev/mock-organiser.js` and `/__offline?on=1` (no API) or
+`on=2` (no network at all) pretend the signal is gone.
+
 ## Deployment
 
 Hosted on Vercel with a Neon Postgres database.

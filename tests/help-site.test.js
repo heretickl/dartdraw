@@ -718,7 +718,8 @@ test('silent refresh and the phone menu: the guide describes what the app does',
   assert.match(fnBody(app, 'switchBlocked'), /Last change not saved yet/);
   assert.match(fnBody(app, 'switchBlocked'), /Leave without saving/);
   assert.match(articleText('how-dartdraw-works'), /Until then DartDraw will not open another event or start a new one: it keeps you on this one and says "Last change not saved yet"\. You can choose Leave without saving, but that change is then gone/);
-  assert.match(faqText('faq-offline'), /wait for Saved before you open another event/);
+  assert.match(faqText('faq-offline'), /Results wait|kept on the device/);   // offline scoring (2026-10-29): results wait on the device
+  assert.match(articleText('how-dartdraw-works'), /No connection — 3 waiting/);
   // round 4: leaving, logging out, being signed out, deleted elsewhere, and the refresh limits in the FAQ
   assert.match(articleText('how-dartdraw-works'), /Log out waits for it the same way, and if you close or reload the page meanwhile, your browser asks you first/);
   assert.match(fnBody(app, 'onBeforeUnload'), /e\.returnValue = ''/);

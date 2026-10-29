@@ -8,6 +8,16 @@
 <style>
 :root{--navy:#10233e;--blue:#1f6feb;--gold:#d9ad45;--paper:#ffffff;--ink:#142133;--muted:#6f7c8b;--line:#dbe2ea;--bg:#edf2f6;--green:#1d8a4a;--red:#c0392b}
 *{box-sizing:border-box}
+.waiting-mark{display:inline-block;color:#b7791f;font-size:11px;line-height:1;margin-right:3px;vertical-align:top}
+.waiting-mark.parked{color:var(--red)}
+.score-cell .waiting-mark{position:absolute;top:1px;left:2px;margin:0}
+.score-cell{position:relative}
+.offline-box{border:1px solid #e8c77a;background:#fff8e6;color:#5c4511;border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:13px}
+.offline-box.parked{border-color:#e3a39b;background:#fdf0ee;color:#7a2219}
+.offline-box ul{margin:6px 0 0;padding-left:0;list-style:none}
+.parked-list{margin:6px 0 10px;padding-left:1.2em;font-size:13px;line-height:1.6}
+.offline-ready{font-size:12px;color:var(--green);margin:0 0 10px}
+@media print{.offline-box,.offline-ready,.waiting-mark{display:none !important}}
 body{margin:0;background:var(--bg);font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
 button{font-family:inherit}
 .app{display:grid;grid-template-columns:340px 1fr;min-height:100vh}
@@ -738,6 +748,7 @@ var DD_MS_FILES = ["i18n/render.ms.js", "i18n/app.ms.js", "i18n/print.ms.js", "i
 <script src="i18n/app-i18n.js"></script>
 <script src="bracket-print.js"></script>
 <script src="tournament-sanitize.js"></script>
+<script src="offline.js"></script>
 <script src="pods.js"></script>
 <script src="pods-ui.js"></script>
 <script src="admin-ui.js"></script>
@@ -754,11 +765,24 @@ let dbUpdatedAtCache = {}; // id -> last known Postgres updated_at, for optimist
    Filled when the saved list loads, in openTournament(), and after a successful finalize. While an id is
    in here this tab never sends a PUT for it (see persist(), flushSaveOnce(), flushSaveNow()). */
 const lockedIds = new Set();
+/* Wifi without internet can hold a request for a minute: one with no answer after this long counts as no answer at
+   all (no connection). A save that lands after it is recognised as this window's own (isOwnWrite). */
+let FETCH_TIMEOUT_MS = 15000;   // let: tests shorten it
+function fetchWithTimeout(url, opts, ms){
+  let ctrl = null, timer = null;
+  try{ if(typeof AbortController==='function' && !(opts && opts.signal) && !(opts && opts.keepalive)) ctrl = new AbortController(); }catch(e){ ctrl = null; }
+  const req = fetch(url, ctrl ? Object.assign({}, opts, { signal: ctrl.signal }) : opts);
+  const late = new Promise((resolve, reject)=>{ timer = setTimeout(()=>{ try{ if(ctrl) ctrl.abort(); }catch(e){} reject(new Error('timeout')); }, ms); });
+  return Promise.race([req, late]).finally(()=>{ clearTimeout(timer); });
+}
 async function apiFetch(url, opts){
   opts = opts||{};
   const headers = Object.assign({}, opts.headers);
   if(opts.body) headers['Content-Type'] = 'application/json';
-  const res = await fetch(url, Object.assign({}, opts, {headers}));
+  let res;
+  try{ res = await fetchWithTimeout(url, Object.assign({}, opts, {headers}), FETCH_TIMEOUT_MS); }
+  catch(e){ markNet(false); throw e; }   // no connection (or wifi without internet): the request never got an answer
+  markNet(true);
   if(res.status===401) stashUnsavedForSignIn();   // signed out mid-save: keep the unsent change (offered back after signing in)
   if(res.status===401){ window.location.replace('/?login=1'); throw new Error('Not authenticated'); }
   return res;
@@ -777,6 +801,7 @@ async function fetchTournamentList(){
   const res = await apiFetch('/api/tournaments');
   if(!res.ok) return;
   const rows = await res.json();
+  if(orgKey()) DDOffline.putList(orgKey(), rows);   // the list the app opens from with no signal (bootOffline)
   tournamentsCache = {}; dbUpdatedAtCache = {};
   lockedIds.clear();
   rows.forEach(r=>{ sanitizeLoaded(r.data); tournamentsCache[r.id]=r.data; dbUpdatedAtCache[r.id]=r.updated_at; if(isLocked(r.data)) lockedIds.add(r.id); });
@@ -2327,6 +2352,7 @@ function bracketColumnsHTML(bracket, t, opts){
               (m.bye?'<div class="bracket-bye-tag">'+T('r.bye')+'</div>':'')+
               (m.void && (m.aEntryId || m.bEntryId)?'<div class="bracket-bye-tag">'+T('r.noShow')+'</div>':'')+
               (m.wo && !m.bye?'<div class="bracket-bye-tag">'+T('r.wo')+'</div>':'')+
+              (interactive && m.aEntryId && m.bEntryId ? matchMarkHTML('ko:'+bracketKey+':'+m.aEntryId+'|'+m.bEntryId) : '')+
               (clickable && !m.void?'<div class="bracket-wo-action" onclick="event.stopPropagation();openKoNoShowPicker(\''+escJs(bracketKey)+'\','+ri+','+mi+')">'+T('r.markNoShow')+'</div>':'')+
             '</div>'+
             bracketConnectMidHTML(mi,hasNext)+
@@ -3331,6 +3357,201 @@ function reconcileConfirmations(t){
   });
 }
 
+/* ---------- Offline scoring (offline.js; docs/superpowers/specs/2026-10-29-offline-scoring-design.md) ----------
+   Every edit is also kept on the phone (DDOffline queue, per organiser and event) before it is sent, so a closed or
+   discarded tab does not lose it, and the app can open with no signal. The save itself is unchanged: the whole event
+   with expectedUpdatedAt. netOffline is set by the last request: one that got no answer at all means no connection
+   (navigator.onLine says nothing about wifi without internet); any answer means there is one. */
+let netOffline = false;
+const offlineBase = {};      // id -> the last server copy of the event (what match changes are counted from)
+const offlineQueued = {};    // id -> { keys: Set of waiting match keys, n: how many, parked: null|{reason, changes} }
+const queueWrites = {};      // id -> the promise of the latest queue write
+let retryTimer = null, retryDelay = 5000;
+function orgKey(){ return currentOrganizer && currentOrganizer.id ? String(currentOrganizer.id) : null; }
+function markNet(ok){
+  const was = netOffline;
+  netOffline = !ok;
+  if(was && ok && savePending) scheduleRetry(true);
+  if(was!==netOffline){ try{ paintSaveStatus(); }catch(e){} }
+}
+function setOfflineBase(id, data){ try{ offlineBase[id] = data ? JSON.parse(JSON.stringify(data)) : null; }catch(e){ offlineBase[id] = null; } }
+/* Keeps the event's unsent copy on the phone. A sample or finalized event is never queued. */
+function queueWrite(id){
+  const org = orgKey();
+  const t = (state && state.id===id) ? state : tournamentsCache[id];
+  if(!org || !t || t.isSample || lockedIds.has(id)) return Promise.resolve(false);
+  let entry;
+  try{
+    const changes = DDOffline.matchChanges(offlineBase[id] || null, t);
+    const prev = offlineQueued[id] || {};
+    entry = { data: JSON.parse(JSON.stringify(t)), expectedUpdatedAt: dbUpdatedAtCache[id] || null, rev: pendingSaves.has(id) ? pendingSaves.get(id) : saveRev,
+      changes, sent: (sentCopies.get(id) || []).slice(), parked: prev.parked || null, base: offlineBase[id] || null };
+    offlineQueued[id] = { keys: new Set(changes.map(c=>c.key)), n: changes.length, changes, parked: prev.parked || null };
+  }catch(e){ return Promise.resolve(false); }
+  const p = DDOffline.putQueue(org, id, entry).then(ok=>{
+    const was = !!queueFailed[id];
+    queueFailed[id] = !ok;
+    if(was!==!ok && (lastSaveStatus==='offline' || lastSaveStatus==='failed')) setSaveStatus('failed');   // say what is true now
+    return ok;
+  });
+  queueWrites[id] = p;
+  return p;
+}
+/* id -> true when the last write of that event's queue to the device failed (storage full, blocked, lost): its changes
+   are then only in this window, so the status must not say they are kept. */
+const queueFailed = {};
+function queueWriteFailed(){ for(const id of pendingSaves.keys()) if(queueFailed[id]) return true; return !!(state && queueFailed[state.id]); }
+/* The event's queue is no longer needed (everything in it reached the server). A parked part stays. */
+function queueDone(id){
+  const org = orgKey(); if(!org) return;
+  const q = offlineQueued[id];
+  if(q && q.parked){ offlineQueued[id] = { keys: new Set(), n: 0, parked: q.parked }; queueWrites[id] = DDOffline.putQueue(org, id, { data: null, changes: [], sent: [], parked: q.parked }); return; }
+  delete offlineQueued[id];
+  queueWrites[id] = DDOffline.deleteQueue(org, id);
+}
+/* A save got through: what it carried is now the server copy (kept on the phone for offline opening). The queue goes
+   when nothing newer waits; otherwise it is written again with the new stamp. */
+function offlineSaved(id, bodyText, updatedAt){
+  const org = orgKey(); if(!org) return;
+  let data = null; try{ data = JSON.parse(bodyText).data; }catch(e){ return; }
+  setOfflineBase(id, data);
+  DDOffline.putEvent(org, id, { data, updated_at: updatedAt });
+  offlineReady[id] = true;
+  const hadMarks = !!(offlineQueued[id] && offlineQueued[id].n);
+  if(pendingFor(id)) queueWrite(id); else queueDone(id);
+  /* the waiting list and marks on step 5 change: show it */
+  if(hadMarks && state && state.id===id && currentStage===5 && !popoutMode){ try{ render(); }catch(e){} }
+}
+/* With no connection, everything except scoring on step 5 (and printing) waits for signal: say so and do nothing. */
+function needsConnection(){
+  if(!netOffline) return false;
+  openModal({ title:T('off.needsTitle'), body:T('off.needsBody'), confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{}, help:false });
+  return true;
+}
+function waitingKeys(id){ const q = offlineQueued[id]; return q ? q.keys : new Set(); }
+function parkedKeys(id){ const q = offlineQueued[id]; return q && q.parked ? new Set((q.parked.changes||[]).map(c=>c.key)) : new Set(); }
+function waitingCount(){
+  let n = 0;
+  pendingSaves.forEach((rev, id)=>{ if(!unsendable(id)) n += Math.max(1, (offlineQueued[id] && offlineQueued[id].n) || 0); });
+  return Math.max(1, n);   // shown only with "No connection": the change being sent counts even when nothing else waits
+}
+function parkedCount(){ let n = 0; Object.keys(offlineQueued).forEach(id=>{ const q = offlineQueued[id]; if(q.parked) n += (q.parked.changes||[]).length; }); return n; }
+function firstParkedId(){ return Object.keys(offlineQueued).find(id=> offlineQueued[id].parked) || null; }
+/* While anything waits and the page is in view: try again after 5 s, then 10, 20, 30 s at most. Any answer from the
+   server (markNet(true)) or coming back online starts again at once. */
+function scheduleRetry(now){
+  clearTimeout(retryTimer); retryTimer = null;
+  if(!savePending) { retryDelay = 5000; return; }
+  try{ if(document.visibilityState==='hidden') return; }catch(e){}
+  if(now) retryDelay = 5000;
+  retryTimer = setTimeout(async ()=>{
+    retryTimer = null;
+    if(!savePending || saveInFlight) { if(savePending) scheduleRetry(); return; }
+    const ok = await flushSave();
+    if(ok){ retryDelay = 5000; if(savePending) scheduleRetry(); }
+    else if(savePending && !unsendable((saveTarget()||{}).id)){ retryDelay = Math.min(retryDelay*2, 30000); scheduleRetry(); }
+  }, now ? 0 : retryDelay);
+  if(retryTimer && typeof retryTimer.unref==='function') retryTimer.unref();   // Node (tests): never keeps the process alive
+}
+/* A refusal (changed elsewhere, finalized, deleted): the waiting match changes are set aside on the phone, never retried,
+   and listed for the organiser (openParkedReview). */
+function parkQueue(id, reason){
+  const org = orgKey(); if(!org) return;
+  const prev = offlineQueued[id] || {};
+  let changes = [];
+  try{ changes = DDOffline.matchChanges(offlineBase[id] || null, (state && state.id===id) ? state : tournamentsCache[id]); }catch(e){ changes = []; }
+  if(prev.parked && Array.isArray(prev.parked.changes)) changes = prev.parked.changes.concat(changes.filter(c=> !prev.parked.changes.some(p=>p.key===c.key)));
+  if(!changes.length){ queueDone(id); return; }
+  const parked = { reason, changes, at: Date.now() };
+  offlineQueued[id] = { keys: new Set(), n: 0, parked };
+  queueWrites[id] = DDOffline.putQueue(org, id, { data: null, changes: [], sent: [], parked });
+}
+/* The list of results set aside on this phone for event id. Changed elsewhere ('stale'): load the saved copy and put them
+   back match by match (reapplyParked). Finalized or deleted: they can only be read (to note down) and dismissed. */
+function parkedEventName(id){ const t = (state && state.id===id) ? state : tournamentsCache[id]; return t && t.eventCreation ? (t.eventCreation.tournamentName || T('untitled.tournament')) : T('pending.thisEvent'); }
+function openParkedReview(id){
+  const q = id && offlineQueued[id], p = q && q.parked;
+  if(!p) return;
+  const list = '<ul class="parked-list">' + (p.changes||[]).map(c=>'<li>'+escapeHtml(c.label||'')+'</li>').join('') + '</ul>';
+  const reason = T('off.parked.'+(p.reason==='locked' ? 'locked' : p.reason==='gone' ? 'gone' : 'stale'), {name: escapeHtml(parkedEventName(id))});
+  if(p.reason==='stale'){
+    openModal({ title:T('off.parkedTitle'), bodyHTML:'<p>'+reason+'</p>'+list, confirmLabel:T('off.reapply'), confirmClass:'primary',
+      onConfirm:()=>{ reapplyParked(id); }, secondaryLabel:T('off.discard'), secondaryClass:'danger', onSecondary:()=>{ dismissParked(id); }, help:'troubleshooting-save' });
+    return;
+  }
+  openModal({ title:T('off.parkedTitle'), bodyHTML:'<p>'+reason+'</p>'+list, confirmLabel:T('off.dismiss'), confirmClass:'primary', onConfirm:()=>{ dismissParked(id); }, help:'troubleshooting-save' });
+}
+function dismissParked(id){
+  const q = offlineQueued[id]; if(!q) return;
+  q.parked = null;
+  if(pendingFor(id) && !unsendable(id)) queueWrite(id); else queueDone(id);
+  setSaveStatus(lastSaveStatus==='parked' ? '' : lastSaveStatus);
+  render();
+}
+/* Loads the saved copy, then each set-aside result: already there, skipped; match without a result, filled in; a
+   different result, the organiser picks; a match that is not there any more, listed as not placed. */
+async function reapplyParked(id){
+  const q = offlineQueued[id], p = q && q.parked;
+  if(!p) return;
+  const ok = await openTournament(id);
+  if(!ok || !state || state.id!==id || netOffline){ openModal({ title:T('off.parkedTitle'), body:T('off.reapplyLater'), confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{} }); return; }
+  const differs = [], missing = [];
+  let applied = 0;
+  (p.changes||[]).forEach(c=>{
+    const r = DDOffline.applyMatchChange(state, c);
+    if(r==='applied') applied++;
+    else if(r==='differs') differs.push(c);
+    else if(r==='missing') missing.push(c);
+  });
+  const finish = ()=>{
+    offlineQueued[id] = Object.assign(offlineQueued[id] || { keys: new Set(), n: 0 }, { parked: null });
+    if(applied) persist(); else queueDone(id);
+    setSaveStatus(savePending ? 'saving' : 'ok');
+    render();
+    if(missing.length) openModal({ title:T('off.parkedTitle'), bodyHTML:'<p>'+T('off.missing')+'</p><ul class="parked-list">'+missing.map(c=>'<li>'+escapeHtml(c.label||'')+'</li>').join('')+'</ul>', confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{} });
+  };
+  if(!differs.length){ finish(); return; }
+  const rows = differs.map((c, i)=>'<li><div>'+escapeHtml(c.label||'')+'</div>'+
+    (DDOffline.knockoutCascade(state, c) ? '<div class="hint" style="margin:2px 0">'+T('off.cascade')+'</div>' : '')+
+    '<label><input type="radio" name="pk'+i+'" value="phone" checked> '+T('off.pickPhone')+'</label> '+
+    '<label><input type="radio" name="pk'+i+'" value="saved"> '+T('off.pickSaved')+'</label></li>').join('');
+  openModal({ title:T('off.parkedTitle'), bodyHTML:'<p>'+T('off.differs')+'</p><ul class="parked-list">'+rows+'</ul>', confirmLabel:T('off.keepChosen'), confirmClass:'primary', help:'troubleshooting-save',
+    onConfirm:()=>{
+      differs.forEach((c, i)=>{
+        const el = document.querySelector('input[name="pk'+i+'"]:checked');
+        if(!el || el.value==='phone'){ if(DDOffline.applyMatchChange(state, c, {force:true})==='applied') applied++; }
+      });
+      finish();
+    } });
+}
+/* Puts the phone's queues back after a reload or a sign-in: each queued copy becomes the event's copy in this window
+   and is sent again; its sent-copy fingerprints come back, so a save that landed but whose answer was lost counts as
+   this window's own. Parked changes are only listed. */
+async function restoreQueues(){
+  const org = orgKey(); if(!org) return 0;
+  const list = await DDOffline.listQueue(org);
+  let n = 0;
+  list.forEach(({id, entry})=>{
+    if(!entry) return;
+    if(entry.data){
+      let canon = null; try{ canon = canonJSON(entry.data); }catch(e){}   // before cleaning: what was sent is the copy as queued
+      sanitizeLoaded(entry.data);
+      entry.data.id = id;
+      tournamentsCache[id] = entry.data;
+      if(state && state.id===id) state = entry.data;   // already on screen: the queued copy is the latest
+      if(entry.expectedUpdatedAt) dbUpdatedAtCache[id] = entry.expectedUpdatedAt;
+      if(entry.base) offlineBase[id] = entry.base;
+      const sent = (entry.sent || []).slice();
+      if(canon) sent.push(canon);
+      while(sent.length>3) sent.shift();
+      sentCopies.set(id, sent);
+      saveRev++; markPending(id); n++;
+    }
+    offlineQueued[id] = { keys: new Set((entry.changes||[]).map(c=>c.key)), n: (entry.changes||[]).length, changes: entry.changes || [], parked: entry.parked || null };
+  });
+  return n;
+}
+
 /* ---------- Persistence helpers ---------- */
 let saveTimer = null;
 let savePending = false, saveRev = 0;   // an edit that no save has carried to the server yet; saveRev counts edits so a save only clears what it carried
@@ -3341,7 +3562,13 @@ let droppedWhileFinalizing = false;
    short screens (#saveStatusCompact) and the header of a full-page window (#popoutSaveStatus, which has no sidebar). */
 const SAVE_STATUS_IDS = ['saveStatus', 'saveStatusCompact', 'popoutSaveStatus'];
 function setSaveStatus(status){
+  /* A failed save with no connection says how many changes wait on the phone; one still parked stays in view. */
+  if(status==='failed' && netOffline && !queueWriteFailed()) status = 'offline';
+  if(status==='offline' && queueWriteFailed()) status = 'failed';
+  if((status==='ok' || status==='') && parkedCount()) status = 'parked';
   lastSaveStatus = status;
+  if(status==='offline' || status==='failed') scheduleRetry();
+  else if(status==='ok'){ retryDelay = 5000; if(!savePending){ clearTimeout(retryTimer); retryTimer = null; } }
   paintSaveStatus();
 }
 function paintSaveStatus(){
@@ -3349,10 +3576,10 @@ function paintSaveStatus(){
   SAVE_STATUS_IDS.forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
-    el.textContent = ({saving:1, error:1, failed:1, ok:1, locked:1, finalizing:1, gone:1})[status] ? T('save.'+status) : '';
-    if(el.classList && typeof el.classList.toggle==='function') el.classList.toggle('error', status==='error' || status==='failed' || status==='gone');
+    el.textContent = status==='offline' ? T('save.offline', {n: waitingCount()}) : status==='parked' ? T('save.parked', {n: parkedCount()}) : ({saving:1, error:1, failed:1, ok:1, locked:1, finalizing:1, gone:1})[status] ? T('save.'+status) : '';
+    if(el.classList && typeof el.classList.toggle==='function') el.classList.toggle('error', status==='error' || status==='failed' || status==='gone' || status==='offline' || status==='parked');
     /* 'error' = the saved copy is newer than this tab's (a real conflict): reload it. 'failed' = the save did not reach the server (network or server error): try the save again. */
-    el.onclick = status==='error' ? ()=>{ reloadStale(); } : status==='failed' ? ()=>{ flushSave(); } : null;
+    el.onclick = status==='error' ? ()=>{ reloadStale(); } : (status==='failed' || status==='offline') ? ()=>{ flushSave(); } : status==='parked' ? ()=>{ openParkedReview(firstParkedId()); } : null;
   });
   /* A problem message gets a "What does this mean?" link to the Help topic about saving (sidebar only: the phone bar has no room) */
   const helpEl = document.getElementById('saveStatusHelp');
@@ -3430,6 +3657,7 @@ function persist(){
   renderSavedList();
   clearTimeout(saveTimer);
   saveRev++; markPending(state.id);
+  queueWrite(state.id);   // on the phone first: a closed tab or no signal does not lose it
   saveTimer = setTimeout(flushSave, 500);
   scheduleLibrarySync();   // names added while the player library was unreachable (players-ui.js)
 }
@@ -3493,18 +3721,10 @@ function isOwnWrite(id, current){
    changed meanwhile the server refuses it (409) and nothing is overwritten; it is then not restored, and the user is told. */
 const UNSAVED_STASH_KEY = 'dartdraw.unsavedChanges';
 function stashUnsavedForSignIn(){
-  try{
-    if(!savePending && !saveInFlight) return;
-    const ids = [...pendingSaves.keys()];
-    const tg = saveTarget();
-    if(tg && ids.indexOf(tg.id)<0 && (savePending || saveInFlight)) ids.push(tg.id);
-    const owner = currentOrganizer && currentOrganizer.id;
-    const list = ids.filter(id=>!unsendable(id)).map(id=>{
-      const t = (state && state.id===id) ? state : tournamentsCache[id];
-      return t ? { owner, id, name: (t.eventCreation && t.eventCreation.tournamentName) || '', data: JSON.parse(JSON.stringify(t)), expectedUpdatedAt: dbUpdatedAtCache[id] || null } : null;
-    }).filter(Boolean);
-    if(list.length) window.localStorage.setItem(UNSAVED_STASH_KEY, JSON.stringify(list));
-  }catch(e){}
+  /* The phone's queue (queueWrite) already holds every unsent change; after signing in again restoreQueues sends it.
+     The old localStorage stash (UNSAVED_STASH_KEY) is no longer written, so a change is never restored twice; a stash
+     left by an older version is still offered once by offerRecoveredChanges. */
+  try{ pendingSaves.forEach((rev, id)=>{ if(!unsendable(id)) queueWrite(id); }); }catch(e){}
 }
 /* After sign-in (window.onload): offer a kept change back, once. Returns what it did, for tests. */
 async function offerRecoveredChanges(){
@@ -3606,7 +3826,23 @@ async function settlePendingSave(){
   if(lockedIds.has(tg.id)) clearPending(tg.id);
   /* delivered, or deliberately dropped (finalized, or over the entry limit: those explain themselves) */
   if(!savePending) return 'ok';
+  /* Not delivered, but safely on this phone: it stays pending and is sent later (scheduleRetry), so moving on is fine. */
+  if(await queuedOnPhone()) return 'ok';
   return 'failed';
+}
+/* True when every unsent change is written to this phone's queue. */
+async function queuedOnPhone(){
+  if(!orgKey()) return false;
+  const ids = [...pendingSaves.keys()].filter(id=> !unsendable(id));
+  if(!ids.length) return false;
+  for(const id of ids){
+    const t = (state && state.id===id) ? state : tournamentsCache[id];
+    if(t && t.isSample) continue;
+    let ok = false;
+    try{ ok = !!(await queueWrite(id)); }catch(e){ ok = false; }
+    if(!ok) return false;
+  }
+  return true;
 }
 /* The switch was refused: stay on the event, say why, and offer to leave anyway (dropping the unsaved change). */
 function pendingEventNames(){
@@ -3670,6 +3906,7 @@ async function flushSaveOnce(){
       const expected = dbUpdatedAtCache[id] || null;
       const bodyText = JSON.stringify({ data: payload, expectedUpdatedAt: expected });
       recordSent(id, bodyText);
+      queueWrite(id);   // its fingerprint too: if the answer is lost and the tab closes, a reload knows the copy as its own
       const res = await apiFetch('/api/tournaments/'+id, { method:'PUT', body: bodyText });
       if(res.status===403){
         /* The server refuses to change a finalized event. This tab was out of date (or another tab/device
@@ -3677,6 +3914,7 @@ async function flushSaveOnce(){
         let body = null;
         try{ body = await res.json(); }catch(e){}
         if(body && body.finalized){
+          parkQueue(id, 'locked');   // the waiting results are listed, not lost (openParkedReview)
           lockedIds.add(id);
           clearPendingSave(id);
           setSaveStatus('locked');
@@ -3686,7 +3924,7 @@ async function flushSaveOnce(){
         if(body && body.code==='entry_limit'){
           /* Basic limit reached (the server's rule, same as the check in saveStage1): drop the edit (once: it is not
              retried until the user changes something), show the saved copy. */
-          clearPendingSave(id);
+          clearPendingSave(id); queueDone(id);
           if(isOpen() && !switchSettling) reloadServerCopy(id); else refreshCachedTournament(id);
           showEntryLimitModal();
           return false;
@@ -3695,6 +3933,7 @@ async function flushSaveOnce(){
       }
       if(res.status===404){
         /* Deleted (or moved to another organiser) elsewhere: the server never re-creates it. Nothing more is sent. */
+        parkQueue(id, 'gone');
         goneIds.add(id); clearPendingSave(id);
         if(isOpen()) setSaveStatus('gone'); else if(lastSaveStatus==='saving') setSaveStatus('');
         return false;
@@ -3710,6 +3949,7 @@ async function flushSaveOnce(){
            version stamp is NOT adopted: this window's copy is still the old one, and a save carrying the new stamp
            would write over the newer results (the bug this lock fixes). */
         if(current) sanitizeLoaded(current.data);
+        parkQueue(id, 'stale');   // the waiting results are set aside on the phone and offered back after the reload
         markStale(id, current);
         if(current && isOpen()) tournamentsCache[id] = current.data;
         if(isOpen()) setSaveStatus('error');
@@ -3722,12 +3962,14 @@ async function flushSaveOnce(){
       announceSaved(id, saved.updated_at);
       if(pendingSaves.has(id)){ if(pendingSaves.get(id)<=rev) clearPending(id); }
       else if(saveRev===rev && pendingSaves.size===0) savePending = false;
+      offlineSaved(id, bodyText, saved.updated_at);
       setSaveStatus(savePending && pendingSaves.size>0 && !pendingSaves.has(id) ? 'saving' : 'ok');
       return true;
     }
     setSaveStatus('failed');
     return false;
   }catch(e){
+    if(!(e && e.message==='save failed')) markNet(false);   // no answer at all: no connection (the server's refusals throw 'save failed')
     setSaveStatus('failed');
     return false;
   }
@@ -3758,6 +4000,7 @@ function flushSaveNow(){
         if(isOwnWrite(id, current)){ dbUpdatedAtCache[id] = current.updated_at; return null; }
         /* Refused: another window saved first. If this tab stays open (it was only hidden), it is now stale. */
         if(current) sanitizeLoaded(current.data);
+        parkQueue(id, 'stale');
         markStale(id, current);
         if(state && state.id===id) setSaveStatus('error');
         else clearPendingSave(id);
@@ -3772,6 +4015,7 @@ function flushSaveNow(){
       announceSaved(id, saved.updated_at);
       if(pendingSaves.has(id)){ if(pendingSaves.get(id)<=rev) clearPending(id); }
       else if(saveRev===rev && pendingSaves.size===0) savePending = false;
+      offlineSaved(id, bodyText, saved.updated_at);
     }
   }).catch(()=>{}).then(()=>{ if(keepaliveSave===p) keepaliveSave = null; });
   keepaliveSave = p;
@@ -4072,7 +4316,7 @@ function finalizeResults(){
    reloads the server copy and finalizes nothing. While this runs, persist() drops edits (see `finalizing`). */
 async function runFinalize(t){
   if(state!==t || isLocked(t) || finalizing || !eventComplete(t)) return;
-  if(lastSaveStatus==='error' || lastSaveStatus==='failed' || staleIds.has(t.id)){
+  if(lastSaveStatus==='error' || lastSaveStatus==='failed' || lastSaveStatus==='offline' || staleIds.has(t.id)){
     finalizeNotice(T('fin.not'), T('fin.saveFirst'));
     return;
   }
@@ -4172,12 +4416,22 @@ async function logout(){
 /* Logging out first sends a change still waiting. If it cannot be sent, the user is asked (switchBlocked) instead of
    the change being thrown away with the session. */
 async function logoutBlocked(){
-  if(!savePending && !saveInFlight && !keepaliveSave) return false;
-  const r = await settlePendingSave();
-  if(r==='ok') return false;
-  switchBlocked(r, ()=>{ logout(); });
-  return true;
+  if(logoutConfirmed){ logoutConfirmed = false; return false; }
+  if(savePending || saveInFlight || keepaliveSave){
+    const r = await settlePendingSave();
+    if(r!=='ok'){ switchBlocked(r, ()=>{ logout(); }); return true; }
+  }
+  /* Results still waiting (no connection) or set aside on this phone: they stay here and are sent at the next sign-in,
+     but ask first. With nothing waiting, this organiser's offline copies are cleared (the phone may be shared). */
+  const waiting = savePending ? waitingCount() : 0, parked = parkedCount();
+  if(waiting || parked){
+    openModal({ title:T('off.logoutTitle'), body:T('off.logoutBody', {n: waiting + parked}), confirmLabel:T('app.logout'), confirmClass:'danger', onConfirm:()=>{ logoutConfirmed = true; if(orgKey()) DDOffline.forgetProfile(orgKey()).then(()=>{ logout(); }); else logout(); } });
+    return true;
+  }
+  if(orgKey()) await DDOffline.clearOrganizer(orgKey());
+  return false;
 }
+let logoutConfirmed = false;
 
 /* ---------- Change password ----------
    The account bar's "Change password" button opens a modal with three password fields. The checks below run in the
@@ -4204,6 +4458,7 @@ function changePasswordFormHTML(){
 }
 function openChangePassword(){
   if(!currentOrganizer || currentOrganizer.publicMode) return;
+  if(needsConnection()) return;
   changePasswordBusy = false;
   openModal({title:T('pw.title'), bodyHTML: changePasswordFormHTML(), confirmLabel:T('pw.title'), confirmClass:'primary', onConfirm:()=>{}});
   const btn = document.getElementById('modalConfirmBtn');
@@ -4267,6 +4522,7 @@ function chartCount(t){ return t.groups.filter(g=>g.confirmed).length; }
 
 /* ---------- Navigation / rendering root ---------- */
 function goStage(n){
+  if(n!==5 && n!==7 && needsConnection()) return;   // with no signal only Manage Tournament (scoring) and printing work
   if(n>1 && !state.eventCreation.saved){ return; }
   if(n>2 && !state.format.saved){ return; }
   if(n>3 && !state.entriesList.length){ return; }
@@ -4329,6 +4585,7 @@ function openInNewWindowButtonHTML(){
    or the event was changed elsewhere) nothing is replaced and the user is told (switchBlocked). Synchronous when
    nothing is waiting. */
 function newTournament(){
+  if(needsConnection()) return;
   if(savePending){
     return settlePendingSave().then(r=>{ if(r==='ok') startNewTournament(); else switchBlocked(r, startNewTournament); });
   }
@@ -4677,25 +4934,68 @@ try{ initDeviceGate(); }catch(e){}
 
 let lastOpenBlocked = false;   // true when the last openTournament() was refused because a change is waiting
 async function openTournament(id, proceed){
-  lastOpenBlocked = false;
+  lastOpenBlocked = false; lastOpenOffline = false;
   /* An edit still waiting for its save delay is sent first, for the event it belongs to. If it cannot be delivered
      (no connection, or refused because the event was changed elsewhere) the window stays where it is and says so:
      nothing is replaced, so the change is not lost silently. */
   const settled = await settlePendingSave();
   if(settled!=='ok'){ lastOpenBlocked = true; switchBlocked(settled, typeof proceed==='function' ? proceed : ()=>{ openTournament(id); }); return false; }
   if(!foreignOpenIds.has(id)) adminEditing = null;   // an event of your own is open: no "editing someone else's" banner
-  const res = await apiFetch('/api/tournaments/'+encodeURIComponent(id));
+  /* An unsent copy on this phone is the latest: open it and send it, never replace it with the server's. */
+  const q = orgKey() ? await DDOffline.getQueue(orgKey(), id) : null;
+  if(q && q.data) return openFromPhone(id, q);
+  let res = null;
+  try{ res = await apiFetch('/api/tournaments/'+encodeURIComponent(id)); }catch(e){ res = null; markNet(false); }
+  if(!res) return openFromPhone(id, q);   // no connection: the copy kept on this phone, if there is one
   if(res.ok){
     const row = await res.json();
     loadTournamentRow(id, row);
   }
   return !!res.ok;
 }
+/* Opens the event from this phone: its unsent copy (q, or read here), else the last server copy kept, else the copy in
+   the saved list. None: "Needs a connection". Resolves true when it opened one. */
+const offlineReady = {};   // id -> true once this event's server copy is on the phone (the "Ready for offline scoring" note)
+async function openFromPhone(id, q){
+  const org = orgKey();
+  if(!q && org) q = await DDOffline.getQueue(org, id);
+  if(q && q.data){
+    loadTournamentRow(id, { data: q.data, updated_at: q.expectedUpdatedAt || dbUpdatedAtCache[id] || null }, true);
+    if(q.base) offlineBase[id] = q.base;
+    offlineQueued[id] = { keys: new Set((q.changes||[]).map(c=>c.key)), n: (q.changes||[]).length, changes: q.changes || [], parked: q.parked || null };
+    offlineReady[id] = true;
+    saveRev++; markPending(id);
+    setSaveStatus(netOffline ? 'offline' : 'saving');
+    flushSave();
+    return true;
+  }
+  let row = org ? await DDOffline.getEvent(org, id) : null;
+  if(!row || !row.data){ const list = org ? await DDOffline.getList(org) : null; row = Array.isArray(list) ? list.find(r=> r && r.id===id) : null; }
+  if(row && row.data){
+    loadTournamentRow(id, { data: JSON.parse(JSON.stringify(row.data)), updated_at: row.updated_at }, true);
+    setOfflineBase(id, row.data);
+    offlineReady[id] = true;
+    if(q && q.parked) offlineQueued[id] = { keys: new Set(), n: 0, parked: q.parked };
+    return true;
+  }
+  lastOpenOffline = true;
+  openModal({ title:T('off.needsTitle'), body:T('off.noCopy'), confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{} });
+  return false;
+}
+let lastOpenOffline = false;   // true when the last openTournament() could not open the event: no connection and no copy here
 /* Makes a server row ({data, updated_at}) the open tournament: cleans it, fills in fields older saves lack, and shows
    it. Loading the server's copy also ends a stale ("Updated elsewhere") lock on that id: this window now holds the
    latest copy, and the unsaved change it had is dropped. */
-function loadTournamentRow(id, row){
+function loadTournamentRow(id, row, fromPhone){
   {
+    /* fromPhone: row is a copy kept on this phone (openFromPhone), not the server's: the queue and the server copy kept
+       for offline opening are left as they are. Otherwise row is the server's copy: it is kept on the phone, and an
+       unsent copy of this event there is replaced by it (a parked part stays to be reviewed). */
+    if(!fromPhone && row && row.data){
+      setOfflineBase(id, row.data);
+      if(orgKey()){ DDOffline.putEvent(orgKey(), id, { data: offlineBase[id], updated_at: row.updated_at }); offlineReady[id] = true; }
+      if(offlineQueued[id]) queueDone(id);
+    }
     /* A pending edit that can never be sent (its event is stale or finalized) is dropped; so is one for this same event,
        which the server copy now replaces. A pending edit for another event stays, and is still sent for that event. */
     if(pendingFor(id)) clearPendingSave(id);
@@ -4703,7 +5003,7 @@ function loadTournamentRow(id, row){
     if(!pendingSaves.size) savePending = false;
     /* another event now: what the status said was about the one left */
     const switching = !state || state.id!==id;
-    if(switching && ['error','failed','locked','ok'].indexOf(lastSaveStatus)>=0) lastSaveStatus = '';
+    if(switching && ['error','failed','offline','locked','ok','parked'].indexOf(lastSaveStatus)>=0) lastSaveStatus = '';
     const wasStale = staleIds.delete(id);
     goneIds.delete(id);
     delete staleCurrent[id];
@@ -4808,6 +5108,7 @@ function migrateLogoIfNeeded(t){
 }
 function deleteTournament(id, ev){
   ev.stopPropagation();
+  if(needsConnection()) return;
   if(foreignOpenIds.has(id)) return;   // someone else's event: use the Admin Events tab
   if(isSampleOpen() && state.id===id){ closeSample(); return; }   // a sample has no saved copy to delete: just close it
   if(isFinalizedId(id)){ finalizedBlockModal('deleted'); return; }
@@ -4900,6 +5201,7 @@ function renameTournament(id, ev){
 }
 async function duplicateTournament(id, ev){
   ev.stopPropagation();
+  if(needsConnection()) return;
   if(foreignOpenIds.has(id)) return;
   const src = tournamentsCache[id];
   if(!src) return;
@@ -7005,7 +7307,8 @@ function chartSheetHTML(g, forPrint){
         }
         const lockedCls = (!forPrint && !g.gameStarted) ? ' locked' : '';
         /* Split by a line across the middle: the points this row took above, the score below (blank to write in). */
-        rows += '<div class="cell score-cell split '+cls+lockedCls+'"'+editAttr+'><span class="hf">'+top+'</span><span class="hf opp">'+bottom+'</span></div>';
+        const mark = forPrint ? '' : matchMarkHTML('rr:'+g.id+':'+scoreKey(rowEnt.id, colEnt.id));   // waiting to be sent (offline scoring)
+        rows += '<div class="cell score-cell split '+cls+lockedCls+'"'+editAttr+'>'+mark+'<span class="hf">'+top+'</span><span class="hf opp">'+bottom+'</span></div>';
       }
     });
     const st = posById[rowEnt.id];
@@ -7789,6 +8092,7 @@ function publishResultsNow(){
 }
 function setPublished(on){
   if(isSampleOpen()){ render(); sampleBlockModal('publish it'); return; }
+  if(needsConnection()){ render(); return; }
   const was = !!state.published;
   state.published = !!on;
   if(on && !state.publicSlug) state.publicSlug = newPublicSlug();
@@ -7890,7 +8194,28 @@ function deleteIncident(id){
   persist(); render();
 }
 /* Every format's Manage Tournament page ends with the finalize card. */
-function stage5(){ return stage5Body() + finalizeCardHTML(); }
+function stage5(){ return offlineStage5HTML() + stage5Body() + finalizeCardHTML(); }
+/* Step 5, above everything: what is still waiting on this phone (and what was set aside), or that the event is on the
+   phone and ready to score with no signal. Knockout boxes are drawn by render.js (shared with the public viewer), so
+   their waiting matches are listed here rather than marked on the chart. */
+function offlineStage5HTML(){
+  if(!state || state.isSample || isLocked(state)) return '';
+  const id = state.id, q = offlineQueued[id];
+  const waiting = q && pendingFor(id) && q.changes ? q.changes : [];
+  const parked = q && q.parked ? (q.parked.changes||[]) : [];
+  let html = '';
+  if(waiting.length) html += '<div class="offline-box waiting"><b>'+T('off.waitingTitle', {n: waiting.length})+'</b><ul class="parked-list">'+waiting.map(c=>'<li>'+waitMarkHTML(true)+' '+escapeHtml(c.label||'')+'</li>').join('')+'</ul></div>';
+  if(parked.length) html += '<div class="offline-box parked"><b>'+T('save.parked', {n: parked.length})+'</b> <button class="btn ghost" style="padding:3px 9px;font-size:11px" onclick="openParkedReview(\''+escJs(id)+'\')">'+T('off.review')+'</button></div>';
+  if(!html && offlineReady[id]) html = '<div class="offline-ready">'+T('off.ready')+'</div>';
+  return html;
+}
+function waitMarkHTML(on, parked){ return on ? '<span class="waiting-mark'+(parked?' parked':'')+'" title="'+escText(T(parked ? 'off.parkedMark' : 'off.waiting'))+'">&#9719;</span>' : ''; }
+/* The mark on one match: waiting to be sent, or set aside. */
+function matchMarkHTML(key){
+  if(!state) return '';
+  if(parkedKeys(state.id).has(key)) return waitMarkHTML(true, true);
+  return pendingFor(state.id) && waitingKeys(state.id).has(key) ? waitMarkHTML(true) : '';
+}
 function stage5Body(){
   if(state.format.formatType==='podknockout') return podsStage5();
   if(state.format.formatType==='knockout') return stage5Knockout();
@@ -8455,14 +8780,21 @@ try{ ddApplyStatic(); document.title = T('app.title'); ddSyncSwitches(); ddNoteU
 
 /* ---------- Init ---------- */
 window.onload = async function(){
+  registerAppWorker();
+  let meRes = null;
+  try{ meRes = await fetchWithTimeout('/api/auth/me', {}, 6000); }
+  catch(e){ meRes = null; }
+  /* No answer at all (no signal, or wifi without internet): open from this phone, signed in as the last organiser here. */
+  if(!meRes){ netOffline = true; if(!(await bootOffline())) showOfflineNoCopy(); return; }
   try{
-    const meRes = await fetch('/api/auth/me');
     if(!meRes.ok){ window.location.replace('/?login=1'); return; }
     currentOrganizer = await meRes.json();
   }catch(e){ window.location.replace('/?login=1'); return; }
+  if(orgKey()){ DDOffline.putProfile(orgKey(), currentOrganizer); DDOffline.requestPersist(); }
   renderOrganizerBar();
   loadLibrary();   // the player library, searched on step 3 (players-ui.js)
-  await fetchTournamentList();
+  try{ await fetchTournamentList(); }catch(e){}
+  await restoreQueues();   // scores keyed in with no signal earlier (or before a sign-in) take their place and are sent
   // Deep link for "open in a new window" (see openInNewWindow()) — a
   // fresh tab lands directly on the requested tournament/stage instead
   // of whatever tournament was most recently edited.
@@ -8475,12 +8807,55 @@ window.onload = async function(){
     const wantStage = parseInt(params.get('stage'));
     if(wantStage && wantStage!==currentStage){ currentStage = wantStage; render(); }
     if(!popoutMode) offerRecoveredChanges();
+    if(savePending) flushSave();
     return;
   }
   const all = Object.values(tournamentsCache).sort((a,b)=>b.updatedAt-a.updatedAt);
   if(all.length){ await openTournament(all[0].id); } else { render(); }
-  offerRecoveredChanges();
+  offerRecoveredChanges();   // only a stash left by an older version of the app
+  if(savePending) flushSave();
 };
+/* Opening with no connection: the profile, saved list and queues kept on this phone for the last organiser who signed in
+   here. Resolves false when there is nothing to open from. */
+async function bootOffline(){
+  const org = await DDOffline.getLastOrganizerId();
+  const me = org ? await DDOffline.getProfile(org) : null;
+  if(!me) return false;
+  currentOrganizer = me;
+  renderOrganizerBar();
+  const rows = await DDOffline.getList(org);
+  tournamentsCache = {}; dbUpdatedAtCache = {}; lockedIds.clear();
+  (Array.isArray(rows) ? rows : []).forEach(r=>{ if(!r || !r.data) return; sanitizeLoaded(r.data); tournamentsCache[r.id] = r.data; dbUpdatedAtCache[r.id] = r.updated_at; if(isLocked(r.data)) lockedIds.add(r.id); });
+  await restoreQueues();
+  const params = new URLSearchParams(location.search);
+  const wantId = params.get('t');
+  popoutMode = params.get('popout')==='1';
+  const all = Object.values(tournamentsCache).sort((a,b)=>b.updatedAt-a.updatedAt);
+  const id = (wantId && tournamentsCache[wantId]) ? wantId : (all.length ? all[0].id : null);
+  if(id && await openFromPhone(id, null)){
+    const wantStage = parseInt(params.get('stage'));
+    if(wantStage && wantId===id) currentStage = wantStage;
+    render();
+  } else render();
+  return true;
+}
+/* No connection and nothing on this phone to open: say so instead of sending the organiser to a sign-in page that
+   cannot load. */
+function showOfflineNoCopy(){
+  try{
+    document.getElementById('pageTitle').textContent = T('off.needsTitle');
+    document.getElementById('pageSub').textContent = '';
+    document.getElementById('stageArea').innerHTML = '<div class="card"><p>'+escapeHtml(T('off.noBoot'))+'</p><button class="btn primary" onclick="location.reload()">'+escapeHtml(T('off.tryAgain'))+'</button></div>';
+  }catch(e){}
+}
+/* The service worker (sw.js) keeps a copy of the app on the phone so /app opens with no signal. Only /app. */
+function registerAppWorker(){
+  try{
+    if(popoutMode || new URLSearchParams(location.search).get('popout')==='1') return;
+    if(typeof navigator!=='undefined' && navigator.serviceWorker && typeof navigator.serviceWorker.register==='function' && location.protocol!=='file:')
+      navigator.serviceWorker.register('/sw.js', { scope: '/app' }).catch(()=>{});
+  }catch(e){}
+}
 </script>
 </body>
 </html>

@@ -14,6 +14,9 @@
     { "source": "/ms/help", "destination": "/ms/help.html" }
   ],
   "headers": [
+    { "source": "/sw.js", "headers": [
+      { "key": "Cache-Control", "value": "no-cache" }
+    ] },
     { "source": "/verify.html", "headers": [
       { "key": "Referrer-Policy", "value": "no-referrer" },
       { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },

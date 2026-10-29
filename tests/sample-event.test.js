@@ -54,7 +54,7 @@ function setup(opts) {
   opts = opts || {};
   Object.keys(ORIG).forEach((n) => { app[n] = ORIG[n]; });
   mount();
-  run(app, 'state = null; currentStage = 1; lockedIds.clear(); staleIds.clear(); staleCurrent = {}; goneIds.clear(); tournamentsCache = {}; dbUpdatedAtCache = {}; foreignOpenIds.clear(); clearTimeout(saveTimer); saveTimer = null; saveInFlight = false; savePendingId = null; saveWaiters = []; savePending = false; saveRev = 0; pendingSaves.clear(); sentCopies.clear(); keepaliveSave = null; silentRefreshBusy = false; silentRefreshAt = {}; finalizing = false; lastSaveStatus = ""; popoutMode = false; adminState.view = null; adminEditing = null; sampleSaving = false');
+  run(app, 'state = null; currentStage = 1; lockedIds.clear(); staleIds.clear(); if(typeof netOffline!=="undefined"){ netOffline = false; clearTimeout(retryTimer); retryTimer = null; for(const k in offlineQueued) delete offlineQueued[k]; } staleCurrent = {}; goneIds.clear(); tournamentsCache = {}; dbUpdatedAtCache = {}; foreignOpenIds.clear(); clearTimeout(saveTimer); saveTimer = null; saveInFlight = false; savePendingId = null; saveWaiters = []; savePending = false; saveRev = 0; pendingSaves.clear(); sentCopies.clear(); keepaliveSave = null; silentRefreshBusy = false; silentRefreshAt = {}; finalizing = false; lastSaveStatus = ""; popoutMode = false; adminState.view = null; adminEditing = null; sampleSaving = false');
   app.__org = { id: 'o1', name: 'Sam', tier: 'pro', entryLimit: null, viewerUrl: 'https://live.example.com' };
   run(app, 'currentOrganizer = __org');
   server = {};
