@@ -22,8 +22,17 @@ function event(n, maxPerGroup, qualifiers, opts) {
   t.groups.forEach((g) => { g.confirmed = true; });
   return t;
 }
-// The name boxes of a printed two-sided bracket sheet: round, match, slot and the text shown.
-const boxes = (sheet) => [...sheet.matchAll(/data-r="(\d+)" data-m="(\d+)" data-s="([ab])" style="[^"]*"><span class="kb-nm"[^>]*>([^<]*)/g)].map((m) => ({ r: +m[1], m: +m[2], s: m[3], text: m[4] }));
+/* The name boxes of a printed two-sided bracket sheet: round, match, slot and the text shown. The projected (blank) sheet
+   leaves its boxes empty for writing and prints the group label (A1) beside the box, right after it in the HTML: that
+   label is the box's text here. */
+const boxes = (sheet) => {
+  const out = [];
+  for (const m of sheet.matchAll(/data-r="(\d+)" data-m="(\d+)" data-s="([ab])" style="[^"]*"><span class="kb-nm"[^>]*>([^<]*)|class="kb-ink kb-seed [lr]"[^>]*>([^<]*)/g)) {
+    if (m[1] != null) out.push({ r: +m[1], m: +m[2], s: m[3], text: m[4] });
+    else if (out.length && !out[out.length - 1].text) out[out.length - 1].text = m[5];
+  }
+  return out;
+};
 // Round-1 pairings of a bracket, by seed label ('-' for a bye slot), in slot order.
 const pairs = (b) => Array.from(b.rounds[0], (m) => [m.aEntryId ? b.seedLabels[m.aEntryId] : '-', m.bEntryId ? b.seedLabels[m.bEntryId] : '-'].join(' v '));
 function playAll(t) {
@@ -64,6 +73,8 @@ test('16 entries, 4 groups x 2: the projected sheet is the real draw, A1 v D2 | 
   const printed = []; for (let i = 0; i < r0.length; i += 2) printed.push(r0[i].text + ' v ' + r0[i + 1].text);
   assert.deepEqual(printed, ['A1 v D2', 'C1 v B2', 'B1 v C2', 'D1 v A2']);
   assert.match(mount.innerHTML, /data-kb="two-sided" data-paper="A4"[^>]*data-label="MAIN BRACKET \(PROJECTED\)"/, 'the projected bracket is two-sided, like the real one');
+  assert.ok(boxes(sheet).every((b) => !/kb-bx[^"]*"/.test(b.text)), 'parsed');
+  assert.match(sheet, /class="kb-ink kb-bx lbl blank" data-r="0"/, 'the first-round boxes are left empty for writing the names in');
 });
 
 test('8 groups x 2 (32 entries): projected = real, and every group pair meets only in the final', () => {

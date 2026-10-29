@@ -150,12 +150,14 @@ test('16 and 32 slots on A4, the projected 34 and a full 4: legible, two-sided, 
   const p4 = K.plan(K.fromBracket(four.knockout, four), 'A4');
   assert.ok(p4.legs > 4.2, 'legs cell ' + p4.legs);
   assertClean(K.verify(K.layout(K.fromBracket(four.knockout, four), 'A4')), '4 entries');
-  // the projected bracket of 17 groups x 2 (34 qualifiers in 64 slots) fits A4 without a results cell
+  // the projected bracket of 17 groups x 2 (34 qualifiers in 64 slots) has no results cell; its boxes are writing space
+  // (names are filled in by hand), so it needs A3
   const rr = rrEvent(67, 4, 2);
   const pm = f('koPrintModels')(rr)[0];
   assert.equal(pm.label, 'Main bracket (projected)');
   assert.ok(pm.model.noLegs);
-  const lp = K.layout(pm.model, 'A4');
+  assert.equal(K.recommend(pm.model).rec, 'A3');
+  const lp = K.layout(pm.model, 'A3');
   assertClean(K.verify(lp), 'projected 34');
   assert.equal(lp.items.filter((i) => i.k === 'bye').length, 30);
 });
@@ -322,7 +324,7 @@ test('the dialog is used for the projected bracket in the pack and for the Plate
 test('soft 8 pt suggestion: names between 7 and 8 pt get a non-blocking note with a button to the bigger size', () => {
   reset();
   const rr = rrEvent(67, 4, 2);
-  const adv = f('koPaperAdvice')(f('koPrintModels')(rr));
+  const adv = f('koPaperAdvice')(f('koPrintModels')(rr), 'A3');   // the blank bracket's writing space needs A3
   assert.ok(adv.legible);
   const t = koEvent(names('Singles', 34), {});
   const a = f('koPaperAdvice')(f('koPrintModels')(t));
@@ -493,9 +495,9 @@ test('every printed text keeps the 4.6 pt floor, round names shorten rather than
     assert.ok(v.minTextPt >= 4.6, x.label + ': smallest text ' + v.minTextPt);
     lay.items.filter((i) => i.k === 'rl').forEach((i) => assert.ok(i.fs >= 4.6 && /^(Round of \d+|R\d+|Quarterfinal|QF|Semifinal|SF)$/.test(i.txt), i.txt + ' ' + i.fs));
   });
-  // the narrow label boxes get the short names
+  // the writing-space boxes are wide enough for the full round names
   const lay = K.layout(models[0].model, rec);
-  assert.ok(lay.items.some((i) => i.k === 'rl' && /^R\d+$/.test(i.txt)), 'short round names used');
+  assert.ok(lay.items.some((i) => i.k === 'rl' && /^Round of \d+$/.test(i.txt)), 'full round names used');
   // on a sheet shrunk on purpose the chart's text shrinks with it, the title block and footer do not
   const kept = K.verify(K.layout(models[0].model, 'A4', { chrome: { title: 'Open', label: 'MAIN', legend: 'x' } }));
   assert.equal(kept.textUnderFloor, 0);
@@ -667,4 +669,28 @@ test('the print font: printing waits for both weights, checks again, and measure
   assert.ok(checks.some((q) => /^500 /.test(q)) && checks.some((q) => /^700 /.test(q)), 'both weights are checked');
   KB.textMM('Name', 7, 700);
   assert.match(fontsUsed[fontsUsed.length - 1], /^700 100px "Barlow Semi Condensed","Arial Narrow",Arial,sans-serif$/, 'the canvas uses the printed names\' own font stack');
+});
+
+/* ---------- 2026-10-29: the bracket sheets carry what the round robin charts carry ---------- */
+test('bracket sheets show the date and the organiser footer text; the blank bracket has the live-results code, centred above the sponsors', () => {
+  reset();
+  const rr = rrEvent(64, 4, 4);
+  rr.eventCreation.date = '2026-10-31';
+  rr.format.footerText = 'Eco Venture & Co';
+  rr.published = true; rr.publicSlug = 'abc123';
+  rr.format.sponsors = [{ src: 'data:image/png;base64,iVBORw0KGgo=', shape: 'wide' }];
+  rr.printSettings.koPaperSize = 'A3';
+  const blank = f('projectedBracketSheetHTML')(f('projectedQualifierEntries')(rr), 'Main bracket (projected)');
+  assert.match(blank, /class="kb-sb[^"]*"[^>]*>[^<]*Projected Knockout Placement · 2026-10-31</, 'the date after the stage');
+  assert.match(blank, /&nbsp;\|&nbsp; Eco Venture &amp; Co/, 'the organiser footer text, escaped');
+  assert.match(blank, /class="kb-qrs"[\s\S]*<svg[\s\S]*class="kb-sps"/, 'the code, then the sponsors under it');
+  // the real bracket after the draw: the same date and footer text
+  const t = koEvent(names('Singles', 16), { play: false });
+  t.eventCreation.date = '2026-10-31'; t.format.footerText = 'Eco Venture';
+  const real = f('knockoutBracketSheetHTML')(t.knockout);
+  assert.match(real, /Best of 5 Legs · 2026-10-31</);
+  assert.match(real, /&nbsp;\|&nbsp; Eco Venture/);
+  // no date and no footer text: nothing extra
+  t.eventCreation.date = ''; t.format.footerText = '';
+  assert.doesNotMatch(f('knockoutBracketSheetHTML')(t.knockout), / · <\/div>|&nbsp;\|&nbsp; </);
 });

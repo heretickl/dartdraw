@@ -44,7 +44,10 @@ var KBP = (function(){
     font: 7, seedFont: 5.5, tagFont: 5, byeFont: 4.6, markFont: 4.6, roundFont: 6.5,
     H1: 4.8, H2: 7.4, g: 1.6, G: 3.0, C: 4.8, barOff: 2.4,
     padL: 0.9, padR: 0.6, legs: 4.2, legsMax: 8.4,
-    gutter: 3.0, headRow: 5.5, Nmin: 12, NminLabel: 8, border: 0.75, finalK: 1.09
+    gutter: 3.0, headRow: 5.5, Nmin: 12, border: 0.75, finalK: 1.09,
+    /* the projected (blank) bracket is filled in by hand: every box is a writing space this big at scale 1, about the
+       organisers' own A3 K.O 64 sheet (a 64 bracket then fits A3 landscape) */
+    Nwrite: 28, Hwrite: 6.0
   };
   var FAMILY = '"Barlow Semi Condensed"';
   var SANS = 'Inter,"Segoe UI",Arial,sans-serif';
@@ -216,8 +219,9 @@ var KBP = (function(){
     opts = opts || {};
     var projected = !!opts.projected, words = wordsNow();
     var R = bracket.rounds.length;
-    function nameOf(id){ if(!id) return ''; if(projected) return (bracket.seedLabels && bracket.seedLabels[id]) || ''; return bracketEntryName(t, id) || ''; }
-    function seedOf(id){ if(projected || !id) return ''; var s = bracketSeedForDisplay(t, bracket.seeds, bracket.seedLabels, id); return s ? String(s) : ''; }
+    /* projected: the boxes stay empty for the names to be written in; the group label (A1) is printed beside the box */
+    function nameOf(id){ if(!id || projected) return ''; return bracketEntryName(t, id) || ''; }
+    function seedOf(id){ if(!id) return ''; if(projected) return (bracket.seedLabels && bracket.seedLabels[id]) || ''; var s = bracketSeedForDisplay(t, bracket.seeds, bracket.seedLabels, id); return s ? String(s) : ''; }
     var rounds = bracket.rounds.map(function(round, ri){
       return round.map(function(m, mi){
         var collapsed = ri===0 && !!m.bye && ((m.aEntryId?1:0)+(m.bEntryId?1:0))<=1;
@@ -258,7 +262,8 @@ var KBP = (function(){
       var d = displayName(nm, notes), tx = noteText(d);
       w1 = Math.max(w1, textMM(tx, BASE.font, 700)); w2 = Math.max(w2, twoLineMM(tx, BASE.font));
     });
-    var min = model.kind==='projected' ? BASE.NminLabel : BASE.Nmin;
+    if(model.kind==='projected') return { N1: BASE.Nwrite, N2: BASE.Nwrite };
+    var min = BASE.Nmin;
     return { N1: Math.max(min, w1 + mk + 0.5), N2: Math.max(min*0.75, Math.max(w2, mk) + 0.5) };
   }
   function seedWidth(model){
@@ -305,7 +310,7 @@ var KBP = (function(){
   function avail(paper){ var p = PAPERS[paper]; return { w: p.w - 2*MARGIN, h: p.h - 2*MARGIN - FOOTER, pw: p.w, ph: p.h }; }
   function centreMin(H){ var Hf = 1.3*H; return 2*(9 + 2*Hf) + 24; }   // Final, Champion and room for the title block and sponsors
   function geom(model, mode, N, legs, gutter){
-    var H = mode===2 ? BASE.H2 : BASE.H1;
+    var H = model.kind==='projected' ? BASE.Hwrite : mode===2 ? BASE.H2 : BASE.H1;
     var B = BASE.padL + N + BASE.padR + legs + BASE.border, Bc = B*BASE.finalK, k = model.R - 1;
     var W = 2*gutter + 2*k*(B + BASE.C) + Bc;
     var L = layoutSide(model, 0, H, 1, 0), Rr = layoutSide(model, 1, H, 1, 0);
@@ -488,15 +493,17 @@ var KBP = (function(){
       var spW = sp.reduce(function(a, x){ return a + (x.shape==='square' ? 8 : 17); }, 0) + Math.max(0, sp.length-1)*2;
       var rows = sp.length ? Math.max(1, Math.ceil(spW/Math.max(20, crownW))) : 0;
       var spH = rows ? rows*8 + (rows-1)*2 : 0;
-      var qrW = 62, qrH = 20;
+      /* the code centred over the sponsors, its caption ("Live results / Scan, or go to ...") centred under it */
+      var codeH = 20, qrW = QR_STACK_W, qrH = codeH + QR_CAP_H;
       var natH = (qr ? qrH : 0) + spH + (qr && rows ? 2.5 : 0), natW = Math.max(qr ? qrW : 0, rows ? Math.min(spW, Math.max(20, crownW)) : 0);
       var z = Math.min(1, (zoneH - 1)/natH, crownW/natW);
-      if(qr && z*qrH < 9 && rows){ rows = 0; spH = 0; natH = qrH; natW = qrW; z = Math.min(1, (zoneH-1)/natH, crownW/natW); }   // no room for both: the code is kept
+      if(qr && z*codeH < 9 && rows){ rows = 0; spH = 0; natH = qrH; natW = qrW; z = Math.min(1, (zoneH-1)/natH, crownW/natW); }   // no room for both: the code is kept
       var caption = true;
       if(qr && z < QR_CAPTION_MIN_Z){   // the caption would print under 4.6 pt: the code alone
-        caption = false; qrW = qrH; natW = Math.max(qrW, rows ? Math.min(spW, Math.max(20, crownW)) : 0); z = Math.min(1, (zoneH - 1)/natH, crownW/natW);
+        caption = false; qrW = codeH; qrH = codeH;
+        natH = qrH + spH + (rows ? 2.5 : 0); natW = Math.max(qrW, rows ? Math.min(spW, Math.max(20, crownW)) : 0); z = Math.min(1, (zoneH - 1)/natH, crownW/natW);
       }
-      if(z*Math.max(qr ? qrH : 8, 1) >= 5){
+      if(z*Math.max(qr ? codeH : 8, 1) >= 5){
         var zh = natH*z, zy = av.h - zh;
         out.zone = rect('zone', crownX, zy, crownW, zh, { z:z, qr:qr, caption:caption, rows:rows, qrH:qrH*z, qrW:qrW*z, spH:spH*z });
         out.items.push(out.zone);
@@ -685,10 +692,11 @@ var KBP = (function(){
   /* The live-results code: with its caption ("Live results / Scan, or go to ...") when the caption still prints at 4.6 pt
      or more (its text is 9 px = 6.75 pt at full size), else the code alone. */
   var QR_CAPTION_MIN_Z = SEC_PT/6.75;
+  var QR_STACK_W = 50, QR_CAP_H = 13;   // the code with its caption under it, at full size (mm)
   function zoneHTML(it, lay){
     var c = lay.chrome || {}, z = it.z, h = '';
     if(it.qr){
-      if(it.caption) h += '<div class="kb-qr" style="width:'+mm(it.qrW)+';height:'+mm(it.qrH)+'"><div style="width:62mm;height:20mm;transform:scale('+z.toFixed(4)+');transform-origin:0 0">'+c.qrHTML+'</div></div>';
+      if(it.caption) h += '<div class="kb-qr" style="width:'+mm(it.qrW)+';height:'+mm(it.qrH)+'"><div class="kb-qrs" style="width:'+QR_STACK_W+'mm;height:'+(20+QR_CAP_H)+'mm;transform:scale('+z.toFixed(4)+');transform-origin:0 0">'+c.qrHTML+'</div></div>';
       else { var svg = (/<svg[\s\S]*<\/svg>/.exec(c.qrHTML || '') || [''])[0]; h += '<div class="kb-qr" style="width:'+mm(it.qrH)+';height:'+mm(it.qrH)+'"><div style="width:20mm;height:20mm;transform:scale('+z.toFixed(4)+');transform-origin:0 0">'+svg+'</div></div>'; }
     }
     if(it.rows) h += '<div class="kb-sps" style="gap:'+mm(2*z)+';margin-top:'+mm(it.qr ? 2.5*z : 0)+'">'+(c.sponsors||[]).map(function(x){ var sq = x.shape==='square'; return '<div class="kb-sp" style="width:'+mm((sq ? 8 : 17)*z)+';height:'+mm(8*z)+'"><img src="'+x.src+'" alt=""></div>'; }).join('')+'</div>';

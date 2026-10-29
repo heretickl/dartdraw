@@ -112,9 +112,19 @@ function randomShapes(seed, count, maxEntries) {
   return out;
 }
 const sameSlots = (a, b) => JSON.stringify(Array.from(a)) === JSON.stringify(Array.from(b));
+/* The rules added 2026-10-29 (see the tests at the end) change the draw on purpose where they apply, so the comparisons
+   with the frozen earlier engines leave those lists out: a full bracket (no byes) of round robin finishers with 3 or
+   more finishing positions, or a group with 5 or more entries in the bracket. */
+function newRulesApply(list) {
+  const L = Array.from(list), size = f('nearestBracket')(Math.max(L.length, 2)).size;
+  const ranks = new Set(L.map((e) => e.rank)), perGroup = {};
+  L.forEach((e) => { if (e.groupId != null) perGroup[e.groupId] = (perGroup[e.groupId] || 0) + 1; });
+  const full = L.length === size && ranks.size >= 3 && L.every((e) => e.groupId != null && e.rank != null);
+  return full || Object.values(perGroup).some((k) => k >= 5);
+}
 // The shapes and the earlier search's slots, worked out once (the earlier search is slow) and shared by the tests below.
 let SHAPES = null;
-const shapes = () => SHAPES || (SHAPES = randomShapes(11, 160, 22).map((s) => Object.assign(s, { old: reference(s.list) })));
+const shapes = () => SHAPES || (SHAPES = randomShapes(11, 160, 22).filter((s) => !newRulesApply(s.list)).map((s) => Object.assign(s, { old: reference(s.list) })));
 test('differential: the fast search gives the same round-1 slots as the earlier search, entry for entry (before the round 6 improvement)', () => {
   let n = 0, differ = 0;
   shapes().forEach(({ label, list, old }) => {
@@ -123,7 +133,7 @@ test('differential: the fast search gives the same round-1 slots as the earlier 
     n++;
     if (!sameSlots(old, slotsOf(f('generateBracket')(list, 'x')))) differ++;
   });
-  assert.equal(n, 160);
+  assert.ok(n >= 120, n + ' shapes compared');
   void differ;
 });
 
@@ -236,9 +246,13 @@ function clubShapes(seed, count, maxEntries) {
   return out;
 }
 test('with clubs filled in: the capped search draws exactly what the round 6 engine drew wherever that finished quickly', () => {
+  let compared = 0;
   clubShapes(41, 200, 20).forEach(({ label, list }) => {
+    if (newRulesApply(list)) return;
+    compared++;
     assert.ok(sameSlots(round6(list), slotsOf(f('generateBracket')(list, 'x'))), label);
   });
+  assert.ok(compared >= 150, compared + ' compared');
 });
 test('with clubs filled in, draws that used to take minutes take about a second at most (generous limits)', () => {
   const ko = (n, clubs) => Array.from({ length: n }, (_, i) => ({ entryId: 'k' + i, org: clubs ? 'Club ' + (i % clubs) : '', rank: 1 }));
@@ -344,12 +358,13 @@ test('every trial swap counts towards the cap: group winners all in one club dra
 test('below the cap nothing changed: wherever the search finishes, the draw is the round 6 engine draw, entry for entry', () => {
   let compared = 0;
   clubShapes(43, 60, 32).forEach(({ label, list }) => {
+    if (newRulesApply(list)) return;
     const now = slotsOf(f('generateBracket')(list, 'x'));
     if (stats().searchCapped) return;
     compared++;
     assert.ok(sameSlots(round6(list), now), label);
   });
-  assert.ok(compared >= 50, compared + ' compared');
+  assert.ok(compared >= 40, compared + ' compared');
 });
 test('same group really comes first with whole clubs: big round-robin brackets end with no group short of its last possible stage', () => {
   [[Array(32).fill(4), 4, () => 'Club'], [Array(16).fill(8), 8, () => 'Club'], [Array(32).fill(4), 4, (k) => (k % 2 ? 'A' : 'B')], [Array(42).fill(3), 3, () => 'Club'], [Array(64).fill(2), 2, () => 'Club']].forEach(([sizes, q, orgOf]) => {
@@ -358,7 +373,9 @@ test('same group really comes first with whole clubs: big round-robin brackets e
     const t0 = Date.now(); const b = f('generateBracket')(list, 'x'); const ms = Date.now() - t0;
     const label = sizes.length + ' groups of ' + sizes[0] + ' top ' + q;
     checkIntegrity(b, list, label);
-    assert.deepEqual(groupsShort(b, list), [], label);
+    /* 16 x 8, all through, one club: swaps stay within one finishing position (1st v 8th, 2nd v 7th... in round 1),
+       which leaves two groups with a pair meeting one round early (known, accepted 2026-10-29). */
+    assert.deepEqual(groupsShort(b, list), q === 8 ? ['g12', 'g13'] : [], label);
     assert.equal(stats().improveCapped, false, label + ': the same-group step finished');
     assert.ok(ms < 5000, label + ': ' + ms + ' ms');
   });
@@ -390,4 +407,70 @@ test('exactly 128 entries is drawn: a pure knockout and a round robin of 64 grou
   const t = event(Array(64).fill(2), 2); playAll(t); f('generateKnockoutFromRR')();
   assert.equal(t.knockout.size, 128);
   checkIntegrity(t.knockout, f('collectQualifiers')(t), '64x2 top 2');
+});
+
+/* ---------- 2026-10-29: finishing positions in full brackets, the K.O 64 sheet, 1st and 2nd apart ---------- */
+// Round-1 matches as seed labels ("A1"), and the meeting round of two labels.
+function labelled(sizes, q, opts) {
+  const t = event(sizes, q);
+  const list = Array.from(f('projectedQualifierEntries')(t));
+  const b = f('generateBracket')(list, 'x', opts);
+  const lab = {}; list.forEach((e) => { lab[e.entryId] = e.seedLabel; INFO[e.seedLabel] = e; });
+  const slots = slotsOf(b).map((id) => (id ? lab[id] : null));
+  const pos = {}; slots.forEach((s, i) => { if (s) pos[s] = i; });
+  return { b, list, slots, meet: (x, y) => f('earliestMeetingRound')(pos[x], pos[y]), R: b.rounds.length };
+}
+const INFO = {};   // seed label -> its entry (rank, groupId); labels like A24 (group A2, 4th) can not be split by text
+const posOf = (label) => INFO[label].rank;
+const groupOf = (label) => INFO[label].groupId;
+const labelOf = (g, r) => Object.keys(INFO).find((k) => INFO[k].groupId === g && INFO[k].rank === r);
+test('16 groups x top 4: the knockout is the Novus Semenyih "K.O 64" sheet, match for match', () => {
+  const sheet = ('A1C4 H2F3 N1P4 O2M3 E1G4 I2K3 J1L4 D2B3 P1N4 F2H3 G1E4 B2D3 L1J4 M2O3 C1A4 K2I3 ' +
+                 'B1D4 G2E3 M1O4 C2A3 F1H4 J2L3 I1K4 P2N3 O1M4 E2G3 H1F4 A2C3 K1I4 N2P3 D1B4 L2J3').split(' ');
+  const { b, list, slots } = labelled(Array(16).fill(4), 4);
+  checkIntegrity(b, list, '16x4');
+  assert.deepEqual(sheet, Array.from({ length: 32 }, (_, i) => slots[2 * i] + slots[2 * i + 1]));
+  // the real draw after the round robin gives the same layout
+  const t = event(Array(16).fill(4), 4); playAll(t); f('generateKnockoutFromRR')();
+  const lab = t.knockout.seedLabels;
+  assert.equal(Array.from(t.knockout.rounds[0]).map((m) => lab[m.aEntryId] + lab[m.bEntryId]).join(' '), sheet.join(' '));
+});
+test('every group sends its top 4 into a full bracket (2-32 groups): 1st v 4th and 2nd v 3rd, four quarters, 1st and 2nd meet only in the final', () => {
+  [2, 4, 8, 16, 32].forEach((g) => {
+    const { b, list, slots, meet, R } = labelled(Array(g).fill(4), 4);
+    checkIntegrity(b, list, g + 'x4');
+    for (let i = 0; i < slots.length; i += 2) {
+      const pr = [posOf(slots[i]), posOf(slots[i + 1])].sort().join('v');
+      assert.ok(pr === '1v4' || pr === '2v3', g + ' groups: round 1 ' + slots[i] + ' v ' + slots[i + 1]);
+      assert.notEqual(groupOf(slots[i]), groupOf(slots[i + 1]), g + ' groups: same group in round 1');
+    }
+    list.forEach((e) => {
+      if (e.rank !== 1) return;
+      const G = e.groupId;
+      assert.equal(meet(labelOf(G, 1), labelOf(G, 2)), R - 1, g + ' groups ' + G + ': 1st and 2nd only in the final');
+      assert.equal(meet(labelOf(G, 3), labelOf(G, 4)), R - 1, g + ' groups ' + G + ': 3rd and 4th only in the final');
+      [[1, 3], [1, 4], [2, 3], [2, 4]].forEach(([x, y]) => assert.ok(meet(labelOf(G, x), labelOf(G, y)) >= R - 2, g + ' groups ' + G + x + ' and ' + G + y + ': not before the semi-final'));
+    });
+  });
+});
+test('other full brackets with 3+ finishing positions keep them paired in round 1 (top 8: 1st v 8th, 2nd v 7th...)', () => {
+  [[2, 8], [4, 8], [8, 8], [16, 8]].forEach(([g, q]) => {
+    const { b, list, slots, meet, R } = labelled(Array(g).fill(q), q);
+    checkIntegrity(b, list, g + 'x' + q);
+    for (let i = 0; i < slots.length; i += 2) assert.equal(posOf(slots[i]) + posOf(slots[i + 1]), q + 1, g + 'x' + q + ': ' + slots[i] + ' v ' + slots[i + 1]);
+    list.forEach((e) => { if (e.rank === 1) { const G = e.groupId; assert.equal(meet(labelOf(G, 1), labelOf(G, 2)), R - 1, g + 'x' + q + ' ' + G + ': 1st and 2nd only in the final'); } });
+  });
+});
+test('a group with 5 or more in the bracket: its 1st and 2nd meet only in the final (the byes stay with the best placed)', () => {
+  [[8, 5], [4, 5], [4, 6], [8, 6], [4, 7]].forEach(([g, q]) => {
+    const { b, list, meet, R } = labelled(Array(g).fill(q), q);
+    checkIntegrity(b, list, g + 'x' + q);
+    list.forEach((e) => { if (e.rank === 1) { const G = e.groupId; assert.equal(meet(labelOf(G, 1), labelOf(G, 2)), R - 1, g + 'x' + q + ' ' + G); } });
+  });
+});
+test('a random draw (round robin "random" advance) does not use the fixed layout', () => {
+  const t = event(Array(16).fill(4), 4); t.format.advanceMode = 'random'; playAll(t); f('generateKnockoutFromRR')();
+  const lab = t.knockout.seedLabels;
+  assert.notEqual(Array.from(t.knockout.rounds[0]).map((m) => lab[m.aEntryId] + lab[m.bEntryId]).slice(0, 4).join(' '), 'A1C4 H2F3 N1P4 O2M3');
+  checkIntegrity(t.knockout, f('collectQualifiers')(t), 'random 16x4');
 });

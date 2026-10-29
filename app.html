@@ -528,6 +528,9 @@ body.is-phone:not(.mko-popout) .stage5-jumpnav{position:static}
 .kb-bl span{font-weight:500;color:#53606f;letter-spacing:0}
 .kb-zone{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;overflow:hidden}
 .kb-qr{overflow:hidden;flex:0 0 auto}
+/* printQrBlockHTML's code-and-caption row, stacked on a bracket sheet: the code centred, the caption centred under it */
+.kb-qrs>div{flex-direction:column!important;align-items:center!important;text-align:center!important;gap:1mm!important}
+.kb-qrs>div>div{max-width:none!important}
 .kb-sps{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;max-width:100%}
 .kb-sp{display:grid;place-items:stretch;overflow:hidden;flex:0 0 auto}
 .kb-sp img{width:100%;height:100%;min-width:0;min-height:0;object-fit:contain;display:block}
@@ -1668,6 +1671,43 @@ function seedSlotOrder(size){
   prev.forEach(s=>{ out.push(s); out.push(size+1-s); });
   return out;
 }
+/* Round robin into a full bracket with every group sending its top 4 (2, 4, 8, 16 or 32 groups, no byes): a fixed
+   layout instead of the search in generateBracket, as on the organisers' own printed sheets. Round 1 is always a
+   1st v a 4th and a 2nd v a 3rd of a partner group; each group's four finishers are in four different quarters (1st
+   and 4th in one half, 2nd and 3rd in the other), so the 1st and 2nd of a group can only meet in the final and any
+   other two of a group in the semi-final. 16 groups use the Novus Semenyih "K.O 64" sheet exactly (left half top to
+   bottom, then the right half); other sizes pair group 1 with 3, 2 with 4, 5 with 7... (2 groups: 1 with 2).
+   Clubs are not used here: the layout is the same for every event. -> slot array, or null when it does not apply. */
+const KO64_SHEET = 'A1C4 H2F3 N1P4 O2M3 E1G4 I2K3 J1L4 D2B3 P1N4 F2H3 G1E4 B2D3 L1J4 M2O3 C1A4 K2I3 '+
+                   'B1D4 G2E3 M1O4 C2A3 F1H4 J2L3 I1K4 P2N3 O1M4 E2G3 H1F4 A2C3 K1I4 N2P3 D1B4 L2J3';
+function topFourFullLayout(orderedEntries, size){
+  const groupIds = [], byGroup = {};
+  for(const e of orderedEntries){
+    if(e.groupId==null || !(e.rank>=1 && e.rank<=4)) return null;
+    if(!byGroup[e.groupId]){ byGroup[e.groupId] = {}; groupIds.push(e.groupId); }
+    if(byGroup[e.groupId][e.rank]) return null;
+    byGroup[e.groupId][e.rank] = e;
+  }
+  const G = groupIds.length;
+  if(![2,4,8,16,32].includes(G) || orderedEntries.length!==G*4 || size!==G*4) return null;
+  const at = (g, r)=> byGroup[groupIds[g]][r];
+  if(G===16){
+    const slots = [];
+    KO64_SHEET.split(/\s+/).forEach(m=>{ [m.slice(0,2), m.slice(2)].forEach(c=> slots.push(at(c.charCodeAt(0)-65, +c[1]))); });
+    return slots;
+  }
+  const quarters = [[],[],[],[]];
+  let k = 0;
+  for(let g=0; g<G; g++){
+    const h = G===2 ? 1 : g+2;
+    if(G===2 ? g!==0 : (g & 2)) continue;              // g is the first of its pair
+    const m = [[at(g,1), at(h,4)], [at(h,1), at(g,4)], [at(h,2), at(g,3)], [at(g,2), at(h,3)]];
+    const q = k%2===0 ? [0,1,2,3] : [2,3,0,1];          // every other pair starts on the right half
+    m.forEach((pair, i)=> quarters[q[i]].push(pair));
+    k++;
+  }
+  return [].concat(...quarters.map(list=> [].concat(...list)));
+}
 /* Builds a knockout bracket from an ordered list of {entryId, org} objects.
    `orderedEntries[0]` is the best seed. Slots beyond the list are byes.
    `label` marks which bracket this is (used when a losers' pool exists
@@ -1793,6 +1833,9 @@ function generateBracket(orderedEntries, label, opts){
     orderedEntries.forEach(e=>{ if(assigned[e.entryId]) bySeed[assigned[e.entryId]] = e; });
   }
   let slots = slotOrder.map(seed=> bySeed[seed] || null);
+  const random = !!(opts && opts.random);   // a random draw (round robin "random" advance): no fixed layout, no same-position cohorts
+  const fixedLayout = random ? null : topFourFullLayout(orderedEntries, size);
+  if(fixedLayout) return finishBracket(fixedLayout);
 
   /* Byes always go to the best-ranked entries under plain seeding — a low
      seed number is paired against the highest (often empty) slot, so
@@ -1811,7 +1854,11 @@ function generateBracket(orderedEntries, label, opts){
     if(slots[i] && !slots[i+1]) originalByeSeed[slotOrder[i]] = true;
     else if(slots[i+1] && !slots[i]) originalByeSeed[slotOrder[i+1]] = true;
   }
-  const cohortOf = entry => entry ? (originalByeSeed[seedOfEntryId[entry.entryId]] ? 'bye' : 'real') : 'empty';
+  /* A full bracket (no byes) of round robin finishers with 3 or more positions per group: seeding pairs the 1st with
+     the last, the 2nd with the one before, and so on, and with no byes nothing else kept the swaps below from mixing
+     those up (3rd v 4th, 1st v 2nd in round 1). There every swap stays within one finishing position. */
+  const rankCohorts = !random && n===size && distinctRanks.length>=3 && orderedEntries.every(e=> e.groupId!=null && e.rank!=null);
+  const cohortOf = entry => entry ? (rankCohorts ? 'r'+entry.rank : originalByeSeed[seedOfEntryId[entry.entryId]] ? 'bye' : 'real') : 'empty';
 
   /* Two different groups' same-position finishers (both group winners,
      or both runners-up, etc.) must never meet in round 1 either — a
@@ -2003,7 +2050,19 @@ function generateBracket(orderedEntries, label, opts){
     Object.keys(members).forEach(g=>{ const k = members[g].length; ideal[g] = k<2 ? 0 : totalRounds - Math.ceil(Math.log2(k)); });
     const pairsOf = {};
     clashPairs.forEach(([a,b],pi)=>{ (pairsOf[a] = pairsOf[a]||[]).push(pi); (pairsOf[b] = pairsOf[b]||[]).push(pi); });
-    const pairIdeal = clashPairs.map(([a,b])=> (groupOf[a]!=null && groupOf[a]===groupOf[b]) ? ideal[groupOf[a]] : null);
+    /* A group with 5 or more entries here: its two best-placed (the 1st and 2nd) go in opposite halves, so they can
+       only meet in the final; the rule above alone allows the quarter-final. */
+    const bestTwo = {};
+    Object.keys(members).forEach(g=>{
+      if(members[g].length<5) return;
+      const byRank = members[g].filter(id=> rankOfEntryId[id]!=null).sort((x,y)=> rankOfEntryId[x]-rankOfEntryId[y]);
+      if(byRank.length>=2) bestTwo[g] = [byRank[0], byRank[1]];
+    });
+    const pairIdeal = clashPairs.map(([a,b])=>{
+      if(!(groupOf[a]!=null && groupOf[a]===groupOf[b])) return null;
+      const top = bestTwo[groupOf[a]];
+      return (top && top.includes(a) && top.includes(b)) ? totalRounds-1 : ideal[groupOf[a]];
+    });
     /* Each entry's same-group pairs only (at most k-1 of them, as the pair, the other entry and the pair's last
        possible stage): enough to work out a swap's new shortfall cheaply. */
     const groupPairsOf = {};
@@ -2086,6 +2145,8 @@ function generateBracket(orderedEntries, label, opts){
     }
   }
 
+  return finishBracket(slots);
+  function finishBracket(slots){
   const rounds = bracketFromSlots(slots, size);
   const seeds = {};
   orderedEntries.forEach((e,i)=>{ seeds[e.entryId] = i+1; });
@@ -2100,6 +2161,7 @@ function generateBracket(orderedEntries, label, opts){
   const seedLabels = {};
   orderedEntries.forEach(e=>{ if(e.seedLabel) seedLabels[e.entryId] = e.seedLabel; });
   return { id: uid('kb'), label: label||'Bracket', size, rounds, roundStartedAt: rounds.map(()=>null), seeds, seedLabels };
+  }
 }
 /* Pushes any already-known winners (from round-1 byes) forward into the next
    round's slots — called after generation and after every score is saved. */
@@ -2677,6 +2739,10 @@ function koBracketEntryCount(bracket){
   bracket.rounds[0].forEach(m=>{ if(m.aEntryId) ids.add(m.aEntryId); if(m.bEntryId) ids.add(m.bEntryId); });
   return ids.size;
 }
+/* The event date after a printed bracket's sub line, as on the round robin charts ('' without a date; plain text). */
+function printDateSuffix(t){ const d = t.eventCreation.date; return d ? ' · '+ddDateNum(d) : ''; }
+/* The organiser's own footer text (Format & branding) after a printed bracket's legend, as on the round robin charts. */
+function printFooterTextHTML(t){ return t.format.footerText ? ' &nbsp;|&nbsp; '+escapeHtml(t.format.footerText) : ''; }
 /* The title block, sponsors, code and legend of a printed bracket (text is plain; the legend is already HTML). */
 function koSheetChrome(t, bracket, info){
   const logo = t.format.logo && imgSrc(t.format.logo) ? { src: imgSrc(t.format.logo), aspect: t.format.logoAspect||1 } : null;
@@ -2684,9 +2750,9 @@ function koSheetChrome(t, bracket, info){
   const hasBye = bracket.rounds[0].some(m=> m.bye && (!m.aEntryId || !m.bEntryId));
   return {
     overline: t.eventCreation.tournamentName||'', title: t.eventCreation.eventName||'',
-    sub: T('catUnit', {cat: catLabel(t.eventCreation.eventType||''), unit: unitLabel(t.eventCreation.competitionUnit||'')})+' · '+info.stage+info.legsSub,
+    sub: T('catUnit', {cat: catLabel(t.eventCreation.eventType||''), unit: unitLabel(t.eventCreation.competitionUnit||'')})+' · '+info.stage+info.legsSub+printDateSuffix(t),
     label: info.label, detail: info.detail, logo, sponsors, qrHTML: info.qr||'',
-    legend: info.legend + (hasBye ? T('pr.ko.bye') : '') + T('pr.ko.numbers'),
+    legend: info.legend + (hasBye ? T('pr.ko.bye') : '') + T('pr.ko.numbers') + printFooterTextHTML(t),
     credit: ddCreditHTML(), cls: info.cls||'', data: { label: info.label, sub: info.stage }
   };
 }
@@ -2979,11 +3045,11 @@ function groupBoardsBracketSheetHTML(bracket, opts){
     return '<div class="print-sheet mko-print-sheet mko-paper-'+paperKey+'">'+
       '<div class="sheet-top"'+printQrHeaderAttr(qrBlock)+'>'+ mainLogoBoxHTML()+
         '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
-        '<div class="sheet-sub">'+catUnitText(t)+' · '+(opts && opts.stage ? escapeHtml(opts.stage) : T('pr.ko.stage'))+legsSub+(totalSheets>1?' · '+escapeHtml(sheetLabel):'')+'</div></div>'+
+        '<div class="sheet-sub">'+catUnitText(t)+' · '+(opts && opts.stage ? escapeHtml(opts.stage) : T('pr.ko.stage'))+legsSub+escapeHtml(printDateSuffix(t))+(totalSheets>1?' · '+escapeHtml(sheetLabel):'')+'</div></div>'+
         '<div class="group-label"><strong>'+escapeHtml(printBracketLabel(bracket))+'</strong><span>'+T('pr.gb.size', {size: escText(bracket.size)})+(totalSheets>1?T('pr.SheetOf', {i: sheetIndex, n: totalSheets}):'')+'</span></div>'+qrBlock+
       '</div>'+
       '<div class="mko-sheet-body" style="flex:1;display:flex;align-items:center;justify-content:center;margin-top:12px;overflow:hidden;">'+innerHTML+'</div>'+
-      '<div class="footer"><small>'+legsFooter+'</small>'+
+      '<div class="footer"><small>'+legsFooter+printFooterTextHTML(t)+'</small>'+
       '<div class="footer-right">'+
         (t.printSettings.sponsorFooterEnabled && t.format.sponsors.length ? '<div class="sponsors">'+t.format.sponsors.map(s=>'<div class="sponsor'+(s.shape==='square'?' square':'')+'"><img src="'+imgSrc(s.src)+'"></div>').join('')+'</div>' : '')+
         ddCreditHTML()+
@@ -3064,7 +3130,8 @@ function projectedBracketSheetHTML(entries, title){
   const chrome = koSheetChrome(t, bracket, {
     stage: T('pr.proj.stage'), legsSub: '',
     legend: T('pr.proj.legend')+orgNote,
-    label: koModelLabel(String(title)).toUpperCase(), detail: T('pr.ko.detailQ', {size: bracket.size, n}), cls: 'kb-projected'
+    label: koModelLabel(String(title)).toUpperCase(), detail: T('pr.ko.detailQ', {size: bracket.size, n}), cls: 'kb-projected',
+    qr: printQrBlockHTML(t, 'bracket')
   });
   return kbBracketSheetsHTML(KBP.fromBracket(bracket, t, { projected:true, tagPrefix: plate ? 'P' : '' }), chrome);
 }
@@ -7525,13 +7592,13 @@ function generateKnockoutFromRR(){
     return;
   }
   let ordered = t.format.advanceMode==='random' ? shuffleArray(qualifiers) : qualifiers;
-  t.knockout = generateBracket(ordered, 'Main bracket');
+  t.knockout = generateBracket(ordered, 'Main bracket', { random: t.format.advanceMode==='random' });
   t.knockoutLosers = null;
   if(t.format.losersPool){
     const nonQual = collectNonQualifiers(t);
     if(nonQual.length>=2){
       const orderedL = t.format.advanceMode==='random' ? shuffleArray(nonQual) : nonQual;
-      t.knockoutLosers = generateBracket(orderedL, "Plate pool");
+      t.knockoutLosers = generateBracket(orderedL, "Plate pool", { random: t.format.advanceMode==='random' });
     }
   }
   /* Stamped once, the first time this runs, so the knockout schedule anchors
