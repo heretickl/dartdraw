@@ -154,7 +154,7 @@ function podsCheckInGuard(podIds, go){
 
 function podsStage3(){
   var t = state, pods = podsList(t), v = podsValidate(t), scored = podsAnyScores(t);
-  var html = drawCheckInPanelHTML(pods.length > 0) + stage3Knockout({ noControls:true, intro:T('pods.drawBelow') });   // the Participants & Seeding panel, same as the knockout format
+  var html = drawCheckInPanelHTML(pods.length > 0) + entryPickerHTML() + stage3Knockout({ noControls:true, intro:T('pods.drawBelow') });   // the Participants & Seeding panel, same as the knockout format
   html += '<div class="card"><h2>'+T('pods.groups')+'</h2><p class="intro">'+
     (pods.length ? T('pods.checkDraw')
                  : T('pods.dealText', { noun: podsNoun(1), n: (parseInt(t.format.podCount) || 0) }))+'</p>'+
@@ -175,6 +175,7 @@ function podsDrawNow(){
 }
 function podsDrawClick(){
   if(podsAnyScores(state)) return;
+  if(!podsList(state).length && activeEntryCount(state)<2){ needTwoEntriesModal(); return; }
   if(!podsList(state).length && state.drawAfterCheckIn!==false && !podsDrawClick.asked){
     drawTimingGate(function(){ podsDrawClick.asked = true; try{ podsDrawClick(); } finally { podsDrawClick.asked = false; } });
     return;

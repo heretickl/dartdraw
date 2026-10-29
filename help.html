@@ -453,11 +453,11 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
       <div class="hbody">
 <p>The example: 24 players, one evening, 4 dartboards. Everyone plays in groups of 4, then the top 2 of each group play a knockout. Work down the steps in the left-hand menu. Each one opens when the one before is saved. New words are explained in <a href="#glossary">Words you will see</a>.</p>
 <ol class="qsteps">
-<li id="quick-start-step-1"><b>Create the event.</b> Click <b>+ New tournament</b>. Type a <b>Tournament name</b> and an <b>Event name</b>, and leave <b>Competition type</b> on <b>Singles</b>. Set the <b>Tournament date</b> and type 24 in <b>Number of entries</b>. Click <b>Save event creation &rarr;</b>.
+<li id="quick-start-step-1"><b>Create the event.</b> Click <b>+ New tournament</b>. Type a <b>Tournament name</b> and an <b>Event name</b>, and leave <b>Competition type</b> on <b>Singles</b>. Set the <b>Tournament date</b> and <b>Number of boards available</b> (4). Click <b>Save event creation &rarr;</b>.
 <span class="see">You should see: step 2, <b>Format &amp; branding</b>. More: <a href="#creating-an-event">Create the event</a>.</span></li>
 <li id="quick-start-step-2"><b>Choose the format.</b> Click <b>Format</b> to open it, choose <b>Round robin &rarr; Knockout</b> and set <b>Best of legs</b> to 3. Leave <b>Maximum entries per group</b> at 4 and <b>Entries per group (advance to knockout)</b> at 2. Under <b>Scheduling</b>, check it says 4 boards (new events start with 4; <b>Edit scheduling settings</b> changes it). Then click <b>Save format &amp; branding &rarr;</b>.
-<span class="see">You should see: step 3, <b>Chart details</b>, with 24 entries called &ldquo;Entry 1&rdquo; to &ldquo;Entry 24&rdquo;. The blue box may suggest a different split; it is only a suggestion. More: <a href="#choosing-a-format">Choose a format</a>.</span></li>
-<li id="quick-start-step-3"><b>Type the names and draw the groups.</b> Type each player&rsquo;s name over &ldquo;Entry 1&rdquo;, &ldquo;Entry 2&rdquo; and so on, then click <b>Random draw</b>. Click <b>Review print pack &rarr;</b>.
+<span class="see">You should see: step 3, <b>Chart details</b>, with an <b>Add entries</b> box at the top. More: <a href="#choosing-a-format">Choose a format</a>.</span></li>
+<li id="quick-start-step-3"><b>Add the players and draw the groups.</b> In <b>Add entries</b>, type each player&rsquo;s name. Pick them from the list if they have played before, or click <b>Add &ldquo;name&rdquo; as a new player</b>. When all 24 are in, click <b>Random draw</b>, then <b>Review print pack &rarr;</b>. More: <a href="#naming-entries">Adding entries</a>.
 <span class="see">You should see: six groups, A to F, of 4 players each, each with a board. Groups that share a board play one after another. More: <a href="#draw">Drawing the groups</a>.</span></li>
 <li id="quick-start-step-4"><b>Confirm, publish, print.</b> On step 4, click <b>Confirm all 6 charts</b>. If spectators will follow on their phones, click <b>Publish results now</b> in the note above the print button <em>first</em>, so the QR codes print. Then click <b>Print bracket pack</b> and choose a printer or <b>Save as PDF</b>.
 <span class="see">You should see: your browser&rsquo;s print window with the running order and one chart for each group. More: <a href="#print-pack">Printing the blank pack</a> and <a href="#qr-codes">QR codes</a>.</span></li>
@@ -507,7 +507,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <h4 id="seven-steps">The seven steps</h4>
 <p>The left-hand menu lists seven steps. Work down the list. You cannot skip ahead: step 2 opens once step 1 is saved, and step 3 opens once step 2 is saved. Each step&rsquo;s title has a small <b>?</b> beside it that opens the matching part of this Help.</p>
 <ol>
-<li><b>Event creation</b>: name the event and say how many entries play.</li>
+<li><b>Event creation</b>: name the event, choose Singles, Doubles or Teams, and set the date and boards.</li>
 <li><b>Format &amp; branding</b>: choose the format, legs, boards, logos and rules.</li>
 <li><b>Chart details</b>: names, seeds, organisations and the draw.</li>
 <li><b>Confirm &amp; Print Bracket</b>: check each chart, confirm it and print the blank pack.</li>
@@ -576,7 +576,7 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
     <h2 class="hgroup" id="set-up" data-group-head="set-up">Set up an event</h2>
     <article class="harticle" id="creating-an-event" data-item data-group="set-up" data-kind="guide" data-keywords="players pairs teams people entries how many new event new tournament add players date dartboard dartboards number of boards creating an event">
       <div class="hhead"><h3>Create the event (step 1)</h3><a class="anchor" href="#creating-an-event" aria-label="Link to this section">#</a></div>
-      <p class="sum">Name it, choose Singles, Doubles or Teams, set the date and the number of entries (players, pairs or teams).</p>
+      <p class="sum">Name it, choose Singles, Doubles or Teams, and set the date and the number of boards. Entries are added on step 3.</p>
       <div class="hbody">
 <p>Click <b>+ New tournament</b> at the top of the left-hand menu. Step 1 is called <b>Event creation</b>. Fill in:</p>
 <ol>
@@ -586,19 +586,18 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
 <li><b>Event category</b>: <b>Open</b>, <b>Women</b> or <b>Youth</b>. It is printed on the charts.</li>
 <li><b>Competition type</b>: <b>Singles</b>, <b>Doubles</b> or <b>Teams</b>.</li>
 <li><b>Tournament date</b>: shown on the charts. The public home page also uses it to list upcoming events.</li>
-<li><b>Number of entries</b>: at least 2. An entry is a player in Singles, a pair in Doubles and a team in Teams. The box says so: in a Doubles event it is called <b>Number of pairs</b>, and in a Teams event <b>Number of teams</b>.</li>
+<li><b>Number of boards available</b>: how many dartboards you have. You can change it later on step 2, under Scheduling.</li>
 </ol>
+<p>There is no number of entries to type. You add the entries (players, pairs or teams) one by one on step 3, from your <a href="#players-page">players list</a> or as new names.</p>
 <p>Click <b>Save event creation &rarr;</b> to move on to step 2.</p>
 
 <h4 id="singles-or-doubles">Singles, Doubles or Teams</h4>
 <p>In <b>Singles</b>, one entry is one player.</p>
-<p>In <b>Doubles</b>, one entry is a <b>pair</b> of two players. The number of entries is the number of pairs, so 24 players make 12 pairs: type 12 in <b>Number of pairs</b>. In step 3 each pair has one box, the <b>Pair name</b>. Charts, results and the public page show the pair name, so choose something both players recognise, such as both surnames together.</p>
-<p>In <b>Teams</b>, one entry is a <b>team</b>, and in step 3 it has one box, the <b>Team name</b>. There is no list of players to fill in: captains write their line-up on the day. A team match is made of segments that you set on step 2. See <a href="#teams">Set up a Teams event</a>.</p>
+<p>In <b>Doubles</b>, one entry is a <b>pair</b> of two players. On step 3, click <b>Add pair</b> and choose the two players. A team name is optional: with one the pair shows as &ldquo;TEAM NAME : Player 1 / Player 2&rdquo;, without one as &ldquo;Player 1 / Player 2&rdquo;. Charts, results and the public page show that name.</p>
+<p>In <b>Teams</b>, one entry is a <b>team</b>. On step 3, click <b>Add team</b>, type the team name and add its players (as many as you like). The team shows by its name everywhere. Captains still write their line-up on the day. A team match is made of segments that you set on step 2. See <a href="#teams">Set up a Teams event</a>.</p>
 
 <h4 id="boards-and-entries">Boards and the number of entries</h4>
-<p>There is no boards box on step 1. You set the number of boards on step 2, under Scheduling.</p>
-<p>You can change the number of entries later: click <b>Edit</b> on the summary card at the top of a step, change the number and save. Raising it adds blank entries such as &ldquo;Entry 9&rdquo;. Lowering it removes entries from the end of the list, so do that before you type names or draw groups.</p>
-<p>Once one of those entries is playing (their group has started, they have a result, or they are in the drawn knockout), DartDraw refuses with &ldquo;These entries are already playing&rdquo; and saves nothing. Doing it would delete results already played. See <a href="#faq-entries-locked">Why can&rsquo;t I change the entries after the games start?</a></p>
+<p>The number of entries is however many you add on step 3. You can add and remove entries there until the draw. After the draw, take someone out with <b>Withdraw</b> or <b>Mark no-show</b> instead. See <a href="#faq-entries-locked">Why can&rsquo;t I change the entries after the games start?</a></p>
 <p>If you see a message that your account allows up to a certain number of entries per event, contact your admin.</p>
 
 <h4 id="your-events">Your saved events</h4>
@@ -691,9 +690,13 @@ details.faq[open] summary{border-bottom:1px solid var(--line)}
       <div class="hbody">
 <p>Looking for check-in, withdrawals or no-shows? See <a href="#check-in-and-start">Check people in and start the games</a> and <a href="#player-leaves">No-shows and players who leave</a>.</p>
 
-<h4 id="naming-entries">Naming entries</h4>
-<p>Entries start with placeholder names such as &ldquo;Entry 1&rdquo;. Once groups are drawn, entries without a name of your own are labelled by position, for example &ldquo;Player A1&rdquo; or &ldquo;Pair A1&rdquo;. Type a name in the box and it stays.</p>
-<p>A pair or a team is just its name: there are no boxes for the players in it. Put what you want people to see on charts and the public page in that name, for example both surnames for a pair.</p>
+<h4 id="naming-entries">Adding entries</h4>
+<p>Step 3 starts with an <b>Add entries</b> box. In Singles, type a name or club: players from your list appear as you type, so click one to add them. For someone new, click <b>Add &ldquo;name&rdquo; as a new player</b> (it is also saved to your players list, with the club if you type one). Or click <b>Add to this event only</b>, for example for a nickname you do not want to keep.</p>
+<p>In Doubles, click <b>Add pair</b>; in Teams, click <b>Add team</b> (or <b>Copy a team from a past event</b>). Each player can be in only one entry per event: DartDraw says, for example, &ldquo;Sam is already in THE POINTERS57&rdquo;.</p>
+<p>Each entry has <b>Remove</b> until the draw. You can still correct a Singles name by typing over it. Events made before this way of adding entries keep their entries as they are.</p>
+
+<h4 id="players-page">Your players list</h4>
+<p>Click <b>Players</b> in the left-hand menu to see everyone you have added: name, club, how many of your events they played and when they last played. There you can add, edit and remove players, merge two entries for the same person (tick both, then <b>Merge</b>), and <b>Add players from a past event</b>. Changing your list never changes a past event or a printed chart. Your list is private to you.</p>
 
 <h4 id="organisations">Organisations</h4>
 <p>Use the <b>Organisation (optional)</b> box for a club or organisation name. Then tick the box that keeps them apart:</p>

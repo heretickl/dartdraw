@@ -7,11 +7,14 @@
    apiFetch, openModal, render, renderSavedList, openTournament, escapeHtml. Only called while rendering or on a click. */
 
 var adminState = {
-  view: null,            // null (normal editor) | 'organizers' | 'events' | 'settings'
+  view: null,            // null (normal editor) | 'organizers' | 'events' | 'players' | 'settings'
   organizers: null,      // GET /api/admin/organizers -> organizers
   events: null,          // GET /api/admin/events -> { events, total }
   settings: null,        // GET /api/admin/settings -> { resultsDays, liveHours, limits }
   filters: { q: '', owner: '', offset: 0, limit: 50 },
+  players: null,         // GET /api/admin/players -> { players, total }
+  playerFilters: { q: '', owner: '', offset: 0, limit: 50 },
+  playersTicked: {},     // player id -> its organiser id (a merge stays within one organiser)
   loading: false, error: '', notice: '', seq: 0
 };
 /* Events the Admin opened that belong to someone else: id -> { ownerId, ownerName }. They are loaded cleaned (see
@@ -21,7 +24,7 @@ var foreignOpenIds = new Map();
 /* The record of the foreign event opened last ({ id, ownerId, ownerName }), or null. Cleared when an own event is opened or a new one started. */
 var adminEditing = null;
 
-var ADMIN_VIEWS = ['organizers', 'events', 'settings'];
+var ADMIN_VIEWS = ['organizers', 'events', 'players', 'settings'];
 var ADMIN_FORMATS = { roundrobin: 'Round Robin', knockout: 'Knockout', rrknockout: 'Round Robin → Knockout', podknockout: 'Group Boards' };
 var ADMIN_DEFAULT_LIMITS = { resultsDays: [1, 90], liveHours: [1, 168] };
 var ADMIN_CONTACT_MAX = 200;   // the sign-in page contact line (api/_lib/settings.js CONTACT_MAX_LENGTH)
@@ -175,6 +178,47 @@ function adminEventsHTML(result, filters, organizers){
       : '<p class="intro">No events match.</p>') + pager;
 }
 
+/* Players tab: every organiser's player library (api/_routes/admin/players/*). Full control: add (for the organiser
+   chosen in the filter), edit, remove, and merge ticked players of one organiser. */
+function adminPlayersHTML(result, filters, organizers){
+  var players = (result && Array.isArray(result.players)) ? result.players : [];
+  var total = (result && Number(result.total)) || 0;
+  filters = filters || {};
+  var limit = Number(filters.limit) || 50, offset = Number(filters.offset) || 0;
+  var owners = (Array.isArray(organizers) ? organizers : []).map(function(o){
+    return '<option value="' + adminEsc(o.id) + '"' + (o.id === filters.owner ? ' selected' : '') + '>' + adminEsc(o.name) + ' (' + adminEsc(o.email) + ')</option>';
+  }).join('');
+  var ticked = adminState.playersTicked || {};
+  var rows = players.map(function(p){
+    var owner = p.owner || {}, id = adminArg(p.id);
+    return '<tr>' +
+      '<td><input type="checkbox" style="width:auto;height:auto"' + (ticked[p.id] ? ' checked' : '') + ' onchange="adminPlayersTick(' + id + ',this.checked)"></td>' +
+      '<td><strong>' + adminEsc(p.name) + '</strong></td>' +
+      '<td>' + adminEsc(p.club || '—') + '</td>' +
+      '<td>' + adminEsc(owner.name) + '<br><span class="adm-sub">' + adminEsc(owner.email) + '</span></td>' +
+      '<td>' + (Number(p.eventsPlayed) || 0) + '</td>' +
+      '<td>' + adminEsc(p.lastPlayed ? adminWhen(p.lastPlayed, true) : '—') + '</td>' +
+      '<td class="adm-actions">' + adminBtn('Edit', 'adminPlayerEdit(' + id + ')') + adminBtn('Remove', 'adminPlayerRemove(' + id + ')', { cls: 'danger' }) + '</td>' +
+    '</tr>';
+  }).join('');
+  var from = players.length ? offset + 1 : 0, to = offset + players.length;
+  var pager = total
+    ? '<div class="adm-pager"><span>' + from + '–' + to + ' of ' + total + '</span>' +
+        (offset > 0 ? '<button class="btn secondary adm-btn" onclick="adminPlayersPage(-1)">Previous</button>' : '') +
+        (offset + limit < total ? '<button class="btn secondary adm-btn" onclick="adminPlayersPage(1)">Next</button>' : '') + '</div>'
+    : '';
+  var nTicked = Object.keys(ticked).length;
+  return '<div class="adm-head"><div><h2>Players</h2><p class="intro" style="margin:0">Every organiser\'s player library. Past events keep the names they used.</p></div>' +
+      '<div class="buttonrow" style="margin:0">' + adminBtn('Merge ticked (' + nTicked + ')', 'adminPlayersMerge()', { off: nTicked < 2 }) +
+      adminBtn('Add player', 'adminPlayerAdd()', { cls: 'primary', off: !filters.owner, title: filters.owner ? '' : 'Choose an organiser in the filter first.' }) + '</div></div>' +
+    '<div class="adm-filter"><input id="adminPlQ" type="text" placeholder="Search player or club" value="' + adminEsc(filters.q) + '" onkeydown="if(event.key===\'Enter\')adminPlayersSearch()">' +
+      '<select id="adminPlOwner" onchange="adminPlayersSearch()"><option value="">All organisers</option>' + owners + '</select>' +
+      '<button class="btn secondary" onclick="adminPlayersSearch()">Search</button></div>' +
+    (players.length
+      ? '<div class="adm-scroll"><table class="adm-table"><thead><tr><th></th><th>Player</th><th>Club</th><th>Organiser</th><th>Events played</th><th>Last played</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="intro">No players match.</p>') + pager;
+}
+
 function adminSettingsHTML(settings){
   settings = settings || {};
   var lim = settings.limits || ADMIN_DEFAULT_LIMITS;
@@ -220,7 +264,7 @@ function adminReopenButtonHTML(){
 
 /* ---------- drawing ---------- */
 function adminTabsHTML(){
-  var tabs = [['organizers', 'Organisers'], ['events', 'Events'], ['settings', 'Settings']];
+  var tabs = [['organizers', 'Organisers'], ['events', 'Events'], ['players', 'Players'], ['settings', 'Settings']];
   return '<div class="adm-tabs">' + tabs.map(function(t){
     return '<button class="adm-tab' + (adminState.view === t[0] ? ' active' : '') + '" onclick="adminShow(\'' + t[0] + '\')">' + t[1] + '</button>';
   }).join('') + '<a class="adm-back" onclick="adminBack()">← Back to my events</a></div>';
@@ -231,6 +275,7 @@ function adminBodyHTML(){
   var v = adminState.view;
   if(v === 'organizers') return adminOrganizersHTML(adminState.organizers);
   if(v === 'events') return adminEventsHTML(adminState.events, adminState.filters, adminState.organizers);
+  if(v === 'players') return adminPlayersHTML(adminState.players, adminState.playerFilters, adminState.organizers);
   if(v === 'settings') return adminSettingsHTML(adminState.settings);
   return '';
 }
@@ -239,6 +284,7 @@ function renderAdminView(){
   var subs = {
     organizers: 'Add organisers, change tiers, suspend, reset passwords and move events.',
     events: 'See and edit any organiser\'s events, and control what is public.',
+    players: 'See and manage every organiser\'s players.',
     settings: 'Choose how long events stay on the public home page, and what the sign-in page says about getting an account.'
   };
   document.getElementById('pageTitle').textContent = 'Admin';
@@ -254,6 +300,7 @@ function renderAdminView(){
 async function adminShow(view){
   if(!isAdminUser() || ADMIN_VIEWS.indexOf(view) < 0) return;
   adminState.view = view; adminState.notice = '';
+  if(typeof playersPage !== 'undefined') playersPage.open = false;
   await adminLoad();
 }
 async function adminLoad(){
@@ -261,7 +308,7 @@ async function adminLoad(){
   var view = adminState.view, seq = ++adminState.seq, err = '';
   adminState.loading = true; adminState.error = '';
   render();
-  if(view === 'organizers' || (view === 'events' && !adminState.organizers)){
+  if(view === 'organizers' || ((view === 'events' || view === 'players') && !adminState.organizers)){
     var o = await adminCall('/api/admin/organizers');
     if(o.ok && o.data && Array.isArray(o.data.organizers)) adminState.organizers = o.data.organizers;
     else if(view === 'organizers') err = adminErrorText(o, 'Could not load the organisers.');
@@ -274,6 +321,15 @@ async function adminLoad(){
     var e = await adminCall('/api/admin/events?' + q.join('&'));
     if(e.ok && e.data && Array.isArray(e.data.events)) adminState.events = e.data;
     else err = adminErrorText(e, 'Could not load the events.');
+  }
+  if(!err && view === 'players'){
+    var pf = adminState.playerFilters, pq = [];
+    if(pf.q) pq.push('q=' + encodeURIComponent(pf.q));
+    if(pf.owner) pq.push('owner=' + encodeURIComponent(pf.owner));
+    pq.push('limit=' + pf.limit, 'offset=' + pf.offset);
+    var pl = await adminCall('/api/admin/players?' + pq.join('&'));
+    if(pl.ok && pl.data && Array.isArray(pl.data.players)) adminState.players = pl.data;
+    else err = adminErrorText(pl, 'Could not load the players.');
   }
   if(!err && view === 'settings'){
     var s = await adminCall('/api/admin/settings');
@@ -304,6 +360,107 @@ async function adminEventsPage(delta){
   if(next < 0 || next >= total) return;
   f.offset = next;
   await adminLoad();
+}
+
+/* ---------- player actions ---------- */
+function adminFindPlayer(id){
+  var list = (adminState.players && adminState.players.players) || [];
+  for(var i = 0; i < list.length; i++) if(list[i].id === id) return list[i];
+  return null;
+}
+async function adminPlayersSearch(){
+  if(!isAdminUser()) return;
+  var q = document.getElementById('adminPlQ'), o = document.getElementById('adminPlOwner');
+  adminState.playerFilters.q = q ? String(q.value || '').trim() : adminState.playerFilters.q;
+  adminState.playerFilters.owner = o ? String(o.value || '') : adminState.playerFilters.owner;
+  adminState.playerFilters.offset = 0;
+  adminState.playersTicked = {};
+  await adminLoad();
+}
+async function adminPlayersPage(delta){
+  if(!isAdminUser()) return;
+  var f = adminState.playerFilters, total = (adminState.players && Number(adminState.players.total)) || 0;
+  var next = f.offset + delta * f.limit;
+  if(next < 0 || next >= total) return;
+  f.offset = next;
+  await adminLoad();
+}
+function adminPlayersTick(id, on){
+  if(!isAdminUser()) return;
+  var p = adminFindPlayer(id);
+  if(on && p) adminState.playersTicked[id] = p.owner ? p.owner.id : ''; else delete adminState.playersTicked[id];
+  render();
+}
+/* The name and club boxes of the add / edit / merge boxes. */
+function adminPlayerFormHTML(name, club){
+  return '<div class="field"><label>Name</label><input type="text" id="admPlName" maxlength="80" value="' + adminEsc(name) + '"></div>' +
+    '<div class="field"><label>Club (optional)</label><input type="text" id="admPlClub" maxlength="80" value="' + adminEsc(club) + '"></div>';
+}
+function adminPlayerFormValues(){
+  return { name: String(document.getElementById('admPlName').value || '').trim(), club: String(document.getElementById('admPlClub').value || '').trim() };
+}
+function adminPlayerAdd(){
+  if(!isAdminUser()) return;
+  var owner = adminFindOrganizer(adminState.playerFilters.owner);
+  if(!owner) return;
+  openModal({ title: 'Add player for ' + adminEsc(owner.name), bodyHTML: adminPlayerFormHTML('', ''), confirmLabel: 'Add', confirmClass: 'primary', help: false,
+    onConfirm: function(){
+      var v = adminPlayerFormValues();
+      if(!v.name) return { error: 'Enter a name.' };
+      adminCall('/api/admin/players', 'POST', { organizerId: owner.id, name: v.name, club: v.club }).then(function(r){
+        if(!r.ok){ adminFail(r, 'Could not add that player.'); return; }
+        if(r.data && r.data.player && r.data.player.created === false) adminInfo('Already there', v.name + ' is already in ' + owner.name + '\'s players.');
+        adminLoad();
+      });
+    } });
+}
+function adminPlayerEdit(id){
+  if(!isAdminUser()) return;
+  var p = adminFindPlayer(id);
+  if(!p) return;
+  openModal({ title: 'Edit player', bodyHTML: adminPlayerFormHTML(p.name, p.club) + '<div class="hint">Past events keep the names they used.</div>', confirmLabel: 'Save', confirmClass: 'primary', help: false,
+    onConfirm: function(){
+      var v = adminPlayerFormValues();
+      if(!v.name) return { error: 'Enter a name.' };
+      adminCall('/api/admin/players/' + encodeURIComponent(id), 'PATCH', v).then(function(r){
+        if(!r.ok){ adminFail(r, 'Could not save that player.'); return; }
+        adminLoad();
+      });
+    } });
+}
+function adminPlayerRemove(id){
+  if(!isAdminUser()) return;
+  var p = adminFindPlayer(id);
+  if(!p) return;
+  adminConfirm('Remove player?', 'Remove <b>' + adminEsc(p.name) + '</b> from ' + adminEsc((p.owner && p.owner.name) || 'their') + '\'s players? Past events keep showing them.', 'Remove', 'danger', async function(){
+    var r = await adminCall('/api/admin/players/' + encodeURIComponent(id), 'DELETE');
+    if(!r.ok){ adminFail(r, 'Could not remove that player.'); return; }
+    delete adminState.playersTicked[id];
+    await adminLoad();
+  });
+}
+function adminPlayersMerge(){
+  if(!isAdminUser()) return;
+  var ids = Object.keys(adminState.playersTicked || {}).filter(adminFindPlayer);
+  if(ids.length < 2) return;
+  var owners = {};
+  ids.forEach(function(id){ owners[adminState.playersTicked[id]] = true; });
+  if(Object.keys(owners).length > 1){ adminInfo('Merge players', 'Merge players from one organiser at a time.'); return; }
+  var body = '<p class="intro">Choose the name and club to keep. The others are folded into it and their events count for it.</p>' + ids.map(function(id, i){
+    var p = adminFindPlayer(id);
+    return '<label style="display:flex;gap:8px;align-items:center;margin-bottom:6px;font-size:13px"><input type="radio" name="admKeep" value="' + adminEsc(id) + '" style="width:auto;height:auto"' + (i === 0 ? ' checked' : '') + '> <b>' + adminEsc(p.name) + '</b> · ' + adminEsc(p.club || '—') + ' <span class="adm-sub">(' + (Number(p.eventsPlayed) || 0) + ' events)</span></label>';
+  }).join('');
+  openModal({ title: 'Merge players', bodyHTML: body, confirmLabel: 'Merge', confirmClass: 'primary', help: false,
+    onConfirm: function(){
+      var pick = document.querySelector('input[name="admKeep"]:checked');
+      var keep = adminFindPlayer(pick ? pick.value : ids[0]);
+      if(!keep) return;
+      adminCall('/api/admin/players/' + encodeURIComponent(keep.id) + '/merge', 'POST', { ids: ids.filter(function(x){ return x !== keep.id; }), name: keep.name, club: keep.club }).then(function(r){
+        if(!r.ok){ adminFail(r, 'Could not merge those players.'); return; }
+        adminState.playersTicked = {};
+        adminLoad();
+      });
+    } });
 }
 
 /* ---------- organiser actions ---------- */

@@ -14,6 +14,9 @@
 //   events                            -> events/index                  (?q= &owner= &limit= &offset= kept in req.query)
 //   events/:id                        -> events/[id]                   (req.query.id = :id)
 //   settings                          -> settings
+//   players                           -> players/index                 (?q= &owner= &limit= &offset= kept in req.query)
+//   players/:id                       -> players/[id]                  (req.query.id = :id)
+//   players/:id/merge                 -> players/[id]/merge            (req.query.id = :id)
 //
 // The route is read from req.url, not from the platform's query, and :id is decoded with decodeURIComponent (a bad
 // escape or an empty id is a 404). Anything else answers 404 { code: 'not_found', error: 'Not found.' }.
@@ -24,7 +27,10 @@ const H = {
   organizerTransfer: () => require('./admin/organizers/[id]/transfer'),
   eventsIndex: () => require('./admin/events/index'),
   eventItem: () => require('./admin/events/[id]'),
-  settings: () => require('./admin/settings')
+  settings: () => require('./admin/settings'),
+  playersIndex: () => require('./admin/players/index'),
+  playerItem: () => require('./admin/players/[id]'),
+  playerMerge: () => require('./admin/players/[id]/merge')
 };
 
 // -> { load, id } or null
@@ -51,6 +57,12 @@ function match(pathname) {
     return null;
   }
   if (parts[0] === 'settings' && parts.length === 1) return { load: H.settings };
+  if (parts[0] === 'players') {
+    if (parts.length === 1) return { load: H.playersIndex };
+    if (parts.length === 2) return { load: H.playerItem, id };
+    if (parts.length === 3 && parts[2] === 'merge') return { load: H.playerMerge, id };
+    return null;
+  }
   return null;
 }
 

@@ -68,6 +68,9 @@ no italics, no plural ("5 leg", "2 bye"):
 | event | **acara** | |
 | entry / entries | **peserta** | The competing unit (player, pair or team). "Number of entries" = *Bilangan peserta*; "Entry 9" = *Peserta 9*. "big field" = *peserta ramai* (not *penyertaan yang besar*). |
 | player / pair / team | **pemain / pasangan / pasukan** | |
+| players list / player library | **senarai pemain** | The sidebar page is just *Pemain* ("Players"). |
+| Add "X" as a new player / Add to this event only | **Tambah "X" sebagai pemain baharu / Tambah untuk acara ini sahaja** | |
+| Add pair / Add team / Merge | **Tambah pasangan / Tambah pasukan / Gabung** | |
 | Singles / Doubles / Teams (competition type) | **Perseorangan / Beregu / Berpasukan** | |
 | Singles / Doubles / Trios / Foursome (segments) | **Perseorangan / Beregu / Trio / Berempat** | |
 | Open / Women / Youth | **Terbuka / Wanita / Belia** | |

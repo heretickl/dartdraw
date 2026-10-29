@@ -5,7 +5,7 @@ const path = require('path');
 
 // Vercel's Hobby plan allows 12 Serverless Functions per deployment, and every .js file under api/ counts as one,
 // except a file or directory whose name starts with an underscore (api/_lib, api/_routes). The handlers live under
-// api/_routes and are reached through the routers api/auth/[action].js and the three api/admin/[a].js route files (a catch-all
+// api/_routes and are reached through the routers api/auth/[action].js, api/players/[action].js and the three api/admin/[a].js route files (a catch-all
 // file name was tried first and Vercel only matched one path segment with it, so multi-segment admin paths returned the platform's 404). This test keeps
 // new files from silently pushing a deployment over the limit.
 const API = path.join(__dirname, '..', 'api');

@@ -51,3 +51,18 @@ CREATE TABLE site_settings (
   value      jsonb NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Player library: each organiser's own players (see migrations/2026-10-29-players.sql).
+CREATE TABLE players (
+  id            text PRIMARY KEY,
+  organizer_id  uuid NOT NULL REFERENCES organizers(id) ON DELETE CASCADE,
+  name          text NOT NULL,
+  club          text NOT NULL DEFAULT '',
+  aliases       text[] NOT NULL DEFAULT '{}',
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  removed_at    timestamptz
+);
+
+CREATE UNIQUE INDEX players_org_name_club ON players (organizer_id, lower(name), lower(club)) WHERE removed_at IS NULL;
+CREATE INDEX players_org ON players (organizer_id);
