@@ -138,7 +138,7 @@ test('Try a sample event opens an editable 12-player round robin then knockout o
   assert.equal(t.format.formatType, 'rrknockout');
   assert.equal(t.eventCreation.competitionUnit, 'Singles');
   assert.equal(t.entriesList.length, 12);
-  assert.ok(t.entriesList.every((e, i) => e.name === 'Sample player ' + (i + 1) && e.autoName === false));
+  assert.ok(t.entriesList.every((e, i) => e.name === 'Sample player ' + (i + 1) && !e.autoName));
   assert.equal(run(app, 'currentStage'), 3);
   assert.equal(run(app, 'Object.keys(tournamentsCache).length'), 0, 'not in the saved list');
   // the banner, its two buttons, and the step "?" for step 3 of a round robin
@@ -151,7 +151,8 @@ test('Try a sample event opens an editable 12-player round robin then knockout o
   assert.equal(dom.els.compactStageHelp.getAttribute('href'), '/help#draw-the-groups');
   assert.doesNotMatch(dom.els.savedList.innerHTML, /Sample/, 'Saved tournaments does not list it');
   assert.doesNotMatch(f('compactMenuHTML')(), /Sample tournament|This event/, 'nor the phone menu (and no Rename / Duplicate / Delete for it)');
-  assert.equal(calls.length, 0);
+  // the only call: step 3's player picker reads the organiser's saved players (player library); nothing is sent
+  assert.deepEqual(calls.filter((c) => !(c.method === 'GET' && /\/api\/players\/list/.test(c.url))).map((c) => c.method + ' ' + c.url), []);
 });
 
 test('a sample event is never sent: edits, the debounced save, flushSave, retry, the close/hide keepalive save, resume, refresh, the sign-out stash', async () => {

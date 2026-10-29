@@ -141,15 +141,12 @@ const CHECKS = {
   },
   'roster-lock': () => {
     const faq = say('faq-entries-locked');
-    assert.match(faq, /DartDraw refuses anything that would move or remove those entries, and says why: Withdraw, Swap with… and Random draw on step 3, and lowering Number of entries on step 1 when that would remove someone who is playing\. Before the games start all of these work as usual/);
-    assert.match(say('creating-an-event'), /DartDraw refuses with "These entries are already playing" and saves nothing/);
+    assert.match(faq, /DartDraw refuses anything that would move or remove those entries, and says why: Withdraw, Swap with… and Random draw on step 3\. Entries can be removed only before the draw; after it, they are withdrawn\. Before the games start all of these work as usual/);
     assert.match(say('draw-the-groups'), /Once any group has started, Random draw is greyed out and Swap with… is no longer offered for entries in a started group/);
     assert.match(say('player-leaves'), /Until the knockout is drawn from the groups, the same box has an undo link\. After that a no-show can no longer be undone/);
     // started: every one of them is refused, nothing changes
     reset(); const ev = rr(); const before = plain({ g: ev.groups, l: ev.entriesList });
-    app.document = typedDoc({ f_entries: 6, f_tname: 'n' });
-    try { f('saveStage1')(); } finally { app.document = DOC; }
-    assert.equal(modals.pop().title, 'These entries are already playing');
+    f('removeEntry')(ev.entriesList[0].id); assert.equal(modals.length, 0, 'after the draw an entry cannot be removed');
     f('performSwap')(ev.groups[0].entryIds[0], ev.groups[1].id, 0); assert.equal(modals.pop().title, 'Entries can no longer be swapped');
     f('confirmShuffleGroups')(); assert.equal(modals.pop().title, 'The groups can no longer be redrawn');
     assert.deepEqual(plain({ g: ev.groups, l: ev.entriesList }), before);
@@ -158,9 +155,6 @@ const CHECKS = {
     reset(); const pre = rr({ notStarted: true });
     f('performSwap')(pre.groups[0].entryIds[0], pre.groups[1].id, 0); assert.equal(modals.length, 0);
     f('confirmShuffleGroups')(); assert.equal(modals.pop().title, 'Random draw?');
-    app.document = typedDoc({ f_entries: 6, f_tname: 'n' });
-    try { f('saveStage1')(); } finally { app.document = DOC; }
-    assert.equal(pre.entriesList.length, 6);
     // the undo link goes once the knockout is drawn
     reset(); const k = rr({ played: true }); f('generateKnockoutFromRR')(); k.entriesList[0].noShow = true;
     f('openNoShowPicker')(k.groups[0].id); assert.doesNotMatch(modals.pop().bodyHTML, /undoGroupNoShow/);

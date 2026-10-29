@@ -267,7 +267,7 @@ test('messages: a server code is shown in BM, the English error is the fallback,
   assert.equal(el.textContent, 'Terlalu banyak percubaan. Sila cuba lagi kemudian.', 'no code: the English text is still known');
   r.I.put(el, 'Basic accounts allow up to 64 entries per event.', { code: 'entry_limit', vars: { limit: 64, error: 'x' } });
   assert.equal(el.textContent, 'Akaun Asas membenarkan sehingga 64 peserta bagi setiap acara.');
-  r.I.put(el, 'Could not create account.', { code: 'request_failed' });
+  r.I.put(el, 'Could not create account.', { code: 'load_events_failed' });
   assert.equal(el.textContent, 'Tidak dapat membuka akaun.', 'Admin-only code: no BM, so the English text (here a known one) is used');
   // a shown message follows the switch
   r.I.put(el, 'Incorrect email or password.', { code: 'bad_credentials' });

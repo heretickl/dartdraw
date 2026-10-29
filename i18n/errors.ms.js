@@ -48,6 +48,13 @@ var DD_ERR_MS = {
   'err.finalized': 'Acara ini telah dimuktamadkan. Hanya Pentadbir boleh mengubahnya.',
   'err.entry_limit': 'Akaun Asas membenarkan sehingga {limit} peserta bagi setiap acara.',
   'err.changed_elsewhere': 'Kejohanan telah diubah di tempat lain.',
-  'err.save_failed': 'Tidak dapat menyimpan kejohanan.'
+  'err.save_failed': 'Tidak dapat menyimpan kejohanan.',
+  /* player library */
+  'err.library_not_set_up': 'Senarai pemain belum disediakan.',
+  'err.player_limit': 'Anda boleh menyimpan sehingga 5,000 pemain.',
+  'err.player_exists': 'Pemain dengan nama dan kelab itu sudah ada dalam senarai.',
+  'err.invalid_player_name': 'Masukkan nama (sehingga 80 aksara).',
+  'err.player_not_found': 'Pemain tidak dijumpai.',
+  'err.request_failed': 'Permintaan itu tidak dapat diselesaikan.'
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = { DD_ERR_MS: DD_ERR_MS };

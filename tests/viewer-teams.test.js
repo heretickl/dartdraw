@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs'), path = require('path');
-const { loadApp, run, plain, useState, seededRng } = require('./lib/helpers');
+const { loadApp, run, plain, useState, seededRng, fillEntries } = require('./lib/helpers');
 const { loadViewer, loadHome, setViewerState, runViewer } = require('./lib/load-viewer');
 const { stubDocument } = require('./lib/load-app');
 const { toPublicView } = require('../viewer/api/_lib/publicView');
@@ -38,7 +38,7 @@ function build(unit, ft, n, opts) {
   t.id = 't_vt_' + unit + ft + n;
   Object.assign(t.eventCreation, { saved: true, competitionUnit: unit, entries: n, tournamentName: 'League', eventName: unit + ' Night', date: '2026-10-25', boards: 4 });
   Object.assign(t.format, { saved: true, formatType: ft, maxPerGroup: 4, qualifiersPerGroup: 2, advanceMode: 'seeded', losersPool: !!opts.plate, podCount: opts.pods || 2, bestOfLegs: 5 });
-  f('ensureEntries')(t);
+  fillEntries(app, t);
   const nm = unit === 'Teams' ? (i) => 'Team ' + String.fromCharCode(65 + i) : unit === 'Doubles' ? (i) => 'Pair' + (i + 1) + ' Smith/Jones' : (i) => 'Player ' + (i + 1);
   t.entriesList.forEach((e, i) => { e.name = nm(i); e.autoName = false; });
   return t;

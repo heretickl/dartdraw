@@ -184,7 +184,7 @@ const sections = [
 
 <h4 id="singles-or-doubles">Perseorangan, Beregu atau Berpasukan</h4>
 <p>Dalam <b>Perseorangan</b>, seorang peserta ialah seorang pemain.</p>
-<p>Dalam <b>Beregu</b>, setiap peserta ialah satu <b>pasangan</b> dua pemain. Di langkah 3, klik <b>Tambah pasangan</b> dan pilih dua pemain. Nama pasukan adalah pilihan: dengan nama pasukan, pasangan dipaparkan sebagai &ldquo;NAMA PASUKAN : Pemain 1 / Pemain 2&rdquo;, tanpanya sebagai &ldquo;Pemain 1 / Pemain 2&rdquo; (contohnya &ldquo;Hakim / Iskandar&rdquo;). Carta, keputusan dan halaman awam memaparkan nama itu.</p>
+<p>Dalam <b>Beregu</b>, setiap peserta ialah satu <b>pasangan</b> dua pemain. Di langkah 3, klik <b>Tambah pasangan</b> dan pilih dua pemain. Nama pasukan adalah pilihan: dengan nama pasukan, pasangan dipaparkan sebagai &ldquo;NAMA PASUKAN : Ahmad / Hakim&rdquo;, tanpanya sebagai &ldquo;Ahmad / Hakim&rdquo; (contohnya &ldquo;Hakim / Iskandar&rdquo;). Carta, keputusan dan halaman awam memaparkan nama itu.</p>
 <p>Dalam <b>Berpasukan</b>, setiap peserta ialah satu <b>pasukan</b>. Di langkah 3, klik <b>Tambah pasukan</b>, taip nama pasukan dan tambah pemainnya (seramai mana yang anda mahu). Pasukan dipaparkan dengan namanya di semua tempat. Kapten masih menulis barisan pemain pada hari kejohanan. Perlawanan pasukan terdiri daripada segmen yang anda tetapkan di langkah 2. Lihat <a href="#teams">Sediakan acara berpasukan</a>.</p>
 
 <h4 id="boards-and-entries">Board dan bilangan peserta</h4>
@@ -298,7 +298,7 @@ const sections = [
 <li><b>Kalah mati dan Group Boards:</b> kotak <b>Organisasi (pilihan)</b> disembunyikan pada mulanya. Ia muncul selepas anda menanda <b>Rekodkan organisasi (elakkan pertemuan sesama organisasi dalam pusingan pertama)</b> di langkah 3.</li>
 </ul>
 <p>Ini dilakukan setakat yang boleh. Jika tiada pertukaran yang selamat, pertembungan itu dibiarkan.</p>
-<p>Dalam kalah mati dan kumpulan Group Boards, peserta yang organisasinya diisi dipisahkan selama mungkin, sama ada kotak tanda dihidupkan atau tidak. Kalah mati selepas round robin (dan saingan Plate) tidak menggunakan organisasi: ia ditempatkan mengikut kumpulan dan kedudukan akhir sahaja, jadi bracket yang dicetak sebelum round robin sama dengan undian sebenar.</p>
+<p>Dalam kalah mati dan kumpulan Group Boards, peserta yang organisasinya diisi dipisahkan selama mungkin, sama ada kotak tanda dihidupkan atau tidak. Kalah mati selepas round robin (dan saingan Plate) tidak menggunakan organisasi: ia ditempatkan mengikut kumpulan dan kedudukan akhir sahaja, jadi bracket (carta kalah mati) yang dicetak sebelum round robin sama dengan undian sebenar.</p>
 <p>Setiap undian diberi paling lama kira-kira satu saat. Dalam bracket besar (dari kira-kira 30 peserta) dengan ramai peserta dari satu atau dua organisasi, hasilnya ialah yang terbaik ditemui DartDraw dalam masa itu. Peserta masih diagihkan, tetapi kurang sekata sedikit berbanding carian yang jauh lebih lama. Sekali-sekala sepasang peserta bertemu satu pusingan lebih awal daripada yang mungkin.</p>
 
 <h4 id="seeds">Seed</h4>
@@ -845,7 +845,7 @@ const sections = [
 <h4 id="glossary-entries">Peserta dan undian</h4>
 <dl class="glossary">
 <dt id="glossary-entry">Peserta (pemain, pasangan atau pasukan)</dt>
-<dd>Satu pihak dalam acara: seorang pemain dalam Perseorangan, satu pasangan dalam Beregu, satu pasukan dalam Berpasukan. &ldquo;24 peserta&rdquo; dalam Beregu bermaksud 24 pasangan. <span class="eg">Langkah 1: <b>Bilangan peserta</b>, <b>Bilangan pasangan</b> atau <b>Bilangan pasukan</b>; langkah 3: &ldquo;Peserta 1&rdquo;, <b>Nama pasangan</b>, <b>Nama pasukan</b>.</span></dd>
+<dd>Satu pihak dalam acara: seorang pemain dalam Perseorangan, satu pasangan dalam Beregu, satu pasukan dalam Berpasukan. &ldquo;24 peserta&rdquo; dalam Beregu bermaksud 24 pasangan. <span class="eg">Langkah 3: <b>Tambah peserta</b>, <b>Tambah pasangan</b>, <b>Tambah pasukan</b>.</span></dd>
 <dt id="glossary-group">Kumpulan</dt>
 <dd>Sekumpulan kecil peserta yang semuanya bertemu sesama sendiri (round robin). Setiap kumpulan dicetak sebagai satu carta. Dalam Group Boards, kumpulan ialah kalah mati kecil. <span class="eg">&ldquo;Kumpulan A &middot; Board 2&rdquo; di langkah 4 dan langkah 5.</span></dd>
 <dt id="glossary-board">Board</dt>
@@ -1101,7 +1101,7 @@ const sections = [
         title: 'Mengapa saya tidak boleh menukar peserta, bertukar tempat atau membuat undian semula selepas perlawanan bermula?',
         claims: ['roster-lock'],
         keywords: 'dikunci tukar tempat undian semula tidak boleh tukar peserta peserta dikunci locked swap redraw',
-        body: `<p>Kerana keputusan yang telah dimainkan milik peserta yang memainkannya. Sebaik sahaja kumpulan bermula (selepas <b>Mulakan semua perlawanan</b>), mempunyai keputusan, atau undian kalah mati telah dibuat, DartDraw menolak apa-apa yang akan memindahkan atau membuang peserta tersebut, dan menyatakan sebabnya: <b>Tarik diri</b>, <b>Tukar dengan&hellip;</b> dan <b>Undian rawak</b> di langkah 3, serta menurunkan <b>Bilangan peserta</b> di langkah 1 jika itu akan membuang seseorang yang sedang bermain. Sebelum perlawanan bermula, semua ini berfungsi seperti biasa. Untuk mengeluarkan seseorang selepas permainan bermula, gunakan <b>Tandakan tidak hadir&hellip;</b>. Lihat <a href="#player-leaves">Ketidakhadiran dan pemain yang meninggalkan acara</a>.</p>`
+        body: `<p>Kerana keputusan yang telah dimainkan milik peserta yang memainkannya. Sebaik sahaja kumpulan bermula (selepas <b>Mulakan semua perlawanan</b>), mempunyai keputusan, atau undian kalah mati telah dibuat, DartDraw menolak apa-apa yang akan memindahkan atau membuang peserta tersebut, dan menyatakan sebabnya: <b>Tarik diri</b>, <b>Tukar dengan&hellip;</b> dan <b>Undian rawak</b> di langkah 3. Peserta hanya boleh dibuang sebelum undian; selepas undian, mereka ditarik diri. Sebelum perlawanan bermula, semua ini berfungsi seperti biasa. Untuk mengeluarkan seseorang selepas permainan bermula, gunakan <b>Tandakan tidak hadir&hellip;</b>. Lihat <a href="#player-leaves">Ketidakhadiran dan pemain yang meninggalkan acara</a>.</p>`
       },
       {
         id: 'faq-move-player',

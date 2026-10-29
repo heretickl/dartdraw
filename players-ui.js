@@ -61,7 +61,7 @@ async function libraryEnsure(items){
     var data = await res.json().catch(function(){ return {}; });
     if(!res.ok){
       if(data && data.code === 'library_not_set_up') libraryState.status = 'not_set_up';
-      if(data && data.code === 'player_limit'){ libraryState.syncBlocked = true; return { error: data.error }; }
+      if(data && data.code === 'player_limit'){ libraryState.syncBlocked = true; return { error: ddApiError(data, T('pl.failed')) }; }
       return null;
     }
     var list = libraryState.players || (libraryState.players = []);
@@ -467,7 +467,7 @@ async function playersCall(url, body){
   }catch(e){ return { ok: false, data: {} }; }
 }
 function playersFail(r){
-  var msg = r && r.data && r.data.code === 'player_exists' ? T('pl.existsGeneric') : (r && r.data && r.data.error) || T('pl.failed');
+  var msg = r && r.data && r.data.code === 'player_exists' ? T('pl.existsGeneric') : (r && r.data ? ddApiError(r.data, T('pl.failed')) : T('pl.failed'));
   openModal({ title: T('pl.failedTitle'), body: escText(msg), confirmLabel: T('m.ok'), confirmClass: 'primary', onConfirm: function(){} });
 }
 function plNameClubForm(name, club){

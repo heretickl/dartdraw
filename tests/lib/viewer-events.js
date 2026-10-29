@@ -9,7 +9,7 @@
 // K: Teams, no draw yet                                                                      L: Group Boards Teams, all groups done, Finals drawn
 // M: Singles knockout of 16, first round part played
 const assert = require('node:assert/strict');
-const { loadApp, run, useState, seededRng } = require('./helpers');
+const { loadApp, run, useState, seededRng, fillEntries } = require('./helpers');
 
 const FINAL_AT = '2026-10-20T12:00:00.000Z';
 const SING = ['Aiden Tan', 'Brandon Lee', 'Chloe Wong', 'Daniel Lim', 'Elena Cruz', 'Farid Hassan', 'Grace Ong', 'Hari Nair', 'Isla Chin', 'Jun Wei Ho', 'Kavita Rao', 'Leo Ahmad', 'Mei Ling Goh', 'Nadia Yusof', 'Omar Said', 'Priya Das'];
@@ -46,7 +46,7 @@ function buildEvents() {
     Object.assign(t.eventCreation, { saved: true, eventType: o.type || 'Open', competitionUnit: unit, entries: n, tournamentName: o.tournament, eventName: o.event, date: o.date, boards: o.boards || 4 });
     Object.assign(t.format, { saved: true, formatType: ft, maxPerGroup: 4, qualifiersPerGroup: 2, advanceMode: 'seeded', losersPool: !!o.plate, podCount: o.pods || 2, bestOfLegs: o.legs || 3, anticipatedStartTime: o.start || '' });
     if (o.seeding) { t.format.seedingEnabled = true; t.format.numSeeds = o.numSeeds || 4; }
-    f('ensureEntries')(t);
+    fillEntries(app, t);
     const names = unit === 'Teams' ? TEAMS : unit === 'Doubles' ? DBL : SING;
     t.entriesList.forEach((e, i) => { e.name = names[i]; e.autoName = false; e.org = unit === 'Singles' ? ORGS[i % 4] : ''; e.checkedIn = true; });
     t.publicSlug = o.slug; t.published = true; t.listed = true;

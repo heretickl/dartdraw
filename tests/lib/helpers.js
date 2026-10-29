@@ -28,4 +28,16 @@ function playOut(app, bracket, pick) {
 const plain = (x) => JSON.parse(JSON.stringify(x));
 // Makes `t` the app's current tournament (the global `state`).
 function useState(app, t) { app.__t = t; run(app, 'state = __t'); }
-module.exports = { loadApp, run, plain, useState, seededRng, makeTournament, play, playOut };
+/* Fills an event up to n active entries (default: eventCreation.entries) named "Entry 1", "Entry 2"..., the way the
+   "Number of entries" box did before the player library (2026-10-29). Plain entries without members, for tests whose
+   subject is not how entries are added; the app adds them one at a time now (players-ui.js addEntryFromMembers). */
+function fillEntries(app, t, n) {
+  if (n == null) n = parseInt(t.eventCreation.entries) || 0;
+  n = Math.max(2, n);
+  const T = run(app, 'T'), uid = run(app, 'uid');
+  let active = t.entriesList.filter((e) => !e.withdrawn).length;
+  while (active < n) { t.entriesList.push({ id: uid('e'), name: T('autoName.entry', { label: active + 1 }), autoName: true, org: '', checkedIn: false, noShow: false }); active++; }
+  run(app, 'ensureEntries')(t);
+  return t;
+}
+module.exports = { loadApp, run, plain, useState, seededRng, makeTournament, play, playOut, fillEntries };

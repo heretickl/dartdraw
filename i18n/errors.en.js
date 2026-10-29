@@ -54,6 +54,12 @@ var DD_ERR_EN = {
   'err.entry_limit': 'Basic accounts allow up to {limit} entries per event.',
   'err.changed_elsewhere': 'Tournament changed elsewhere.',
   'err.save_failed': 'Could not save tournament.',
+  /* player library */
+  'err.library_not_set_up': 'The player library is not set up yet.',
+  'err.player_limit': 'You can keep up to 5,000 players.',
+  'err.player_exists': 'A player with that name and club is already in the list.',
+  'err.invalid_player_name': 'Enter a name (up to 80 characters).',
+  'err.player_not_found': 'Player not found.',
   /* Admin panel only (English on purpose) */
   'err.request_failed': 'Could not complete that request.',
   'err.load_events_failed': 'Could not load events.',
@@ -88,7 +94,7 @@ var DD_ERR_EN = {
 };
 /* Answers only the Admin panel shows (admin-ui.js, English only): no BM text. */
 var DD_ERR_ADMIN_ONLY = [
-  'request_failed', 'load_events_failed', 'event_not_found', 'unknown_action', 'not_finalized', 'transfer_target_gone',
+  'load_events_failed', 'event_not_found', 'unknown_action', 'not_finalized', 'transfer_target_gone',
   'transfer_target_missing', 'transfer_target_same', 'transfer_target_not_found', 'transfer_target_suspended', 'email_exists',
   'invalid_name', 'invalid_tier', 'organiser_not_found', 'account_suspended_reactivate', 'last_admin', 'nothing_to_change',
   'invalid_role', 'invalid_suspended', 'own_role', 'suspend_self', 'admin_needs_verified', 'delete_self', 'has_events',

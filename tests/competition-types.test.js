@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { loadApp, run, plain, useState, seededRng, makeTournament } = require('./lib/helpers');
+const { loadApp, run, plain, useState, seededRng, makeTournament, fillEntries } = require('./lib/helpers');
 const { toPublicView } = require('../viewer/api/_lib/publicView');
 const lv = require('../viewer/api/_lib/listView');
 
@@ -32,7 +32,7 @@ function blank(unit, formatType, n) {
   const t = f('blankTournament')(); useState(app, t);
   t.eventCreation.saved = true; t.eventCreation.competitionUnit = unit; t.eventCreation.entries = n || 8;
   t.format.saved = true; t.format.formatType = formatType || 'roundrobin';
-  f('ensureEntries')(t);
+  fillEntries(app, t);
   return t;
 }
 const render = (n) => { run(app, 'formSectionCollapsed.format = false'); app.__n = n; run(app, 'currentStage = __n'); return run(app, 'stage' + n + '()'); };
@@ -61,24 +61,9 @@ test('stage 1 keeps Triples selectable only for an event that already has it; Te
   void tr; void tm;
 });
 
-test('stage 1 names the entries: pairs in Doubles, teams in Teams, unchanged in Singles; it follows the type box before Save', () => {
+test('stage 1 has no number of entries box any more: entries are added on step 3 (player library, 2026-10-29)', () => {
   reset();
-  blank('Singles'); let html = render(1);
-  assert.match(html, /<label id="f_entries_label">Number of entries<\/label>/);
-  assert.match(html, /<div class="hint" id="f_entries_hint" hidden><\/div>/);
-  blank('Doubles'); html = render(1);
-  assert.match(html, /<label id="f_entries_label">Number of pairs<\/label>/);
-  assert.match(html, /id="f_entries_hint">Each entry is a pair of two players: 24 players make 12 pairs\.<\/div>/);
-  blank('Teams'); html = render(1);
-  assert.match(html, /<label id="f_entries_label">Number of teams<\/label>/);
-  assert.match(render(1), /<select id="f_unit" onchange="updateEntriesLabel\(this\.value\)">/);
-  // live: changing the box (not yet saved) relabels the field
-  const label = { textContent: 'Number of entries' }, hint = { textContent: '', hidden: true };
-  app.document = { getElementById: (id) => ({ f_entries_label: label, f_entries_hint: hint }[id] || null) };
-  f('updateEntriesLabel')('Doubles');
-  assert.equal(label.textContent, 'Number of pairs'); assert.equal(hint.hidden, false);
-  f('updateEntriesLabel')('Singles');
-  assert.equal(label.textContent, 'Number of entries'); assert.equal(hint.hidden, true); assert.equal(hint.textContent, '');
+  ['Singles', 'Doubles', 'Teams'].forEach((u) => { blank(u); assert.doesNotMatch(render(1), /f_entries/); });
 });
 
 test('saving stage 1 on an existing Teams event keeps Teams, and leaves stored player lists exactly as they were', () => {
@@ -101,7 +86,7 @@ test('switching Singles to Doubles and back in stage 1 adds no player slots and 
   app.document = { getElementById: (id) => (id in fields ? { value: fields[id] } : null) };
   f('saveStage1')();
   assert.equal(t.eventCreation.competitionUnit, 'Doubles');
-  assert.equal(t.entriesList.length, 10);
+  assert.equal(t.entriesList.length, 8);                                   // saving step 1 never adds or removes entries
   assert.equal(t.entriesList.some((e) => 'players' in e), false);
   assert.equal(t.entriesList[0].name, 'Alex');
   t.entriesList[0].players = ['Alex', 'Bo'];                             // an older event's roster
@@ -221,6 +206,7 @@ function doublesEvent(n, ft) {
   app.document = { getElementById: (id) => (id in fields ? { value: fields[id] } : null) };
   f('saveStage1')();
   app.document = DOC;
+  fillEntries(app, t, n);
   t.format.formatType = ft; t.format.bestOfLegs = 5; t.format.maxPerGroup = 4; t.format.qualifiersPerGroup = 2; t.format.advanceMode = 'seeded';
   t.format.saved = true;
   // pair names, through the same handler the page uses (a pair is just its name)

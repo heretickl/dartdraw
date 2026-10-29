@@ -3,10 +3,10 @@ const { LibraryError } = require('../../_lib/players');
 
 const ERRORS = {
   not_set_up: [503, { code: 'library_not_set_up', error: 'The player library is not set up yet.' }],
-  invalid_name: [400, { code: 'invalid_name', error: 'Enter a name (up to 80 characters).' }],
+  invalid_name: [400, { code: 'invalid_player_name', error: 'Enter a name (up to 80 characters).' }],
   limit: [409, { code: 'player_limit', error: 'You can keep up to 5,000 players.' }],
   duplicate: [409, { code: 'player_exists', error: 'A player with that name and club is already in the list.' }],
-  not_found: [404, { code: 'not_found', error: 'Player not found.' }]
+  not_found: [404, { code: 'player_not_found', error: 'Player not found.' }]
 };
 
 function bodyObject(req) {

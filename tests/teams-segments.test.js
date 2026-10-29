@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { loadApp, run, plain, useState, seededRng, makeTournament } = require('./lib/helpers');
+const { loadApp, run, plain, useState, seededRng, makeTournament, fillEntries } = require('./lib/helpers');
 const { sanitizeTournamentData } = require('../tournament-sanitize');
 const { toPublicView } = require('../viewer/api/_lib/publicView');
 
@@ -38,7 +38,7 @@ function teamsEvent(ft, n, opts) {
   t.id = 't_teams_' + ft + (n || 8);
   Object.assign(t.eventCreation, { saved: true, competitionUnit: 'Teams', entries: n || 8, tournamentName: 'League', eventName: 'Team Night', date: '2026-10-25', advancedMode: !!opts.advanced, boards: 4 });
   Object.assign(t.format, { saved: true, formatType: ft, maxPerGroup: 4, qualifiersPerGroup: 2, advanceMode: 'seeded', losersPool: !!opts.plate, podCount: opts.pods || 2 });
-  f('ensureEntries')(t);
+  fillEntries(app, t);
   t.entriesList.forEach((e, i) => { e.name = 'Team ' + String.fromCharCode(65 + i); e.autoName = false; });
   return t;
 }
@@ -601,7 +601,7 @@ test('a started Teams event keeps its competition type on step 1; other types ar
   reset(); const t = teamsEvent('roundrobin', 4);
   f('buildGroups')(t);
   const fields = { f_tname: 'L', f_ename: 'E', f_etype: 'Open', f_unit: 'Singles', f_date: '', f_entries: '4' };
-  assert.match(render(1), /<select id="f_unit" onchange="updateEntriesLabel\(this\.value\)">/);
+  assert.match(render(1), /<select id="f_unit">/);
   t.groups[0].gameStarted = true;
   const html = render(1);
   assert.match(html, /<select id="f_unit" disabled>[\s\S]*<option value="Teams" selected>Teams<\/option>[\s\S]*Games have started, so a Teams event stays Teams\./);
@@ -611,7 +611,7 @@ test('a started Teams event keeps its competition type on step 1; other types ar
   assert.equal(t.eventCreation.competitionUnit, 'Teams');
   // a started Singles event: the type can change as before
   t.eventCreation.competitionUnit = 'Singles';
-  assert.match(render(1), /<select id="f_unit" onchange="updateEntriesLabel\(this\.value\)">/);
+  assert.match(render(1), /<select id="f_unit">/);
   fields.f_unit = 'Doubles';
   app.document = { getElementById: (id) => (id in fields ? { value: fields[id] } : null) };
   f('saveStage1')();

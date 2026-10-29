@@ -173,7 +173,7 @@ test('no English left: every printed sheet of every event, printed in BM (Englis
   ['PERATURAN & FORMAT', 'Sila baca sebelum bermain', 'Susunan pemecah seri', 'Keputusan pertemuan', 'SUSUNAN PERLAWANAN', 'Susunan induk perlawanan — mengikut board', '1 lwn 2',
     'Perseorangan Terbuka', 'Beregu Terbuka', 'Berpasukan Terbuka', 'Perseorangan Wanita', '07/11/2026', 'PESERTA', 'MATA', 'KED.', 'KUMPULAN A', 'Perlawanan 1', 'Marker', 'Mata: Menang 1 · Kalah 0',
     'Keputusan langsung', 'Imbas, atau layari', 'Dijana dengan DartDraw', 'Peringkat Kalah Mati', 'Undian 16 slot', 'Separuh akhir', 'Suku akhir', 'Akhir', 'JUARA', 'BRACKET', 'BRACKET UTAMA', 'SAINGAN PLATE',
-    'Unjuran Penempatan Kalah Mati', 'BRACKET UTAMA (UNJURAN)', 'Label menunjukkan kumpulan', 'tiada unjuran', 'Lakukan ini sebelum undian kalah mati dibuat.',
+    'tiada undian', 'Lakukan ini sebelum undian kalah mati dibuat.',
     'Bil.', 'Perlawanan', 'Nama Pasukan', 'JUMLAH MATA', 'PEMECAH SERI', 'Tandatangan Kapten/Pengurus', 'PERSEORANGAN 1', 'BEREGU 1', 'BEREMPAT 1', 'Mata', 'lwn ',
     'PEMAIN A–Z', 'Cari kumpulan dan board anda', 'Kumpulan mengikut susunan bermain', 'Bracket 4 slot', 'Pemenang', 'PERINGKAT AKHIR', 'Seksyen L1', 'Helaian Akhir', 'ke Akhir', 'Nombor pada sambungan bracket',
     'Sistem mata peringkat kumpulan', 'Mara ke kalah mati', 'diberi seed mengikut kedudukan akhir dalam kumpulan', 'Setiap perlawanan mempunyai', 'Format: Kalah mati — penyingkiran tunggal.'].forEach((w) => assert.ok(all.includes(w), 'printed in BM: ' + w));

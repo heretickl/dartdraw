@@ -325,7 +325,7 @@ test('Release 2: Quick start is the first guide article and first in the content
   assert.equal((qs.match(/<span class="see">You should see:/g) || []).length, 7);
   const t = articleText('quick-start');
   assert.match(t, /24 players, one evening, 4 dartboards/);
-  ['+ New tournament', 'Number of entries', 'Save event creation →', 'Round robin → Knockout', 'Save format & branding →', 'Random draw', 'Review print pack →',
+  ['+ New tournament', 'Add entries', 'Save event creation →', 'Round robin → Knockout', 'Save format & branding →', 'Random draw', 'Review print pack →',
     'Confirm all 6 charts', 'Publish results now', 'Print bracket pack', 'Start all games', 'Save score', 'Generate knockout bracket', 'Accept & finalize'].forEach((q) => assert.ok(t.includes(q), 'quick start should quote ' + q));
   assert.ok(t.indexOf('Publish results now') < t.indexOf('Print bracket pack'), 'publish comes before print');
   // the search finds it by the words people type, and the keywords are never shown
@@ -342,7 +342,7 @@ test('Release 2: "No account yet?" is the first heading of Getting started, with
   assert.match(dp, /Publishing is off, so these sheets will have no QR code/);
   assert.match(dp, /Click Publish results now in it \(the same as ticking Publish results on step 5\), then print/);
   assert.doesNotMatch(text(help), /Switch publishing on before you print/);
-  assert.match(articleText('creating-an-event'), /in a Doubles event it is called Number of pairs, and in a Teams event Number of teams/);
+  assert.match(articleText('creating-an-event'), /Entries are added on step 3\./);
   assert.match(articleText('finishing-the-event'), /To finish the event, use Accept & finalize at the bottom of step 5/);
 });
 

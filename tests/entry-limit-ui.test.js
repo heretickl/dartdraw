@@ -12,7 +12,7 @@ const ORIG = {};
 let modals, persisted, fields, bar;
 function reset(organizer) {
   Object.keys(ORIG).forEach((n) => { app[n] = ORIG[n]; });
-  modals = []; persisted = 0; bar = { innerHTML: '' };
+  modals = []; persisted = 0; bar = { innerHTML: '' }; fields = fields || {};
   app.openModal = (m) => { modals.push(m); };
   app.persist = () => { persisted++; };
   app.render = () => {}; app.renderSavedList = () => {};
@@ -28,7 +28,6 @@ function event(active, withdrawn) {
   t.entriesList = Array.from({ length: active + (withdrawn || 0) }, (_, i) => ({ id: 'e' + i, name: 'E' + i, org: '', players: [], withdrawn: i >= active }));
   return t;
 }
-const setForm = (n) => { fields = { f_tname: 'Cup', f_ename: 'Open', f_etype: 'Open', f_unit: 'Singles', f_date: '2026-10-20', f_entries: String(n) }; };
 const activeCount = (t) => t.entriesList.filter((e) => !e.withdrawn).length;
 
 test('entryLimit: the number from /api/auth/me, or none', () => {
@@ -38,63 +37,56 @@ test('entryLimit: the number from /api/auth/me, or none', () => {
   reset(null); assert.equal(f('entryLimit')(), null);
 });
 
-test('saveStage1 at 65 on Basic: info modal, nothing saved, nothing changed', () => {
-  reset(); const t = event(8); setForm(65);
-  f('saveStage1')();
+/* Since the player library (2026-10-29) entries are added one at a time on step 3 (players-ui.js addEntryFromMembers);
+   step 1 has no number of entries. The limit is checked on each add. */
+const add = (name) => run(app, 'addEntryFromMembers')('Singles', '', [{ name, eventOnly: true }]);
+
+test('adding the 65th entry on Basic: info modal, nothing added, nothing saved', () => {
+  reset(); const t = event(64);
+  assert.equal(add('New one'), null);
   assert.equal(modals.length, 1);
   assert.equal(modals[0].body, MSG);
   assert.equal(persisted, 0);
-  assert.equal(t.eventCreation.entries, 8);
-  assert.equal(activeCount(t), 8);
-  assert.equal(run(app, 'currentStage'), 1);
-});
-
-test('saveStage1 at 64 on Basic goes through and builds 64 entries', () => {
-  reset(); const t = event(8); setForm(64);
-  f('saveStage1')();
-  assert.equal(modals.length, 0);
-  assert.equal(persisted, 1);
-  assert.equal(t.eventCreation.entries, 64);
   assert.equal(activeCount(t), 64);
 });
 
-test('saveStage1 is unlimited when entryLimit is null (Pro) or in public mode', () => {
+test('adding the 64th entry on Basic goes through', () => {
+  reset(); const t = event(63);
+  assert.ok(add('New one'));
+  assert.equal(modals.length, 0);
+  assert.equal(persisted, 1);
+  assert.equal(activeCount(t), 64);
+});
+
+test('adding is unlimited when entryLimit is null (Pro) or in public mode', () => {
   for (const org of [{ name: 'P', tier: 'pro', entryLimit: null }, { publicMode: true }]) {
-    reset(org); const t = event(8); setForm(200);
-    f('saveStage1')();
+    reset(org); const t = event(200);
+    assert.ok(add('New one'));
     assert.equal(modals.length, 0);
-    assert.equal(activeCount(t), 200);
+    assert.equal(activeCount(t), 201);
   }
 });
 
-test('saveStage1: an event already over the limit can be edited and shrunk but not grown', () => {
-  reset(); let t = event(70); setForm(70);
-  f('saveStage1')();
-  assert.equal(modals.length, 0); assert.equal(activeCount(t), 70);          // unchanged size is fine
-  reset(); t = event(70); setForm(66);
-  f('saveStage1')();
-  assert.equal(modals.length, 0); assert.equal(activeCount(t), 66);          // shrinking is fine
-  reset(); t = event(70); setForm(71);
-  f('saveStage1')();
-  assert.equal(modals.length, 1); assert.equal(activeCount(t), 70);          // growing is not
+test('an event already over the limit keeps its entries but cannot grow', () => {
+  reset(); const t = event(70);
+  assert.equal(add('New one'), null);
+  assert.equal(modals.length, 1); assert.equal(activeCount(t), 70);
 });
 
-test('saveStage1 counts only active entries: 64 active plus withdrawn ones cannot be grown past 64', () => {
-  reset(); const t = event(64, 5); setForm(65);
-  f('saveStage1')();
-  assert.equal(modals.length, 1); assert.equal(activeCount(t), 64);
+test('only active entries count: 64 active plus withdrawn ones cannot grow past 64; 63 active plus withdrawn can', () => {
+  reset(); let t = event(64, 5);
+  assert.equal(add('New one'), null); assert.equal(activeCount(t), 64);
+  reset(); t = event(63, 5);
+  assert.ok(add('New one')); assert.equal(activeCount(t), 64);
 });
 
-test('ensureEntries (run on open and on saving the format step) never grows a Basic event past the limit', () => {
+test('ensureEntries (run on open and on saving the format step) never adds or removes entries; it only records the count', () => {
   reset(); let t = event(70); t.entriesList[0].withdrawn = true;               // 69 active, stored entries says 70
   f('ensureEntries')(t);
-  assert.equal(activeCount(t), 69);
-  reset(); t = event(10); t.eventCreation.entries = 100;                       // a bad stored number on a small event: grows to the limit at most
+  assert.equal(activeCount(t), 69); assert.equal(t.eventCreation.entries, 69);
+  reset(); t = event(10); t.eventCreation.entries = 100;                       // a bad stored number: nothing is filled in
   f('ensureEntries')(t);
-  assert.equal(activeCount(t), 64);
-  reset({ name: 'P', tier: 'pro', entryLimit: null }); t = event(10); t.eventCreation.entries = 100;
-  f('ensureEntries')(t);
-  assert.equal(activeCount(t), 100);
+  assert.equal(activeCount(t), 10); assert.equal(t.eventCreation.entries, 10);
 });
 
 test('withdrawing with a named replacement keeps the active count (so it is allowed at the limit)', () => {
@@ -151,11 +143,11 @@ test('top bar badge: Basic and Pro show a badge, Basic carries the limit as its 
   assert.doesNotMatch(bar.innerHTML, /tier-badge/);
 });
 
-test('Stage 1 hint: shown for Basic only', () => {
+test('the step 3 entry count shows the Basic limit, for Basic only', () => {
   reset(); event(8);
-  assert.match(f('stage1')(), /Basic: up to 64 entries per event\./);
+  assert.match(f('entryPickerHintHTML')(), /Basic: up to 64 entries per event\./);
   reset({ name: 'P', tier: 'pro', entryLimit: null }); event(8);
-  assert.doesNotMatch(f('stage1')(), /Basic: up to/);
+  assert.doesNotMatch(f('entryPickerHintHTML')(), /Basic: up to/);
   reset({ publicMode: true }); event(8);
-  assert.doesNotMatch(f('stage1')(), /Basic: up to/);
+  assert.doesNotMatch(f('entryPickerHintHTML')(), /Basic: up to/);
 });

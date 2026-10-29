@@ -8,10 +8,10 @@ const clean = (s) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim().slic
 const key = (n, c) => n.toLowerCase() + '\u0000' + c.toLowerCase();
 const NOT_SET_UP = { code: 'library_not_set_up', error: 'The player library is not set up yet.' };
 const ERR = {
-  invalid_name: [400, { code: 'invalid_name', error: 'Enter a name (up to 80 characters).' }],
+  invalid_name: [400, { code: 'invalid_player_name', error: 'Enter a name (up to 80 characters).' }],
   limit: [409, { code: 'player_limit', error: 'You can keep up to 5,000 players.' }],
   duplicate: [409, { code: 'player_exists', error: 'A player with that name and club is already in the list.' }],
-  not_found: [404, { code: 'not_found', error: 'Player not found.' }]
+  not_found: [404, { code: 'player_not_found', error: 'Player not found.' }]
 };
 
 function uses(db, org, p) {

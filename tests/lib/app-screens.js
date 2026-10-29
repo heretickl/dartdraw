@@ -166,7 +166,9 @@ function renderAppScreens(opts) {
   });
   app.__any = copy(STATES[0].data);
   GLOBAL_CALLS.forEach(([label, code]) => one('global | ' + label, code));
-  return rec.out;
+  /* a copy: a timer or promise the app left running (the player picker, the library load) can still write later, under
+     the last label, and must not change an output already taken */
+  return rec.out.slice();
 }
 
 /* The visible text of an HTML string (tags out, entities decoded), for the English scan. */

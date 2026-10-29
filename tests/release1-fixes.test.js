@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { loadApp, run, plain, useState, seededRng, playOut } = require('./lib/helpers');
+const { loadApp, run, plain, useState, seededRng, playOut, fillEntries } = require('./lib/helpers');
 const { toPublicView } = require('../viewer/api/_lib/publicView');
 
 /* Release 1 ("Make it true"): D1 correcting a knockout result clears every later match the old winner reached (and asks
@@ -368,7 +368,7 @@ function teamsKo(n) {
   t.id = 't_r1_teams';
   Object.assign(t.eventCreation, { saved: true, competitionUnit: 'Teams', entries: n, boards: 4 });
   Object.assign(t.format, { saved: true, formatType: 'knockout' });
-  f('ensureEntries')(t);
+  fillEntries(app, t);
   t.entriesList.forEach((e, i) => { e.name = 'Team ' + String.fromCharCode(65 + i); e.autoName = false; e.checkedIn = true; });
   f('regenerateKnockoutBracket')();
   return t;
@@ -694,32 +694,25 @@ test('R2 M2 Group Boards: a group that is drawn but still editable is the draw (
   assert.equal(f('withdrawBlock')(t, id).reason, 'bracket');
 });
 
-test('R2 H1 lowering Number of entries is refused (and nothing saved) when it would remove an entry that is playing', () => {
+/* R2 H1 since the player library (2026-10-29): step 1 has no number of entries, so saving it never removes anyone;
+   entries are removed one at a time on step 3, and only before the draw (after it they are withdrawn). */
+test('R2 H1 saving step 1 never adds or removes entries, before or after the draw', () => {
   reset(); const t = rrkoEvent(); f('generateKnockoutFromRR')();
-  const before = plain({ list: t.entriesList, groups: t.groups, ko: t.knockout, ec: t.eventCreation });
-  persists = 0;
-  typed({ f_entries: 12, f_tname: 'A new name', f_ename: 'x', f_etype: 'Open', f_unit: 'Singles', f_date: '' }, () => f('saveStage1')());
-  assert.equal(last().title, 'These entries are already playing');
-  assert.match(text(last().bodyHTML), /would remove the last 4 from the list, and RrD1, RrD2, RrD3, RrD4 are already playing/);
-  assert.match(text(last().bodyHTML), /Nothing has been saved: change the number back to 16/);
-  assert.deepEqual(plain({ list: t.entriesList, groups: t.groups, ko: t.knockout, ec: t.eventCreation }), before, 'nothing changed, not even the name');
-  assert.equal(persists, 0);
-  // a started group without a knockout: same
-  reset(); const t2 = rrkoEvent({ rrOnly: true, unplayed: true });
-  typed({ f_entries: 14, f_tname: 'n' }, () => f('saveStage1')());
-  assert.equal(last().title, 'These entries are already playing'); assert.equal(t2.entriesList.length, 16);
-  // a drawn knockout (Knockout format)
-  reset(); const k = koEvent(8);
-  typed({ f_entries: 6, f_tname: 'n' }, () => f('saveStage1')());
-  assert.equal(last().title, 'These entries are already playing'); assert.equal(k.entriesList.length, 8);
+  const before = plain({ list: t.entriesList.map((e) => [e.id, e.name, !!e.withdrawn]), groups: t.groups, ko: t.knockout });
+  typed({ f_tname: 'A new name', f_ename: 'x', f_etype: 'Open', f_unit: 'Singles', f_date: '' }, () => f('saveStage1')());
+  assert.deepEqual(plain({ list: t.entriesList.map((e) => [e.id, e.name, !!e.withdrawn]), groups: t.groups, ko: t.knockout }), before);
+  assert.equal(t.eventCreation.tournamentName, 'A new name');
+  reset(); const u = rrkoEvent({ notStarted: true }); const n = u.entriesList.length;
+  typed({ f_tname: 'n', f_ename: 'e', f_etype: 'Open', f_unit: 'Singles', f_date: '' }, () => f('saveStage1')());
+  assert.equal(u.entriesList.length, n); assert.equal(u.eventCreation.entries, n);
 });
 
-test('R2 H1 before the games start, lowering the number of entries works as today', () => {
-  reset(); const t = rrkoEvent({ notStarted: true });
-  typed({ f_entries: 12, f_tname: 'n', f_ename: 'e', f_etype: 'Open', f_unit: 'Singles', f_date: '' }, () => f('saveStage1')());
-  assert.equal(modals.length, 0);
-  assert.equal(t.entriesList.length, 12); assert.equal(t.eventCreation.entries, 12);
-  assert.equal(t.groups[3].entryIds.length, 0);
+test('R2 H1 once the groups are drawn an entry cannot be removed (it is withdrawn instead)', () => {
+  reset(); const t = rrkoEvent({ notStarted: true }); const n = t.entriesList.length;
+  modals.length = 0;
+  f('removeEntry')(t.entriesList[0].id);
+  assert.equal(modals.length, 0, 'no remove box after the draw');
+  assert.equal(t.entriesList.length, n);
 });
 
 test('R2 H2 Swap with... is refused once a group involved has started, and step 3 stops offering it', () => {

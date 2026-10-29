@@ -10,6 +10,7 @@
 const path = require('path');
 const { createApp, run } = require('../../scripts/sim/lib/appvm');
 const { makePlayer } = require('../../scripts/sim/lib/play');
+const { fillEntries } = require('./helpers');
 
 const UNITS = ['Singles', 'Doubles', 'Teams'];
 const FORMATS = ['knockout', 'rrknockout', 'podknockout', 'roundrobin'];
@@ -31,6 +32,7 @@ function oneEvent(unit, formatType, entries, opts) {
   t.id = 't_' + key + (opts.tag ? '_' + opts.tag : '');
   t.createdAt = t.updatedAt = Date.UTC(2026, 9, 6, 9);
   sim.withDoc({ f_tname: 'Kejohanan Dart Terbuka Selangor 2026', f_ename: unit + ' ' + formatType, f_etype: opts.etype || 'Open', f_unit: unit, f_date: '2026-11-07', f_entries: String(entries) }, () => f('saveStage1')());
+  fillEntries(app, sim.state(), entries);
   const boards = formatType === 'podknockout' ? 3 : 4;
   sim.withDoc({ f_boards: String(boards), f_level: 'amateur', f_starttime: opts.start || '' }, () => f('saveSchedulingModal')());
   if (opts.advanced) t.eventCreation.advancedMode = true;

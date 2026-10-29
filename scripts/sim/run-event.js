@@ -58,8 +58,13 @@ function runEvent(unit, formatType, outRoot, lang) {
   if (formatType === 'podknockout') { boxes.f_podcount = String(POD_COUNT); if (!isTeams) boxes.f_podlegs = '5'; }
   sim.withDoc(boxes, () => f('saveStage2')());
   if (!t.format.saved || !t.eventCreation.saved) throw new Error('setup did not save');
-  /* Step 3: entry names (typed one by one, like the name boxes) */
+  /* Step 3: the entries, added one at a time as on the screen (event-only names: the simulator has no player library) */
   const active = () => sim.state().entriesList.filter((e) => !e.withdrawn);
+  for (let i = 0; i < ENTRIES; i++) {
+    const nm = NAME_PREFIX[unit] + ' ' + pad2(i + 1);
+    const members = unit === 'Doubles' ? [{ name: nm + 'a', eventOnly: true }, { name: nm + 'b', eventOnly: true }] : isTeams ? [] : [{ name: nm, eventOnly: true }];
+    if (!call('addEntryFromMembers', unit, unit === 'Singles' ? '' : nm, members)) throw new Error('entry ' + (i + 1) + ' was refused');
+  }
   active().forEach((e, i) => call('renameEntry', e.id, NAME_PREFIX[unit] + ' ' + pad2(i + 1)));
   /* Knockout and Group Boards are seeded (the top 8 carry a seed number) so the seed badges show on the sheets */
   if (formatType === 'knockout' || formatType === 'podknockout') { call('setSeedingEnabled', true); call('setNumSeeds', 8); }
