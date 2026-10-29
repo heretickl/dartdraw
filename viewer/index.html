@@ -576,7 +576,9 @@ function groupCardHTML(g){
   var started = g.gameStarted;
   var body, q = qualifiersPerGroup();
   if(!started){
-    body = '<p class="empty">'+T('ev.grp.notStarted')+'</p>';
+    /* the draw is public as soon as the group is confirmed: list who is in it, no table until play starts (owner, 2026-10-29) */
+    body = '<ol class="grp-members">'+(g.entryIds||[]).map(function(id){ return '<li>'+escapeHtml(entryName(id))+'</li>'; }).join('')+'</ol>'+
+      '<p class="empty">'+T('ev.grp.notStarted')+'</p>';
   } else {
     var st = computeStandings(g);
     body = '<div class="scroll">'+markedStandingsHTML(g, st)+'</div>'+
