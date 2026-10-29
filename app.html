@@ -2233,8 +2233,9 @@ function collectRankedEntries(t, filterFn){
       const standings = g.gameStarted ? computeStandings(g) : [];
       const st = standings[r];
       if(st){
-        const ent = t.entriesList.find(e=>e.id===st.id);
-        out.push({ entryId: st.id, org: ent?ent.org:'', groupId: g.id, rank:r+1, seedLabel: g.label+(r+1) });
+        /* org '': the knockout after a round robin is placed by group and finishing position only, never by
+           organisation (owner, 2026-10-29), so the bracket printed before the round robin is exactly the real draw */
+        out.push({ entryId: st.id, org: '', groupId: g.id, rank:r+1, seedLabel: g.label+(r+1) });
       }
     });
   }
@@ -2262,7 +2263,7 @@ function collectNonQualifiers(t){
    that are run through the REAL generateBracket, so the pre-round-robin projected
    sheet shows exactly the placement the real draw will make (same-group entries
    kept apart until as late as possible, byes to the group winners). Organisations
-   are not known yet, so organisation separation can make the real draw differ. */
+   are not used by either draw, so the two always agree. */
 function projectedRankedEntries(t, filterFn){
   const perGroup = Math.max(1, parseInt(t.format.qualifiersPerGroup)||2);
   const maxRank = Math.max(...t.groups.map(g=>g.entryIds.length), 0);
@@ -2752,7 +2753,7 @@ function koSheetChrome(t, bracket, info){
     overline: t.eventCreation.tournamentName||'', title: t.eventCreation.eventName||'',
     sub: T('catUnit', {cat: catLabel(t.eventCreation.eventType||''), unit: unitLabel(t.eventCreation.competitionUnit||'')})+' · '+info.stage+info.legsSub+printDateSuffix(t),
     label: info.label, detail: info.detail, logo, sponsors, qrHTML: info.qr||'',
-    legend: info.legend + (hasBye ? T('pr.ko.bye') : '') + T('pr.ko.numbers') + printFooterTextHTML(t),
+    legend: koNotesOn(t) ? info.legend + (hasBye ? T('pr.ko.bye') : '') + T('pr.ko.numbers') + printFooterTextHTML(t) : '',
     credit: ddCreditHTML(), cls: info.cls||'', data: { label: info.label, sub: info.stage }
   };
 }
@@ -2973,7 +2974,7 @@ function openKoPaperDialog(adv, proceed){
 /* The paper size selector with the fit check under it (print stages; never printed). */
 function koPaperPanelHTML(models){
   models = models || koPrintModels(state);
-  let html = koPaperSizeSelectHTML();
+  let html = koPaperSizeSelectHTML() + koNotesToggleHTML();
   const adv = koPaperAdvice(models);
   if(adv.none) return html;
   const btn = (p)=> '<button class="btn secondary" onclick="setKoPaperSize(\''+p+'\')">'+T('paper.switchTo', {p})+'</button>';
@@ -3129,10 +3130,9 @@ function projectedBracketSheetHTML(entries, title){
   const bracket = projectedBracketFor(entries, title);
   const plate = /plate/i.test(title);
   const n = koBracketEntryCount(bracket);
-  const orgNote = t.entriesList.some(e=> !e.withdrawn && e.org) ? T('pr.proj.org') : '';
   const chrome = koSheetChrome(t, bracket, {
     stage: T('pr.ko.stage'), legsSub: '',
-    legend: T('pr.proj.legend')+orgNote,
+    legend: T('pr.proj.legend'),
     label: koPrintedLabel(title), detail: T('pr.ko.detailQ', {size: bracket.size, n}), cls: 'kb-projected',
     qr: printQrBlockHTML(t, 'bracket')
   });
@@ -5474,7 +5474,7 @@ function stage2(){
     // subsection of Chart details instead (Stage 3) — organisation only
     // matters there once entries exist, so it moved next to them rather
     // than sitting here gated behind Advanced mode.
-    (advanced && f.formatType!=='knockout' ? '<div class="toggle-row"><input type="checkbox" id="f_orgsplit" '+(f.orgSplit?'checked':'')+'> <label for="f_orgsplit">'+T('s2.orgSplit')+'</label></div>' : '')+
+    (advanced && f.formatType!=='knockout' ? '<div class="toggle-row"><input type="checkbox" id="f_orgsplit" '+(f.orgSplit?'checked':'')+'> <label for="f_orgsplit">'+T(f.formatType==='podknockout' ? 's2.orgSplit' : 's2.orgSplitRr')+'</label></div>' : '')+
     '<div class="field" style="margin-top:12px"><label>'+T('s2.rules')+' <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">'+T('s2.rulesOpt')+'</span></label>'+
       '<textarea id="f_rulesnotes" placeholder="'+T('s2.rulesPh')+'">'+escapeHtml(f.rulesNotes||'')+'</textarea></div>'+
     (advanced ? tieBreakEditor() : '');
@@ -7423,6 +7423,13 @@ function printKoOnlyNow(){
   if(ddLang()!==ddPrintLang()) return ddWithLang(ddPrintLang(), ()=> printKoOnlyNow());   // printed: the print language
   document.getElementById('printSheets').innerHTML = koPackSheetsHTML();
   setTimeout(()=>{ window.print(); }, 60);
+}
+/* The notes in the footer of a knockout bracket sheet (the match rules, byes, what the match numbers are, the organiser's
+   footer text) can be left out (owner, 2026-10-29). Missing means on. The full names of cut names always print. */
+function koNotesOn(t){ t = t||state; return !t.printSettings || t.printSettings.koNotesEnabled!==false; }
+function toggleKoNotes(v){ state.printSettings.koNotesEnabled = v; persist(); render(); }
+function koNotesToggleHTML(){
+  return '<div class="toggle-row"><input type="checkbox" id="koNotesToggle" '+(koNotesOn(state)?'checked':'')+' onchange="toggleKoNotes(this.checked)"> <label for="koNotesToggle">'+T('s4.koNotes')+'</label></div>';
 }
 function koSheetToggleHTML(){
   if(state.format.formatType!=='rrknockout') return '';

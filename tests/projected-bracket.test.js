@@ -141,14 +141,15 @@ test('byes: the sheet shows the BYE tag and the bye winner already moved on, as 
   byeLabels.forEach((l) => { assert.ok(printed.some((x) => x.r === 1 && x.text === l), l + ' is shown in the next round'); assert.ok(!printed.some((x) => x.r === 0 && x.text === l)); });
   assert.ok(byeLabels.every((l) => /1$/.test(l) || l === 'A2'), 'byes go to the group winners first: ' + byeLabels.join());
 });
-test('the footer warns clearly when any entry has an organisation, and only then', () => {
+test('organisations are not used after a round robin (owner, 2026-10-29): no warning, and the real draw is the printed one even with clubs', () => {
   const t = event(16, 4, 2);
-  const note = /Some entries have an organisation: the real draw also keeps entries from the same organisation apart, so the actual bracket will probably differ from this sheet\./;
-  assert.doesNotMatch(f('projectedBracketSheetHTML')(f('projectedQualifierEntries')(t), 'M'), note);
-  t.entriesList[5].org = 'Club';
-  assert.match(f('projectedBracketSheetHTML')(f('projectedQualifierEntries')(t), 'M'), note);
-  t.entriesList[5].withdrawn = true;
-  assert.doesNotMatch(f('projectedBracketSheetHTML')(f('projectedQualifierEntries')(t), 'M'), note, 'a withdrawn entry does not count');
+  t.entriesList.forEach((e, i) => { e.org = i % 3 ? 'Club ' + (i % 2) : ''; });   // most entries in one of two clubs
+  const html = f('projectedBracketSheetHTML')(f('projectedQualifierEntries')(t), 'M');
+  assert.doesNotMatch(html, /organisation/i, 'no note about organisations on the sheet');
+  const proj = f('generateBracket')(f('projectedQualifierEntries')(t), 'Main bracket (projected)');
+  playAll(t); f('generateKnockoutFromRR')();
+  assert.deepEqual(pairs(t.knockout), pairs(proj), 'the real draw is the printed one');
+  assert.ok(Array.from(f('collectQualifiers')(t)).every((e) => e.org === ''), 'the qualifiers carry no organisation into the draw');
 });
 test('the printed pack: the Plate pool sheet with the Plate pool on, none without a main bracket, none above 128 entries', () => {
   const t = event(16, 4, 2, { plate: true });

@@ -117,7 +117,6 @@ var DD_PRINT_EN = {
   'pr.sp.finLegend': 'Finals sheet. {order} Each first box here is filled from a section: &ldquo;{ex}&rdquo; means the winner of match {m} on section {s} (+ marks where it enters). ',
   /* projected brackets */
   'pr.proj.legend': 'Labels show group + finishing position (e.g. A1 = Group A, 1st place) — seeded automatically once the round robin is confirmed. The actual bracket with real names is generated in Manage Tournament after results are entered.',
-  'pr.proj.org': ' <b>Some entries have an organisation: the real draw also keeps entries from the same organisation apart, so the actual bracket will probably differ from this sheet.</b>',
   'pr.proj.none': 'not drawn',
   'pr.proj.doBefore': ' Do this before the knockout is drawn.',
   'pr.proj.plateToo': ' The Plate pool is not drawn either: the real draw makes neither bracket until this is fixed.',
