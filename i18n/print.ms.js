@@ -110,7 +110,6 @@ var DD_PRINT_MS = {
   'pr.sp.legend': 'Seksyen {id} bagi {label}. {order} Setiap pemenang di sini mara ke helaian Akhir: label di setiap titik keluar menamakan perlawanan di helaian Akhir, dan pada helaian Akhir kotak bertanda &ldquo;{id} · nombor perlawanan&rdquo; diisi oleh pemenang perlawanan itu. Tanda + menunjukkan tempat pemenang keluar dari seksyen ini.',
   'pr.sp.finDetail': 'Helaian Akhir, {i} daripada {n}',
   'pr.sp.finLegend': 'Helaian Akhir. {order} Setiap kotak pertama di sini diisi dari satu seksyen: &ldquo;{ex}&rdquo; bermaksud pemenang perlawanan {m} di seksyen {s} (+ menandakan tempat ia masuk). ',
-  'pr.proj.legend': 'Label menunjukkan kumpulan + kedudukan akhir (cth. A1 = Kumpulan A, tempat ke-1) — seed ditetapkan secara automatik selepas round robin disahkan. Bracket sebenar, dengan nama peserta, dijana dalam Urus Kejohanan selepas keputusan masuk.',
   'pr.proj.none': 'tiada undian',
   'pr.proj.doBefore': ' Lakukan ini sebelum undian kalah mati dibuat.',
   'pr.proj.plateToo': ' Saingan Plate juga tidak dibuat: undian sebenar tidak akan menjana mana-mana bracket sehingga perkara ini dibetulkan.',

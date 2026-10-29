@@ -2753,7 +2753,7 @@ function koSheetChrome(t, bracket, info){
     overline: t.eventCreation.tournamentName||'', title: t.eventCreation.eventName||'',
     sub: T('catUnit', {cat: catLabel(t.eventCreation.eventType||''), unit: unitLabel(t.eventCreation.competitionUnit||'')})+' · '+info.stage+info.legsSub+printDateSuffix(t),
     label: info.label, detail: info.detail, logo, sponsors, qrHTML: info.qr||'',
-    legend: koNotesOn(t) ? info.legend + (hasBye ? T('pr.ko.bye') : '') + T('pr.ko.numbers') + printFooterTextHTML(t) : '',
+    legend: koNotesOn(t) ? info.legend + (hasBye ? T('pr.ko.bye') : '') + (info.blank ? '' : T('pr.ko.numbers')) + printFooterTextHTML(t) : '',
     credit: ddCreditHTML(), cls: info.cls||'', data: { label: info.label, sub: info.stage }
   };
 }
@@ -3132,7 +3132,7 @@ function projectedBracketSheetHTML(entries, title){
   const n = koBracketEntryCount(bracket);
   const chrome = koSheetChrome(t, bracket, {
     stage: T('pr.ko.stage'), legsSub: '',
-    legend: T('pr.proj.legend'),
+    legend: '', blank: true,   // no explanation of the labels or the match numbers on the blank bracket (owner, 2026-10-29)
     label: koPrintedLabel(title), detail: T('pr.ko.detailQ', {size: bracket.size, n}), cls: 'kb-projected',
     qr: printQrBlockHTML(t, 'bracket')
   });
