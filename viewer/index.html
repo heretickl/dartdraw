@@ -273,6 +273,8 @@ function matchesHTML(id){
   koLines(id).forEach(function(l){
     var opp = koOpponent(l, id), res = koResultText(l, id);
     var info = bpMatchInfo(bpKeyOf(l.b), l.ri, l.mi);
+    /* a knockout match the organiser put on a board (floor officials, 2026-10-30): its board, as for Group Boards */
+    if(!info){ var km = l.b && l.b.rounds && l.b.rounds[l.ri] && l.b.rounds[l.ri][l.mi]; if(km && km.board && !km.winnerId) info = { board: km.board }; }
     rows.push('<div class="mrow"><span>'+escapeHtml((state.format.formatType==='podknockout' ? l.title+' · ' : '')+l.round)+' <span class="note">'+escapeHtml(l.tag)+'</span>'+(info ? ' · '+escapeHtml(T('ev.board', {b:info.board})) : '')+
       (opp ? ' · <span class="tap" data-eid="'+escapeHtml(opp)+'">'+escapeHtml(T('ev.vs', {name:entryName(opp)}))+'</span>' : '')+'</span>'+resultHTML(res)+'</div>');
   });
