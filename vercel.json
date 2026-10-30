@@ -1,10 +1,15 @@
 {
   "regions": ["sin1"],
+  "functions": {
+    "api/score/[action].js": { "includeFiles": "{app.html,render.js,results-engine.js,offline.js,i18n/app.en.js,i18n/print.en.js,i18n/errors.en.js,i18n/app-i18n.js,bracket-print.js,tournament-sanitize.js,pods.js,pods-ui.js,admin-ui.js,players-ui.js,qr.js,boardplan.js,boardplan-ui.js}" },
+    "api/tournaments/[id].js": { "includeFiles": "{app.html,render.js,results-engine.js,offline.js,i18n/app.en.js,i18n/print.en.js,i18n/errors.en.js,i18n/app-i18n.js,bracket-print.js,tournament-sanitize.js,pods.js,pods-ui.js,admin-ui.js,players-ui.js,qr.js,boardplan.js,boardplan-ui.js}" }
+  },
   "redirects": [
     { "source": "/viewer/:path*", "destination": "/", "permanent": false }
   ],
   "rewrites": [
     { "source": "/app", "destination": "/app.html" },
+    { "source": "/score/:token", "destination": "/score.html" },
     { "source": "/features", "destination": "/features.html" },
     { "source": "/how-it-works", "destination": "/how-it-works.html" },
     { "source": "/help", "destination": "/help.html" },
@@ -26,6 +31,11 @@
       { "key": "Referrer-Policy", "value": "no-referrer" },
       { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },
       { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+    ] },
+    { "source": "/score/:token", "headers": [
+      { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'" },
+      { "key": "X-Frame-Options", "value": "DENY" },
+      { "key": "Referrer-Policy", "value": "no-referrer" }
     ] },
     { "source": "/login.html", "headers": [
       { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },

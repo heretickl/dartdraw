@@ -243,6 +243,15 @@ file the app loads, update `SHELL` in `sw.js` and bump its `VERSION` (network fi
 a deploy; the bump clears old caches). Locally, `node tests/dev/mock-organiser.js` and `/__offline?on=1` (no API) or
 `on=2` (no network at all) pretend the signal is gone.
 
+## Floor officials
+
+Volunteers score the matches on their boards from their own phones: the organiser adds them on step 5 (Floor
+officials) and sends each a link and PIN; the page is `score.html` at `/score/<token>`, the API `api/score/[action].js`
+(handlers in `api/_routes/score/`). Before first use run `migrations/2026-10-30-floor-officials.sql` once in the Neon SQL
+Editor (the `event_officials` table). The server applies results with the organiser app's own code: `api/_lib/engine.js`
+runs app.html's scripts in a sandbox, so `vercel.json` `functions.includeFiles` must list every file app.html loads.
+Whole-event saves are merged match by match with results entered meanwhile (`results-engine.js` `mergeResults`).
+
 ## Deployment
 
 Hosted on Vercel with a Neon Postgres database.

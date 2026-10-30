@@ -40,11 +40,14 @@ async function fetchVia(w, req, ids) {
   return answer ? await answer : 'network';   // not answered by the worker: the browser goes to the network itself
 }
 
-test('SHELL lists exactly the app page, render.css, every <script src> of app.html and the BM tables (DD_MS_FILES)', () => {
+test('SHELL lists exactly the app page, render.css, every <script src> of app.html, the BM tables (DD_MS_FILES), and score.html with its scripts', () => {
   const html = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
   const srcs = [...html.matchAll(/<script src="([^"'+]+)"><\/script>/g)].map((m) => '/' + m[1]);
   const ms = JSON.parse(html.match(/var DD_MS_FILES = (\[[^\]]*\])/)[1]).map((x) => '/' + x);
-  const want = ['/app', '/render.css'].concat(srcs, ms).sort();
+  /* and the floor officials' page: score.html and every <script src> it loads */
+  const sh = fs.readFileSync(path.join(ROOT, 'score.html'), 'utf8');
+  const scoreSrcs = [...sh.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1].replace(/^\/?/, '/'));
+  const want = [...new Set(['/app', '/render.css'].concat(srcs, ms, ['/score.html'], scoreSrcs))].sort();
   const { SHELL } = require(path.join(ROOT, 'sw.js'));
   assert.deepEqual(SHELL.slice().sort(), want);
   SHELL.forEach((u) => { if (u !== '/app') assert.ok(fs.existsSync(path.join(ROOT, u)), u + ' exists'); });

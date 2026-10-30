@@ -261,12 +261,14 @@ test('a second finalize attempt on an already finalized row is still 403 and wri
   assert.equal(store.t1.data.finalized.at, '2026-10-13T09:00:00.000Z');
 });
 
-test('saves without finalized are unchanged: the data is written as sent and the response has no finalized key', async () => {
+test('saves without finalized are unchanged: the data is written as sent (plus settingsRev) and the response has no finalized key', async () => {
   seed('t1', { name: 'X' });
   const res = await call('PUT', 't1', putBody({ name: 'Y' }));
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(writtenData(), { name: 'Y' });
-  assert.deepEqual(res.body, { id: 't1', updated_at: '2026-10-13T12:00:00.000Z' });
+  /* written as sent, plus the settings counter the server keeps (floor officials, 2026-10-30): a change to anything but
+     results bumps it, and the answer says what it is now */
+  assert.deepEqual(writtenData(), { name: 'Y', settingsRev: 1 });
+  assert.deepEqual(res.body, { id: 't1', updated_at: '2026-10-13T12:00:00.000Z', settingsRev: 1 });
   const created = await call('PUT', 'brandnew', { data: { name: 'N' } });
   assert.equal(created.statusCode, 201);
   assert.equal('finalized' in created.body, false);

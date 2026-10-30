@@ -540,6 +540,36 @@ const sections = [
 `
       },
       {
+        id: 'floor-officials',
+        title: 'Floor officials: scoring from their own phones',
+        summary: 'Give volunteers a link and PIN to score the matches on their boards; your results always stand.',
+        keywords: 'floor officials volunteers staff scorer scoring link pin phone boards share whatsapp qr stop new pin new link not sent entered by',
+        body: `
+<p>Floor officials are volunteers who enter the results of the matches on the boards you send them to, on their own phones. They need no account. Everything else stays with you.</p>
+<h4 id="fo-add">Adding officials</h4>
+<ol>
+<li>On step 5, <b>Manage Tournament</b>, find <b>Floor officials</b> and click <b>+ Add official</b>.</li>
+<li>Type their name, tick their boards and click <b>Add</b>.</li>
+<li>Click <b>Share</b> to send them the message (WhatsApp, SMS or e-mail), or <b>Copy message</b> and paste it yourself. The message holds the event, their boards, their link and their 4-digit PIN. <b>QR</b> shows the link as a code to scan, with the PIN under it.</li>
+</ol>
+<p>Ask each official to open the link once with signal, at the desk, before play: from then on it works with no signal too, like <a href="#faq-offline">offline scoring</a>.</p>
+<h4 id="fo-can">What officials can do</h4>
+<ul>
+<li>Enter the result of a match on their boards that is ready to play: both players known, no result yet.</li>
+<li>Mark a no-show (a walkover), or <b>Neither showed</b> in a knockout.</li>
+<li>Call a knockout match to the board.</li>
+<li>Correct a result they entered themselves, for 5 minutes. After that, or for anyone else&rsquo;s result, they ask you.</li>
+</ul>
+<p>They cannot start groups, change the draw, the entries or any setting, or see other boards or events. A knockout match goes to an official&rsquo;s phone when you put it on a board: open the match and type the <b>Board</b>.</p>
+<h4 id="fo-yours">Your results always stand</h4>
+<p>Their results show on step 5 within seconds, with a small blue dot; point at a result to see <b>Entered by</b> and the name. You can change any result as usual, and your result always stands: an official&rsquo;s phone never writes over it, and is told the organiser changed it.</p>
+<h4 id="fo-stop">New PIN, new link, Stop</h4>
+<p><b>New PIN</b> gives an official a new PIN; <b>New link</b> a new link and PIN (the old link stops at once); send them the new message. <b>Stop</b> ends their link straight away; results they already entered stay. Every link also stops when you finalize the event, or at midnight after the event date.</p>
+<h4 id="fo-not-sent">&ldquo;Not sent&rdquo;</h4>
+<p>If an official&rsquo;s phone sends a result after their link stopped, or for a match you moved to a board they do not have, it is not saved. Their phone shows it under <b>Not sent &mdash; tell the organiser</b>, and your <b>Floor officials</b> card lists it under their name. Enter it yourself if it still applies, then click <b>Dismiss</b>.</p>
+`
+      },
+      {
         id: 'full-page-window',
         title: 'Second screen or projector (full-page window)',
         summary: 'Open Round robin, the Winners bracket or the Plate pool in its own window for a projector or second monitor, and keep scoring.',

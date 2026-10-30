@@ -3,6 +3,24 @@
    BM page shows their English text. Vocabulary: docs/i18n/glossary.md (e-mel, kata laluan, pautan, log masuk, Pentadbir,
    acara, kejohanan, peserta, dimuktamadkan); "mesti", as in the organiser app's own password messages. */
 var DD_ERR_MS = {
+  /* floor officials (api/score/*) */
+  'err.officials_not_set_up': "Pegawai lantai belum disediakan.",
+  'err.official_invalid_name': "Masukkan nama (hingga 60 aksara).",
+  'err.official_invalid_boards': "Tandakan sekurang-kurangnya satu board.",
+  'err.too_many_officials': "Satu acara boleh mempunyai hingga 64 pegawai lantai.",
+  'err.invalid_op': "Tindakan tidak dikenali.",
+  'err.no_session': "Buka pautan anda sekali lagi.",
+  'err.pin_required': "Masukkan PIN.",
+  'err.link_unknown': "Pautan ini tidak wujud.",
+  'err.bad_pin': "PIN itu tidak betul.",
+  'err.link_stopped': "Pautan ini tidak berfungsi lagi.",
+  'err.link_replaced': "Pautan ini tidak berfungsi lagi.",
+  'err.event_finalized': "Pautan ini tidak berfungsi lagi.",
+  'err.link_ended': "Pautan ini tidak berfungsi lagi.",
+  'err.invalid': "Bukan keputusan yang sah.",
+  'err.missing': "Perlawanan ini tiada lagi dalam acara.",
+  'err.not_your_board': "Perlawanan ini tiada lagi di board anda.",
+  'err.busy': "Acara sedang sibuk. Mencuba lagi.",
   /* every endpoint */
   'err.method_not_allowed': 'Kaedah tidak dibenarkan',
   'err.not_found': 'Tidak dijumpai.',

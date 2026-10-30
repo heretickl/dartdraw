@@ -540,6 +540,36 @@ const sections = [
 `
       },
       {
+        id: 'floor-officials',
+        title: 'Pegawai lantai: memasukkan skor dari telefon mereka sendiri',
+        summary: 'Beri sukarelawan pautan dan PIN untuk memasukkan skor perlawanan di board mereka; keputusan anda sentiasa diguna pakai.',
+        keywords: 'pegawai lantai sukarelawan petugas skor pautan pin telefon board kongsi whatsapp qr hentikan pin baharu pautan baharu tidak dihantar dimasukkan oleh floor officials volunteers scorer link',
+        body: `
+<p>Pegawai lantai ialah sukarelawan yang memasukkan keputusan perlawanan di board yang anda tugaskan kepada mereka, dari telefon mereka sendiri. Mereka tidak memerlukan akaun. Selebihnya kekal di tangan anda.</p>
+<h4 id="fo-add">Menambah pegawai</h4>
+<ol>
+<li>Pada langkah 5, <b>Urus Kejohanan</b>, cari <b>Pegawai lantai</b> dan klik <b>+ Tambah pegawai</b>.</li>
+<li>Taip nama mereka, tandakan board mereka dan klik <b>Tambah</b>.</li>
+<li>Klik <b>Kongsi</b> untuk menghantar mesej kepada mereka (WhatsApp, SMS atau e-mel), atau <b>Salin mesej</b> dan tampalkan sendiri. Mesej itu mengandungi acara, board mereka, pautan mereka dan PIN 4 digit mereka. <b>QR</b> memaparkan pautan sebagai kod untuk diimbas, dengan PIN di bawahnya.</li>
+</ol>
+<p>Minta setiap pegawai membuka pautan sekali dengan isyarat, di meja, sebelum permainan: selepas itu ia berfungsi tanpa isyarat juga, seperti <a href="#faq-offline">memasukkan skor tanpa sambungan</a>.</p>
+<h4 id="fo-can">Apa yang boleh dilakukan oleh pegawai</h4>
+<ul>
+<li>Memasukkan keputusan perlawanan di board mereka yang sedia dimainkan: kedua-dua pemain diketahui, belum ada keputusan.</li>
+<li>Menandakan tidak hadir (walkover), atau <b>Kedua-dua tidak hadir</b> dalam kalah mati.</li>
+<li>Memanggil perlawanan kalah mati ke board.</li>
+<li>Membetulkan keputusan yang mereka masukkan sendiri, dalam masa 5 minit. Selepas itu, atau bagi keputusan orang lain, mereka bertanya kepada anda.</li>
+</ul>
+<p>Mereka tidak boleh memulakan kumpulan, mengubah cabutan, penyertaan atau sebarang tetapan, atau melihat board atau acara lain. Perlawanan kalah mati sampai ke telefon pegawai apabila anda meletakkannya di sesuatu board: buka perlawanan itu dan taip <b>Board</b>.</p>
+<h4 id="fo-yours">Keputusan anda sentiasa diguna pakai</h4>
+<p>Keputusan mereka dipaparkan pada langkah 5 dalam beberapa saat, dengan titik biru kecil; tuding pada keputusan untuk melihat <b>Dimasukkan oleh</b> dan nama. Anda boleh mengubah mana-mana keputusan seperti biasa, dan keputusan anda sentiasa diguna pakai: telefon pegawai tidak sekali-kali menindihnya, dan diberitahu bahawa penganjur telah mengubahnya.</p>
+<h4 id="fo-stop">PIN baharu, pautan baharu, Hentikan</h4>
+<p><b>PIN baharu</b> memberi pegawai PIN baharu; <b>Pautan baharu</b> memberi pautan dan PIN baharu (pautan lama berhenti serta-merta); hantar mesej baharu kepada mereka. <b>Hentikan</b> menamatkan pautan mereka serta-merta; keputusan yang sudah dimasukkan kekal. Setiap pautan juga berhenti apabila anda memuktamadkan acara, atau pada tengah malam selepas tarikh acara.</p>
+<h4 id="fo-not-sent">&ldquo;Tidak dihantar&rdquo;</h4>
+<p>Jika telefon pegawai menghantar keputusan selepas pautan mereka dihentikan, atau bagi perlawanan yang anda alihkan ke board yang bukan milik mereka, ia tidak disimpan. Telefon mereka memaparkannya di bawah <b>Tidak dihantar &mdash; beritahu penganjur</b>, dan kad <b>Pegawai lantai</b> anda menyenaraikannya di bawah nama mereka. Masukkannya sendiri jika masih berkenaan, kemudian klik <b>Tutup</b>.</p>
+`
+      },
+      {
         id: 'full-page-window',
         title: 'Skrin kedua atau projektor (tetingkap skrin penuh)',
         summary: 'Buka Round robin, bracket Pemenang atau saingan Plate dalam tetingkapnya sendiri untuk projektor atau monitor kedua, dan terus mencatat skor.',

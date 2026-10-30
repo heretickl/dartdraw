@@ -8,17 +8,19 @@
    untouched, and the landing site, Help and sign-in pages are outside the scope.
    VERSION: bump it when SHELL changes (a file added or removed). Network first already serves new files after a deploy;
    the bump only clears the old caches. SHELL must list every <script src> of app.html, render.css and DD_MS_FILES. */
-var VERSION = '2026-10-29.1';
+var VERSION = '2026-10-30.2';
 var CACHE = 'dd-app-' + VERSION;
 var SHELL = [
   '/app',
   '/render.css',
-  '/render.js',
+  '/render.js', '/results-engine.js',
   '/i18n/app.en.js', '/i18n/print.en.js', '/i18n/errors.en.js',
   '/i18n/render.ms.js', '/i18n/app.ms.js', '/i18n/print.ms.js', '/i18n/errors.ms.js',
   '/i18n/app-i18n.js',
   '/bracket-print.js', '/tournament-sanitize.js', '/offline.js', '/pods.js', '/pods-ui.js', '/admin-ui.js', '/players-ui.js',
-  '/qr.js', '/boardplan.js', '/boardplan-ui.js'
+  '/qr.js', '/boardplan.js', '/boardplan-ui.js',
+  /* the floor officials' page (registered with scope /score/): /score/<token> is answered with score.html */
+  '/score.html', '/score.js', '/i18n/score.en.js', '/i18n/score.ms.js'
 ];
 var TIMEOUT_MS = 8000;
 var keptPages = new Set();   // ids of the pages (clients) opened from the kept copy
@@ -42,7 +44,7 @@ function shellKey(req){
   if(url.origin !== self.location.origin) return null;
   var p = url.pathname;
   if(p.indexOf('/api/') === 0) return null;
-  if(req.mode === 'navigate') return (p === '/app' || p === '/app.html') ? '/app' : null;
+  if(req.mode === 'navigate') return (p === '/app' || p === '/app.html') ? '/app' : (/^\/score\/[A-Za-z0-9_-]+\/?$/.test(p) || p === '/score.html') ? '/score.html' : null;
   if(p === '/app.html') return '/app';
   return SHELL.indexOf(p) >= 0 ? p : null;
 }

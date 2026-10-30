@@ -17,6 +17,10 @@
 .offline-box ul{margin:6px 0 0;padding-left:0;list-style:none}
 .parked-list{margin:6px 0 10px;padding-left:1.2em;font-size:13px;line-height:1.6}
 .offline-ready{font-size:12px;color:var(--green);margin:0 0 10px}
+.score-cell.by-official::after{content:"";position:absolute;right:2px;top:2px;width:5px;height:5px;border-radius:50%;background:var(--blue)}
+.fo-btn{padding:3px 9px;font-size:11px}
+.fo-msg{white-space:pre-wrap;font-family:inherit;font-size:13px;background:#f3f5f7;border:1px solid var(--line);border-radius:8px;padding:10px;margin:0 0 6px}
+@media print{#floorOfficials{display:none !important}}
 @media print{.offline-box,.offline-ready,.waiting-mark{display:none !important}}
 body{margin:0;background:var(--bg);font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
 button{font-family:inherit}
@@ -736,6 +740,7 @@ svg.kb-conn{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;
 <div id="printSheets"></div>
 
 <script src="render.js"></script>
+<script src="results-engine.js"></script>
 <script src="i18n/app.en.js"></script>
 <script src="i18n/print.en.js"></script>
 <script src="i18n/errors.en.js"></script>
@@ -919,199 +924,6 @@ function catLabel(cat){ return TC('cat.', cat); }
 function formatLabel(ft){ return T('fmt.'+({knockout:'knockout', rrknockout:'rrknockout', podknockout:'podknockout'}[ft]||'roundrobin')); }
 /* "Open Singles" / "Perseorangan Terbuka": the category and the competition type in the language's order, escaped. */
 function catUnitText(t){ return T('catUnit', {cat: escapeHtml(catLabel(t.eventCreation.eventType)), unit: escapeHtml(unitLabel(t.eventCreation.competitionUnit))}); }
-/* ---------- Teams: a team match is made of segments ----------
-   An entry of any competition type is just its name (no roster: an older event's stored `players` lists are kept in
-   the data but never shown or used). A Teams match is a list of segments played in order on one board, each with its
-   own type, starting score and best-of legs. The organiser records ONE plain result per match: the total legs each
-   team won across all its segments. That total goes into the same legs fields every other match uses, so standings,
-   brackets, the public page and finalizing need nothing special. Data:
-     format.teamSegments   = [{type:'singles'|'doubles'|'trios'|'foursome', startingScore, legs}]   (1 to 8 of them)
-     format.teamTieBreaker = {type, startingScore, legs, inRoundRobin, inKnockout}
-   The tie-breaker is one more segment, chosen per stage: inRoundRobin for round robin matches, inKnockout for knockout
-   matches (the Plate pool, Group Boards groups and finals included). In a stage that uses it, a level total cannot be
-   saved: the tie-breaker is played and its legs counted. In a stage without it, a level total is a draw in a round
-   robin, and refused in a knockout (a knockout needs a winner). "stage" below is 'rr' or 'ko'.
-   "Trios" is the name for three players (an older event's 'triples' segment is migrated to 'trios'). */
-const DEFAULT_TIE_BREAK_ORDER = ['Legs won','Leg difference','Head-to-head result','Organiser decision / playoff'];
-const OLD_DEFAULT_TIE_BREAK_ORDER = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];   // the default before Oct 2026
-const TEAM_SEGMENT_TYPES = [['singles','Singles'],['doubles','Doubles'],['trios','Trios'],['foursome','Foursome']];
-const TEAM_SEGMENT_PLAYERS = { singles:1, doubles:2, trios:3, foursome:4 };
-const TEAM_STARTING_SCORES = [301,501,701,1001];
-const TEAM_MAX_SEGMENTS = 8;   // so the lineup sheet always fits one A4 page
-function evenLegsWarning(){ return T('legs.evenWarning'); }
-function defaultTeamSegments(){
-  return [
-    { type:'foursome', startingScore:1001, legs:1 },
-    { type:'singles', startingScore:501, legs:3 },
-    { type:'doubles', startingScore:501, legs:3 },
-    { type:'singles', startingScore:501, legs:3 },
-    { type:'doubles', startingScore:501, legs:3 }
-  ];
-}
-function defaultTeamTieBreaker(){ return { type:'foursome', startingScore:1001, legs:1, inRoundRobin:true, inKnockout:true }; }
-function isTeamsEvent(t){ return !!(t && t.eventCreation && t.eventCreation.competitionUnit==='Teams'); }
-function isPlainObj(v){ return !!v && typeof v==='object' && !Array.isArray(v); }
-function segmentTypeKey(v){ v = v==='triples' ? 'trios' : v; return TEAM_SEGMENT_PLAYERS[v] ? v : 'singles'; }
-function segmentTypeLabel(v){ return T('seg.type.'+segmentTypeKey(v)); }
-function segmentLegs(s){ const n = parseInt(s && s.legs); return n>=1 ? Math.min(n, 99) : 3; }
-function segmentStart(s){ const n = parseInt(s && s.startingScore); return n>=1 ? Math.min(n, 10000) : 501; }
-/* A clean copy of one segment (never the stored object), whatever the stored data holds. */
-function cleanSegment(s){ return { type: segmentTypeKey(s && s.type), startingScore: segmentStart(s), legs: segmentLegs(s) }; }
-function teamSegmentsOf(t){
-  const list = (t && t.format && Array.isArray(t.format.teamSegments)) ? t.format.teamSegments.filter(isPlainObj) : [];
-  return (list.length ? list : defaultTeamSegments()).map(cleanSegment);
-}
-/* The tie-breaker definition with its two stage ticks (an object saved before the ticks existed had one `enabled`). */
-function cleanTieBreaker(tb){
-  if(!isPlainObj(tb)) return Object.assign(defaultTeamTieBreaker(), { inRoundRobin:false, inKnockout:false });
-  const legacy = !('inRoundRobin' in tb) && !('inKnockout' in tb);
-  const on = (k)=> legacy ? tb.enabled===true : tb[k]===true;
-  return Object.assign(cleanSegment(tb), { inRoundRobin:on('inRoundRobin'), inKnockout:on('inKnockout') });
-}
-function teamTieBreakerDef(t){ return cleanTieBreaker(t && t.format && t.format.teamTieBreaker); }
-/* Which stages an event's format has: a round robin, a knockout (Group Boards is a knockout), or both. */
-function formatHasStage(t, stage){
-  const ft = t && t.format && t.format.formatType;
-  return stage==='rr' ? (ft==='roundrobin' || ft==='rrknockout') : (ft==='knockout' || ft==='podknockout' || ft==='rrknockout');
-}
-/* The tie-breaker segment for a stage's matches, or null when that stage does not use one. */
-function teamTieBreakerFor(t, stage){
-  const tb = teamTieBreakerDef(t);
-  const on = stage==='rr' ? (tb.inRoundRobin || teamRrTieBreakerForced(t)) : tb.inKnockout;
-  return (on && formatHasStage(t, stage)) ? cleanSegment(tb) : null;
-}
-/* The most legs one side can win in a segment: a majority of its best-of. */
-function segmentMaxLegs(s){ return Math.floor(segmentLegs(s)/2)+1; }
-/* The most legs one team can win in a match of that stage: every main segment, plus the tie-breaker when the stage uses it. */
-function teamMatchCap(t, stage){
-  const tb = teamTieBreakerFor(t, stage);
-  return teamSegmentsOf(t).reduce((sum,s)=> sum+segmentMaxLegs(s), 0) + (tb ? segmentMaxLegs(tb) : 0);
-}
-/* A walkover: the winner is given every main segment (no tie-breaker is needed when one side does not play). */
-function teamWalkoverLegs(t){ return teamSegmentsOf(t).reduce((sum,s)=> sum+segmentMaxLegs(s), 0); }
-/* Every leg a match of that stage can take, the tie-breaker's included when the stage uses it: the time estimate. */
-function teamMatchTotalLegs(t, stage){
-  const tb = teamTieBreakerFor(t, stage);
-  return teamSegmentsOf(t).reduce((sum,s)=> sum+segmentLegs(s), 0) + (tb ? segmentLegs(tb) : 0);
-}
-function segmentDescription(s){ return T('seg.desc', {type: segmentTypeLabel(s.type), start: segmentStart(s), legs: segmentLegs(s)}); }
-/* "5 segments + tie-breaker": the short description used in sheet headers and summaries. With a stage it describes
-   that stage's matches; without one, the whole event ("+ tie-breaker (knockout)" when only one of two stages uses it). */
-function teamMatchShortLabel(t, stage){
-  const n = teamSegmentsOf(t).length;
-  if(stage) return T(teamTieBreakerFor(t, stage) ? 'seg.short.tb' : 'seg.short', {n});
-  const stages = ['rr','ko'].filter(s=> formatHasStage(t, s));
-  const using = stages.filter(s=> teamTieBreakerFor(t, s));
-  if(!using.length) return T('seg.short', {n});
-  if(using.length===stages.length) return T('seg.short.tb', {n});
-  return T(using[0]==='rr' ? 'seg.short.tbRr' : 'seg.short.tbKo', {n});
-}
-/* Segment label on the lineup sheet: "<Type> <n>", numbered per type (Singles 1, Doubles 1, Singles 2, ...). */
-function teamSegmentLabels(segs){
-  const seen = {};
-  return segs.map(s=>{ const k = segmentTypeKey(s.type); seen[k] = (seen[k]||0)+1; return T('seg.numbered', {type: segmentTypeLabel(k), n: seen[k]}); });
-}
-/* The note under the two result boxes of a Teams match of that stage. */
-function teamResultHintHTML(t, stage){
-  const n = teamSegmentsOf(t).length, tb = teamTieBreakerFor(t, stage), cap = teamMatchCap(t, stage);
-  const level = T(tb ? 'team.level.tb' : stage==='rr' ? 'team.level.rr' : 'team.level.ko');
-  return '<p style="font-size:11px;color:#8a97a5">'+T(tb ? 'team.hint.tb' : 'team.hint', {n, cap, level})+'</p>';
-}
-/* The attributes of a Teams result box: whole numbers of 0 or more; a total above the cap is NOT changed to the cap
-   (the organiser would save a number nobody typed) but refused with a message on Save (teamResultError). */
-function teamResultBoxAttr(cap){
-  return 'min="0" max="'+cap+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.max(parseInt(this.value)||0,0)"';
-}
-/* The result already stored for a match, as {a,b}, only when both sides hold a real number (a blank or missing leg
-   count, e.g. in an older record, is not a result: then null, and the typed totals get every check). */
-function teamStoredResult(a, b){
-  const num = v=> v!=='' && v!=null && !isNaN(parseInt(v));
-  return (num(a) && num(b)) ? { a:parseInt(a), b:parseInt(b) } : null;
-}
-/* Checks one Teams result (the two box values as typed) for a match of that stage. `stored` ({a,b}, from
-   teamStoredResult) is the result already saved for this match: saving it again unchanged is always allowed, even if
-   the cap is lower now (an older event's result). Returns the message to show, or null when it can be saved. */
-function teamResultError(t, va, vb, stage, stored){
-  const la = parseInt(va), lb = parseInt(vb);
-  if(va===''||vb===''||isNaN(la)||isNaN(lb)||la<0||lb<0) return T('team.err.enter');
-  if(stored && la===stored.a && lb===stored.b) return null;
-  const cap = teamMatchCap(t, stage);
-  if(la>cap || lb>cap) return T('team.err.cap', {cap, what: teamMatchShortLabel(t, stage)});
-  if(la===0 && lb===0) return T('team.err.zero');
-  if(la===lb){
-    if(teamTieBreakerFor(t, stage)) return T(stage==='rr' ? 'team.err.levelTbRr' : 'team.err.levelTbKo');
-    if(stage!=='rr'){
-      /* A level total is always at most cap-1, so one more deciding leg always fits within the cap. */
-      return T(teamTieBreakerTickChange(t, 'ko').canTurnOn ? 'team.err.koLevelTick' : 'team.err.koLevel');
-    }
-  }
-  return null;
-}
-/* Has a stage of the event begun? Round robin: a group started or holding a score. Knockout (the Plate pool, Group
-   Boards groups and the Finals included): a round started (Start round), a match called to a board, or any result
-   (legs, a winner other than a bye, a walkover, "neither showed"). */
-function teamStageStarted(t, stage){
-  if(stage==='rr') return (t.groups||[]).some(g=> g.gameStarted || (g.scores && Object.keys(g.scores).length));
-  const begun = b=> !!(b && b.rounds && ((b.roundStartedAt||[]).some(Boolean) ||
-    b.rounds.some(r=> r.some(m=> m.called || m.aLegs!=null || m.bLegs!=null || m.void || m.wo || (m.winnerId && !m.bye)))));
-  return [t.knockout, t.knockoutLosers].some(begun) || (t.pods||[]).some(p=> begun(p.bracket));
-}
-/* The segments are locked once either stage has begun, like a group's lineup: every match of the event is played with
-   the same segments. */
-function teamSegmentsLocked(t){ return teamStageStarted(t, 'rr') || teamStageStarted(t, 'ko'); }
-/* No draws: a round robin team match is always settled, so its tie-breaker is always played when the totals are level.
-   Only an event that already holds a drawn round robin result (saved before draws were removed) keeps playing without. */
-function teamRrTieBreakerForced(t){ return formatHasStage(t, 'rr') && !teamRoundRobinHasLevel(t); }
-/* A round robin result stored level (a draw): the round robin tie-breaker can't be switched on any more. */
-function teamRoundRobinHasLevel(t){
-  return (t.groups||[]).some(g=> Object.keys(g.scores||{}).some(k=>{ const s = g.scores[k]; const r = s && teamStoredResult(s.legs1, s.legs2); return !!(r && r.a===r.b); }));
-}
-/* What may be done with a stage's tie-breaker tick: before that stage has begun, anything. After: switching it OFF
-   never (results were saved with it), switching it ON for the knockout always (no stored knockout result is level and
-   the cap only rises), and for the round robin only while no level (drawn) result is stored. */
-function teamTieBreakerTickChange(t, stage){
-  if(!formatHasStage(t, stage)) return { locked:true, canTurnOn:false, canTurnOff:false };
-  if(!teamStageStarted(t, stage)) return { locked:false, canTurnOn:true, canTurnOff:true };
-  const on = stage==='rr' ? teamTieBreakerDef(t).inRoundRobin : teamTieBreakerDef(t).inKnockout;
-  const canTurnOn = !on && (stage==='ko' || !teamRoundRobinHasLevel(t));
-  return { locked:true, canTurnOn:canTurnOn, canTurnOff:false };
-}
-/* The tie-breaker's own type, starting score and best of can change only while no begun stage uses it. */
-function teamTieBreakerDefEditable(t){
-  return !teamTieBreakerStages(t).some(s=> teamStageStarted(t, s) && teamTieBreakerFor(t, s));
-}
-/* An older Teams event used either one "foursome" match (format.bestOfLegs) or a list of rubbers
-   (format.mixedRubbers, one of them possibly flagged as the tie-breaker). Both become segments, once, the first time
-   the event is opened; the old fields stay in the data untouched. A legacy tie-breaker rubber is used in both stages.
-   A Teams event with neither (no stored team setup at all) and any other event just get the defaults. Never runs
-   again once format.teamSegments exists; a tie-breaker saved with one `enabled` tick gets the two stage ticks. */
-function migrateTeamSegments(t){
-  const f = t.format;
-  if(Array.isArray(f.teamSegments) && f.teamSegments.length){
-    f.teamTieBreaker = cleanTieBreaker(f.teamTieBreaker);
-    return;
-  }
-  const off = cleanTieBreaker(null);
-  const both = (s)=> Object.assign(cleanSegment(s), { inRoundRobin:true, inKnockout:true });
-  const legacyLegs = (r)=> (r && r.legs!==undefined) ? r.legs : (parseInt(f.bestOfLegs)||3);
-  const rubbers = Array.isArray(f.mixedRubbers) ? f.mixedRubbers.filter(isPlainObj) : [];
-  /* Very old events never stored a team format: they played the foursome. */
-  const foursome = f.teamMatchFormat==='foursome' || (f.teamMatchFormat===undefined && f.qualifiersPerGroup===undefined);
-  if(!isTeamsEvent(t) || !(foursome || (f.teamMatchFormat==='mixed' && rubbers.length))){
-    f.teamSegments = defaultTeamSegments(); f.teamTieBreaker = defaultTeamTieBreaker(); return;
-  }
-  if(f.teamMatchFormat==='mixed'){
-    const tbIdx = rubbers.findIndex(r=> r.isTieBreaker===true);
-    let main = rubbers.filter((r,i)=> i!==tbIdx);
-    let tb = tbIdx>=0 ? rubbers[tbIdx] : null;
-    if(!main.length){ main = [tb]; tb = null; }   // a lone rubber flagged tie-breaker is the match itself
-    f.teamSegments = main.map(r=> cleanSegment({ type:r.type, startingScore:r.startingScore, legs:legacyLegs(r) }));
-    f.teamTieBreaker = tb ? both({ type:tb.type, startingScore:tb.startingScore, legs:legacyLegs(tb) }) : off;
-  } else {
-    f.teamSegments = [ cleanSegment({ type:'foursome', startingScore:501, legs:parseInt(f.bestOfLegs)||5 }) ];
-    f.teamTieBreaker = off;
-  }
-}
 function ensureEntries(t){
   /* Entries are added and removed one at a time on step 3 (players-ui.js); nothing is filled in or trimmed here any more.
      eventCreation.entries is the number of active (not withdrawn) entries, kept for the screens that show it. */
@@ -2188,60 +2000,6 @@ function generateBracket(orderedEntries, label, opts){
   return { id: uid('kb'), label: label||'Bracket', size, rounds, roundStartedAt: rounds.map(()=>null), seeds, seedLabels };
   }
 }
-/* Pushes any already-known winners (from round-1 byes) forward into the next
-   round's slots — called after generation and after every score is saved. */
-function propagateByes(rounds){
-  propagateByesCore(rounds);
-  settleVoids(rounds);
-}
-/* Round by round, every next-round slot takes its feeder's winner (or nobody, when the feeder has no winner). A slot
-   that changes resets that match's result, and because the rounds are walked in order the reset carries on through
-   every later round: correcting or clearing an early result never leaves the old winner (or a stale score, or a
-   stale champion) further on. A slot that already holds the right entry is left alone, so a score-only correction
-   (same winner) changes nothing later. */
-function propagateByesCore(rounds){
-  for(let r=0; r<rounds.length-1; r++){
-    const nextRound = rounds[r+1];
-    rounds[r].forEach((m, i)=>{
-      const next = nextRound[Math.floor(i/2)], slot = i%2===0 ? 'aEntryId' : 'bEntryId', want = m.winnerId || null;
-      if(next[slot] === want) return;
-      next[slot] = want;
-      next.winnerId = null; next.aLegs = null; next.bLegs = null; next.wo = false; next.bye = false; delete next.void;
-    });
-  }
-}
-/* "Neither showed": a void match has no winner and nobody advances from it. The next-round match is resolved from its
-   two feeders — both void: void too; one void and the other won: a bye for that winner; one void and the other still
-   open: it waits. Runs on its own only when the bracket already holds a void or a bye made by one (so ordinary
-   brackets are untouched); `force` runs it regardless (group brackets, the Finals, and the void handlers).
-   It also pushes winners forward and clears a slot whose feeder no longer has that winner, round by round. */
-function settleVoids(rounds, force){
-  const hasVoidState = rounds.some((round, r)=> round.some(m=> m.void || (r>0 && m.bye)));
-  if(!force && !hasVoidState) return;
-  for(let r=0; r<rounds.length-1; r++){
-    const nextRound = rounds[r+1];
-    rounds[r].forEach((m, i)=>{
-      const next = nextRound[Math.floor(i/2)], slot = i%2===0 ? 'aEntryId' : 'bEntryId', want = m.winnerId || null;
-      if(next[slot] === want) return;
-      next[slot] = want;
-      next.winnerId = null; next.aLegs = null; next.bLegs = null; next.wo = false; next.bye = false; delete next.void;
-    });
-    nextRound.forEach((n, i)=>{
-      const f0 = rounds[r][2*i], f1 = rounds[r][2*i+1];
-      if(f0.void && f1.void){
-        n.void = true; n.aEntryId = null; n.bEntryId = null; n.winnerId = null; n.aLegs = null; n.bLegs = null; n.wo = false; n.bye = false;
-      } else if(f0.void || f1.void){
-        const other = f0.void ? f1 : f0;
-        delete n.void;
-        if(other.winnerId){ n.bye = true; n.winnerId = other.winnerId; n.aLegs = null; n.bLegs = null; n.wo = false; }
-        else { n.bye = false; n.winnerId = null; }
-      } else {
-        if(n.void && !n.aEntryId && !n.bEntryId) delete n.void;      // a void made by feeders that are no longer void
-        if(n.bye){ n.bye = false; n.winnerId = null; n.aLegs = null; n.bLegs = null; }   // a bye made by a void feeder (rounds after the first only)
-      }
-    });
-  }
-}
 /* Ranked list of qualifiers (or non-qualifiers, for the losers' pool) taken
    from each round robin group's current standings, interleaved by rank so
    groups' top finishers are seeded before any group's second-place finisher,
@@ -2353,6 +2111,7 @@ function bracketColumnsHTML(bracket, t, opts){
               (m.void && (m.aEntryId || m.bEntryId)?'<div class="bracket-bye-tag">'+T('r.noShow')+'</div>':'')+
               (m.wo && !m.bye?'<div class="bracket-bye-tag">'+T('r.wo')+'</div>':'')+
               (interactive && m.aEntryId && m.bEntryId ? matchMarkHTML('ko:'+bracketKey+':'+m.aEntryId+'|'+m.bEntryId) : '')+
+              (interactive && (m.board || enteredByText(m)) ? '<div class="bracket-bye-tag">'+escapeHtml([m.board ? T('fo.boardN', {b: m.board}) : '', enteredByText(m)].filter(Boolean).join(' · '))+'</div>' : '')+
               (clickable && !m.void?'<div class="bracket-wo-action" onclick="event.stopPropagation();openKoNoShowPicker(\''+escJs(bracketKey)+'\','+ri+','+mi+')">'+T('r.markNoShow')+'</div>':'')+
             '</div>'+
             bracketConnectMidHTML(mi,hasNext)+
@@ -2483,7 +2242,10 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
       '<div class="grid2"><div class="field"><label>'+T('score.legsOf', {name: escapeHtml(aName)})+'</label><input id="scA" type="number" '+clampAttr+' value="'+escText(m.aLegs!=null?m.aLegs:0)+'"></div>'+
       '<div class="field"><label>'+T('score.legsOf', {name: escapeHtml(bName)})+'</label><input id="scB" type="number" '+clampAttr+' value="'+escText(m.bLegs!=null?m.bLegs:0)+'"></div></div>'+
       (teams ? teamResultHintHTML(state, 'ko')
-        : '<p style="font-size:11px;color:#8a97a5">'+T('ko.score.hint', {n: bestOf, m: majority})+'</p>'),
+        : '<p style="font-size:11px;color:#8a97a5">'+T('ko.score.hint', {n: bestOf, m: majority})+'</p>')+
+      (state.format.formatType==='podknockout' && podByKey(state, bracketKey) ? '' :
+        '<div class="field" style="margin-top:6px"><label>'+T('fo.koBoard')+'</label><input type="text" inputmode="numeric" style="width:70px" value="'+escText(m.board||'')+'" onchange="koSetBoard(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+',this.value)"><span class="hint" style="margin-left:6px">'+T('fo.koBoardHint')+'</span></div>')+
+      (enteredByText(m) ? '<p class="hint" style="margin:4px 0 0">'+escapeHtml(enteredByText(m))+'</p>' : ''),
     confirmLabel:T('score.save'), confirmClass:'primary',
     secondaryLabel: koHasResult(m) && !m.void ? T('ko.clear') : '',
     onSecondary: ()=> koClearResult(bracketKey, roundIdx, matchIdx),
@@ -3411,16 +3173,45 @@ function queueDone(id){
 }
 /* A save got through: what it carried is now the server copy (kept on the phone for offline opening). The queue goes
    when nothing newer waits; otherwise it is written again with the new stamp. */
-function offlineSaved(id, bodyText, updatedAt){
+function offlineSaved(id, bodyText, saved){
+  const updatedAt = saved && saved.updated_at;
+  adoptSaved(id, bodyText, saved);
   const org = orgKey(); if(!org) return;
-  let data = null; try{ data = JSON.parse(bodyText).data; }catch(e){ return; }
-  setOfflineBase(id, data);
+  let data = null;
+  if(saved && saved.data) data = offlineBase[id];   // adoptSaved made the server's merged copy the base
+  else { try{ data = JSON.parse(bodyText).data; }catch(e){ return; } if(saved && saved.settingsRev!=null) data.settingsRev = saved.settingsRev; setOfflineBase(id, data); }
   DDOffline.putEvent(org, id, { data, updated_at: updatedAt });
   offlineReady[id] = true;
   const hadMarks = !!(offlineQueued[id] && offlineQueued[id].n);
   if(pendingFor(id)) queueWrite(id); else queueDone(id);
   /* the waiting list and marks on step 5 change: show it */
   if(hadMarks && state && state.id===id && currentStage===5 && !popoutMode){ try{ render(); }catch(e){} }
+}
+/* ---------- Floor officials: saves are merged match by match on the server ----------
+   The server stores results floor officials enter (api/score/result) between this window's saves. So a save says which
+   result slots this window changed since its base copy (offlineBase: the last copy it had from the server), and the
+   server keeps every other result as stored (api/tournaments/[id].js, results-engine.js mergeResults). */
+function dirtySlots(id, t){
+  /* no base copy: no list, so a save based on an older copy is refused (409) instead of overwriting every result */
+  try{ return offlineBase[id] ? changedSlots(offlineBase[id], t) : null; }catch(e){ return null; }
+}
+/* After a save: keep the server's settings counter, and when the server merged in results entered meanwhile (its answer
+   carries data), put them into this window's copy, keeping any change made here since the save went out. */
+function adoptSaved(id, bodyText, saved){
+  if(!saved) return;
+  const t = (state && state.id===id) ? state : tournamentsCache[id];
+  if(!t) return;
+  if(saved.settingsRev!=null) t.settingsRev = saved.settingsRev;
+  if(!saved.data) return;
+  let sent = null; try{ sent = JSON.parse(bodyText).data; }catch(e){ sent = null; }
+  const server = sanitizeLoaded(JSON.parse(JSON.stringify(saved.data)));
+  try{
+    const mine = sent ? changedSlots(sent, t) : [];   // changed here after the save went out
+    mergeResults(server, t, mine, Date.now());
+  }catch(e){ return; }   // not taken in: the base stays, so the next save does not count the server's results as removed here
+  setOfflineBase(id, server);
+  tournamentsCache[id] = t;
+  if(state && state.id===id && !popoutMode){ try{ render(); }catch(e){} }
 }
 /* With no connection, everything except scoring on step 5 (and printing) waits for signal: say so and do nothing. */
 function needsConnection(){
@@ -3534,7 +3325,7 @@ async function restoreQueues(){
   list.forEach(({id, entry})=>{
     if(!entry) return;
     if(entry.data){
-      let canon = null; try{ canon = canonJSON(entry.data); }catch(e){}   // before cleaning: what was sent is the copy as queued
+      let canon = null; try{ canon = ownCanon(entry.data); }catch(e){}   // before cleaning: what was sent is the copy as queued
       sanitizeLoaded(entry.data);
       entry.data.id = id;
       tournamentsCache[id] = entry.data;
@@ -3554,6 +3345,8 @@ async function restoreQueues(){
 
 /* ---------- Persistence helpers ---------- */
 let saveTimer = null;
+/* The save delay ran out: the timer is done (so nothing waits on it any more: silentRefreshBlocked, resumeSaving), then the save. */
+function firedSaveTimer(){ saveTimer = null; return flushSave(); }
 let savePending = false, saveRev = 0;   // an edit that no save has carried to the server yet; saveRev counts edits so a save only clears what it carried
 let lastSaveStatus = '';          // what the save status last said ('saving' | 'error' | 'failed' | 'ok' | 'locked' | 'finalizing' | ''), so finalizeResults can refuse after a failed/conflicted save
 let finalizing = false;           // true from "Accept & finalize" until the server has answered; edits are not saved meanwhile
@@ -3600,7 +3393,7 @@ function markStale(id, current){
   const wasPending = pendingSaves.has(id);
   if(wasPending){ pendingSaves.delete(id); if(!pendingSaves.size && !(state && state.id===id)) savePending = false; }   // never sent now
   if((state && state.id===id) || wasPending){ clearTimeout(saveTimer); saveTimer = null; }   // a pending save for another event is left alone
-  if(pendingSaves.size && !saveTimer) saveTimer = setTimeout(flushSave, 500);
+  if(pendingSaves.size && !saveTimer) saveTimer = setTimeout(firedSaveTimer, 500);
 }
 function staleOpen(){ return !!(state && state.id && staleIds.has(state.id)); }
 function renderStaleBanner(){
@@ -3658,7 +3451,7 @@ function persist(){
   clearTimeout(saveTimer);
   saveRev++; markPending(state.id);
   queueWrite(state.id);   // on the phone first: a closed tab or no signal does not lose it
-  saveTimer = setTimeout(flushSave, 500);
+  saveTimer = setTimeout(firedSaveTimer, 500);
   scheduleLibrarySync();   // names added while the player library was unreachable (players-ui.js)
 }
 function normalizeForSave(){
@@ -3699,9 +3492,14 @@ function canonJSON(v){
     return val;
   });
 }
+/* A saved copy as compared for "is this my own earlier save?": without what the server adds (result stamps by/at/rv,
+   settingsRev; floor officials). */
+function ownCanon(data){
+  return JSON.stringify(JSON.parse(canonJSON(data)), function(k, v){ return (k==='rv' || k==='by' || k==='at' || k==='settingsRev') ? undefined : v; });
+}
 function recordSent(id, bodyText){
   let canon = null;
-  try{ canon = canonJSON(JSON.parse(bodyText).data); }catch(e){ return; }
+  try{ canon = ownCanon(JSON.parse(bodyText).data); }catch(e){ return; }
   const list = sentCopies.get(id) || [];
   list.push(canon); while(list.length>3) list.shift();
   sentCopies.set(id, list);
@@ -3711,7 +3509,7 @@ function isOwnWrite(id, current){
   const list = sentCopies.get(id);
   if(!list || !list.length) return false;
   let canon = null;
-  try{ canon = canonJSON(current.data); }catch(e){ return false; }
+  try{ canon = ownCanon(current.data); }catch(e){ return false; }
   return list.indexOf(canon)>=0;
 }
 /* ---------- Signed out in the middle of a save (401) ----------
@@ -3904,7 +3702,7 @@ async function flushSaveOnce(){
   try{
     for(let attempt=0; attempt<2; attempt++){
       const expected = dbUpdatedAtCache[id] || null;
-      const bodyText = JSON.stringify({ data: payload, expectedUpdatedAt: expected });
+      const bodyText = JSON.stringify({ data: payload, expectedUpdatedAt: expected, dirty: dirtySlots(id, payload) });
       recordSent(id, bodyText);
       queueWrite(id);   // its fingerprint too: if the answer is lost and the tab closes, a reload knows the copy as its own
       const res = await apiFetch('/api/tournaments/'+id, { method:'PUT', body: bodyText });
@@ -3962,7 +3760,7 @@ async function flushSaveOnce(){
       announceSaved(id, saved.updated_at);
       if(pendingSaves.has(id)){ if(pendingSaves.get(id)<=rev) clearPending(id); }
       else if(saveRev===rev && pendingSaves.size===0) savePending = false;
-      offlineSaved(id, bodyText, saved.updated_at);
+      offlineSaved(id, bodyText, saved);
       setSaveStatus(savePending && pendingSaves.size>0 && !pendingSaves.has(id) ? 'saving' : 'ok');
       return true;
     }
@@ -3986,7 +3784,7 @@ function flushSaveNow(){
   if(!savePending || saveInFlight || keepaliveSave) return;
   clearTimeout(saveTimer); saveTimer = null;
   const id = tg.id, rev = saveRev;
-  const bodyText = JSON.stringify({ data: tg.t, expectedUpdatedAt: dbUpdatedAtCache[id]||null });
+  const bodyText = JSON.stringify({ data: tg.t, expectedUpdatedAt: dbUpdatedAtCache[id]||null, dirty: dirtySlots(id, tg.t) });
   if(utf8Bytes(bodyText) > KEEPALIVE_MAX_BYTES){ flushSave(); return; }
   recordSent(id, bodyText);
   let req;
@@ -4015,7 +3813,7 @@ function flushSaveNow(){
       announceSaved(id, saved.updated_at);
       if(pendingSaves.has(id)){ if(pendingSaves.get(id)<=rev) clearPending(id); }
       else if(saveRev===rev && pendingSaves.size===0) savePending = false;
-      offlineSaved(id, bodyText, saved.updated_at);
+      offlineSaved(id, bodyText, saved);
     }
   }).catch(()=>{}).then(()=>{ if(keepaliveSave===p) keepaliveSave = null; });
   keepaliveSave = p;
@@ -7308,7 +7106,8 @@ function chartSheetHTML(g, forPrint){
         const lockedCls = (!forPrint && !g.gameStarted) ? ' locked' : '';
         /* Split by a line across the middle: the points this row took above, the score below (blank to write in). */
         const mark = forPrint ? '' : matchMarkHTML('rr:'+g.id+':'+scoreKey(rowEnt.id, colEnt.id));   // waiting to be sent (offline scoring)
-        rows += '<div class="cell score-cell split '+cls+lockedCls+'"'+editAttr+'>'+mark+'<span class="hf">'+top+'</span><span class="hf opp">'+bottom+'</span></div>';
+        const byTitle = (!forPrint && sc && enteredByText(sc)) ? ' title="'+escText(enteredByText(sc))+'"' : '';
+        rows += '<div class="cell score-cell split '+cls+lockedCls+(byTitle ? ' by-official' : '')+'"'+editAttr+byTitle+'>'+mark+'<span class="hf">'+top+'</span><span class="hf opp">'+bottom+'</span></div>';
       }
     });
     const st = posById[rowEnt.id];
@@ -8194,7 +7993,171 @@ function deleteIncident(id){
   persist(); render();
 }
 /* Every format's Manage Tournament page ends with the finalize card. */
-function stage5(){ return offlineStage5HTML() + stage5Body() + finalizeCardHTML(); }
+/* ---------- Floor officials (step 5) ----------
+   docs/superpowers/specs/2026-10-30-floor-officials-design.md. The organiser adds officials by name and ticks their
+   boards; each gets a link and a 4-digit PIN (api/score/officials), sent in one message (Share / Copy link) or shown as
+   a QR. Officials score on their own phones (score.html); their results come into this window by the quick refresh
+   below (every 10 s while step 5 is open and an official is live), marked with who entered them. */
+const officialsState = { id: null, list: null, loading: false, error: '' };
+const OFFICIALS_API = '/api/score/officials';
+function officialsLive(){ return !!(officialsState.list && officialsState.list.some(o=> !o.stopped)); }
+function officialName(by){
+  if(!by || by==='o') return '';
+  const o = officialsState.list && officialsState.list.find(x=> x.id===by);
+  return o ? o.name : T('fo.anOfficial');
+}
+/* "Entered by Aina" for a result an official entered (a title / note on the result), else ''. */
+function enteredByText(r){ const n = r && r.by && r.by!=='o' ? officialName(r.by) : ''; return n ? T('fo.enteredBy', {name: n}) : ''; }
+function loadOfficials(force){
+  if(!state || state.isSample || isLocked(state) || !state.id) return;
+  if(!force && officialsState.id===state.id && (officialsState.list || officialsState.loading || officialsState.error)) return;
+  if(officialsState.id!==state.id){ officialsState.list = null; officialsState.error = ''; }
+  officialsState.id = state.id; officialsState.loading = true;
+  const id = state.id;
+  apiFetch(OFFICIALS_API+'?t='+encodeURIComponent(id)).then(r=> r.json().catch(()=>({})).then(b=>({r, b}))).then(({r, b})=>{
+    if(officialsState.id!==id) return;
+    officialsState.loading = false;
+    if(r.ok){ officialsState.list = Array.isArray(b.officials) ? b.officials : []; officialsState.error = ''; }
+    else { officialsState.error = (b && b.code) || 'request_failed'; }
+    if(currentStage===5 && state && state.id===id) render();
+  }).catch(()=>{ if(officialsState.id===id){ officialsState.loading = false; officialsState.error = 'offline'; } });
+}
+async function officialsCall(body){
+  if(needsConnection()) return null;
+  let r = null, b = {};
+  try{ r = await apiFetch(OFFICIALS_API, { method:'POST', body: JSON.stringify(body) }); b = await r.json().catch(()=>({})); }catch(e){ r = null; }
+  if(!r || !r.ok){ openModal({ title:T('fo.title'), body: escapeHtml(ddApiError(b, T('fo.err.request'))), confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{} }); return null; }
+  const o = b.official;
+  if(o && officialsState.list){
+    const i = officialsState.list.findIndex(x=> x.id===o.id);
+    if(i>=0) officialsState.list[i] = o; else officialsState.list.push(o);
+  }
+  render();
+  return o;
+}
+function officialBoardsText(o){ return (o.boards||[]).join(', '); }
+/* The message an official gets: the event, their boards, the link and the PIN (owner: link and PIN in one message). */
+function officialMessage(o){
+  const ec = state.eventCreation || {};
+  return T('fo.msg', { event: [ec.tournamentName, ec.eventName].filter(Boolean).join(' — '), boards: officialBoardsText(o), link: o.link, pin: o.pin });
+}
+function officialById(id){ return (officialsState.list||[]).find(o=> o.id===id) || null; }
+function shareOfficial(id){
+  const o = officialById(id); if(!o) return;
+  const text = officialMessage(o);
+  if(typeof navigator!=='undefined' && navigator.share){ navigator.share({ text }).catch(()=>{}); return; }
+  copyText(text, T('fo.copiedMsg'));
+}
+function copyOfficialLink(id){ const o = officialById(id); if(o) copyText(officialMessage(o), T('fo.copiedMsg')); }
+function copyText(text, done){
+  const ok = ()=>{ openModal({ title:T('fo.title'), body: escapeHtml(done), confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{}, help:false }); };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(ok, ()=>{ window.prompt(T('pub.copyThis'), text); }); }
+  else window.prompt(T('pub.copyThis'), text);
+}
+function showOfficialQr(id){
+  const o = officialById(id); if(!o) return;
+  openModal({ title: T('fo.qrTitle', {name: escapeHtml(o.name)}), bodyHTML: '<div style="text-align:center">'+qrSvg(o.link, { size:'60mm' })+'<p style="font-size:20px;letter-spacing:.2em;margin:8px 0 0"><b>'+escText(o.pin)+'</b></p><p class="hint">'+escapeHtml(T('fo.qrHint'))+'</p></div>', confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{}, help:false });
+}
+function officialBoardsPicker(selected){
+  const max = Math.max(parseInt(state.eventCreation.boards)||4, ...(selected||[]).map(Number), 1);
+  let html = '<div class="board-toggle">';
+  for(let b=1; b<=Math.min(max, 200); b++) html += '<label style="display:inline-flex;align-items:center;gap:3px;margin:0 10px 6px 0;font-size:13px"><input type="checkbox" class="fo-board" value="'+b+'"'+((selected||[]).indexOf(b)>=0?' checked':'')+'> '+b+'</label>';
+  return html+'</div>';
+}
+function pickedBoards(){ return Array.from(document.querySelectorAll('.fo-board')).filter(x=> x.checked).map(x=> parseInt(x.value)); }
+function addOfficialModal(){
+  if(needsConnection()) return;
+  openModal({ title:T('fo.addTitle'), bodyHTML:
+    '<div class="field"><label>'+T('fo.name')+'</label><input id="foName" type="text" maxlength="60" autocomplete="off"></div>'+
+    '<div class="field"><label>'+T('fo.boards')+'</label>'+officialBoardsPicker([])+'</div>',
+    confirmLabel:T('fo.add'), confirmClass:'primary', help:false,
+    onConfirm:()=>{
+      const name = (document.getElementById('foName').value||'').trim(), boards = pickedBoards();
+      if(!name) return { error: T('fo.err.name') };
+      if(!boards.length) return { error: T('fo.err.boards') };
+      officialsCall({ op:'create', t: state.id, name, boards }).then(o=>{ if(o) shareOfficialPrompt(o.id); });
+    } });
+}
+/* Right after adding: offer to send the message at once. */
+function shareOfficialPrompt(id){
+  const o = officialById(id); if(!o) return;
+  openModal({ title:T('fo.readyTitle', {name: escapeHtml(o.name)}), bodyHTML:'<pre class="fo-msg">'+escText(officialMessage(o))+'</pre>', confirmLabel:T('fo.share'), confirmClass:'primary', help:false,
+    onConfirm:()=>{ shareOfficial(id); }, secondaryLabel:T('fo.copy'), onSecondary:()=>{ copyOfficialLink(id); } });
+}
+function editOfficialModal(id){
+  const o = officialById(id); if(!o) return;
+  openModal({ title:T('fo.editTitle'), bodyHTML:
+    '<div class="field"><label>'+T('fo.name')+'</label><input id="foName" type="text" maxlength="60" value="'+escText(o.name)+'"></div>'+
+    '<div class="field"><label>'+T('fo.boards')+'</label>'+officialBoardsPicker(o.boards)+'</div>',
+    confirmLabel:T('m.save'), confirmClass:'primary', help:false,
+    onConfirm:()=>{
+      const name = (document.getElementById('foName').value||'').trim(), boards = pickedBoards();
+      if(!name) return { error: T('fo.err.name') };
+      if(!boards.length) return { error: T('fo.err.boards') };
+      officialsCall({ op:'update', id, name, boards });
+    } });
+}
+function confirmOfficialOp(id, op){
+  const o = officialById(id); if(!o) return;
+  const name = escapeHtml(o.name);
+  const text = { stop: T('fo.stopBody', {name}), newPin: T('fo.newPinBody', {name}), newLink: T('fo.newLinkBody', {name}) }[op];
+  openModal({ title: T('fo.'+op), body: text, confirmLabel: T('fo.'+op), confirmClass: op==='stop' ? 'danger' : 'primary', help:false,
+    onConfirm:()=>{ officialsCall({ op, id }).then(x=>{ if(x && op!=='stop') shareOfficialPrompt(id); }); } });
+}
+function refusedText(t, r){
+  const slot = (function(){ try{ return resultSlots(t).find(s=> s.pos===r.pos); }catch(e){ return null; } })();
+  const nm = id=> (t.entriesList.find(e=> e.id===id)||{}).name || '?';
+  const who = slot ? nm(slot.a)+' v '+nm(slot.b) : r.pos;
+  const what = r.op==='score' ? (slot && slot.kind==='rr' ? '' : '')+r.la+'–'+r.lb : T('fo.op.'+r.op);
+  return T('fo.refusedLine', {match: who, result: what, reason: T('fo.reason.'+(r.reason||'ended'))});
+}
+function floorOfficialsHTML(){
+  if(!state || state.isSample || isLocked(state)) return '';
+  loadOfficials(false);
+  const list = officialsState.list || [];
+  let html = '<div class="card" id="floorOfficials"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><h2 style="margin:0">'+T('fo.title')+'</h2>'+
+    '<button class="btn primary" onclick="addOfficialModal()">'+T('fo.addBtn')+'</button></div>'+
+    '<p class="intro">'+T('fo.intro')+'</p>';
+  if(officialsState.error==='officials_not_set_up') return html+'<p class="hint">'+T('fo.notSetUp')+'</p></div>';
+  if(officialsState.error && !officialsState.list) return html+'<p class="hint">'+T('fo.err.load')+' <a href="javascript:void(0)" onclick="loadOfficials(true)">'+T('fo.retry')+'</a></p></div>';
+  if(!list.length) return html+(officialsState.loading ? '<p class="hint">'+T('fo.loading')+'</p>' : '<p class="hint">'+T('fo.none')+'</p>')+'</div>';
+  html += list.map(o=>{
+    const id = escJs(o.id);
+    const status = o.stopped ? T('fo.stopped') : T('fo.active', {n: o.results||0});
+    const refused = (o.refused||[]).length ? '<div class="offline-box parked" style="margin:6px 0 0"><b>'+T('fo.refusedTitle', {n: o.refused.length})+'</b><ul class="parked-list">'+o.refused.map(r=>'<li>'+escapeHtml(refusedText(state, r))+'</li>').join('')+'</ul><button class="btn ghost fo-btn" onclick="officialsCall({op:\'dismiss\', id:\''+id+'\'})">'+T('off.dismiss')+'</button></div>' : '';
+    return '<div class="fo-row" style="padding:8px 0;border-top:1px solid var(--line)">'+
+      '<div><b>'+escapeHtml(o.name)+'</b> · '+T('fo.boardsShort', {list: escapeHtml(officialBoardsText(o))})+' · PIN <b>'+escText(o.pin)+'</b> · <span class="hint" style="margin:0">'+escapeHtml(status)+'</span></div>'+
+      '<div class="buttonrow" style="margin:4px 0 0">'+
+        (o.stopped ? '' : '<button class="btn ghost fo-btn" onclick="shareOfficial(\''+id+'\')">'+T('fo.share')+'</button><button class="btn ghost fo-btn" onclick="copyOfficialLink(\''+id+'\')">'+T('fo.copy')+'</button><button class="btn ghost fo-btn" onclick="showOfficialQr(\''+id+'\')">QR</button>')+
+        '<button class="btn ghost fo-btn" onclick="editOfficialModal(\''+id+'\')">'+T('fo.edit')+'</button>'+
+        (o.stopped ? '' : '<button class="btn ghost fo-btn" onclick="confirmOfficialOp(\''+id+'\',\'newPin\')">'+T('fo.newPin')+'</button>')+
+        '<button class="btn ghost fo-btn" onclick="confirmOfficialOp(\''+id+'\',\'newLink\')">'+T(o.stopped ? 'fo.restart' : 'fo.newLink')+'</button>'+
+        (o.stopped ? '' : '<button class="btn ghost" style="padding:3px 9px;font-size:11px;color:var(--red)" onclick="confirmOfficialOp(\''+id+'\',\'stop\')">'+T('fo.stop')+'</button>')+
+      '</div>'+refused+'</div>';
+  }).join('');
+  return html+'</div>';
+}
+/* While step 5 is open and an official is live, fetch the event every 10 s so their results show here. */
+const officialsPoll = typeof setInterval!=='function' ? null : setInterval(()=>{
+  try{
+    if(!state || currentStage!==5 || popoutMode || !officialsLive() || savePending || saveInFlight || netOffline) return;
+    if(typeof document!=='undefined' && document.visibilityState==='hidden') return;
+    delete silentRefreshAt[state.id];
+    silentRefresh();
+    if(Math.random() < 0.34) loadOfficials(true);   // the panel's counts and "Not sent" list, now and then
+  }catch(e){}
+}, 10000);
+if(officialsPoll && typeof officialsPoll.unref==='function') officialsPoll.unref();   // Node (tests): never keeps the process alive
+/* The board a knockout match is played on (main bracket, Plate, Finals): what sends it to a floor official's phone. */
+function koSetBoard(bracketKey, ri, mi, text){
+  const b = bracketByKey(state, bracketKey), m = b && b.rounds[ri] && b.rounds[ri][mi];
+  if(!m) return;
+  if(isLocked(state)){ finalizedBlockModal('changed'); return; }
+  const n = parseInt(text);
+  if(n > 0 && n <= 9999) m.board = n; else delete m.board;
+  persist(); render();
+}
+function stage5(){ return offlineStage5HTML() + stage5Body() + floorOfficialsHTML() + finalizeCardHTML(); }
 /* Step 5, above everything: what is still waiting on this phone (and what was set aside), or that the event is on the
    phone and ready to score with no signal. Knockout boxes are drawn by render.js (shared with the public viewer), so
    their waiting matches are listed here rather than marked on the chart. */

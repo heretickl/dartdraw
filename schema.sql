@@ -66,3 +66,22 @@ CREATE TABLE players (
 
 CREATE UNIQUE INDEX players_org_name_club ON players (organizer_id, lower(name), lower(club)) WHERE removed_at IS NULL;
 CREATE INDEX players_org ON players (organizer_id);
+
+-- Floor officials: per-event scoring links (see migrations/2026-10-30-floor-officials.sql).
+CREATE TABLE event_officials (
+  id            text PRIMARY KEY,
+  tournament_id text NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+  organizer_id  uuid NOT NULL REFERENCES organizers(id) ON DELETE CASCADE,
+  name          text NOT NULL,
+  boards        int[] NOT NULL DEFAULT '{}',
+  token_hash    text NOT NULL UNIQUE,
+  link_nonce    text NOT NULL,            -- the link is rebuilt from it and the server secret (Copy link), never stored
+  pin           text NOT NULL,
+  ends_at       timestamptz NOT NULL,
+  stopped_at    timestamptz,
+  last_seen_at  timestamptz,
+  results       int NOT NULL DEFAULT 0,
+  refused       jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_event_officials_tournament ON event_officials (tournament_id);

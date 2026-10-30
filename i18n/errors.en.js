@@ -8,6 +8,24 @@
    Codes in DD_ERR_ADMIN_ONLY answer Admin-only requests (the Admin panel stays in English): they have no BM text on
    purpose, and a BM page shows their English `error`. */
 var DD_ERR_EN = {
+  /* floor officials (api/score/*) */
+  'err.officials_not_set_up': "Floor officials are not set up yet.",
+  'err.official_invalid_name': "Enter a name (up to 60 characters).",
+  'err.official_invalid_boards': "Tick at least one board.",
+  'err.too_many_officials': "An event can have up to 64 floor officials.",
+  'err.invalid_op': "Unknown action.",
+  'err.no_session': "Open your scoring link again.",
+  'err.pin_required': "Enter the PIN.",
+  'err.link_unknown': "This scoring link does not exist.",
+  'err.bad_pin': "That PIN is not right.",
+  'err.link_stopped': "This scoring link no longer works.",
+  'err.link_replaced': "This scoring link no longer works.",
+  'err.event_finalized': "This scoring link no longer works.",
+  'err.link_ended': "This scoring link no longer works.",
+  'err.invalid': "Not a valid result.",
+  'err.missing': "This match is no longer in the event.",
+  'err.not_your_board': "This match is not on your boards any more.",
+  'err.busy': "The event is busy. Trying again.",
   /* every endpoint */
   'err.method_not_allowed': 'Method not allowed',
   'err.not_found': 'Not found.',

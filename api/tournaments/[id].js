@@ -2,6 +2,7 @@ const { sql } = require('../_lib/db');
 const { requireAuth } = require('../_lib/auth');
 const { checkEntryLimit } = require('../_lib/tiers');
 const { sanitizeTournamentData, isRouteId } = require('../../tournament-sanitize');
+const { engine } = require('../_lib/engine');
 
 // GET /api/tournaments/:id     -> { id, data, updated_at }
 // PUT /api/tournaments/:id     -> body { data, expectedUpdatedAt }, upserts.
@@ -30,6 +31,14 @@ const { sanitizeTournamentData, isRouteId } = require('../../tournament-sanitize
 //   DELETE statement itself skips finalized rows, so it cannot race a finalize.
 // An Admin caller (organizer.role === 'admin') is not scoped to created_by on GET, PUT and DELETE; an update never changes
 //   created_by, and a PUT for an unknown id inserts a row owned by the Admin. Every other rule above applies to Admins too.
+// Floor officials (docs/superpowers/specs/2026-10-30-floor-officials-design.md) save single results into the stored
+//   copy meanwhile, so a stale stamp no longer always means a conflict. data.settingsRev counts changes to anything but
+//   results (the server bumps it). A PUT whose stamp is old but whose settingsRev is the stored one, and which lists the
+//   result slots it changed (body.dirty, positions from results-engine.js), is MERGED match by match: the organiser's
+//   changed results win, every other result keeps what is stored (results-engine.js mergeResults). Without body.dirty
+//   (an older copy of the app) or with another settingsRev it is a 409 as before. Every result that differs from the
+//   stored one is stamped as the organiser's (by 'o', at, rv). The success body also carries settingsRev, and data
+//   when the stored copy is not exactly what was sent (merged).
 const FINALIZED_BODY = { code: 'finalized', error: 'This event is finalized. Only an Admin can change it.', finalized: true };
 
 function isFinalized(data) {
@@ -107,7 +116,8 @@ module.exports = async (req, res) => {
       res.status(400).json({ code: 'invalid_id', error: 'Invalid tournament id.' });
       return;
     }
-    const { data, expectedUpdatedAt } = req.body || {};
+    const { expectedUpdatedAt, dirty } = req.body || {};
+    let { data } = req.body || {};
     if (!data || typeof data !== 'object') {
       res.status(400).json({ code: 'missing_data', error: 'Missing tournament data.' });
       return;
@@ -161,43 +171,61 @@ module.exports = async (req, res) => {
 
       const existingIso = new Date(existing.updated_at).toISOString();
       const expectedIso = expectedUpdatedAt ? new Date(expectedUpdatedAt).toISOString() : null;
-      if (expectedIso !== existingIso) {
-        res.status(409).json({
-          code: 'changed_elsewhere', error: 'Tournament changed elsewhere.',
-          current: { id: existing.id, data: existing.data, updated_at: existing.updated_at }
-        });
-        return;
-      }
-
-      // Conditional on the stamp we just checked (to the millisecond, the precision of the JS value), so a save or a
-      // finalize that lands between the SELECT above and this write is not overwritten.
-      const updated = isAdmin
-        ? await sql`
-          UPDATE tournaments SET data = ${JSON.stringify(data)}::jsonb, updated_at = now()
-          WHERE id = ${id}
-            AND abs(extract(epoch FROM updated_at) - extract(epoch FROM ${existingIso}::timestamptz)) < 0.001
-          RETURNING id, updated_at
-        `
-        : await sql`
-          UPDATE tournaments SET data = ${JSON.stringify(data)}::jsonb, updated_at = now()
-          WHERE id = ${id} AND created_by = ${organizer.id}
-            AND abs(extract(epoch FROM updated_at) - extract(epoch FROM ${existingIso}::timestamptz)) < 0.001
-          RETURNING id, updated_at
-        `;
-      if (!updated.length) {
+      /* Results: merge a stale save with the officials' results stored meanwhile, stamp the organiser's own, and keep
+         settingsRev (see the header). A floor official's result can land between this read and the write below: then
+         the stored copy is read again and the save merged again (a few times), as /api/score/result does, instead of
+         answering "changed elsewhere" for a change that was only someone else's result. */
+      const e = engine();
+      const sent = JSON.stringify(data), dirtyList = Array.isArray(dirty) ? dirty.filter((p) => typeof p === 'string').slice(0, 5000) : null;
+      let base = existing, baseIso = existingIso, merged = false, updated = [];
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const inc = e.inside(JSON.parse(sent)), sto = e.inside(base.data), now = Date.now();
+        const stale = attempt > 0 || expectedIso !== baseIso;
+        const sameSettings = Number(inc.settingsRev || 0) === Number(sto.settingsRev || 0);
+        merged = false;
+        if (stale && dirtyList && sameSettings) { e.mergeResults(sto, inc, dirtyList, now); merged = true; }
+        else if (!stale) e.stampOrganiserResults(sto, inc, now);
+        if (stale && !merged) {
+          res.status(409).json({
+            code: 'changed_elsewhere', error: 'Tournament changed elsewhere.',
+            current: { id: base.id, data: base.data, updated_at: base.updated_at }
+          });
+          return;
+        }
+        inc.settingsRev = (Number(sto.settingsRev) || 0) + (e.settingsView(inc) !== e.settingsView(sto) ? 1 : 0);
+        data = e.plain(inc);
+        // Conditional on the stamp just read (to the millisecond, the precision of the JS value), so a save or a
+        // finalize that lands between the read and this write is not overwritten.
+        updated = isAdmin
+          ? await sql`
+            UPDATE tournaments SET data = ${JSON.stringify(data)}::jsonb, updated_at = now()
+            WHERE id = ${id}
+              AND abs(extract(epoch FROM updated_at) - extract(epoch FROM ${baseIso}::timestamptz)) < 0.001
+            RETURNING id, updated_at
+          `
+          : await sql`
+            UPDATE tournaments SET data = ${JSON.stringify(data)}::jsonb, updated_at = now()
+            WHERE id = ${id} AND created_by = ${organizer.id}
+              AND abs(extract(epoch FROM updated_at) - extract(epoch FROM ${baseIso}::timestamptz)) < 0.001
+            RETURNING id, updated_at
+          `;
+        if (updated.length) break;
         const nowRows = isAdmin
           ? await sql`SELECT id, data, updated_at, created_by FROM tournaments WHERE id = ${id}`
           : await sql`SELECT id, data, updated_at, created_by FROM tournaments WHERE id = ${id} AND created_by = ${organizer.id}`;
         const current = nowRows[0];
         if (!current) { res.status(404).json({ code: 'not_found', error: 'Not found.' }); return; }
         if (isFinalized(current.data)) { res.status(403).json(FINALIZED_BODY); return; }
-        res.status(409).json({
-          code: 'changed_elsewhere', error: 'Tournament changed elsewhere.',
-          current: { id: current.id, data: current.data, updated_at: current.updated_at }
-        });
-        return;
+        if (!dirtyList || attempt === 3) {
+          res.status(409).json({
+            code: 'changed_elsewhere', error: 'Tournament changed elsewhere.',
+            current: { id: current.id, data: current.data, updated_at: current.updated_at }
+          });
+          return;
+        }
+        base = current; baseIso = new Date(current.updated_at).toISOString();
       }
-      res.status(200).json(Object.assign({}, updated[0], savedFinalized));
+      res.status(200).json(Object.assign({}, updated[0], savedFinalized, { settingsRev: data.settingsRev || 0 }, merged ? { data } : {}));
     } catch (e) {
       // The reason goes to the server log (Vercel > Logs), never to the browser.
       console.error('PUT /api/tournaments/' + id + ' failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
