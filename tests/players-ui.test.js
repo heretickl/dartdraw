@@ -65,6 +65,41 @@ test('the entry name: Singles is the player, Doubles is "TEAM : A / B" or "A / B
   assert.equal(club([]), '');
 });
 
+test('the draw keeps the names of entries made from players: Singles, event-only names and pairs are never renamed "Player A1"', async () => {
+  const t = reset('Singles', 'roundrobin');
+  f('plChoose')('', 'p1');
+  typeIn('pickerBox', 'Nick'); await f('plAddNew')('', true);
+  f('buildGroups')(t);
+  assert.ok(t.groups.length >= 1);
+  assert.deepEqual(plain(t.entriesList.map((e) => e.name)), ['Ahmad Faiz', 'Nick']);
+  const d = reset('Doubles', 'roundrobin');
+  f('addEntryFromMembers')('Doubles', 'Ace', [{ playerId: 'p1', name: 'Ahmad Faiz' }, { playerId: 'p2', name: 'Hakim' }]);
+  f('buildGroups')(d);
+  assert.equal(d.entriesList[0].name, 'Ace : Ahmad Faiz / Hakim');
+});
+
+test('after a name is added, the search box and club box are empty again for the next player', async () => {
+  reset('Singles', 'roundrobin');
+  typeIn('pickerBox', 'Nick'); typeIn('pickerClub', 'Kelab');
+  await f('plAddNew')('', true);
+  assert.equal(els.pickerBox.value, '');
+  assert.equal(els.pickerClub.value, '');
+  els.pickerResults = { innerHTML: 'old rows' };
+  typeIn('pickerBox', 'Ahmad'); f('plChoose')('', 'p1');
+  assert.equal(els.pickerBox.value, '');
+  assert.ok(!/old rows|Ahmad/.test(els.pickerResults.innerHTML), 'the rows under the box no longer offer the name just added');
+});
+
+test('an event drawn before the fix shows its players again: an automatic name over a player entry is put back when the event opens', () => {
+  const t = reset('Doubles', 'roundrobin');
+  t.entriesList.push({ id: 'a', name: 'Pair A1', members: [{ playerId: null, name: 'Ali', club: '' }, { playerId: null, name: 'Abu', club: '' }], teamName: 'Ace' },
+    { id: 'b', name: 'Pasangan B1', members: [{ playerId: null, name: 'Siti', club: '' }, { playerId: null, name: 'Nur', club: '' }] },
+    { id: 'c', name: 'Pair C1', autoName: false, members: [{ playerId: null, name: 'Kim', club: '' }, { playerId: null, name: 'Lee', club: '' }] },
+    { id: 'd', name: 'Pair D1', autoName: true });
+  f('ensureEntries')(t);
+  assert.deepEqual(plain(t.entriesList.map((e) => e.name)), ['Ace : Ali / Abu', 'Siti / Nur', 'Pair C1', 'Pair D1'], 'a name the organiser typed, and an old placeholder, are left alone');
+});
+
 test('search: every typed word starts a word of the name or club, letter case and accents ignored, at most the limit', () => {
   reset();
   const s = (q, limit) => plain(f('searchLibrary')(q, limit)).map((p) => p.id);

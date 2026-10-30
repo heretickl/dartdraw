@@ -267,6 +267,9 @@ function pickerKey(ev){
 }
 function pickerReset(){
   pickerState.q = ''; pickerState.club = '';
+  /* the page was drawn while the name was still typed: empty the boxes for the next player */
+  ['pickerBox', 'pickerClub'].forEach(function(id){ var el = document.getElementById(id); if(el) el.value = ''; });
+  plRefreshPicker();
   setTimeout(function(){ var b = document.getElementById('pickerBox'); if(b) b.focus(); }, 0);
 }
 /* A library player picked from a result row. */

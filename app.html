@@ -933,8 +933,13 @@ function ensureEntries(t){
     if(e.org===undefined) e.org='';
     if(e.checkedIn===undefined) e.checkedIn=false;
     if(e.noShow===undefined) e.noShow=false;
+    /* drawn before the draw left player entries alone: "Player A1" over a player's entry shows the players again */
+    if(hasMembers(e) && e.autoName!==false && AUTO_NAME_RE.test(e.name||'') && typeof entryDisplayName==='function')
+      e.name = entryDisplayName(t.eventCreation.competitionUnit, e.teamName||'', e.members);
   });
 }
+function hasMembers(e){ return Array.isArray(e.members) && e.members.some(m=> m && m.name); }
+const AUTO_NAME_RE = /^(Entry|Player|Pair|Triple|Team|Peserta|Pemain|Pasangan|Trio|Pasukan) [A-Z]+\d+$/;
 /* ---------- Check-in tracking ----------
    Design decision (Day-of-the-event, Sept 2026): check-in is purely informational
    — it never blocks confirming charts, generating a bracket, or starting games —
@@ -1045,7 +1050,7 @@ function applyAutoNames(t){
   t.groups.forEach(g=>{
     g.entryIds.forEach((eid,idx)=>{
       const ent = t.entriesList.find(e=>e.id===eid);
-      if(ent && ent.autoName!==false){
+      if(ent && ent.autoName!==false && !hasMembers(ent)){   // an entry made of players is named after them, never "Player A1"
         /* already this slot's name in either language: kept (a language switch never renames anyone) */
         const label = g.label+(idx+1);
         const bm = ddHasLang('ms') ? ddWithLang('ms', ()=> T(key, {label})) : ddFill(DD_AUTONAME_MS[key], {label});   // known even before the BM tables load
