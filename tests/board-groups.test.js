@@ -200,3 +200,23 @@ test('review: a stored group count the bracket cannot have is ignored (step 5 st
   assert.equal(f('bgGroupOf')(b, 0, 0), 0);
   assert.equal(f('boardGroupSheetsHTML')(b), '');
 });
+
+test('leftovers: a match already called to its board stays there when its group\u2019s board changes or the groups are removed', () => {
+  const t = koEvent(32, 4), b = t.knockout;
+  f('bgSet')(b, 4, 4);
+  const m = b.rounds[0][1]; m.called = true; m.calledAt = 1; m.calledPair = m.aEntryId + '|' + m.bEntryId;
+  f('bgSetBoard')(b, 1, 9);
+  assert.equal(m.board, 1, 'still on the board it was called to');
+  assert.equal(b.rounds[0][0].board, 9, 'the rest of the group moved');
+  f('bgRemove')(b);
+  assert.equal(m.board, 1);
+  assert.equal(b.rounds[0][0].board, undefined);
+});
+
+test('leftovers: a "not sent" line names the players lower position first, like its numbers', () => {
+  const t = koEvent(8, 2, { format: 'rrknockout' });
+  t.entriesList[0].name = 'Ali'; t.entriesList[1].name = 'Hakim';
+  t.groups = [{ id: 'gA', label: 'A', entryIds: ['e001', 'e002', 'e003', 'e000'], boards: [1], confirmed: true, gameStarted: true, scores: {} }];
+  const line = f('refusedText')(t, { pos: 'rr:gA:e000|e001', op: 'score', la: 3, lb: 1, reason: 'not_your_board' });
+  assert.match(line, /\(1 v 4\) Hakim v Ali/, line);
+});

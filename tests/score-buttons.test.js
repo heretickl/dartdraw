@@ -35,7 +35,7 @@ function phone(data) {
   const fetches = []; ctx.fetch = (url) => { fetches.push(String(url)); return new Promise(() => {}); };
   ctx.window.window = ctx.window; ctx.window.__DD_SCORE_NO_BOOT = true; vm.createContext(ctx);
   const src = fs.readFileSync(require.resolve('../score.js'), 'utf8')
-    .replace("if(typeof window !== 'undefined') window.__ddScore = {", "if(typeof window !== 'undefined') window.__ddScore = { openForm: openForm, render: render, showBoard: showBoard, setView: function(v){ view = v; }, setData: function(d){ data = d; view = 'list'; },");
+    .replace("if(typeof window !== 'undefined') window.__ddScore = {", "if(typeof window !== 'undefined') window.__ddScore = { openForm: openForm, render: render, showBoard: showBoard, onPopState: onPopState, setView: function(v){ view = v; }, setData: function(d){ data = d; view = 'list'; },");
   vm.runInContext(fs.readFileSync(require.resolve('../i18n/score.en.js'), 'utf8'), ctx); vm.runInContext(src, ctx);
   const S = ctx.window.__ddScore; S.setData(data);
   const box = el('sheetBox');
@@ -268,4 +268,31 @@ test('review: the PIN is sent once, however many times the 4th digit, Go or Ente
   const pin = P.el('pin'); pin.value = '1234';
   pin.oninput(); pin.oninput(); pin.onkeydown({ key: 'Enter' }); P.el('pinGo').onclick();
   assert.equal(P.fetches.filter((u) => u.includes('/api/score/open')).length, 1);
+});
+
+test('leftovers: a walkover reopened on the phone lights no score (its legs were not played)', () => {
+  const P = phone({ entries: names, format: { competitionUnit: 'Singles' }, slots: [rrSlot({ state: 'done', canCorrect: true, result: { legs1: 0, legs2: 3, wo: true }, info: { flip: false } })] });
+  P.S.openForm('rr:gA:e0|e3');
+  assert.doesNotMatch(P.box.innerHTML, /sc on/);
+});
+
+test('leftovers: a match opened right after closing another keeps its sheet; its Back step is added once the page\u2019s own Back has arrived', () => {
+  const P = phone({ entries: names, format: { competitionUnit: 'Singles' }, slots: [rrSlot(), rrSlot({ pos: 'rr:gA:2' })] });
+  const sh = P.el('sheet'); sh.hidden = true;
+  P.S.openForm('rr:gA:e0|e3'); assert.equal(P.ctx.history.depth, 1);
+  P.click('fClose');                       // the page goes Back (still on its way)...
+  P.S.openForm('rr:gA:2');                 // ...and the next match is opened at once
+  assert.equal(sh.hidden, false);
+  assert.equal(P.ctx.history.depth, 0, 'no step added while the Back is on its way');
+  P.S.onPopState();                        // the Back arrives
+  assert.equal(sh.hidden, false, 'the new sheet stays open');
+  assert.equal(P.ctx.history.depth, 1, 'and now has its own Back step');
+  P.S.onPopState();                        // the phone's Back
+  assert.equal(sh.hidden, true);
+});
+
+test('leftovers: best of 7 puts its four score buttons on one row', () => {
+  const P = phone({ entries: names, format: { competitionUnit: 'Singles' }, slots: [rrSlot({ legs: 7 })] });
+  P.S.openForm('rr:gA:e0|e3');
+  assert.match(P.box.innerHTML, /<div class="scores" style="grid-template-columns:repeat\(4,1fr\)">/);
 });

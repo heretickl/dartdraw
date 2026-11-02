@@ -442,8 +442,9 @@ var KBP = (function(){
     var Wdu = av.w/s, Hdu = av.h/s, offX = (Wdu - pl.W)/2, hb = Hdu - BASE.headRow;
     var nat = [0,1].map(function(sd){ return layoutSide(model, sd, H, 1, 0); });
     var Ks = nat.map(function(L){ var gaps = L.nSmall*BASE.g + L.nBig*BASE.G + BASE.G; return Math.max(1, (hb - L.nLeaves*H)/gaps); });
-    var K = Math.min(10, Ks[0], Ks[1]); out.K = K;
+    var K = Math.min(10, Ks[0], Ks[1]);
     if(opts.capsAbove) K = Math.max(K, (CAP_H + 0.5 + CAP_PAD/s)/BASE.g);   // room for a caption (and its padding) over the second box of a pair
+    out.K = K;
     var sides = [0,1].map(function(sd){ return layoutSide(model, sd, H, K, K>1 ? BASE.G*K/2 : 0); });
     var sideOff = sides.map(function(L){ return BASE.headRow + (hb - L.height)/2; });
     var X = function(sd){ return function(col){ return sd===0 ? offX + pl.gutter + col*(B+C) : offX + pl.W - pl.gutter - col*(B+C) - B; }; };

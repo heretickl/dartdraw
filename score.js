@@ -33,6 +33,8 @@
     document.title = T('title');
     Array.prototype.forEach.call(document.querySelectorAll('#langGroup button'), function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-lang') === lang ? 'true' : 'false'); });
     render();
+    var sh = document.getElementById('sheet');
+    if(sh && !sh.hidden && formPos) openForm(formPos);   // an open result form follows the language too (from its first screen)
   }
   function startLang(){
     var q = (location.search.match(/[?&]lang=(ms|en)\b/) || [])[1];
@@ -236,18 +238,29 @@
   function slotOf(pos){ return slotsView().find(function(s){ return s.pos === pos; }) || null; }
   /* The sheet closes with its ✕, a tap outside it, Escape, or the phone's back gesture (opening it adds a step to the
      browser history, which Back takes away again). */
-  var sheetInHistory = false;
+  var sheetInHistory = false, backPending = false, formPos = null;
   function closeSheet(fromBack){
     fromBack = fromBack === true;
     var sh = document.getElementById('sheet');
     if(sh) sh.hidden = true;
-    if(sheetInHistory && !fromBack){ sheetInHistory = false; try{ history.back(); }catch(e){} }
+    formPos = null;
+    if(sheetInHistory && !fromBack){ sheetInHistory = false; backPending = true; try{ history.back(); }catch(e){ backPending = false; } }
     else if(fromBack) sheetInHistory = false;
+  }
+  /* the Back step this page took away itself has arrived: a sheet opened meanwhile gets its own step now */
+  function onPopState(){
+    var x = document.getElementById('sheet');
+    if(backPending){
+      backPending = false;
+      if(x && !x.hidden && !sheetInHistory){ try{ history.pushState({ ddSheet: 1 }, ''); sheetInHistory = true; }catch(e){} }
+      return;
+    }
+    if(x && !x.hidden) closeSheet(true); else sheetInHistory = false;
   }
   function showSheet(){
     var sh = document.getElementById('sheet');
     if(!sh) return;
-    if(sh.hidden && !sheetInHistory){ try{ history.pushState({ ddSheet: 1 }, ''); sheetInHistory = true; }catch(e){} }
+    if(sh.hidden && !sheetInHistory && !backPending){ try{ history.pushState({ ddSheet: 1 }, ''); sheetInHistory = true; }catch(e){} }
     sh.hidden = false;
   }
   /* The result form (owner, 2026-11-02): no keyboard. Every valid result is a big button under the player who won, in the
@@ -256,6 +269,7 @@
      Walkover, "Neither showed" and the call stay below, smaller. A saved result shows as its button, lit. */
   function openForm(pos){
     var s = slotOf(pos); if(!s) return;
+    formPos = pos;
     var teams = data.format && data.format.competitionUnit === 'Teams';
     var bestOf = s.legs || 5, majority = Math.floor(bestOf / 2) + 1, cap = s.teamCap || majority;
     var cur = s.result || {}, ko = s.kind === 'ko', order = sides(s);
@@ -263,7 +277,7 @@
     va = va === '' || va == null ? null : Number(va); vb = vb === '' || vb == null ? null : Number(vb);
     var box = document.getElementById('sheetBox');
     var nm = function(sd){ return names(s[sd]); };
-    var curKey = va != null && vb != null && va !== vb ? (va > vb ? 'a' : 'b') + ':' + Math.min(va, vb)
+    var curKey = cur.wo ? '' : va != null && vb != null && va !== vb ? (va > vb ? 'a' : 'b') + ':' + Math.min(va, vb)
       : ko && cur.winnerId ? (cur.winnerId === s.a ? 'a' : 'b') + ':win' : '';
     var count = { a: va != null ? va : 0, b: vb != null ? vb : 0 };   // Teams counters
     var info = s.info || {}, chartPos = { a: info.posA, b: info.posB };   // not 'pos': that is the match
@@ -288,7 +302,7 @@
           var btns = '';
           for(var l = 0; l < majority; l++) btns += '<button class="btn ghost sc' + (curKey === sd + ':' + l ? ' on' : '') + '" data-k="' + sd + ':' + l + '">' + majority + '–' + l + '</button>';
           if(ko) btns += '<button class="btn ghost sc wo' + (curKey === sd + ':win' ? ' on' : '') + '" data-k="' + sd + ':win">' + esc(T('form.winOnly')) + '</button>';
-          return '<div class="pick p' + (sd === order[0] ? 1 : 2) + '"><h3>' + badge(sd) + '<span>' + esc(T('won', { name: nm(sd) })) + '</span></h3><div class="scores">' + btns + '</div></div>';
+          return '<div class="pick p' + (sd === order[0] ? 1 : 2) + '"><h3>' + badge(sd) + '<span>' + esc(T('won', { name: nm(sd) })) + '</span></h3><div class="scores"' + (majority > 3 ? ' style="grid-template-columns:repeat(' + majority + ',1fr)"' : '') + '>' + btns + '</div></div>';
         }).join('');
       } else {
         body = order.map(function(sd){
@@ -438,7 +452,9 @@
     startLang();
     var sh = document.getElementById('sheet');
     if(sh) sh.onclick = function(e){ if(e && e.target === sh) closeSheet(); };
-    try{ window.addEventListener('popstate', function(){ var x = document.getElementById('sheet'); if(x && !x.hidden) closeSheet(true); else sheetInHistory = false; }); }catch(e){}
+    try{ window.addEventListener('popstate', onPopState); }catch(e){}
+    /* reloaded while a result form was open: that Back step belongs to nothing now */
+    try{ if(history.state && history.state.ddSheet) history.replaceState(null, ''); }catch(e){}
     try{ document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ var x = document.getElementById('sheet'); if(x && !x.hidden) closeSheet(); } }); }catch(e){}
 
     if(!TOKEN){ view = 'unknown'; render(); return; }

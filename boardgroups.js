@@ -41,7 +41,7 @@ function bgWriteBoards(bracket){
   var k = bgSectionRounds(bracket, g.count);
   for(var ri = 0; ri < k && ri < bracket.rounds.length; ri++){
     bracket.rounds[ri].forEach(function(m, mi){
-      if(!m || m.bye || bgPlayed(m)) return;
+      if(!m || m.bye || bgPlayed(m) || m.called) return;   // a match already called to its board stays there
       var b = parseInt(g.boards[bgGroupOf(bracket, ri, mi) - 1], 10);
       if(b > 0) m.board = b;
     });
@@ -68,7 +68,7 @@ function bgSetBoard(bracket, group, board){
 function bgClearBoards(bracket){
   var g = bgValid(bracket); if(!g) return;
   var k = bgSectionRounds(bracket, g.count);
-  for(var ri = 0; ri < k && ri < bracket.rounds.length; ri++) bracket.rounds[ri].forEach(function(m){ if(m && !bgPlayed(m)) delete m.board; });
+  for(var ri = 0; ri < k && ri < bracket.rounds.length; ri++) bracket.rounds[ri].forEach(function(m){ if(m && !bgPlayed(m) && !m.called) delete m.board; });
 }
 function bgRemove(bracket){ bgClearBoards(bracket); delete bracket.boardGroups; }
 /* One group's section as its own small bracket { rounds, first:{ri,mi} offsets } for the board sheet: the same match

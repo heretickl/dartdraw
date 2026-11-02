@@ -2318,7 +2318,7 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
       return koChangeWithConfirm(bracketKey, roundIdx, matchIdx, applyTo, settle, 'change');
     }
   });
-  setTimeout(scorePickSync, 0);   // a saved result shows as its button, lit
+  if(!m.wo) setTimeout(scorePickSync, 0);   // a saved result shows as its button, lit (a walkover's legs were not played: none)
 }
 /* The knockout result box's winner: Winner only, or typed legs that name a winner, set it. */
 function koPickWinner(side){
@@ -7543,7 +7543,7 @@ function promptScore(groupId, aId, bId, aName, bName){
       render();
     }
   });
-  setTimeout(scorePickSync, 0);   // a saved result shows as its button, lit
+  if(!(sc && sc.wo)) setTimeout(scorePickSync, 0);   // a saved result shows as its button, lit (a walkover's legs were not played: none)
 }
 /* Teams, round robin: one plain result, the total legs each team won across all its segments. Capped at the most a team
    can win (teamMatchCap). A level total goes to the tie-breaker (no draws); only an older event that already saved a draw keeps
@@ -8237,7 +8237,9 @@ function refusedText(t, r){
     const p1 = ids.indexOf(ms[i] ? ms[i][0] : null)+1, p2 = ids.indexOf(ms[i] ? ms[i][1] : null)+1;   // the lower position first, as on the sheet
     if(i>=0) paper = T('fo.paperRR', {g: slot.group.label, n: i+1, a: Math.min(p1, p2), b: Math.max(p1, p2)})+' ';
   } else if(slot) paper = T('fo.paperKO', {n: koMatchTag(slot.bracket, t, slot.ri, slot.mi)})+' ';
-  const who = slot ? paper+nm(slot.a)+' v '+nm(slot.b) : r.pos;
+  let first = slot && slot.a, second = slot && slot.b;
+  if(slot && slot.kind==='rr'){ const ids = slot.group.entryIds; if(ids.indexOf(slot.b) >= 0 && ids.indexOf(slot.b) < ids.indexOf(slot.a)){ first = slot.b; second = slot.a; } }   // as the numbers: lower position first
+  const who = slot ? paper+nm(first)+' v '+nm(second) : r.pos;
   const what = r.op==='score' ? (slot && slot.kind==='rr' ? '' : '')+r.la+'–'+r.lb
     : r.op==='win' ? T('fo.op.win', {name: slot ? nm(r.side==='b' ? slot.b : slot.a) : '?'}) : T('fo.op.'+r.op);
   return T('fo.refusedLine', {match: who, result: what, reason: T('fo.reason.'+(r.reason||'ended'))});
