@@ -589,6 +589,43 @@ var KBP = (function(){
     return out;
   }
 
+  /* ---------- a board group sheet (board groups, 2026-11-02) ----------
+     One section of a bracket (the subtree under root {r, m} of the whole bracket's model), one direction left to right,
+     ending in a board champion box, in a chart area of w x h mm. The sheet's header and footer are the app's (in the
+     round robin sheet's style), so this layout has neither: lay.inner makes sheetHTML draw a plain block, not a page.
+     opts: w, h (mm), champLabel. */
+  function boardLayout(model, root, opts){
+    opts = opts || {};
+    var notes = [], C = BASE.C, cols = root.r + 1;
+    var nw = nameWidths(model), gut = gutterFor(model), legs = model.noLegs ? 0 : BASE.legs;
+    var dims = geom(model, 1, nw.N1, legs, gut), B = dims.B, H = dims.H, Bc = dims.Bc;
+    var wDu = gut + cols*(B + C) + Bc + 1.5;                  // the chart at scale 1: the section's columns and the champion box
+    var nat = layoutSide(model, 0, H, 1, 0, [root]);
+    var s = Math.min(S_MAX, opts.w/wDu, opts.h/(nat.height + BASE.headRow + 2));
+    var out = { kind:'board', paper:'A4', inner:true, w:opts.w, h:opts.h, chartH:opts.h, s:s, mode:1, items:[], paths:[], marks:[], notes:notes, sfTop:Infinity, sfBot:-Infinity, chrome:{}, model:model };
+    var hb = opts.h/s - BASE.headRow - 2;
+    var K = Math.min(4, Math.max(1, (hb - nat.nLeaves*H)/(nat.nSmall*BASE.g + nat.nBig*BASE.G + BASE.G)));
+    var L = layoutSide(model, 0, H, K, K>1 ? BASE.G*K/2 : 0, [root]);
+    var only = {}; L.boxes.forEach(function(b){ var x = model.rounds[b.r][b.m][b.slot]; if(x.name) only[x.name] = 1; });
+    var disp = displayMap(model, notes, only);
+    var oy = BASE.headRow + (hb - L.height)/2 + 1;
+    var offX = (opts.w/s - wDu)/2;
+    var X = function(col){ return offX + gut + col*(B + C); };
+    drawSide(out, model, L, 0, oy, X, s, dims, disp, {});
+    for(var col=0; col<cols; col++) out.items.push(rect('rl', X(col)*s, 0, B*s, (BASE.headRow-1.2)*s, roundLabel(model.roundNames[col] || '', s, B*s, model.roundShort && model.roundShort[col], wrapsRounds(model), (BASE.headRow-1.2)*s)));
+    /* the board champion: the winner of the section's last match, beside where its line ends */
+    var last = L.matches.filter(function(mt){ return mt.r===root.r; })[0];
+    var yExit = last ? oy + (last.a.y + last.b.y)/2 : oy + L.height/2, Hc = H*1.3, xc = X(cols);
+    var M = model.rounds[root.r][root.m], wid = M && M.decided ? M[M.win].name : '';
+    if(M && M.bye && !wid) wid = M.a.name || M.b.name || '';   // a group that is only a bye: its one player is the board champion
+    var cd = wid ? (disp[wid] || displayName(wid, notes)) : null;
+    var clTxt = opts.champLabel || W(model).champion, clFs = fitSans(clTxt, 6*s, Bc*s, 800, 0.08, secFloor(s)), clW = Math.max(Bc*s, labelMM(clTxt, clFs, 800, 0.08)/0.94);
+    out.items.push(rect('cl', xc*s + Bc*s/2 - clW/2, (yExit - Hc/2 - 4)*s, clW, 2.8*s, { fs: clFs, label: clTxt }));
+    out.items.push(rect('champ', xc*s, (yExit - Hc/2)*s, Bc*s, Hc*s, { txt: cd ? cd.text : '', note: cd ? cd.note : null, fs: BASE.font*BASE.finalK*s, two: !!cd && textMM(noteText(cd), BASE.font*BASE.finalK*s, 700) > Bc*s - 2.2 }));
+    if(last) out.paths.push({ d:[[X(cols-1) + B + C, yExit], [xc, yExit]], win: !!(M && M.decided) });   // a bye-only group has no match to draw a line from
+    return out;
+  }
+
   /* ---------- checks (geometry only; the browser audit measures the printed page itself) ---------- */
   function boxText(it){
     if(it.disp) return noteText(it.disp);
@@ -753,6 +790,7 @@ var KBP = (function(){
     html += pathsSVG(lay);      // last in the page, painted under the boxes (z-index): a QR code in the sheet stays its first image
     var data = c.data || {};
     var attrs = Object.keys(data).map(function(k){ return ' data-'+k+'="'+esc(data[k])+'"'; }).join('');
+    if(lay.inner) return '<div class="kb-sheet kb-inner" data-kb="'+lay.kind+'" data-scale="'+s.toFixed(4)+'" style="width:'+mm(lay.w)+';height:'+mm(lay.h)+'">'+html+'</div>';
     return '<div class="print-sheet mko-print-sheet kb-sheet mko-paper-'+lay.paper+(c.cls ? ' '+c.cls : '')+'" data-kb="'+lay.kind+'" data-paper="'+lay.paper+'" data-scale="'+s.toFixed(4)+'" data-mode="'+lay.mode+'"'+attrs+
       ' style="width:'+mm(lay.w)+';height:'+mm(lay.h)+'">'+html+'</div>';
   }
@@ -761,5 +799,5 @@ var KBP = (function(){
   return { PT:PT, PAPERS:PAPERS, ORDER:ORDER, MARGIN:MARGIN, FOOTER:FOOTER, WING_HEAD:WING_HEAD, S_MAX:S_MAX, NAME_CAP:NAME_CAP, SOFT_PT:SOFT_PT, BASE:BASE,
     ready:ready, whenReady:whenReady, textMM:textMM, twoLineMM:twoLineMM, displayName:displayName, missingGlyphs:missingGlyphs, roundLabel:roundLabel, markLines:markLines,
     fromBracket:fromBracket, nameWidths:nameWidths, layoutSide:layoutSide, geom:geom, plan:plan, recommend:recommend,
-    layout:layout, splitPlan:splitPlan, wingLayout:wingLayout, subModel:subModel, verify:verify, sheetHTML:sheetHTML, esc:esc };
+    layout:layout, splitPlan:splitPlan, wingLayout:wingLayout, boardLayout:boardLayout, subModel:subModel, verify:verify, sheetHTML:sheetHTML, esc:esc };
 })();

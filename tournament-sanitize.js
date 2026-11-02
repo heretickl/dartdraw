@@ -154,6 +154,16 @@
     }
     fixNumbers(data.eventCreation, EVENT_NUMBERS);
     cleanPrinting(data);
+    /* board groups on a drawn bracket: an even split (2, 4, 8 or 16 groups) with one board per group, or nothing */
+    ['knockout', 'knockoutLosers'].forEach(function (k) {
+      var b = data[k];
+      if (!isPlain(b) || !('boardGroups' in b)) return;
+      var g = b.boardGroups;
+      var ok = isPlain(g) && [2, 4, 8, 16].indexOf(g.count) !== -1 && Array.isArray(g.boards) && g.boards.length === g.count &&
+        g.boards.every(function (x) { var n = typeof x === 'number' ? x : parseInt(x, 10); return n > 0 && n <= 9999; });
+      if (ok) b.boardGroups = { count: g.count, boards: g.boards.map(function (x) { return typeof x === 'number' ? x : parseInt(x, 10); }) };
+      else delete b.boardGroups;
+    });
     if ('publicSlug' in data && data.publicSlug != null && !(typeof data.publicSlug === 'string' && SLUG_RE.test(data.publicSlug))) delete data.publicSlug;
     walk(data, 0);
     return data;

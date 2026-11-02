@@ -84,22 +84,33 @@
       return v;
     });
   }
+  /* The match as the paper at the board numbers it: round robin "Group A · Match 3 · 1 v 3" (the sheet's printed match
+     order and chart positions), knockout "Quarter-final · Match 3-1" (+ "Board group 2"). */
   function where(s){
-    var parts = [];
-    if(s.kind === 'rr') parts.push(T('group', { g: s.group }));
-    else {
+    var parts = [], info = s.info || {};
+    if(s.kind === 'rr'){
+      parts.push(T('group', { g: s.group }));
+      if(info.matchNo > 0) parts.push(T('matchNo', { n: info.matchNo }));
+      if(info.posA > 0 && info.posB > 0) parts.push(T('pos', { a: info.flip ? info.posB : info.posA, b: info.flip ? info.posA : info.posB }));
+    } else {
       if(s.group) parts.push(T('group', { g: s.group }));
       else if(s.bracket === 'plate') parts.push(T('b.plate'));
       else if(s.bracket === 'finals') parts.push(T('b.finals'));
+      if(info.boardGroup > 0) parts.push(T('boardGroup', { n: info.boardGroup }));
       if(s.round) parts.push(T('r.' + s.round.code, { n: s.round.n }));
+      if(info.matchNo) parts.push(T('matchNo', { n: info.matchNo }));
     }
     return parts.join(' · ');
   }
+  /* The side the paper names first: the sheet may print slot.b first (round robin). Names, results and leg boxes follow it. */
+  function sides(s){ return s.info && s.info.flip ? ['b', 'a'] : ['a', 'b']; }
+  function whoText(s, wrap){ var o = sides(s); return T('vs', { a: wrap(names(s[o[0]])), b: wrap(names(s[o[1]])) }); }
   function resultText(s){
     var r = s.result; if(!r) return '';
     if(r.void) return T('void');
     if(r.noShowSide) return T('wo');
     var a = s.kind === 'rr' ? r.legs1 : r.aLegs, b = s.kind === 'rr' ? r.legs2 : r.bLegs;
+    if(sides(s)[0] === 'b'){ var x = a; a = b; b = x; }
     if(s.kind === 'ko' && a == null && b == null && r.winnerId) return T('won', { name: names(r.winnerId) });   // the winner picked, no legs
     return (a == null ? '-' : a) + '–' + (b == null ? '-' : b) + (r.wo ? ' (' + T('wo') + ')' : '');
   }
@@ -160,7 +171,7 @@
     if(d) d.onclick = function(){ notSent = []; saveQueue(); render(); };
   }
   function rowHTML(s){
-    var who = T('vs', { a: esc(names(s.a)), b: esc(names(s.b)) });
+    var who = whoText(s, esc);
     var meta = esc(where(s));
     var right = '';
     if(s.state === 'done'){
@@ -191,14 +202,15 @@
     var va = s.kind === 'rr' ? cur.legs1 : cur.aLegs, vb = s.kind === 'rr' ? cur.legs2 : cur.bLegs;
     var box = document.getElementById('sheetBox');
     var A = esc(names(s.a)), B = esc(names(s.b));
+    var legBox = function(id, side, v){ return '<div><label for="' + id + '">' + esc(T('form.legs', { name: names(s[side]) })) + '</label><input id="' + id + '" type="number" inputmode="numeric" min="0" max="' + max + '" value="' + esc(v != null ? v : '') + '"></div>'; };
+    var boxA = legBox('la', 'a', va), boxB = legBox('lb', 'b', vb);
     var ko = s.kind === 'ko', pick = ko && cur.winnerId ? (cur.winnerId === s.a ? 'a' : cur.winnerId === s.b ? 'b' : '') : '';
-    box.innerHTML = '<h2>' + T('vs', { a: A, b: B }) + '</h2><div class="meta">' + esc(where(s)) + '</div>' +
+    box.innerHTML = '<h2>' + whoText(s, esc) + '</h2><div class="meta">' + esc(where(s)) + '</div>' +
       (ko ? '<h3>' + esc(T('form.who')) + '</h3><div class="stack" style="margin-top:0">' +
         '<button class="btn ghost win' + (pick === 'a' ? ' on' : '') + '" id="fWinA">' + A + '</button>' +
         '<button class="btn ghost win' + (pick === 'b' ? ' on' : '') + '" id="fWinB">' + B + '</button></div>' +
         '<h3>' + esc(T('form.legsOptional')) + '</h3>' : '') +
-      '<div class="legs"><div><label for="la">' + esc(T('form.legs', { name: names(s.a) })) + '</label><input id="la" type="number" inputmode="numeric" min="0" max="' + max + '" value="' + esc(va != null ? va : '') + '"></div>' +
-      '<div><label for="lb">' + esc(T('form.legs', { name: names(s.b) })) + '</label><input id="lb" type="number" inputmode="numeric" min="0" max="' + max + '" value="' + esc(vb != null ? vb : '') + '"></div></div>' +
+      '<div class="legs">' + (sides(s)[0] === 'b' ? boxB + boxA : boxA + boxB) + '</div>' +
       '<p class="hint">' + esc(teams ? T('form.hintTeams', { cap: cap }) : T('form.hint', { n: bestOf, m: majority })) + '</p>' +
       '<div class="err" id="formErr"></div>' +
       '<div class="stack"><button class="btn" id="fSave">' + esc(T('form.save')) + '</button>' +
@@ -233,7 +245,7 @@
       add({ pos: pos, op: 'score', la: la, lb: lb, rv: s.rv || 0 }); closeSheet();
     };
     var confirmThen = function(text, item){
-      box.innerHTML = '<h2>' + T('vs', { a: A, b: B }) + '</h2><p>' + esc(text) + '</p><div class="stack"><button class="btn" id="cYes">' + esc(T('confirm.yes')) + '</button><button class="btn ghost" id="cNo">' + esc(T('form.cancel')) + '</button></div>';
+      box.innerHTML = '<h2>' + whoText(s, esc) + '</h2><p>' + esc(text) + '</p><div class="stack"><button class="btn" id="cYes">' + esc(T('confirm.yes')) + '</button><button class="btn ghost" id="cNo">' + esc(T('form.cancel')) + '</button></div>';
       document.getElementById('cYes').onclick = function(){ add(item); closeSheet(); };
       document.getElementById('cNo').onclick = closeSheet;
     };
@@ -251,8 +263,11 @@
     queue = queue.filter(function(q){ return q.pos !== item.pos; }).concat(item);   // the latest action on a match replaces an unsent one
     saveQueue(); render(); flush();
   }
-  function labelOf(pos){ var s = data && data.slots.find(function(x){ return x.pos === pos; }); return s ? T('vs', { a: names(s.a), b: names(s.b) }) + ' · ' + where(s) : pos; }
-  function itemResult(q){ if(q.op === 'win'){ var s = data && data.slots.find(function(x){ return x.pos === q.pos; }); return T('won', { name: s ? names(q.side === 'b' ? s.b : s.a) : '?' }); }
+  function labelOf(pos){ var s = data && data.slots.find(function(x){ return x.pos === pos; }); return s ? whoText(s, function(x){ return x; }) + ' · ' + where(s) : pos; }
+  function itemResult(q){
+    var s = data && data.slots.find(function(x){ return x.pos === q.pos; });
+    if(q.op === 'win') return T('won', { name: s ? names(q.side === 'b' ? s.b : s.a) : '?' });
+    if(q.op === 'score' && s && sides(s)[0] === 'b') return q.lb + '–' + q.la;   // the paper's order, as the label beside it
     return q.op === 'score' ? q.la + '–' + q.lb : q.op === 'void' ? T('void') : q.op === 'noShow' ? T('wo') : ''; }
   function flush(){
     if(sending || !queue.length || view === 'pin') return;

@@ -91,7 +91,8 @@ function slotView(e, t, s, officialId, now) {
     state: done ? 'done' : (s.kind === 'ko' && s.m.called ? 'called' : s.open ? 'open' : 'waiting'),
     result: r ? (s.kind === 'rr' ? { legs1: r.legs1, legs2: r.legs2, wo: !!r.wo } : { aLegs: r.aLegs, bLegs: r.bLegs, winnerId: r.winnerId || null, void: !!r.void, wo: !!r.wo }) : null,
     by, at: r && r.at || null, rv: r && r.rv || 0,
-    canCorrect: by === 'me' && !!r.at && now - r.at < CORRECT_MS
+    canCorrect: by === 'me' && !!r.at && now - r.at < CORRECT_MS,
+    info: e.plain(e.matchInfo(t, s))   // match number, chart positions, board group: as printed on the paper
   };
 }
 
