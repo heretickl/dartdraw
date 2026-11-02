@@ -13,7 +13,7 @@ var DD_PRINT_MS = {
   'pr.set.wait': 'Perkataan Bahasa Malaysia untuk helaian bercetak acara ini belum dimuatkan. Semak sambungan anda, kemudian cetak sekali lagi.',
 
   /* ---------- shared pieces ---------- */
-  'pr.sub': '{catUnit} · {date}',
+  'pr.sub': '{catUnit}{date}',
   'pr.sheetOf': ' · helaian {i} daripada {n}',
   'pr.SheetOf': ' · Helaian {i} daripada {n}',
   'pr.groups': '{n} kumpulan',

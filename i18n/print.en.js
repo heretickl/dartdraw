@@ -15,7 +15,7 @@ var DD_PRINT_EN = {
   'pr.set.wait': 'The Bahasa Malaysia words for this event\'s printed sheets have not loaded yet. Check your connection, then print again.',
 
   /* ---------- shared pieces ---------- */
-  'pr.sub': '{catUnit} · {date}',
+  'pr.sub': '{catUnit}{date}',
   'pr.sheetOf': ' · sheet {i} of {n}',
   'pr.SheetOf': ' · Sheet {i} of {n}',
   'pr.groups': { one: '{n} group', other: '{n} groups' },

@@ -37,6 +37,8 @@ var KBP = (function(){
   var MARGIN = 8;                   // the app's @page margin
   var FOOTER = 7;                   // legend + full names + credit strip under the chart (fixed mm, never scaled)
   var WING_HEAD = 9;                // the title strip on a split section sheet
+  var CAP_H = 2.6;                  // a caption over a box (board groups' Finals sheet), du
+  var CAP_PAD = 2*25.4/72;          // and 2 pt between it and its box, mm (owner, 2026-11-02)
   var S_MAX = 2;                    // names never grow past 14 pt
   var NAME_CAP = 24;                // characters printed in full
   var SOFT_PT = 8;                  // the soft recommendation: names of 8 pt or more are easier to read
@@ -192,9 +194,10 @@ var KBP = (function(){
   }
 
   /* ---------- names ---------- */
+  var fullNames = false;   // a board group sheet prints every name in full (owner, 2026-11-02): it has room for them
   function displayName(name, notes){
     name = String(name||'');
-    if(name.length <= NAME_CAP) return { text:name, note:null };
+    if(fullNames || name.length <= NAME_CAP) return { text:name, note:null };
     var n = notes.length+1; notes.push({ n:n, full:name });
     return { text: name.slice(0, NAME_CAP-1).replace(/\s+$/,'')+'\u2026', note:n };
   }
@@ -254,9 +257,10 @@ var KBP = (function(){
 
   function sidesOf(model){ var out = []; model.rounds.forEach(function(round){ round.forEach(function(M){ out.push(M.a, M.b); }); }); return out; }
   /* Name area width (du) for one-line and two-line boxes, from the names actually in the bracket. */
-  function nameWidths(model){
+  function nameWidths(model, only){
     var notes = [], seen = {}, w1 = 0, w2 = 0, mk = 0;
     sidesOf(model).forEach(function(sd){
+      if(only && sd.name && !only[sd.name]) return;   // a board group sheet: only its own names (owner review, 2026-11-02)
       if(sd.mark) mk = Math.max(mk, markMM(sd.mark, model.words, BASE.markFont) + 0.8);
       var nm = sd.name || sd.ph; if(!nm || seen[nm]) return; seen[nm] = 1;
       var d = displayName(nm, notes), tx = noteText(d);
@@ -351,7 +355,7 @@ var KBP = (function(){
 
   /* ---------- the sheet layout ---------- */
   function rect(k, x, y, w, h, extra){ var o = { k:k, x:x, y:y, w:w, h:h }; if(extra) Object.keys(extra).forEach(function(n){ o[n] = extra[n]; }); return o; }
-  function crownLines(chrome){ var c = chrome || {}; return { ov:(c.overline||'').toUpperCase(), tt:c.title||'', sb:c.sub||'', bl:c.label||'', dt:c.detail||'' }; }
+  function crownLines(chrome){ var c = chrome || {}; return { ov:(c.overline||'').toUpperCase(), tt:c.title||'', ev:(c.event||'').toUpperCase(), sb:c.sub||'', bl:c.label||'', dt:c.detail||'' }; }
   /* Height (mm) of the title block at size factor cs, and whether its lines fit `width`. */
   function crownSize(chrome, cs, width, noLogo){
     var L = crownLines(chrome), hasLogo = !!(chrome && chrome.logo) && !noLogo;
@@ -361,13 +365,14 @@ var KBP = (function(){
        line still too wide at the floor goes onto two lines (as does the bracket label with its detail) */
     var small = function(w, base){ var k = w <= width*0.96 ? 1 : width*0.96/w; k = Math.max(k, SEC_PT/(base*cs)); return { k:k, lines: w*k <= width*0.96 ? 1 : 2 }; };
     var ov = small(sans(L.ov, 6*cs, 700) + L.ov.length*0.18*6*cs*PT, 6), sb = small(sans(L.sb, 6.5*cs, 400), 6.5);
+    var ev = small(sans(L.ev, 8.5*cs, 700) + L.ev.length*0.12*8.5*cs*PT, 8.5);   // the event, under the tournament's name
     var blOne = sans(L.bl+'  '+L.dt, 7*cs, 700) <= width*0.96;
     var bl = blOne ? { k:1, lines:1 } : small(Math.max(sans(L.bl, 7*cs, 700), sans(L.dt, 7*cs, 500)), 7), blLines = blOne || !L.dt ? 1 : 2;
     if(!blOne && bl.lines > 1) blLines = L.dt ? 3 : 2;
     var tk = Math.max(1, SEC_PT/(14*cs));
-    var h = (hasLogo ? 12.4*cs : 0) + ov.lines*6*cs*ov.k*PT*1.3 + lines*14*cs*tk*PT*1.12 + 1.6*cs + sb.lines*6.5*cs*sb.k*PT*1.3 + 3.7*cs + blLines*7*cs*bl.k*PT*1.3;
-    return { h:h, lines:lines, titleFits:titleFits, logoH: hasLogo ? 11*cs : 0, ovK:ov.k, sbK:sb.k, blK:bl.k, ovLines:ov.lines, sbLines:sb.lines, blLines:blLines,
-      minPt: Math.min(6*cs*ov.k, 6.5*cs*sb.k, 7*cs*bl.k, 14*cs*tk) };
+    var h = (hasLogo ? 12.4*cs : 0) + (L.ov ? ov.lines*6*cs*ov.k*PT*1.3 : 0) + lines*14*cs*tk*PT*1.12 + (L.ev ? ev.lines*8.5*cs*ev.k*PT*1.25 + 0.4*cs : 0) + 1.6*cs + sb.lines*6.5*cs*sb.k*PT*1.3 + 3.7*cs + blLines*7*cs*bl.k*PT*1.3;
+    return { h:h, lines:lines, titleFits:titleFits, logoH: hasLogo ? 11*cs : 0, ovK:ov.k, sbK:sb.k, blK:bl.k, evK:ev.k, ovLines:ov.lines, evLines:ev.lines, sbLines:sb.lines, blLines:blLines,
+      minPt: Math.min(L.ov ? 6*cs*ov.k : 99, L.ev ? 8.5*cs*ev.k : 99, 6.5*cs*sb.k, 7*cs*bl.k, 14*cs*tk) };
   }
 
   /* Emits the boxes, connectors, match numbers, seeds and BYE tags of one placed half. */
@@ -438,6 +443,7 @@ var KBP = (function(){
     var nat = [0,1].map(function(sd){ return layoutSide(model, sd, H, 1, 0); });
     var Ks = nat.map(function(L){ var gaps = L.nSmall*BASE.g + L.nBig*BASE.G + BASE.G; return Math.max(1, (hb - L.nLeaves*H)/gaps); });
     var K = Math.min(10, Ks[0], Ks[1]); out.K = K;
+    if(opts.capsAbove) K = Math.max(K, (CAP_H + 0.5 + CAP_PAD/s)/BASE.g);   // room for a caption (and its padding) over the second box of a pair
     var sides = [0,1].map(function(sd){ return layoutSide(model, sd, H, K, K>1 ? BASE.G*K/2 : 0); });
     var sideOff = sides.map(function(L){ return BASE.headRow + (hb - L.height)/2; });
     var X = function(sd){ return function(col){ return sd===0 ? offX + pl.gutter + col*(B+C) : offX + pl.W - pl.gutter - col*(B+C) - B; }; };
@@ -449,7 +455,7 @@ var KBP = (function(){
       for(var c=0;c<k-1;c++) out.items.push(rect('rl', S(X(sd)(c)), 0, S(B), S(BASE.headRow-1.2), roundLabel(model.roundNames[c] || '', s, S(B), model.roundShort && model.roundShort[c], wrapsRounds(model), S(BASE.headRow-1.2))));
       var top = sides[sd].boxes.filter(function(b){ return b.r===model.R-2; }).sort(function(a,b){ return a.y-b.y; })[0];
       if(top && k>=1){
-        var y = sideOff[sd] + top.y - H/2;
+        var y = sideOff[sd] + top.y - H/2 - (opts.capsAbove && model.R===2 ? CAP_H + 0.4 + CAP_PAD/s : 0);   // over the caption, when the semifinal is the first column
         out.items.push(rect('rl', S(X(sd)(k-1)), S(y-4.2), S(B), S(3.4), roundLabel(model.roundNames[model.R-2] || 'Semifinal', s, S(B), model.roundShort && model.roundShort[model.R-2], wrapsRounds(model), S(3.4))));
         out.sfTop = Math.min(out.sfTop, S(y-4.2));
       }
@@ -471,6 +477,16 @@ var KBP = (function(){
       out.items.push(rect('champ', S(Xc), S(cy+3.6), S(Bc), S(Hf), { txt: cd ? cd.text : '', note: cd ? cd.note : null, fs: BASE.font*BASE.finalK*s, two: !!cd && textMM(noteText(cd), BASE.font*BASE.finalK*s, 700) > S(Bc) - 2.2 }));
       champBottom = S(cy + 3.6 + Hf);
     }
+    /* opts.capsAbove (board groups' Finals sheet): a caption over each first-column box, "Board group 5 champion", in the
+       gap above it (the gap is at least the caption's height: see the spacing floor of K below) */
+    if(opts.capsAbove) out.items.filter(function(it){ return it.k==='box' && it.r===0; }).forEach(function(it){
+      var c = (opts.capsAbove[it.m] || [])[it.slot==='a' ? 0 : 1]; if(!c) return;
+      var ch = CAP_H*s, cfs = fitSans(c, BASE.tagFont*1.15*s, it.w, 700, 0, secFloor(s));
+      /* only the Final is left (two groups): the finalists sit stacked in the centre under its title, so the caption goes
+         beside the box, on the left */
+      if(it.fin) out.items.push(rect('cap', it.x - it.w - 1.2*s, it.y + (it.h - ch)/2, it.w, ch, { txt:c, fs:cfs, sd:1 }));
+      else out.items.push(rect('cap', it.x, it.y - ch - 0.25*s - CAP_PAD, it.w, ch, { txt:c, fs:cfs, sd:it.sd }));
+    });
     /* the title block, centred over the Final and spanning the semifinal columns */
     var crownW = k>=1 ? S(2*B + 2*C + Bc) : av.w;
     var crownX = k>=1 ? S(Xc) + S(Bc)/2 - crownW/2 : 0;
@@ -484,7 +500,7 @@ var KBP = (function(){
       if(cs < 0.45){ if(!noLogo && chrome.logo){ noLogo = true; cs = Math.min(1.6, Math.max(1, av.pw/297)); continue; } break; }   // no room: drop the logo before going smaller
       cs *= 0.93;
     }
-    out.crown = rect('crown', crownX, Math.max(0, (Math.min(crownAvailH, cz.h*1.6) - cz.h)/2), crownW, cz.h, { cs:cs, lines:cz.lines, logoH:cz.logoH, ovK:cz.ovK, sbK:cz.sbK, blK:cz.blK, ovLines:cz.ovLines, sbLines:cz.sbLines, blLines:cz.blLines, minPt:cz.minPt, fitsAbove: cz.h <= crownAvailH + 0.01 });
+    out.crown = rect('crown', crownX, Math.max(0, (Math.min(crownAvailH, cz.h*1.6) - cz.h)/2), crownW, cz.h, { cs:cs, lines:cz.lines, logoH:cz.logoH, ovK:cz.ovK, evK:cz.evK, evLines:cz.evLines, sbK:cz.sbK, blK:cz.blK, ovLines:cz.ovLines, sbLines:cz.sbLines, blLines:cz.blLines, minPt:cz.minPt, fitsAbove: cz.h <= crownAvailH + 0.01 });
     out.items.push(out.crown);
     /* sponsors and the live-results code: below the Champion and the lower semifinal */
     var zoneTop = Math.max(champBottom, out.sfBot) + 2.5, zoneH = av.h - zoneTop;
@@ -593,11 +609,19 @@ var KBP = (function(){
      One section of a bracket (the subtree under root {r, m} of the whole bracket's model), one direction left to right,
      ending in a board champion box, in a chart area of w x h mm. The sheet's header and footer are the app's (in the
      round robin sheet's style), so this layout has neither: lay.inner makes sheetHTML draw a plain block, not a page.
-     opts: w, h (mm), champLabel. */
+     opts: w, h (mm), champLabel. Names are never shortened here. */
   function boardLayout(model, root, opts){
-    opts = opts || {};
+    /* names in full, unless a very long one would bring this sheet's names under 6 pt: then that sheet shortens it
+       (with its footnote), as the knockout sheet does */
+    fullNames = true;
+    var lay;
+    try{ lay = boardLayoutFull(model, root, opts || {}); } finally { fullNames = false; }
+    return BASE.font*lay.s >= 6 ? lay : boardLayoutFull(model, root, opts || {});
+  }
+  function boardLayoutFull(model, root, opts){
     var notes = [], C = BASE.C, cols = root.r + 1;
-    var nw = nameWidths(model), gut = gutterFor(model), legs = model.noLegs ? 0 : BASE.legs;
+    var sec = {}; layoutSide(model, 0, BASE.H1, 1, 0, [root]).boxes.forEach(function(b){ var x = model.rounds[b.r][b.m][b.slot]; if(x.name) sec[x.name] = 1; });
+    var nw = nameWidths(model, sec), gut = gutterFor(model), legs = model.noLegs ? 0 : BASE.legs;   // sized by this section's names only
     var dims = geom(model, 1, nw.N1, legs, gut), B = dims.B, H = dims.H, Bc = dims.Bc;
     var wDu = gut + cols*(B + C) + Bc + 1.5;                  // the chart at scale 1: the section's columns and the champion box
     var nat = layoutSide(model, 0, H, 1, 0, [root]);
@@ -721,8 +745,9 @@ var KBP = (function(){
       ? '<div class="kb-bl" style="font-size:'+blFs+'pt">'+esc(L.bl)+'</div><div class="kb-bl'+two(it.blLines-1)+'" style="font-size:'+blFs+'pt"><span>'+esc(L.dt)+'</span></div>'
       : '<div class="kb-bl'+two(it.blLines)+'" style="font-size:'+blFs+'pt">'+esc(L.bl)+(L.dt ? ' <span>'+esc(L.dt)+'</span>' : '')+'</div>';
     return '<div class="kb-ink kb-crown" style="'+pos(it)+'">'+logo+
-      '<div class="kb-ov'+two(it.ovLines)+'" style="font-size:'+(6*cs*(it.ovK||1)).toFixed(2)+'pt">'+esc(L.ov)+'</div>'+
-      '<div class="kb-tt'+(it.lines>1 ? ' two' : '')+'" style="font-size:'+(Math.max(14*cs, SEC_PT)).toFixed(2)+'pt;margin:'+mm(0.8*cs)+' 0">'+esc(L.tt)+'</div>'+
+      (L.ov ? '<div class="kb-ov'+two(it.ovLines)+'" style="font-size:'+(6*cs*(it.ovK||1)).toFixed(2)+'pt">'+esc(L.ov)+'</div>' : '')+
+      '<div class="kb-tt'+(it.lines>1 ? ' two' : '')+'" style="font-size:'+(Math.max(14*cs, SEC_PT)).toFixed(2)+'pt;margin:'+mm(0.8*cs)+' 0 '+mm(L.ev ? 0.4*cs : 0.8*cs)+'">'+esc(L.tt)+'</div>'+
+      (L.ev ? '<div class="kb-ev'+two(it.evLines)+'" style="font-size:'+(8.5*cs*(it.evK||1)).toFixed(2)+'pt;margin-bottom:'+mm(0.6*cs)+'">'+esc(L.ev)+'</div>' : '')+
       '<div class="kb-sb'+two(it.sbLines)+'" style="font-size:'+(6.5*cs*(it.sbK||1)).toFixed(2)+'pt">'+esc(L.sb)+'</div>'+
       '<div class="kb-rule" style="margin:'+mm(1.6*cs)+' 0 '+mm(1.4*cs)+';height:'+mm(0.7*cs)+'"></div>'+bl+'</div>';
   }
@@ -772,6 +797,7 @@ var KBP = (function(){
     lay.items.forEach(function(it){
       switch(it.k){
         case 'box': html += boxHTML(it, lay); break;
+        case 'cap': html += '<div class="kb-ink kb-cap'+(it.sd===1 ? ' r' : '')+'" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.txt)+'</div>'; break;
         case 'tag': html += '<div class="kb-ink kb-tag" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.txt)+'</div>'; break;
         case 'exit': html += '<div class="kb-ink kb-exit" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.txt)+'</div>'; break;
         case 'bye': html += '<div class="kb-ink kb-bye" style="'+pos(it)+'font-size:'+it.fs.toFixed(2)+'pt">'+esc(it.label || 'BYE')+'</div>'; break;

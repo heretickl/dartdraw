@@ -193,67 +193,96 @@
   /* ---------- the score form ---------- */
   function slotOf(pos){ return slotsView().find(function(s){ return s.pos === pos; }) || null; }
   function closeSheet(){ document.getElementById('sheet').hidden = true; }
+  /* The result form (owner, 2026-11-02): no keyboard. Every valid result is a big button under the player who won, in the
+     paper's order (best of 5: 3–0, 3–1, 3–2; a knockout also "Winner only"); a tap opens a check screen that says the
+     result in words, then Save result. Teams totals run up to the cap: a – / + counter per team, then the same check.
+     Walkover, "Neither showed" and the call stay below, smaller. A saved result shows as its button, lit. */
   function openForm(pos){
     var s = slotOf(pos); if(!s) return;
     var teams = data.format && data.format.competitionUnit === 'Teams';
     var bestOf = s.legs || 5, majority = Math.floor(bestOf / 2) + 1, cap = s.teamCap || majority;
-    var max = teams ? cap : majority;
-    var cur = s.result || {};
+    var cur = s.result || {}, ko = s.kind === 'ko', order = sides(s);
     var va = s.kind === 'rr' ? cur.legs1 : cur.aLegs, vb = s.kind === 'rr' ? cur.legs2 : cur.bLegs;
+    va = va === '' || va == null ? null : Number(va); vb = vb === '' || vb == null ? null : Number(vb);
     var box = document.getElementById('sheetBox');
-    var A = esc(names(s.a)), B = esc(names(s.b));
-    var legBox = function(id, side, v){ return '<div><label for="' + id + '">' + esc(T('form.legs', { name: names(s[side]) })) + '</label><input id="' + id + '" type="number" inputmode="numeric" min="0" max="' + max + '" value="' + esc(v != null ? v : '') + '"></div>'; };
-    var boxA = legBox('la', 'a', va), boxB = legBox('lb', 'b', vb);
-    var ko = s.kind === 'ko', pick = ko && cur.winnerId ? (cur.winnerId === s.a ? 'a' : cur.winnerId === s.b ? 'b' : '') : '';
-    box.innerHTML = '<h2>' + whoText(s, esc) + '</h2><div class="meta">' + esc(where(s)) + '</div>' +
-      (ko ? '<h3>' + esc(T('form.who')) + '</h3><div class="stack" style="margin-top:0">' +
-        '<button class="btn ghost win' + (pick === 'a' ? ' on' : '') + '" id="fWinA">' + A + '</button>' +
-        '<button class="btn ghost win' + (pick === 'b' ? ' on' : '') + '" id="fWinB">' + B + '</button></div>' +
-        '<h3>' + esc(T('form.legsOptional')) + '</h3>' : '') +
-      '<div class="legs">' + (sides(s)[0] === 'b' ? boxB + boxA : boxA + boxB) + '</div>' +
-      '<p class="hint">' + esc(teams ? T('form.hintTeams', { cap: cap }) : T('form.hint', { n: bestOf, m: majority })) + '</p>' +
-      '<div class="err" id="formErr"></div>' +
-      '<div class="stack"><button class="btn" id="fSave">' + esc(T('form.save')) + '</button>' +
-      (s.state === 'done' ? '' :
-        '<button class="btn ghost" id="fNsA">' + esc(T('form.noShow', { name: names(s.a) })) + '</button>' +
-        '<button class="btn ghost" id="fNsB">' + esc(T('form.noShow', { name: names(s.b) })) + '</button>' +
-        (s.kind === 'ko' ? '<button class="btn ghost" id="fVoid">' + esc(T('form.void')) + '</button>' +
+    var nm = function(sd){ return names(s[sd]); };
+    var curKey = va != null && vb != null && va !== vb ? (va > vb ? 'a' : 'b') + ':' + Math.min(va, vb)
+      : ko && cur.winnerId ? (cur.winnerId === s.a ? 'a' : 'b') + ':win' : '';
+    var count = { a: va != null ? va : 0, b: vb != null ? vb : 0 };   // Teams counters
+    var head = function(){ return '<h2>' + whoText(s, esc) + '</h2><div class="meta">' + esc(where(s)) + '</div>'; };
+    var others = function(){
+      return '<div class="stack">' + (s.state === 'done' ? '' :
+        '<button class="btn ghost" id="fNsA">' + esc(T('form.noShow', { name: nm('a') })) + '</button>' +
+        '<button class="btn ghost" id="fNsB">' + esc(T('form.noShow', { name: nm('b') })) + '</button>' +
+        (ko ? '<button class="btn ghost" id="fVoid">' + esc(T('form.void')) + '</button>' +
           '<button class="btn ghost" id="fCall">' + esc(T(s.state === 'called' ? 'form.uncall' : 'form.call')) + '</button>' : '')) +
-      '<button class="btn ghost" id="fCancel">' + esc(T('form.cancel')) + '</button></div>';
-    document.getElementById('sheet').hidden = false;
-    var err = function(t){ document.getElementById('formErr').textContent = t; };
-    document.getElementById('fCancel').onclick = closeSheet;
-    var setPick = function(p){ pick = p; var wa = document.getElementById('fWinA'), wb = document.getElementById('fWinB'); if(wa) wa.className = 'btn ghost win' + (p === 'a' ? ' on' : ''); if(wb) wb.className = 'btn ghost win' + (p === 'b' ? ' on' : ''); err(''); };
-    if(ko){
-      document.getElementById('fWinA').onclick = function(){ setPick('a'); };
-      document.getElementById('fWinB').onclick = function(){ setPick('b'); };
-      /* typed legs that name a winner move the mark to them */
-      var follow = function(){ var x = parseInt(document.getElementById('la').value, 10), y = parseInt(document.getElementById('lb').value, 10); if(!isNaN(x) && !isNaN(y) && x !== y) setPick(x > y ? 'a' : 'b'); };
-      document.getElementById('la').oninput = follow; document.getElementById('lb').oninput = follow;
-    }
-    document.getElementById('fSave').onclick = function(){
-      var ra = document.getElementById('la').value, rb = document.getElementById('lb').value;
-      if(ko && ra === '' && rb === ''){
-        if(!pick){ err(T('form.errPick')); return; }
-        add({ pos: pos, op: 'win', side: pick, rv: s.rv || 0 }); closeSheet(); return;
-      }
-      var la = parseInt(ra, 10), lb = parseInt(rb, 10);
-      var bad = isNaN(la) || isNaN(lb) || la < 0 || lb < 0;
-      if(!teams && !bad){ var w = Math.max(la, lb), l = Math.min(la, lb); bad = w !== majority || l >= majority; }
-      if(teams && !bad) bad = la > cap || lb > cap || (la === 0 && lb === 0) || (s.kind === 'ko' && la === lb);
-      if(bad){ err(teams ? T('form.errTeams', { cap: cap }) : T('form.err', { n: bestOf, m: majority })); return; }
-      add({ pos: pos, op: 'score', la: la, lb: lb, rv: s.rv || 0 }); closeSheet();
+        '<button class="btn ghost" id="fCancel">' + esc(T('form.cancel')) + '</button></div>';
     };
+    var err = function(t){ var e = document.getElementById('formErr'); if(e) e.textContent = t; };
+    function pickView(){
+      var body;
+      if(!teams){
+        body = '<p class="hint">' + esc(T('form.pickHint')) + '</p>' + order.map(function(sd){
+          var btns = '';
+          for(var l = 0; l < majority; l++) btns += '<button class="btn ghost sc' + (curKey === sd + ':' + l ? ' on' : '') + '" data-k="' + sd + ':' + l + '">' + majority + '–' + l + '</button>';
+          if(ko) btns += '<button class="btn ghost sc wo' + (curKey === sd + ':win' ? ' on' : '') + '" data-k="' + sd + ':win">' + esc(T('form.winOnly')) + '</button>';
+          return '<div class="pick"><h3>' + esc(T('won', { name: nm(sd) })) + '</h3><div class="scores">' + btns + '</div></div>';
+        }).join('');
+      } else {
+        body = order.map(function(sd){
+          return '<div class="ctr"><span class="ctr-n">' + esc(nm(sd)) + '</span><button class="btn ghost" data-c="' + sd + ':-1" aria-label="−1">−</button><b id="ct_' + sd + '">' + count[sd] + '</b><button class="btn ghost" data-c="' + sd + ':1" aria-label="+1">+</button></div>';
+        }).join('') + '<p class="hint">' + esc(T('form.hintTeams', { cap: cap })) + '</p><div class="stack"><button class="btn" id="fNext">' + esc(T('form.next')) + '</button></div>';
+      }
+      box.innerHTML = head() + body + '<div class="err" id="formErr"></div>' + others();
+      Array.prototype.forEach.call(box.querySelectorAll('[data-k]'), function(b){ b.onclick = function(){
+        var k = b.getAttribute('data-k').split(':'), sd = k[0];
+        if(k[1] === 'win') return check({ pos: pos, op: 'win', side: sd, rv: s.rv || 0 });
+        var l = Number(k[1]);
+        check({ pos: pos, op: 'score', la: sd === 'a' ? majority : l, lb: sd === 'a' ? l : majority, rv: s.rv || 0 });
+      }; });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-c]'), function(b){ b.onclick = function(){
+        var k = b.getAttribute('data-c').split(':'), sd = k[0];
+        count[sd] = Math.max(0, Math.min(cap, count[sd] + Number(k[1])));
+        document.getElementById('ct_' + sd).textContent = count[sd]; err('');
+      }; });
+      var nx = document.getElementById('fNext');
+      if(nx) nx.onclick = function(){
+        var la = count.a, lb = count.b;
+        if(la > cap || lb > cap || (la === 0 && lb === 0) || (ko && la === lb)){ err(T('form.errTeams', { cap: cap })); return; }
+        check({ pos: pos, op: 'score', la: la, lb: lb, rv: s.rv || 0 });
+      };
+      wireOthers();
+    }
+    /* the check screen: the result in words, big, then Save result or Change */
+    function check(item){
+      var line, sub = '';
+      if(item.op === 'win') line = T('won', { name: nm(item.side) });
+      else if(item.la === item.lb) line = T('form.level', { a: nm(order[0]), b: nm(order[1]), n: item.la });   // a Teams round robin draw
+      else {
+        var w = item.la > item.lb ? 'a' : 'b', l = w === 'a' ? 'b' : 'a';
+        line = T('form.line', { name: nm(w), w: Math.max(item.la, item.lb), l: Math.min(item.la, item.lb) });
+        sub = T('form.beat', { w: nm(w), l: nm(l) });
+      }
+      box.innerHTML = head() + '<div class="check"><p class="meta">' + esc(T('form.check')) + '</p><p class="big">' + esc(line) + '</p>' + (sub ? '<p class="hint">' + esc(sub) + '</p>' : '') + '</div>' +
+        '<div class="stack"><button class="btn" id="cSave">' + esc(T('form.saveResult')) + '</button><button class="btn ghost" id="cBack">' + esc(T('form.change')) + '</button></div>';
+      document.getElementById('cSave').onclick = function(){ add(item); closeSheet(); };
+      document.getElementById('cBack').onclick = pickView;
+    }
     var confirmThen = function(text, item){
       box.innerHTML = '<h2>' + whoText(s, esc) + '</h2><p>' + esc(text) + '</p><div class="stack"><button class="btn" id="cYes">' + esc(T('confirm.yes')) + '</button><button class="btn ghost" id="cNo">' + esc(T('form.cancel')) + '</button></div>';
       document.getElementById('cYes').onclick = function(){ add(item); closeSheet(); };
       document.getElementById('cNo').onclick = closeSheet;
     };
-    var nsA = document.getElementById('fNsA'), nsB = document.getElementById('fNsB'), vd = document.getElementById('fVoid'), cl = document.getElementById('fCall');
-    if(nsA) nsA.onclick = function(){ confirmThen(T('confirm.noShow', { name: names(s.a), other: names(s.b) }), { pos: pos, op: 'noShow', side: 'a', rv: s.rv || 0 }); };
-    if(nsB) nsB.onclick = function(){ confirmThen(T('confirm.noShow', { name: names(s.b), other: names(s.a) }), { pos: pos, op: 'noShow', side: 'b', rv: s.rv || 0 }); };
-    if(vd) vd.onclick = function(){ confirmThen(T('confirm.void'), { pos: pos, op: 'void', rv: s.rv || 0 }); };
-    if(cl) cl.onclick = function(){ add({ pos: pos, op: s.state === 'called' ? 'uncall' : 'call', rv: s.rv || 0 }); closeSheet(); };
+    function wireOthers(){
+      document.getElementById('fCancel').onclick = closeSheet;
+      var nsA = document.getElementById('fNsA'), nsB = document.getElementById('fNsB'), vd = document.getElementById('fVoid'), cl = document.getElementById('fCall');
+      if(nsA) nsA.onclick = function(){ confirmThen(T('confirm.noShow', { name: nm('a'), other: nm('b') }), { pos: pos, op: 'noShow', side: 'a', rv: s.rv || 0 }); };
+      if(nsB) nsB.onclick = function(){ confirmThen(T('confirm.noShow', { name: nm('b'), other: nm('a') }), { pos: pos, op: 'noShow', side: 'b', rv: s.rv || 0 }); };
+      if(vd) vd.onclick = function(){ confirmThen(T('confirm.void'), { pos: pos, op: 'void', rv: s.rv || 0 }); };
+      if(cl) cl.onclick = function(){ add({ pos: pos, op: s.state === 'called' ? 'uncall' : 'call', rv: s.rv || 0 }); closeSheet(); };
+    }
+    pickView();
+    document.getElementById('sheet').hidden = false;
   }
 
   /* ---------- queue and sending ---------- */

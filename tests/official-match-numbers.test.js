@@ -112,7 +112,7 @@ test('the phone page shows the paper’s line: group, match number and positions
   assert.equal(T('boardGroup', { n: 2 }), 'Board group 2');
   const src = fs.readFileSync(require.resolve('../score.js'), 'utf8');
   assert.match(src, /info\.flip \? info\.posB : info\.posA/);
-  assert.match(src, /sides\(s\)\[0\] === 'b' \? boxB \+ boxA : boxA \+ boxB/);
+  assert.match(src, /order = sides\(s\)/, 'the result buttons follow the paper’s order (tests/score-buttons.test.js)');
 });
 
 test('review: a refused result on a swapped pair shows its score in the paper’s order in the Not sent list', () => {

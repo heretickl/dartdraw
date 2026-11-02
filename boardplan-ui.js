@@ -110,7 +110,7 @@ function bpSheetShell(t, title, subtitle, inner, qrPath){
   var qr = printQrBlockHTML(t, qrPath);
   return '<div class="print-sheet ro-sheet">'+
     '<div class="sheet-top"'+printQrHeaderAttr(qr)+'>'+mainLogoBoxHTML()+
-      '<div><div class="title-overline">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-title">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
+      '<div><div class="sheet-title'+sheetTitleCls(t)+'">'+escapeHtml(t.eventCreation.tournamentName)+'</div><div class="sheet-event">'+escapeHtml(t.eventCreation.eventName)+'</div>'+
       '<div class="sheet-sub">'+printSubHTML(t)+'</div></div>'+
       '<div class="group-label"><strong>'+escapeHtml(title)+'</strong><span>'+escapeHtml(subtitle)+'</span></div>'+qr+
     '</div>'+inner+
