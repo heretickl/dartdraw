@@ -78,6 +78,7 @@
       if(q.op === 'uncall'){ v.state = 'open'; return v; }
       v.state = 'done'; v.by = 'me'; v.at = q.at;
       if(q.op === 'score') v.result = s.kind === 'rr' ? { legs1: q.la, legs2: q.lb } : { aLegs: q.la, bLegs: q.lb };
+      else if(q.op === 'win') v.result = { winnerId: q.side === 'b' ? s.b : s.a };
       else if(q.op === 'void') v.result = { void: true };
       else v.result = { wo: true, noShowSide: q.side };
       return v;
@@ -99,6 +100,7 @@
     if(r.void) return T('void');
     if(r.noShowSide) return T('wo');
     var a = s.kind === 'rr' ? r.legs1 : r.aLegs, b = s.kind === 'rr' ? r.legs2 : r.bLegs;
+    if(s.kind === 'ko' && a == null && b == null && r.winnerId) return T('won', { name: names(r.winnerId) });   // the winner picked, no legs
     return (a == null ? '-' : a) + '–' + (b == null ? '-' : b) + (r.wo ? ' (' + T('wo') + ')' : '');
   }
   function mmss(ms){ var s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
@@ -189,7 +191,12 @@
     var va = s.kind === 'rr' ? cur.legs1 : cur.aLegs, vb = s.kind === 'rr' ? cur.legs2 : cur.bLegs;
     var box = document.getElementById('sheetBox');
     var A = esc(names(s.a)), B = esc(names(s.b));
+    var ko = s.kind === 'ko', pick = ko && cur.winnerId ? (cur.winnerId === s.a ? 'a' : cur.winnerId === s.b ? 'b' : '') : '';
     box.innerHTML = '<h2>' + T('vs', { a: A, b: B }) + '</h2><div class="meta">' + esc(where(s)) + '</div>' +
+      (ko ? '<h3>' + esc(T('form.who')) + '</h3><div class="stack" style="margin-top:0">' +
+        '<button class="btn ghost win' + (pick === 'a' ? ' on' : '') + '" id="fWinA">' + A + '</button>' +
+        '<button class="btn ghost win' + (pick === 'b' ? ' on' : '') + '" id="fWinB">' + B + '</button></div>' +
+        '<h3>' + esc(T('form.legsOptional')) + '</h3>' : '') +
       '<div class="legs"><div><label for="la">' + esc(T('form.legs', { name: names(s.a) })) + '</label><input id="la" type="number" inputmode="numeric" min="0" max="' + max + '" value="' + esc(va != null ? va : '') + '"></div>' +
       '<div><label for="lb">' + esc(T('form.legs', { name: names(s.b) })) + '</label><input id="lb" type="number" inputmode="numeric" min="0" max="' + max + '" value="' + esc(vb != null ? vb : '') + '"></div></div>' +
       '<p class="hint">' + esc(teams ? T('form.hintTeams', { cap: cap }) : T('form.hint', { n: bestOf, m: majority })) + '</p>' +
@@ -204,8 +211,21 @@
     document.getElementById('sheet').hidden = false;
     var err = function(t){ document.getElementById('formErr').textContent = t; };
     document.getElementById('fCancel').onclick = closeSheet;
+    var setPick = function(p){ pick = p; var wa = document.getElementById('fWinA'), wb = document.getElementById('fWinB'); if(wa) wa.className = 'btn ghost win' + (p === 'a' ? ' on' : ''); if(wb) wb.className = 'btn ghost win' + (p === 'b' ? ' on' : ''); err(''); };
+    if(ko){
+      document.getElementById('fWinA').onclick = function(){ setPick('a'); };
+      document.getElementById('fWinB').onclick = function(){ setPick('b'); };
+      /* typed legs that name a winner move the mark to them */
+      var follow = function(){ var x = parseInt(document.getElementById('la').value, 10), y = parseInt(document.getElementById('lb').value, 10); if(!isNaN(x) && !isNaN(y) && x !== y) setPick(x > y ? 'a' : 'b'); };
+      document.getElementById('la').oninput = follow; document.getElementById('lb').oninput = follow;
+    }
     document.getElementById('fSave').onclick = function(){
-      var la = parseInt(document.getElementById('la').value, 10), lb = parseInt(document.getElementById('lb').value, 10);
+      var ra = document.getElementById('la').value, rb = document.getElementById('lb').value;
+      if(ko && ra === '' && rb === ''){
+        if(!pick){ err(T('form.errPick')); return; }
+        add({ pos: pos, op: 'win', side: pick, rv: s.rv || 0 }); closeSheet(); return;
+      }
+      var la = parseInt(ra, 10), lb = parseInt(rb, 10);
       var bad = isNaN(la) || isNaN(lb) || la < 0 || lb < 0;
       if(!teams && !bad){ var w = Math.max(la, lb), l = Math.min(la, lb); bad = w !== majority || l >= majority; }
       if(teams && !bad) bad = la > cap || lb > cap || (la === 0 && lb === 0) || (s.kind === 'ko' && la === lb);
@@ -232,7 +252,8 @@
     saveQueue(); render(); flush();
   }
   function labelOf(pos){ var s = data && data.slots.find(function(x){ return x.pos === pos; }); return s ? T('vs', { a: names(s.a), b: names(s.b) }) + ' · ' + where(s) : pos; }
-  function itemResult(q){ return q.op === 'score' ? q.la + '–' + q.lb : q.op === 'void' ? T('void') : q.op === 'noShow' ? T('wo') : ''; }
+  function itemResult(q){ if(q.op === 'win'){ var s = data && data.slots.find(function(x){ return x.pos === q.pos; }); return T('won', { name: s ? names(q.side === 'b' ? s.b : s.a) : '?' }); }
+    return q.op === 'score' ? q.la + '–' + q.lb : q.op === 'void' ? T('void') : q.op === 'noShow' ? T('wo') : ''; }
   function flush(){
     if(sending || !queue.length || view === 'pin') return;
     sending = true; render();

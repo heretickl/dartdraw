@@ -2073,7 +2073,8 @@ function shuffleArray(arr){
   for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
   return a;
 }
-function bracketHasScores(bracket){ return bracket.rounds.some(r=>r.some(m=>m.aLegs!=null)); }
+/* A played match: legs, or a winner picked without legs (not a bye). */
+function bracketHasScores(bracket){ return bracket.rounds.some(r=>r.some(m=>m.aLegs!=null || (!!m.winnerId && !m.bye))); }
 /* Renders a bracket as side-by-side round columns. `opts.interactive` makes
    matches with both sides filled clickable to enter a result (score cells
    route through koMatchScoreModal, keyed by opts.bracketKey so it knows
@@ -2155,6 +2156,7 @@ function koClearedLineHTML(bracket, c){
   const m = c.m, a = escapeHtml(bracketEntryName(state, m.aEntryId)||'?'), b = escapeHtml(bracketEntryName(state, m.bEntryId)||'?');
   const what = m.void ? T('ko.cl.void', {a, b})
     : m.aLegs!=null && m.bLegs!=null ? T(m.wo ? 'ko.cl.scoreWo' : 'ko.cl.score', {a, b, sa: escText(m.aLegs), sb: escText(m.bLegs)})
+    : m.winnerId ? T('ko.cl.win', {a, b, w: escapeHtml(bracketEntryName(state, m.winnerId)||'?')})
     : T('ko.vs', {a, b});
   return '<li>'+T('ko.cl.line', {round: escapeHtml(koRoundName(bracket, c.ri)), tag: escapeHtml(koMatchTag(bracket, state, c.ri, c.mi)), what})+'</li>';
 }
@@ -2244,8 +2246,12 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
     title: T('ko.vs', {a: escapeHtml(aName), b: escapeHtml(bName)}),
     bodyHTML: (m.void ? '<div class="confirm-box" style="margin:0 0 10px"><b>'+T(teams ? 'ko.void.team' : state.eventCreation.competitionUnit==='Doubles' ? 'ko.void.pair' : 'ko.void.player')+'</b>'+T('ko.void.text', {btn: '<button type="button" class="btn secondary" style="padding:3px 9px;font-size:11px" onclick="closeModal();reverseKnockoutVoid(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+');">'+T('ko.reverse')+'</button>'})+'</div>' : '')+
       '<p style="margin:-4px 0 10px;font-size:11px;color:var(--muted)">'+T('ko.matchTag', {tag: escapeHtml(koMatchTag(bracket, state, roundIdx, matchIdx)), round: escapeHtml(koRoundName(bracket, roundIdx))})+'</p>'+
-      '<div class="grid2"><div class="field"><label>'+T('score.legsOf', {name: escapeHtml(aName)})+'</label><input id="scA" type="number" '+clampAttr+' value="'+escText(m.aLegs!=null?m.aLegs:0)+'"></div>'+
-      '<div class="field"><label>'+T('score.legsOf', {name: escapeHtml(bName)})+'</label><input id="scB" type="number" '+clampAttr+' value="'+escText(m.bLegs!=null?m.bLegs:0)+'"></div></div>'+
+      /* Tap the winner, or type the legs (optional): a winner alone moves them on with no score. */
+      '<p style="margin:0 0 6px;font-size:12px;font-weight:700">'+T('ko.pick.title')+'</p><input type="hidden" id="koWin" value="'+(m.winnerId && !m.void ? (m.winnerId===m.aEntryId ? 'a' : 'b') : '')+'">'+
+      '<div class="grid2" style="margin-bottom:10px">'+['a','b'].map(sd=> '<div class="choice'+(m.winnerId && !m.void && m.winnerId===(sd==='a' ? m.aEntryId : m.bEntryId) ? ' selected' : '')+'" id="koWin_'+sd+'" role="button" tabindex="0" onclick="koPickWinner(\''+sd+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();koPickWinner(\''+sd+'\');}"><strong>'+escapeHtml(sd==='a' ? aName : bName)+'</strong></div>').join('')+'</div>'+
+      '<p style="margin:0 0 6px;font-size:12px;font-weight:700">'+T('ko.pick.legs')+'</p>'+
+      '<div class="grid2" oninput="koLegsPickWinner()"><div class="field"><label>'+T('score.legsOf', {name: escapeHtml(aName)})+'</label><input id="scA" type="number" '+clampAttr+' value="'+escText(m.aLegs!=null?m.aLegs:'')+'"></div>'+
+      '<div class="field"><label>'+T('score.legsOf', {name: escapeHtml(bName)})+'</label><input id="scB" type="number" '+clampAttr+' value="'+escText(m.bLegs!=null?m.bLegs:'')+'"></div></div>'+
       (teams ? teamResultHintHTML(state, 'ko')
         : '<p style="font-size:11px;color:#8a97a5">'+T('ko.score.hint', {n: bestOf, m: majority})+'</p>')+
       (state.format.formatType==='podknockout' && podByKey(state, bracketKey) ? '' :
@@ -2257,6 +2263,15 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
     onConfirm:()=>{
       const va = document.getElementById('scA').value, vb = document.getElementById('scB').value;
       const la = parseInt(va), lb = parseInt(vb);
+      const wasVoid = !!m.void;
+      const settle = (rounds)=>{ propagateByes(rounds); if(wasVoid) settleVoids(rounds, true); };
+      if(va==='' && vb===''){
+        /* no legs: the winner tapped, alone */
+        const pick = document.getElementById('koWin').value;
+        if(pick!=='a' && pick!=='b') return { error:T('ko.pick.err') };
+        const winOnly = (x)=>{ x.aLegs = null; x.bLegs = null; x.winnerId = pick==='a' ? x.aEntryId : x.bEntryId; x.wo = false; delete x.void; };
+        return koChangeWithConfirm(bracketKey, roundIdx, matchIdx, winOnly, settle, 'change');
+      }
       if(teams){
         const bad = teamResultError(state, va, vb, 'ko', teamStoredResult(m.aLegs, m.bLegs));
         if(bad) return { error: bad };
@@ -2267,12 +2282,22 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
         if(winnerLegs!==majority || loserLegs>=majority) return { error:T('ko.score.err.invalid', {n: bestOf, m: majority}) };
       }
       const winnerIsA = la>lb;
-      const wasVoid = !!m.void;
       const applyTo = (x)=>{ x.aLegs = la; x.bLegs = lb; x.winnerId = winnerIsA ? x.aEntryId : x.bEntryId; x.wo = false; delete x.void; };
-      const settle = (rounds)=>{ propagateByes(rounds); if(wasVoid) settleVoids(rounds, true); };
       return koChangeWithConfirm(bracketKey, roundIdx, matchIdx, applyTo, settle, 'change');
     }
   });
+}
+/* The knockout result box's winner buttons: a tap marks that side; typed legs that name a winner move the mark to them. */
+function koPickWinner(side){
+  const box = document.getElementById('koWin'); if(!box) return;
+  box.value = side;
+  ['a','b'].forEach(sd=>{ const el = document.getElementById('koWin_'+sd); if(el) el.classList.toggle('selected', sd===side); });
+}
+function koLegsPickWinner(){
+  const a = document.getElementById('scA'), b = document.getElementById('scB');
+  if(!a || !b || a.value==='' || b.value==='') return;
+  const la = parseInt(a.value), lb = parseInt(b.value);
+  if(!isNaN(la) && !isNaN(lb) && la!==lb) koPickWinner(la>lb ? 'a' : 'b');
 }
 /* ---------- No-show / walkover (knockout) ----------
    Mirrors the round-robin version: marking a side as a no-show resolves the
@@ -8113,7 +8138,8 @@ function refusedText(t, r){
   const slot = (function(){ try{ return resultSlots(t).find(s=> s.pos===r.pos); }catch(e){ return null; } })();
   const nm = id=> (t.entriesList.find(e=> e.id===id)||{}).name || '?';
   const who = slot ? nm(slot.a)+' v '+nm(slot.b) : r.pos;
-  const what = r.op==='score' ? (slot && slot.kind==='rr' ? '' : '')+r.la+'–'+r.lb : T('fo.op.'+r.op);
+  const what = r.op==='score' ? (slot && slot.kind==='rr' ? '' : '')+r.la+'–'+r.lb
+    : r.op==='win' ? T('fo.op.win', {name: slot ? nm(r.side==='b' ? slot.b : slot.a) : '?'}) : T('fo.op.'+r.op);
   return T('fo.refusedLine', {match: who, result: what, reason: T('fo.reason.'+(r.reason||'ended'))});
 }
 function floorOfficialsHTML(){

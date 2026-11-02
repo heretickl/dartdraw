@@ -180,7 +180,8 @@ function bracketByKey(t, key){
   var pod = podByKey(t, key);
   return pod ? pod.bracket : t[key];
 }
-function podBracketHasLegs(bracket){ return bracket.rounds.some(function(r){ return r.some(function(m){ return m.aLegs != null; }); }); }
+/* A played match: legs, or a winner picked without legs (not a bye). */
+function podBracketHasLegs(bracket){ return bracket.rounds.some(function(r){ return r.some(function(m){ return m.aLegs != null || (!!m.winnerId && !m.bye); }); }); }
 function podHasScores(pod){ return podBracketHasLegs(pod.bracket); }
 function podsAnyScores(t){ return podsList(t).some(podHasScores) || !!(podsFinals(t) && podBracketHasLegs(podsFinals(t))); }
 
@@ -255,7 +256,7 @@ function podIsFinished(pod){ return !!podChampion(pod) || podNoWinner(pod); }
 function podsFinalsFeedScored(fin, ri, mi){
   for(var r=ri, idx=mi; r<fin.rounds.length; r++, idx=Math.floor(idx/2)){
     var m = fin.rounds[r][idx];
-    if(m.aLegs != null || m.bLegs != null) return true;
+    if(m.aLegs != null || m.bLegs != null || (!!m.winnerId && !m.bye)) return true;   // a winner picked without legs counts too
   }
   return false;
 }

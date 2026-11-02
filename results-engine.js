@@ -339,7 +339,7 @@ function resultError(t, s, la, lb){
   return (w !== majority || l >= majority) ? 'invalid' : null;
 }
 /* Applies one floor-official (or organiser) action to t, the way the organiser's screens do, and stamps the version on
-   every result it changed (winners moving on included). op: 'score' {la, lb} (a = slot.a's legs), 'noShow' {side:'a'|'b'},
+   every result it changed (winners moving on included). op: 'score' {la, lb} (a = slot.a's legs), 'win' {side:'a'|'b'} (knockout: the winner, no legs), 'noShow' {side:'a'|'b'},
    'void' (knockout "Neither showed"), 'call' / 'uncall'. meta: { by, at }. Returns { ok:true, changed:[pos] } or
    { ok:false, code: 'missing' | 'invalid' | 'blocked' }. */
 function applyResult(t, pos, op, args, meta){
@@ -372,6 +372,9 @@ function applyResult(t, pos, op, args, meta){
       var ka = Number(args.la), kb = Number(args.lb);
       if(resultError(t, s, ka, kb)) return { ok: false, code: 'invalid' };
       apply = function(){ m.aLegs = ka; m.bLegs = kb; m.winnerId = ka > kb ? m.aEntryId : m.bEntryId; m.wo = false; delete m.void; };
+    } else if(op === 'win'){
+      var winA = args.side !== 'b';   // the winner only, no legs
+      apply = function(){ m.aLegs = null; m.bLegs = null; m.winnerId = winA ? m.aEntryId : m.bEntryId; m.wo = false; delete m.void; };
     } else if(op === 'noShow'){
       var maj2 = koWalkoverLegs(t, s.bracketKey, b.rounds.length, s.ri), loserA = args.side === 'a';
       apply = function(){ m.aLegs = loserA ? 0 : maj2; m.bLegs = loserA ? maj2 : 0; m.winnerId = loserA ? m.bEntryId : m.aEntryId; m.wo = true; };

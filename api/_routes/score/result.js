@@ -1,5 +1,5 @@
 // /api/score/result: one action on one match by a floor official. POST { pos, op, la?, lb?, side?, rv? } with
-// X-Score-Session. op: 'score' (la = legs of slot.a, lb = of slot.b), 'noShow' (side 'a'|'b'), 'void' (knockout
+// X-Score-Session. op: 'score' (la = legs of slot.a, lb = of slot.b), 'win' (knockout: side 'a'|'b' won, no legs), 'noShow' (side 'a'|'b'), 'void' (knockout
 // "Neither showed"), 'call' / 'uncall'.
 //   200 { ok:true, slot }
 //   409 { ok:false, code, slot }  taken (another official entered it) · changed_by_organiser · too_late (the 5 minutes
@@ -9,7 +9,7 @@
 // (not your board, link ended) are kept on the official's row for the organiser's panel ("Not sent").
 const { CORRECT_MS, bodyObject, methodNotAllowed, scoreSession, sendRefused, sendError, writeIfUnchanged, readEvent, slotView, engine, officials } = require('./common');
 
-const OPS = ['score', 'noShow', 'void', 'call', 'uncall'];
+const OPS = ['score', 'win', 'noShow', 'void', 'call', 'uncall'];
 
 /* Would this request leave the match exactly as it is stored now? (the same request sent twice) */
 function sameAsSent(e, t, slot, b) {

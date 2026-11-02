@@ -225,7 +225,7 @@ var KBP = (function(){
     var rounds = bracket.rounds.map(function(round, ri){
       return round.map(function(m, mi){
         var collapsed = ri===0 && !!m.bye && ((m.aEntryId?1:0)+(m.bEntryId?1:0))<=1;
-        var decided = !projected && !!m.winnerId && m.aLegs!=null && m.bLegs!=null && !m.bye;
+        var decided = !projected && !!m.winnerId && !m.bye;   // with legs, or a winner picked alone (score boxes left blank)
         var winSide = decided ? (m.winnerId===m.aEntryId ? 'a' : 'b') : null;
         function side(s){
           var id = m[s+'EntryId'];
