@@ -60,8 +60,9 @@ function engine() {
     legsFor: (t, slot) => run('(function(t, s){ return s.kind==="rr" ? (parseInt(t.format.bestOfLegs)||5) : legsForKnockoutRound(t, s.bracketKey, s.bracket.rounds.length, s.ri); })')(t, slot),
     roundInfo: (bracket, ri) => run('koRoundInfo')(bracket, ri),
     /* What the paper says about a match: round robin, its number in the sheet's printed match order and the chart
-       positions (posA = slot.a's, flip when the sheet prints slot.b first); knockout, its printed tag and board group. */
-    matchInfo: (t, slot) => run('(function(t, s){ if(s.kind==="rr"){ var ids = s.group.entryIds.filter(function(id){ return t.entriesList.some(function(e){ return e.id===id; }); }), ms = groupMatches(s.group), i = ms.findIndex(function(p){ return (p[0]===s.a && p[1]===s.b) || (p[0]===s.b && p[1]===s.a); }); return { matchNo: i+1, posA: ids.indexOf(s.a)+1, posB: ids.indexOf(s.b)+1, flip: i>=0 && ms[i][0]===s.b }; } return { matchNo: koMatchTag(s.bracket, t, s.ri, s.mi), boardGroup: s.pod ? 0 : bgGroupOf(s.bracket, s.ri, s.mi) }; })')(t, slot),
+       positions (posA = slot.a's; flip when slot.b holds the lower position: the lower one is always named first, as the
+       sheet prints it, owner 2026-11-02); knockout, its printed tag and board group. */
+    matchInfo: (t, slot) => run('(function(t, s){ if(s.kind==="rr"){ var ids = s.group.entryIds.filter(function(id){ return t.entriesList.some(function(e){ return e.id===id; }); }), ms = groupMatches(s.group), i = ms.findIndex(function(p){ return (p[0]===s.a && p[1]===s.b) || (p[0]===s.b && p[1]===s.a); }); var pa = ids.indexOf(s.a)+1, pb = ids.indexOf(s.b)+1; return { matchNo: i+1, posA: pa, posB: pb, flip: pa > 0 && pb > 0 && pb < pa }; } return { matchNo: koMatchTag(s.bracket, t, s.ri, s.mi), boardGroup: s.pod ? 0 : bgGroupOf(s.bracket, s.ri, s.mi) }; })')(t, slot),
     teamCap: (t, stage) => run('(function(t, st){ return isTeamsEvent(t) ? teamMatchCap(t, st) : null; })')(t, stage),
   };
 }

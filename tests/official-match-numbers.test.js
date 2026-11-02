@@ -61,11 +61,15 @@ test('round robin: each match carries its number in the printed match order and 
     assert.equal(s.info.matchNo, i + 1, 'listed in the printed order');
     const p = printed[i];
     assert.deepEqual([s.a, s.b].sort(), [p[0], p[1]].sort());
-    assert.equal(s.info.flip, p[0] === s.b, 'flip when the sheet names slot.b first');
+    assert.equal(s.info.flip, pos(s.b) < pos(s.a), 'flip when slot.b holds the lower position');
     const shown = s.info.flip ? [s.info.posB, s.info.posA] : [s.info.posA, s.info.posB];
-    assert.deepEqual(shown, [pos(p[0]), pos(p[1])], 'positions in the order the sheet prints');
+    assert.deepEqual(shown, [Math.min(pos(p[0]), pos(p[1])), Math.max(pos(p[0]), pos(p[1]))], 'the lower position first, as the sheet now prints it');
   });
-  assert.ok(slots.some((s) => s.info.flip), 'this group has a pair printed the other way round');
+  assert.ok(slots.some((s) => s.info.flip), 'this group has a pair whose lower position is slot.b');
+  const sheet = f('chartSheetHTML')(t.groups[0], true);
+  const pairs = [...sheet.matchAll(/<span>(\d+) v (\d+)<\/span>/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  assert.equal(pairs.length, 6, 'the six matches of the sheet');
+  pairs.forEach(([x, y]) => assert.ok(x < y, x + ' v ' + y + ': the lower position first'));
   Date.now = realNow;
 });
 

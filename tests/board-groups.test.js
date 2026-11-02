@@ -166,7 +166,7 @@ test('a refused result in the Floor officials panel names the match as the paper
   t.groups = [{ id: 'gA', label: 'A', entryIds: ['e003', 'e000', 'e005', 'e001'], boards: [1], confirmed: true, gameStarted: true, scores: {} }];
   const line = f('refusedText')(t, { pos: 'rr:gA:e000|e001', op: 'score', la: 3, lb: 1, reason: 'not_your_board' });
   const ms = plain(f('groupMatches')(t.groups[0])), i = ms.findIndex((p) => p.includes('e000') && p.includes('e001'));
-  const pa = t.groups[0].entryIds.indexOf(ms[i][0]) + 1, pb = t.groups[0].entryIds.indexOf(ms[i][1]) + 1;
+  const q1 = t.groups[0].entryIds.indexOf(ms[i][0]) + 1, q2 = t.groups[0].entryIds.indexOf(ms[i][1]) + 1, pa = Math.min(q1, q2), pb = Math.max(q1, q2);   // the lower position first
   assert.ok(line.startsWith('Group A Match ' + (i + 1) + ' (' + pa + ' v ' + pb + ') '), line);
   const ko = f('refusedText')(t, { pos: 'ko:knockout:0:1', op: 'win', side: 'a', reason: 'not_your_board' });
   assert.ok(ko.startsWith('Match 1-2 '), ko);

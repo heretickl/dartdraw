@@ -118,14 +118,21 @@
 
   /* ---------- screens ---------- */
   var main = function(){ return document.getElementById('main'); };
+  /* The top bar (owner, 2026-11-02): the event on the first line, beside the language switch (always whole on screen);
+     the official, their boards and the sending status under it, with when the list was last fetched. */
+  function hhmm(t){ return new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
   function header(){
     var ev = profile && profile.event, of = profile && profile.official;
-    document.getElementById('evLine').textContent = ev ? [ev.name, ev.eventName].filter(Boolean).join(' — ') + (of ? ' · ' + T('hello', { name: of.name, boards: (of.boards || []).join(', ') }) : '') : '';
+    var evEl = document.getElementById('evLine');
+    evEl.textContent = ev ? (ev.eventName || ev.name || 'DartDraw') : 'DartDraw';
+    evEl.title = ev ? [ev.name, ev.eventName].filter(Boolean).join(' — ') : '';
     var net = document.getElementById('netLine');
     var n = queue.length;
     net.className = 'net' + (offline || n ? ' warn' : '');
-    net.textContent = offline ? (n ? T('net.offline', { n: n }) : data && dataAt ? T('net.offlineList', { time: new Date(dataAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }) : T('net.offlineNone'))
-      : sending || n ? T('net.sending') : (data ? T('net.ok') : '');
+    var status = offline ? (n ? T('net.offline', { n: n }) : data && dataAt ? T('net.offlineList', { time: hhmm(dataAt) }) : T('net.offlineNone'))
+      : sending || n ? T('net.sending') : (data ? T('net.ok') + (dataAt ? ' · ' + T('updated', { time: hhmm(dataAt) }) : '') : '');
+    net.textContent = [of ? T('hello', { name: of.name, boards: (of.boards || []).join(', ') }) : '', status].filter(Boolean).join(' · ');
+    try{ var bar = document.getElementById('topBar'); if(bar && document.documentElement.style) document.documentElement.style.setProperty('--hh', bar.offsetHeight + 'px'); }catch(e){}
   }
   function render(){
     header();
@@ -136,8 +143,11 @@
         '<input class="pin" id="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="4" pattern="[0-9]*">' +
         '<div class="err" id="pinErr"></div><button class="btn" style="width:100%" id="pinGo">' + esc(T('pin.go')) + '</button></div>';
       var go = function(){ openWithPin(document.getElementById('pin').value); };
+      var pin = document.getElementById('pin');
       document.getElementById('pinGo').onclick = go;
-      document.getElementById('pin').onkeydown = function(e){ if(e.key === 'Enter') go(); };
+      pin.onkeydown = function(e){ if(e.key === 'Enter') go(); };
+      pin.oninput = function(){ pin.value = pin.value.replace(/\D/g, '').slice(0, 4); if(pin.value.length === 4) go(); };   // the 4th digit opens it
+      try{ pin.focus(); }catch(e){}
       return;
     }
     if(view === 'first'){
@@ -154,34 +164,66 @@
     html += notSentHTML();
     var list = slotsView();
     if(!list.length){ m.innerHTML = html + '<div class="card"><p class="hint">' + esc(T('none')) + '</p></div>'; return; }
+    /* One board at a time (owner, 2026-11-02): a button per board, each with how many matches it has to play; only the
+       chosen board's matches are shown. On it: "To play" (a called match first, then the rest in printed order: any of
+       them can be scored at any time), then the matches still waiting for their players, then "Done". */
     var boards = [];
     list.forEach(function(s){ if(boards.indexOf(s.board) < 0) boards.push(s.board); });
-    boards.forEach(function(b){
+    if(activeBoard == null || boards.map(String).indexOf(String(activeBoard)) < 0) activeBoard = String(boards[0]);
+    var toPlayCount = function(b){ return list.filter(function(s){ return s.board === b && (s.state === 'open' || s.state === 'called'); }).length; };
+    if(boards.length > 1) html += '<div class="tabs" id="tabs">' + boards.map(function(b){
+      var n = toPlayCount(b), on = String(b) === activeBoard;
+      return '<button type="button" class="tab" data-tab="' + esc(b) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(T('board', { b: b })) + (n ? ' <span class="cnt">' + n + '</span>' : '') + '</button>';
+    }).join('') + '</div>';
+    boards.filter(function(b){ return boards.length < 2 || String(b) === activeBoard; }).forEach(function(b){
       var mine = list.filter(function(s){ return s.board === b; });
-      var sec = function(title, rows){ return rows.length ? '<h3>' + esc(title) + '</h3>' + rows.map(rowHTML).join('') : ''; };
-      html += '<div class="card"><h2>' + esc(T('board', { b: b })) + '</h2>' +
-        sec(T('sec.called'), mine.filter(function(s){ return s.state === 'called'; })) +
-        sec(T('sec.next'), mine.filter(function(s){ return s.state === 'open'; })) +
-        sec(T('sec.waiting'), mine.filter(function(s){ return s.state === 'waiting'; })) +
-        sec(T('sec.done'), mine.filter(function(s){ return s.state === 'done'; })) + '</div>';
+      var toPlay = mine.filter(function(s){ return s.state === 'called'; }).concat(mine.filter(function(s){ return s.state === 'open'; }));
+      var sec = function(title, rows){ return rows.length ? '<div class="bh">' + esc(T('board', { b: b }) + ' · ' + title) + '</div>' + rows.map(rowHTML).join('') : ''; };
+      var parts = [[T('sec.toPlay'), toPlay], [T('sec.waiting'), mine.filter(function(s){ return s.state === 'waiting'; })], [T('sec.done'), mine.filter(function(s){ return s.state === 'done'; })]].filter(function(p){ return p[1].length; });
+      /* nothing called on this board: the first match to play is marked Next (a guide on this phone only; nothing is announced) */
+      nextPos = toPlay.length && toPlay[0].state !== 'called' ? toPlay[0].pos : null;
+      html += parts.map(function(p){ return sec(p[0], p[1]); }).join('');
     });
     m.innerHTML = html;
-    Array.prototype.forEach.call(m.querySelectorAll('[data-pos]'), function(btn){ btn.onclick = function(){ openForm(btn.getAttribute('data-pos')); }; });
+    Array.prototype.forEach.call(m.querySelectorAll('[data-pos]'), function(btn){ btn.onclick = function(e){ if(e && e.stopPropagation) e.stopPropagation(); openForm(btn.getAttribute('data-pos')); }; });
+    var tabs = document.getElementById('tabs');
+    if(tabs){
+      try{ document.documentElement.style.setProperty('--th', tabs.offsetHeight + 'px'); }catch(e){}
+      Array.prototype.forEach.call(tabs.querySelectorAll('[data-tab]'), function(t){ t.onclick = function(){ showBoard(t.getAttribute('data-tab')); }; });
+    } else { try{ document.documentElement.style.setProperty('--th', '0px'); }catch(e){} }
     var d = document.getElementById('dismissNotSent');
     if(d) d.onclick = function(){ notSent = []; saveQueue(); render(); };
   }
+  /* One match: the paper's line as a tag, the two names stacked with "v" between (in the paper's order). A match to play
+     is one big button; the called one is highlighted and the only blue "Enter". A done match says who won. */
   function rowHTML(s){
-    var who = whoText(s, esc);
-    var meta = esc(where(s));
-    var right = '';
+    var o = sides(s), tag = '<span class="ptag">' + esc(where(s)) + '</span>';
+    var names2 = '<div class="nm">' + esc(names(s[o[0]])) + '</div><div class="vs">' + esc(T('v')) + '</div><div class="nm">' + esc(names(s[o[1]])) + '</div>';
     if(s.state === 'done'){
       var by = s.pending ? '<span class="pending">' + esc(T('pending')) + '</span>' : esc(T('by.' + (s.by || 'o')));
-      right = '<div style="text-align:right"><div class="res">' + esc(resultText(s)) + '</div><div class="meta">' + by + '</div>' +
-        (view !== 'ended' && !s.pending && s.canCorrect && s.at && Date.now() - s.at < CORRECT_MS ? '<button class="btn ghost" style="margin-top:4px" data-pos="' + esc(s.pos) + '">' + esc(T('correct', { time: mmss(CORRECT_MS - (Date.now() - s.at)) })) + '</button>' : '') + '</div>';
-    } else if(s.state !== 'waiting' && view !== 'ended'){
-      right = '<button class="btn" data-pos="' + esc(s.pos) + '">' + esc(T('enter')) + '</button>';
+      var fix = view !== 'ended' && !s.pending && s.canCorrect && s.at && Date.now() - s.at < CORRECT_MS
+        ? '<button class="btn ghost" data-pos="' + esc(s.pos) + '">' + esc(T('correct', { time: mmss(CORRECT_MS - (Date.now() - s.at)) })) + '</button>' : '';
+      return '<div class="mrow done"><div class="tx">' + tag + names2 + '<div class="won">' + esc(doneText(s)) + '</div><div class="meta">' + by + '</div></div>' + (fix ? '<div class="side">' + fix + '</div>' : '') + '</div>';
     }
-    return '<div class="row"><div><div class="who">' + who + '</div><div class="meta">' + meta + (s.state === 'called' ? ' · <span class="called">' + esc(T('sec.called')) + '</span>' : '') + '</div></div>' + right + '</div>';
+    if(s.state === 'waiting' || view === 'ended') return '<div class="mrow wait"><div class="tx">' + tag + names2 + '</div></div>';
+    var called = s.state === 'called', next = !called && s.pos === nextPos;
+    return '<button type="button" class="mrow' + (called ? ' called' : next ? ' next' : '') + '" data-pos="' + esc(s.pos) + '"><span class="tx">' + tag + names2 +
+      (called ? '<div class="callmark">' + esc(T('sec.called')) + '</div>' : next ? '<div class="nextmark">' + esc(T('sec.nextUp')) + '</div>' : '') + '</span>' +
+      (called || next ? '<span class="go">' + esc(T('enterShort')) + '</span>' : '<span class="chev" aria-hidden="true">›</span>') + '</button>';
+  }
+  /* "XXX won 3–1" (the winner's legs first), "Ali won" (winner only), or as resultText for the rest */
+  function doneText(s){
+    var r = s.result; if(!r) return '';
+    var a = s.kind === 'rr' ? r.legs1 : r.aLegs, b = s.kind === 'rr' ? r.legs2 : r.bLegs;
+    if(r.void || r.noShowSide || a == null || b == null || Number(a) === Number(b)) return resultText(s);
+    var w = Number(a) > Number(b) ? s.a : s.b;
+    return T('wonScore', { name: names(w), w: Math.max(Number(a), Number(b)), l: Math.min(Number(a), Number(b)) }) + (r.wo ? ' (' + T('wo') + ')' : '');
+  }
+  /* a board button shows that board's matches only, from the top */
+  function showBoard(b){
+    activeBoard = String(b);
+    render();
+    try{ window.scrollTo(0, 0); }catch(e){}
   }
   function notSentHTML(){
     if(!notSent.length) return '';
@@ -192,7 +234,22 @@
 
   /* ---------- the score form ---------- */
   function slotOf(pos){ return slotsView().find(function(s){ return s.pos === pos; }) || null; }
-  function closeSheet(){ document.getElementById('sheet').hidden = true; }
+  /* The sheet closes with its ✕, a tap outside it, Escape, or the phone's back gesture (opening it adds a step to the
+     browser history, which Back takes away again). */
+  var sheetInHistory = false;
+  function closeSheet(fromBack){
+    fromBack = fromBack === true;
+    var sh = document.getElementById('sheet');
+    if(sh) sh.hidden = true;
+    if(sheetInHistory && !fromBack){ sheetInHistory = false; try{ history.back(); }catch(e){} }
+    else if(fromBack) sheetInHistory = false;
+  }
+  function showSheet(){
+    var sh = document.getElementById('sheet');
+    if(!sh) return;
+    if(sh.hidden && !sheetInHistory){ try{ history.pushState({ ddSheet: 1 }, ''); sheetInHistory = true; }catch(e){} }
+    sh.hidden = false;
+  }
   /* The result form (owner, 2026-11-02): no keyboard. Every valid result is a big button under the player who won, in the
      paper's order (best of 5: 3–0, 3–1, 3–2; a knockout also "Winner only"); a tap opens a check screen that says the
      result in words, then Save result. Teams totals run up to the cap: a – / + counter per team, then the same check.
@@ -209,14 +266,19 @@
     var curKey = va != null && vb != null && va !== vb ? (va > vb ? 'a' : 'b') + ':' + Math.min(va, vb)
       : ko && cur.winnerId ? (cur.winnerId === s.a ? 'a' : 'b') + ':win' : '';
     var count = { a: va != null ? va : 0, b: vb != null ? vb : 0 };   // Teams counters
-    var head = function(){ return '<h2>' + whoText(s, esc) + '</h2><div class="meta">' + esc(where(s)) + '</div>'; };
+    var info = s.info || {}, chartPos = { a: info.posA, b: info.posB };   // not 'pos': that is the match
+    /* the chart position, as on the paper; a knockout match has none: A and B, so the two rows never differ by colour alone */
+    var badge = function(sd){ return '<span class="bd">' + (chartPos[sd] > 0 ? esc(chartPos[sd]) : (sd === order[0] ? 'A' : 'B')) + '</span>'; };
+    var head = function(){ return '<div class="shead"><div class="tx"><span class="ptag">' + esc(where(s)) + '</span><h2>' + whoText(s, esc) + '</h2></div>' +
+      '<button type="button" class="x" id="fClose" aria-label="' + esc(T('close')) + '">✕</button></div>'; };
+    /* walkover, "Neither showed" and the call: folded under More options, so a score is not missed for one of them */
     var others = function(){
-      return '<div class="stack">' + (s.state === 'done' ? '' :
-        '<button class="btn ghost" id="fNsA">' + esc(T('form.noShow', { name: nm('a') })) + '</button>' +
-        '<button class="btn ghost" id="fNsB">' + esc(T('form.noShow', { name: nm('b') })) + '</button>' +
+      if(s.state === 'done') return '';
+      return '<button type="button" class="more" id="fMore" aria-expanded="false">' + esc(T('more')) + ' ▾</button><div class="stack" id="fMoreBox" hidden>' +
+        '<button class="btn ghost" id="fNsA">' + esc(T('form.noShow', { name: nm(order[0]) })) + '</button>' +
+        '<button class="btn ghost" id="fNsB">' + esc(T('form.noShow', { name: nm(order[1]) })) + '</button>' +
         (ko ? '<button class="btn ghost" id="fVoid">' + esc(T('form.void')) + '</button>' +
-          '<button class="btn ghost" id="fCall">' + esc(T(s.state === 'called' ? 'form.uncall' : 'form.call')) + '</button>' : '')) +
-        '<button class="btn ghost" id="fCancel">' + esc(T('form.cancel')) + '</button></div>';
+          '<button class="btn ghost" id="fCall">' + esc(T(s.state === 'called' ? 'form.uncall' : 'form.call')) + '</button>' : '') + '</div>';
     };
     var err = function(t){ var e = document.getElementById('formErr'); if(e) e.textContent = t; };
     function pickView(){
@@ -226,11 +288,11 @@
           var btns = '';
           for(var l = 0; l < majority; l++) btns += '<button class="btn ghost sc' + (curKey === sd + ':' + l ? ' on' : '') + '" data-k="' + sd + ':' + l + '">' + majority + '–' + l + '</button>';
           if(ko) btns += '<button class="btn ghost sc wo' + (curKey === sd + ':win' ? ' on' : '') + '" data-k="' + sd + ':win">' + esc(T('form.winOnly')) + '</button>';
-          return '<div class="pick"><h3>' + esc(T('won', { name: nm(sd) })) + '</h3><div class="scores">' + btns + '</div></div>';
+          return '<div class="pick p' + (sd === order[0] ? 1 : 2) + '"><h3>' + badge(sd) + '<span>' + esc(T('won', { name: nm(sd) })) + '</span></h3><div class="scores">' + btns + '</div></div>';
         }).join('');
       } else {
         body = order.map(function(sd){
-          return '<div class="ctr"><span class="ctr-n">' + esc(nm(sd)) + '</span><button class="btn ghost" data-c="' + sd + ':-1" aria-label="−1">−</button><b id="ct_' + sd + '">' + count[sd] + '</b><button class="btn ghost" data-c="' + sd + ':1" aria-label="+1">+</button></div>';
+          return '<div class="ctr"><span class="ctr-n">' + badge(sd) + ' ' + esc(nm(sd)) + '</span><button class="btn ghost" data-c="' + sd + ':-1" aria-label="−1">−</button><b id="ct_' + sd + '">' + count[sd] + '</b><button class="btn ghost" data-c="' + sd + ':1" aria-label="+1">+</button></div>';
         }).join('') + '<p class="hint">' + esc(T('form.hintTeams', { cap: cap })) + '</p><div class="stack"><button class="btn" id="fNext">' + esc(T('form.next')) + '</button></div>';
       }
       box.innerHTML = head() + body + '<div class="err" id="formErr"></div>' + others();
@@ -267,14 +329,17 @@
         '<div class="stack"><button class="btn" id="cSave">' + esc(T('form.saveResult')) + '</button><button class="btn ghost" id="cBack">' + esc(T('form.change')) + '</button></div>';
       document.getElementById('cSave').onclick = function(){ add(item); closeSheet(); };
       document.getElementById('cBack').onclick = pickView;
+      document.getElementById('fClose').onclick = function(){ closeSheet(); };
     }
     var confirmThen = function(text, item){
       box.innerHTML = '<h2>' + whoText(s, esc) + '</h2><p>' + esc(text) + '</p><div class="stack"><button class="btn" id="cYes">' + esc(T('confirm.yes')) + '</button><button class="btn ghost" id="cNo">' + esc(T('form.cancel')) + '</button></div>';
       document.getElementById('cYes').onclick = function(){ add(item); closeSheet(); };
-      document.getElementById('cNo').onclick = closeSheet;
+      document.getElementById('cNo').onclick = function(){ closeSheet(); };   // not closeSheet itself: the click would arrive as fromBack
     };
     function wireOthers(){
-      document.getElementById('fCancel').onclick = closeSheet;
+      document.getElementById('fClose').onclick = function(){ closeSheet(); };
+      var more = document.getElementById('fMore'), mb = document.getElementById('fMoreBox');
+      if(more && mb) more.onclick = function(){ var open = mb.hidden; mb.hidden = !open; more.setAttribute('aria-expanded', open ? 'true' : 'false'); more.textContent = T('more') + (open ? ' ▴' : ' ▾'); };
       var nsA = document.getElementById('fNsA'), nsB = document.getElementById('fNsB'), vd = document.getElementById('fVoid'), cl = document.getElementById('fCall');
       if(nsA) nsA.onclick = function(){ confirmThen(T('confirm.noShow', { name: nm('a'), other: nm('b') }), { pos: pos, op: 'noShow', side: 'a', rv: s.rv || 0 }); };
       if(nsB) nsB.onclick = function(){ confirmThen(T('confirm.noShow', { name: nm('b'), other: nm('a') }), { pos: pos, op: 'noShow', side: 'b', rv: s.rv || 0 }); };
@@ -282,7 +347,7 @@
       if(cl) cl.onclick = function(){ add({ pos: pos, op: s.state === 'called' ? 'uncall' : 'call', rv: s.rv || 0 }); closeSheet(); };
     }
     pickView();
-    document.getElementById('sheet').hidden = false;
+    showSheet();
   }
 
   /* ---------- queue and sending ---------- */
@@ -353,17 +418,29 @@
       return true;
     }, function(){ render(); return false; });
   }
+  /* one PIN check at a time: the 4th digit, Go and Enter may all fire, and every check counts towards the lockout */
+  var pinBusy = false;
   function openWithPin(pin){
+    if(pinBusy) return;
+    pinBusy = true;
     var e = document.getElementById('pinErr');
     call('POST', '/api/score/open', { token: TOKEN, pin: String(pin || '').trim() }).then(function(r){
+      pinBusy = false;
       if(r.ok){ profile = { session: r.body.session, event: r.body.event, official: r.body.official, endsAt: r.body.endsAt }; saveProfile(); view = 'list'; refresh(); return; }
       if(r.status === 410){ view = 'ended'; endedReason = r.body.code || r.body.reason; render(); return; }
       if(r.status === 404){ view = 'unknown'; render(); return; }
       if(e) e.textContent = T(r.status === 429 ? 'pin.many' : 'pin.bad');
-    }, function(){ if(e) e.textContent = T('first.text'); render(); });
+      var pb = document.getElementById('pin'); if(pb){ pb.value = ''; try{ pb.focus(); }catch(x){} }   // ready for the next try
+    }, function(){ pinBusy = false; if(e) e.textContent = T('first.text'); render(); });
   }
+  var activeBoard = null, nextPos = null;
   function boot(){
     startLang();
+    var sh = document.getElementById('sheet');
+    if(sh) sh.onclick = function(e){ if(e && e.target === sh) closeSheet(); };
+    try{ window.addEventListener('popstate', function(){ var x = document.getElementById('sheet'); if(x && !x.hidden) closeSheet(true); else sheetInHistory = false; }); }catch(e){}
+    try{ document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ var x = document.getElementById('sheet'); if(x && !x.hidden) closeSheet(); } }); }catch(e){}
+
     if(!TOKEN){ view = 'unknown'; render(); return; }
     try{ if(navigator.serviceWorker && navigator.serviceWorker.register) navigator.serviceWorker.register('/sw.js', { scope: '/score/' }).catch(function(){}); }catch(e){}
     try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){}); }catch(e){}

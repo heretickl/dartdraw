@@ -30,15 +30,17 @@ function phone(data) {
   const ctx = { window: {}, document: { getElementById: el, documentElement: {}, querySelectorAll: () => [], addEventListener() {}, visibilityState: 'visible' },
     localStorage: { getItem: () => null, setItem() {} }, location: { pathname: '/score/x', search: '' }, navigator: {},
     setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, fetch: () => new Promise(() => {}), Promise, Date, Math, JSON, Object, Array, String, Number,
-    DDOffline: new Proxy({}, { get: () => () => Promise.resolve(null) }) };
+    DDOffline: new Proxy({}, { get: () => () => Promise.resolve(null) }),
+    history: { depth: 0, state: null, pushState(st) { this.depth++; this.state = st; }, back() { this.depth--; this.state = null; } } };
+  const fetches = []; ctx.fetch = (url) => { fetches.push(String(url)); return new Promise(() => {}); };
   ctx.window.window = ctx.window; ctx.window.__DD_SCORE_NO_BOOT = true; vm.createContext(ctx);
   const src = fs.readFileSync(require.resolve('../score.js'), 'utf8')
-    .replace("if(typeof window !== 'undefined') window.__ddScore = {", "if(typeof window !== 'undefined') window.__ddScore = { openForm: openForm, setData: function(d){ data = d; view = 'list'; },");
+    .replace("if(typeof window !== 'undefined') window.__ddScore = {", "if(typeof window !== 'undefined') window.__ddScore = { openForm: openForm, render: render, showBoard: showBoard, setView: function(v){ view = v; }, setData: function(d){ data = d; view = 'list'; },");
   vm.runInContext(fs.readFileSync(require.resolve('../i18n/score.en.js'), 'utf8'), ctx); vm.runInContext(src, ctx);
   const S = ctx.window.__ddScore; S.setData(data);
   const box = el('sheetBox');
   return {
-    S, box, el,
+    S, box, el, ctx, fetches,
     tap(kind, key) { const b = box._kids[kind + ':' + key]; assert.ok(b, 'button ' + kind + ':' + key + ' in ' + Object.keys(box._kids)); b.onclick(); },
     click(id) { assert.ok(el(id).onclick, id + ' has a handler'); el(id).onclick(); },
     keys(kind) { return Object.keys(box._kids).filter((k) => k.startsWith(kind + ':')).map((k) => k.slice(kind.length + 1)); },
@@ -52,7 +54,7 @@ test('phone: each valid result is a button under the player who won, in the pape
   const P = phone({ entries: names, format: { competitionUnit: 'Singles' }, slots: [rrSlot()] });
   P.S.openForm('rr:gA:e0|e3');
   assert.deepEqual(P.keys('k'), ['b:0', 'b:1', 'b:2', 'a:0', 'a:1', 'a:2'], 'Abu (printed first) first, then Ali');
-  assert.match(P.box.innerHTML, /<h3>Abu won<\/h3>[\s\S]*<h3>Ali won<\/h3>/);
+  assert.match(P.box.innerHTML, /<span>Abu won<\/span>[\s\S]*<span>Ali won<\/span>/);
   assert.doesNotMatch(P.box.innerHTML, /<input/, 'no keyboard');
   P.tap('k', 'b:1');
   assert.match(P.box.innerHTML, /Check, then save/);
@@ -60,7 +62,7 @@ test('phone: each valid result is a button under the player who won, in the pape
   assert.match(P.box.innerHTML, /Abu beat Ali/);
   P.click('cSave');
   const q = P.last();
-  assert.equal(q.op, 'score'); assert.equal(q.la, 1, 'la is slot.a’s (Ali’s) legs'); assert.equal(q.lb, 3);
+  assert.equal(q.pos, 'rr:gA:e0|e3', 'sent for this match'); assert.equal(q.op, 'score'); assert.equal(q.la, 1, 'la is slot.a’s (Ali’s) legs'); assert.equal(q.lb, 3);
 });
 
 test('phone: Change goes back to the buttons; the buttons follow the round’s best-of; a saved result shows lit', () => {
@@ -82,7 +84,7 @@ test('phone: a knockout match offers Winner only, which sends the winner alone; 
   P.tap('k', 'a:win');
   assert.match(P.box.innerHTML, /<p class="big">Ali won<\/p>/);
   P.click('cSave');
-  const q = P.last(); assert.equal(q.op, 'win'); assert.equal(q.side, 'a');
+  const q = P.last(); assert.equal(q.pos, 'ko:knockout:0:0'); assert.equal(q.op, 'win'); assert.equal(q.side, 'a');
 });
 
 test('phone, Teams: a – / + counter per team (0 to the cap), Next checks the totals, then the same check screen', () => {
@@ -99,7 +101,7 @@ test('phone, Teams: a – / + counter per team (0 to the cap), Next checks the t
   P.click('fNext');
   assert.match(P.box.innerHTML, /<p class="big">Ipoh Arrows 9–2<\/p>/);
   P.click('cSave');
-  const q = P.last(); assert.equal(q.la, 9); assert.equal(q.lb, 2);
+  const q = P.last(); assert.equal(q.pos, 'rr:gA:t0|t1'); assert.equal(q.la, 9); assert.equal(q.lb, 2);
 });
 
 /* ---------- the organiser's result boxes ---------- */
@@ -196,4 +198,74 @@ test('every new word is there in English and Bahasa Malaysia', () => {
   ['form.pickHint', 'form.winOnly', 'form.check', 'form.line', 'form.beat', 'form.level', 'form.saveResult', 'form.change', 'form.next'].forEach((k) => {
     assert.ok(read('i18n/score.en.js').includes("'" + k + "'"), k); assert.ok(read('i18n/score.ms.js').includes("'" + k + "'"), 'ms ' + k);
   });
+});
+
+test('phone: More options holds the no-shows and the call, each sent for this match; the sheet has a close button and position badges', () => {
+  const P = phone({ entries: names, format: { competitionUnit: 'Singles' }, slots: [{ pos: 'ko:knockout:0:0', kind: 'ko', a: 'e0', b: 'e3', board: 1, state: 'open', legs: 5, rv: 0, info: { matchNo: '1-1' } }, rrSlot()] });
+  P.S.openForm('rr:gA:e0|e3');
+  assert.match(P.box.innerHTML, /id="fClose"/);
+  assert.match(P.box.innerHTML, /<span class="bd">1<\/span><span>Abu won<\/span>[\s\S]*<span class="bd">2<\/span><span>Ali won<\/span>/, 'the chart positions, as on the paper');
+  assert.match(P.box.innerHTML, /id="fMoreBox" hidden/);
+  P.S.openForm('ko:knockout:0:0');
+  P.click('fCall');
+  const q = P.last(); assert.equal(q.pos, 'ko:knockout:0:0'); assert.equal(q.op, 'call');
+});
+
+test('phone: one board at a time, a button per board with its count to play; only the chosen board’s matches show', () => {
+  const s1 = rrSlot({ pos: 'rr:gA:1', board: 1 }), s2 = rrSlot({ pos: 'rr:gA:2', board: 1, state: 'done', result: { legs1: 3, legs2: 0 } }), s3 = rrSlot({ pos: 'rr:gB:1', board: 2 }), s4 = rrSlot({ pos: 'rr:gB:2', board: 2, state: 'called' });
+  const P = phone({ entries: names, format: { competitionUnit: 'Singles' }, slots: [s1, s2, s3, s4] });
+  const main = P.el('main');
+  P.S.render();
+  assert.match(main.innerHTML, /data-tab="1" aria-pressed="true">Board 1 <span class="cnt">1<\/span>/);
+  assert.match(main.innerHTML, /data-tab="2" aria-pressed="false">Board 2 <span class="cnt">2<\/span>/);
+  assert.ok(main.innerHTML.includes('data-pos="rr:gA:1"') && !main.innerHTML.includes('data-pos="rr:gB:1"'), 'board 1 only');
+  P.S.showBoard('2');
+  assert.ok(main.innerHTML.includes('data-pos="rr:gB:1"') && !main.innerHTML.includes('data-pos="rr:gA:1"'), 'board 2 only');
+  assert.ok(main.innerHTML.indexOf('rr:gB:2') < main.innerHTML.indexOf('rr:gB:1'), 'the called match first');
+  P.S.render();
+  assert.match(main.innerHTML, /data-tab="2" aria-pressed="true"/, 'a refresh keeps the board');
+});
+
+test('phone: with nothing called, the first match to play is marked Next (and moves on); a called match takes its place', () => {
+  const a = rrSlot({ pos: 'rr:gA:1', board: 1 }), b = rrSlot({ pos: 'rr:gA:2', board: 1 }), c = rrSlot({ pos: 'rr:gA:3', board: 1 });
+  const P = phone({ entries: names, format: { competitionUnit: 'Singles' }, slots: [a, b, c] }), main = P.el('main');
+  P.S.render();
+  assert.match(main.innerHTML, /class="mrow next" data-pos="rr:gA:1"/);
+  assert.equal((main.innerHTML.match(/class="go"/g) || []).length, 1, 'one Enter button');
+  a.state = 'done'; a.result = { legs1: 3, legs2: 0 }; P.S.render();
+  assert.match(main.innerHTML, /class="mrow next" data-pos="rr:gA:2"/, 'Next moves on after a result');
+  c.state = 'called'; P.S.render();
+  assert.match(main.innerHTML, /class="mrow called" data-pos="rr:gA:3"/);
+  assert.doesNotMatch(main.innerHTML, /mrow next/, 'a call wins over Next');
+});
+
+test('phone: knockout badges read A and B (never colour alone); the page has a dark theme the browser will use', () => {
+  const P = phone({ entries: names, format: { competitionUnit: 'Singles' }, slots: [{ pos: 'ko:knockout:0:0', kind: 'ko', a: 'e0', b: 'e3', board: 1, state: 'open', legs: 5, rv: 0, info: { matchNo: '1-1' } }] });
+  P.S.openForm('ko:knockout:0:0');
+  assert.match(P.box.innerHTML, /<span class="bd">A<\/span><span>Ali won<\/span>[\s\S]*<span class="bd">B<\/span><span>Abu won<\/span>/);
+  const html = fs.readFileSync(require.resolve('../score.html'), 'utf8');
+  assert.match(html, /<meta name="color-scheme" content="light dark">/);
+  assert.match(html, /@media \(prefers-color-scheme: dark\)\{:root\{/);
+  const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+  const rules = css.replace(/:root\{[^}]*\}/g, '').replace(/@media[^{]*\{:root\{[^}]*\}\}/g, '');
+  assert.deepEqual((rules.match(/#[0-9a-fA-F]{3,6}\b/g) || []).filter((c) => !['#fff', '#3b536f', '#cbd8e6', '#ffd27a'].includes(c)), [], 'every colour outside the header is a token');
+});
+
+test('review: Cancel on a no-show confirmation takes the sheet’s Back step away again (one Back press then leaves the list, not two)', () => {
+  const P = phone({ entries: names, format: { competitionUnit: 'Singles' }, slots: [rrSlot()] });
+  P.el('sheet').hidden = true;   // as the page starts
+  P.S.openForm('rr:gA:e0|e3');
+  assert.equal(P.ctx.history.depth, 1, 'opening the sheet adds one Back step');
+  P.click('fNsA'); P.el('cNo').onclick({ type: 'click' });
+  assert.equal(P.ctx.history.depth, 0, 'Cancel removed it');
+  P.S.openForm('rr:gA:e0|e3'); P.click('fClose');
+  assert.equal(P.ctx.history.depth, 0, 'the close button too');
+});
+
+test('review: the PIN is sent once, however many times the 4th digit, Go or Enter fire while it is being checked', () => {
+  const P = phone({ entries: names, format: { competitionUnit: 'Singles' }, slots: [] });
+  P.S.setView('pin'); P.S.render();
+  const pin = P.el('pin'); pin.value = '1234';
+  pin.oninput(); pin.oninput(); pin.onkeydown({ key: 'Enter' }); P.el('pinGo').onclick();
+  assert.equal(P.fetches.filter((u) => u.includes('/api/score/open')).length, 1);
 });

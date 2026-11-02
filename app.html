@@ -7247,7 +7247,8 @@ function chartSheetHTML(g, forPrint){
     const boardNote = g.boards.length>1 ? T('sheet.bd', {n: matchBoardFor(g,i)}) : '';
     const markerIdx = markers[i] ? entries.findIndex(x=>x.id===markers[i])+1 : null;
     const markerNote = markerIdx ? T('sheet.marker', {n: markerIdx}) : '';
-    return '<div class="match">'+T('sheet.match', {i: i+1, bd: boardNote, a: ai, b: bi, marker: markerNote})+'</div>';
+    /* the lower position first, always (owner, 2026-11-02): "2 v 4", never "4 v 2" */
+    return '<div class="match">'+T('sheet.match', {i: i+1, bd: boardNote, a: Math.min(ai, bi), b: Math.max(ai, bi), marker: markerNote})+'</div>';
   }).join('');
   const scheduleCols = Math.min(6, matches.length)||1;
   const qrBlock = printQrBlockHTML(t, 'groups/'+encodeURIComponent(g.label));
@@ -8233,7 +8234,8 @@ function refusedText(t, r){
   let paper = '';
   if(slot && slot.kind==='rr'){
     const ids = slot.group.entryIds, ms = groupMatches(slot.group), i = ms.findIndex(p=> (p[0]===slot.a && p[1]===slot.b) || (p[0]===slot.b && p[1]===slot.a));
-    if(i>=0) paper = T('fo.paperRR', {g: slot.group.label, n: i+1, a: ids.indexOf(ms[i][0])+1, b: ids.indexOf(ms[i][1])+1})+' ';
+    const p1 = ids.indexOf(ms[i] ? ms[i][0] : null)+1, p2 = ids.indexOf(ms[i] ? ms[i][1] : null)+1;   // the lower position first, as on the sheet
+    if(i>=0) paper = T('fo.paperRR', {g: slot.group.label, n: i+1, a: Math.min(p1, p2), b: Math.max(p1, p2)})+' ';
   } else if(slot) paper = T('fo.paperKO', {n: koMatchTag(slot.bracket, t, slot.ri, slot.mi)})+' ';
   const who = slot ? paper+nm(slot.a)+' v '+nm(slot.b) : r.pos;
   const what = r.op==='score' ? (slot && slot.kind==='rr' ? '' : '')+r.la+'–'+r.lb
