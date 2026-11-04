@@ -42,15 +42,20 @@ function effectiveTurns(turns) {
   return turns.filter((t) => !replaced[t.id]);
 }
 
-/* The last LAST_TURNS counting turns of a match (the ones a spectator's live page lists), oldest first: [{ leg, side, score, left }].
+/* The last LAST_TURNS counting turns of a match (the ones a spectator's live page lists), in play order (a correction stays where the turn it replaced was), oldest first: [{ leg, side, score, left }].
    score = what the turn scored (0 for a bust), left = the x01 score its side has left after it (annotateTurns: null for Cricket or
    when the leg's start score is unknown). A turn a later counting turn corrects is replaced by the correction. turns: the
    non-ignored turns, oldest first. */
 const LAST_TURNS = 6;
 function lastTurns(turns, startFor) {
   const noStart = () => null;
+  const root = chainsOf(turns).root;
+  // keyed order is not play order once a turn is corrected: a correction keeps the place of the turn it replaces (its chain root)
   return annotateTurns(turns, typeof startFor === 'function' ? startFor : noStart)
-    .filter((t) => t.current && t.entered)
+    .map((t, i) => ({ t, i }))
+    .filter((x) => x.t.current && x.t.entered)
+    .sort((p, q) => ((root[p.t.id] - root[q.t.id]) || (p.i - q.i)))
+    .map((x) => x.t)
     .slice(-LAST_TURNS)
     .map((t) => ({ leg: t.leg, side: t.side === 'b' ? 'b' : 'a', score: t.entered.bust ? 0 : (Number(t.entered.score) || 0), left: t.left }));
 }
