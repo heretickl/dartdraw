@@ -5,9 +5,12 @@
 //   409 { ok:false, code, slot }  taken (another official entered it) · changed_by_organiser · too_late (the 5 minutes
 //                                 are over) · later_played (a correction would clear results already played further on)
 //   403 not_your_board · 410 link_* · 400 invalid · 401 no_session · 503 busy
+//   On a Live event (device scoring): a match a tablet is scoring takes no score or winner from an official (409 on_tablet); the
+//   rest (call, no show, Neither showed, a correction of the official's own result) works as always.
 // The organiser's result always stands: a match the organiser has entered (by 'o') is never changed here. Refusals
 // (not your board, link ended) are kept on the official's row for the organiser's panel ("Not sent").
-const { CORRECT_MS, bodyObject, methodNotAllowed, scoreSession, sendRefused, sendError, writeIfUnchanged, readEvent, slotView, engine, officials } = require('./common');
+const { CORRECT_MS, bodyObject, methodNotAllowed, scoreSession, sendRefused, sendError, writeIfUnchanged, readEvent, slotView, liveRowsOf, engine, officials } = require('./common');
+const LiveBoards = require('../../../live-boards');
 
 const OPS = ['score', 'win', 'noShow', 'void', 'call', 'uncall'];
 
@@ -35,6 +38,8 @@ module.exports = async (req, res) => {
     const refuse = async (reason) => { if (found.official) await officials.recordRefusal(found.official.id, { pos: String(b.pos).slice(0, 80), op: b.op, la: legs(b.la), lb: legs(b.lb), side: b.side === 'b' ? 'b' : 'a', reason }); };
     if (found.refused) { await refuse(found.refused); sendRefused(res, found.refused); return; }
     const e = engine(), me = found.official.id, boards = found.official.boards;
+    const live = await liveRowsOf(found.tournament.data, found.tournament.id);   // null on a Manual event: nothing changes for it
+    const view = (t, s, now) => slotView(e, t, s, me, now, live ? (live[s.pos] || null) : undefined);
     let row = found.tournament;
     for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) {
@@ -47,17 +52,18 @@ module.exports = async (req, res) => {
       if (!slot) { res.status(409).json({ ok: false, code: 'missing', error: 'This match is no longer in the event.' }); return; }
       if (!slot.boards.some((x) => boards.indexOf(Number(x)) >= 0)) {
         await refuse('not_your_board');
-        res.status(403).json({ ok: false, code: 'not_your_board', error: 'This match is not on your boards any more.', slot: e.plain(slotView(e, t, slot, me, now)) });
+        res.status(403).json({ ok: false, code: 'not_your_board', error: 'This match is not on your boards any more.', slot: e.plain(view(t, slot, now)) });
         return;
       }
       const cur = slot.get();
       const decided = slot.kind === 'rr' ? !!cur : !!(slot.m.winnerId || slot.m.void || slot.m.bye);
-      const answer = (code, status) => res.status(status || 409).json({ ok: false, code, slot: e.plain(slotView(e, t, slot, me, now)) });
+      const answer = (code, status) => res.status(status || 409).json({ ok: false, code, slot: e.plain(view(t, slot, now)) });
+      if (live && !decided && (b.op === 'score' || b.op === 'win') && LiveBoards.heldBy(live[b.pos] || null)) { answer('on_tablet'); return; }
       if (b.op === 'call' || b.op === 'uncall') {
         if (slot.kind !== 'ko' || decided || !slot.open) { answer(decided ? 'taken' : 'invalid', decided ? 409 : 400); return; }
       } else if (decided && cur && cur.by === me && sameAsSent(e, t, slot, b)) {
         /* Sent again after its answer was lost (it got through the first time): it is saved; say so. */
-        res.status(200).json({ ok: true, rev: row.updated_at, slot: e.plain(slotView(e, t, slot, me, now)) });
+        res.status(200).json({ ok: true, rev: row.updated_at, slot: e.plain(view(t, slot, now)) });
         return;
       } else if (decided) {
         /* A correction: only the official's own result, within the 5 minutes, and only if nobody changed it since. */
@@ -78,7 +84,7 @@ module.exports = async (req, res) => {
       if (!stamp) continue;   // someone saved meanwhile: read again and re-check everything
       await officials.touch(me, true);
       const after = e.resultSlots(t).find((s) => s.pos === b.pos);
-      res.status(200).json({ ok: true, rev: stamp, slot: e.plain(slotView(e, t, after, me, now)) });
+      res.status(200).json({ ok: true, rev: stamp, slot: e.plain(view(t, after, now)) });
       return;
     }
     res.status(503).json({ ok: false, code: 'busy', error: 'The event is busy. Trying again.' });

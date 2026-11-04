@@ -5,6 +5,8 @@
 //   const db = createFakeLiveDb({ tournaments });   // tournaments: { id: { data, updated_at, created_by } } (shared ok)
 //   db.logins: [{ tournament_id, username, password_hash, password_shown, session_nonce, created_at }]
 //   db.devices: [{ id, tournament_id, board, session_nonce, last_seen_at, logged_out_at, unsent, created_at }]
+//   db.matches: [{ tournament_id, pos, state, device_id, board, played_on_board, paper, retired_side, started_at, ended_at, summary, changed_by_organiser }]
+//   db.lends: [{ id, tournament_id, from_board, to_board, started_at, ended_at }]
 //   db.calls: [{ text, vals }]; db.before = (text, vals) => {} runs before each statement; db.failWith = (text) => code|null
 //   db.setNow(ms) / db.advance(ms): the database clock (now()), for throttle windows
 //
@@ -13,13 +15,14 @@
 function createFakeLiveDb(opts) {
   opts = opts || {};
   let now = opts.now || Date.parse('2026-11-05T02:00:00.000Z');
-  const db = { tournaments: opts.tournaments || {}, logins: [], devices: [], throttle: {}, calls: [], before: null, failWith: null };
+  const db = { tournaments: opts.tournaments || {}, logins: [], devices: [], matches: [], lends: [], throttle: {}, calls: [], before: null, failWith: null };
   db.setNow = (ms) => { now = ms; };
   db.advance = (ms) => { now += ms; };
   db.now = () => now;
   const iso = () => new Date(now).toISOString();
   const copy = (x) => (x == null ? x : JSON.parse(JSON.stringify(x)));
   const tOf = (id) => db.tournaments[id];
+  const matchRow = (m) => ({ pos: m.pos, state: m.state, device_id: m.device_id, board: m.board, played_on_board: m.played_on_board, paper: m.paper, retired_side: m.retired_side });
   const dup = () => Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
 
   db.sql = async (strings, ...vals) => {
@@ -67,6 +70,38 @@ function createFakeLiveDb(opts) {
         login_nonce: l ? l.session_nonce : null, t_data: copy(t.data), t_updated_at: t.updated_at }];
     }
     if (text === 'UPDATE live_devices SET last_seen_at = now() WHERE id = ?') { const d = db.devices.find((x) => x.id === vals[0]); if (d) d.last_seen_at = iso(); return []; }
+    // live_matches / live_lends / board holders (api/_lib/live.js: the device's boards and matches)
+    if (text === 'SELECT pos, state, device_id, board, played_on_board, paper, retired_side FROM live_matches WHERE tournament_id = ?') {
+      return db.matches.filter((m) => m.tournament_id === vals[0]).map(matchRow);
+    }
+    if (text === 'SELECT pos, state, device_id, board, played_on_board, paper, retired_side FROM live_matches WHERE tournament_id = ? AND pos = ?') {
+      return db.matches.filter((m) => m.tournament_id === vals[0] && m.pos === vals[1]).map(matchRow);
+    }
+    if (text === 'SELECT from_board, to_board FROM live_lends WHERE tournament_id = ? AND ended_at IS NULL') {
+      return db.lends.filter((l) => l.tournament_id === vals[0] && l.ended_at == null).map((l) => ({ from_board: l.from_board, to_board: l.to_board }));
+    }
+    if (text === 'SELECT id, board FROM live_devices WHERE tournament_id = ? AND logged_out_at IS NULL AND board IS NOT NULL') {
+      return db.devices.filter((d) => d.tournament_id === vals[0] && !d.logged_out_at && d.board != null).map((d) => ({ id: d.id, board: d.board }));
+    }
+    if (text === 'UPDATE live_devices SET board = ? WHERE id = ? AND tournament_id = ? AND board IS NULL AND logged_out_at IS NULL AND (NOT EXISTS (SELECT 1 FROM live_devices o WHERE o.tournament_id = ? AND o.board = ? AND o.logged_out_at IS NULL AND o.id <> ?) OR EXISTS (SELECT 1 FROM live_lends l WHERE l.tournament_id = ? AND l.from_board = ? AND l.ended_at IS NULL)) RETURNING board') {
+      const [n, id, tid] = vals;
+      const d = db.devices.find((x) => x.id === id && x.tournament_id === tid && x.board == null && !x.logged_out_at); if (!d) return [];
+      const shared = db.devices.some((o) => o.tournament_id === tid && o.board === n && !o.logged_out_at && o.id !== id);
+      const lent = db.lends.some((l) => l.tournament_id === tid && l.from_board === n && l.ended_at == null);
+      if (shared && !lent) return [];
+      d.board = n; return [{ board: n }];
+    }
+    if (text === "INSERT INTO live_matches (tournament_id, pos, state, device_id, board, played_on_board) VALUES (?, ?, 'waiting', ?, ?, ?) ON CONFLICT (tournament_id, pos) DO NOTHING RETURNING pos") {
+      const [tid, pos, did, board, playedOn] = vals;
+      if (db.matches.some((m) => m.tournament_id === tid && m.pos === pos)) return [];
+      db.matches.push({ tournament_id: tid, pos, state: 'waiting', device_id: did, board, played_on_board: playedOn, paper: false, retired_side: null, started_at: null, ended_at: null, summary: {}, changed_by_organiser: false });
+      return [{ pos }];
+    }
+    if (text === "UPDATE live_matches SET device_id = ?, board = ?, played_on_board = ? WHERE tournament_id = ? AND pos = ? AND device_id IS NULL AND paper = false AND state NOT IN ('confirmed', 'retired', 'voided') RETURNING pos") {
+      const [did, board, playedOn, tid, pos] = vals;
+      const m = db.matches.find((x) => x.tournament_id === tid && x.pos === pos && x.device_id == null && !x.paper && ['confirmed', 'retired', 'voided'].indexOf(x.state) < 0); if (!m) return [];
+      Object.assign(m, { device_id: did, board, played_on_board: playedOn }); return [{ pos }];
+    }
     // auth_throttle (api/_lib/throttle.js)
     if (text.startsWith('INSERT INTO auth_throttle')) {
       const [key, windowMs] = [vals[0], Number(vals[vals.length - 1])];

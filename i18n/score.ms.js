@@ -80,6 +80,10 @@ var DD_SCORE_MS = {
   'reason.link_ended': 'pautan telah tamat',
   'reason.invalid': 'bukan keputusan yang sah',
   'reason.missing': 'perlawanan itu tiada lagi dalam acara',
+  'live.onTablet': 'Skor dimasukkan melalui tablet',
+  'live.playingOn': 'dimainkan di Board {b}',
+  'live.playedOn': 'dimainkan di Board {b}',
+  'reason.on_tablet': 'sebuah tablet sedang memasukkan skor perlawanan ini',
   'dismiss': 'Selesai',
   'changedByOrganiser': 'Diubah oleh penganjur.'
 };

@@ -1,0 +1,116 @@
+// What a scoring device sees of an event: its boards and its matches (spec sections 5, 7.3, 8 and 9). Shared by
+// /api/live/boards, /matches and /pick. Built from the event's own result slots (results-engine.js resultSlots, run by the server
+// engine) merged with the live_matches rows; nothing but what a scorer needs leaves here: names, the match's place on the paper,
+// its game rules and board. Never the event's data, never another device's id.
+const { engine } = require('../../_lib/engine');
+const LiveSettings = require('../../../live-settings');
+const LiveBoards = require('../../../live-boards');
+const { slotView } = require('../score/common');
+
+const MAX_BOARDS = 256;
+const boardCountOf = (data) => Math.min(MAX_BOARDS, Math.max(1, parseInt(data && data.eventCreation && data.eventCreation.boards, 10) || 1));
+
+/* The stage a match belongs to, as LiveSettings.gameOf names it (and the round index for a knockout bracket's by-round rules). */
+function stageOf(t, s) {
+  if (s.kind === 'rr') return { key: 'rr', ri: undefined };
+  if (s.pod) return { key: 'pod', ri: undefined };
+  if (s.bracketKey === 'knockoutLosers') return { key: 'knockout.plate', ri: s.ri };
+  if (t.knockout && t.knockout.podFinals) return { key: 'finals', ri: undefined };
+  return { key: 'knockout.main', ri: s.ri };
+}
+/* { game, inOut, bull, decider, orderRule } for a match. A Teams match plays its segments in order: `game` is the first segment's
+   and `segments` lists every segment's. */
+function gameFor(data, t, s) {
+  const orderRule = LiveSettings.scoringOf(data).orderRule;
+  const unit = (data.eventCreation && data.eventCreation.competitionUnit) || 'Singles';
+  if (unit === 'Teams') {
+    const segs = Array.isArray(data.format && data.format.teamSegments) ? data.format.teamSegments : [];
+    const list = segs.map((_, i) => LiveSettings.gameOf(data, 'team:' + i));
+    return { game: Object.assign({}, list[0] || LiveSettings.gameOf(data, 'team:0'), { orderRule }), segments: list };
+  }
+  const st = stageOf(t, s);
+  return { game: Object.assign({}, LiveSettings.gameOf(data, st.key, st.ri), { orderRule }) };
+}
+/* An entry as a scorer needs it: the display name and the players' names. */
+function entryOf(byId, id) {
+  const en = byId[id];
+  if (!en) return { name: '', members: [] };
+  return { name: String(en.name || ''), members: (en.members || []).map((m) => String((m && m.name) || '')).filter(Boolean) };
+}
+/* Where a match is played for a device on `myBoard`: null (not for this device), { own: true } (the match is on its board),
+   or { forBoard, playedOn } (a running lend sends this device's board to that board's matches; the match stays in its own board group). */
+function placeFor(s, myBoard, lends) {
+  if (myBoard == null) return null;
+  const boards = (s.boards || []).map(Number);
+  if (boards.indexOf(myBoard) >= 0) return { own: true, board: myBoard };
+  const lend = lends.find((l) => l.from === myBoard && boards.indexOf(l.to) >= 0);
+  return lend ? { forBoard: lend.to, playedOn: myBoard } : null;
+}
+/* Entries playing right now (a match whose live row says 'playing') on any board. */
+function busyEntries(slotsByPos, rows) {
+  const busy = {};
+  rows.forEach((r) => {
+    if (r.state !== 'playing') return;
+    const s = slotsByPos[r.pos];
+    if (s) { if (s.a) busy[s.a] = true; if (s.b) busy[s.b] = true; }
+  });
+  return busy;
+}
+/* The engine's copy of the event, its slots, and what a scorer needs of every entry. */
+function load(found) {
+  const e = engine();
+  const t = e.inside(found.tournament.data);
+  const slots = e.resultSlots(t);
+  const slotsByPos = {};
+  slots.forEach((s) => { slotsByPos[s.pos] = s; });
+  const byId = {};
+  (t.entriesList || []).forEach((en) => { if (en && en.id) byId[en.id] = en; });
+  return { e, t, slots, slotsByPos, byId, data: found.tournament.data };
+}
+/* One match as the device's list shows it. row: its live_matches row or null; place: from placeFor. */
+function matchView(ctx, s, row, place, me, busy) {
+  const v = slotView(ctx.e, ctx.t, s, null, Date.now());   // the same view the floor officials' page uses (match number, chart positions, legs)
+  const state = LiveBoards.stateOf(s, row, s.kind === 'ko' ? !!(s.m && s.m.called) : false);
+  const held = LiveBoards.heldBy(row);
+  const g = gameFor(ctx.data, ctx.t, s);
+  const out = {
+    pos: s.pos, state, kind: s.kind, group: v.group, round: v.round, bracket: v.bracket, legs: v.legs,
+    a: entryOf(ctx.byId, s.a), b: entryOf(ctx.byId, s.b),
+    board: row && row.board != null ? row.board : (place && place.forBoard ? place.forBoard : (place ? place.board : null)),
+    info: v.info, game: g.game
+  };
+  if (g.segments) out.segments = g.segments;
+  if (v.teamCap != null) out.teamCap = v.teamCap;
+  if (place && place.forBoard) { out.forBoard = place.forBoard; out.playedOn = place.playedOn; }   // played on the asking device's board; the match stays in its own board group
+  if (held && held === me) out.mine = true;
+  if (held && held !== me) out.onAnother = true;
+  if (LiveBoards.slotDone(s)) { out.done = true; out.result = v.result; }
+  else if (!(row && row.state === 'playing') && (busy[s.a] || busy[s.b])) out.playerBusy = true;
+  return out;
+}
+/* The device's match list: its board's matches (round robin in the group's own order, knockout in bracket order), then the
+   matches of a board lent to it, then the matches already done. Knockout matches without a board and paper matches are on no list. */
+function buildList(found, rows, lends) {
+  const ctx = load(found), me = found.device.id, myBoard = found.device.board;
+  const rowBy = {};
+  rows.forEach((r) => { rowBy[r.pos] = r; });
+  const busy = busyEntries(ctx.slotsByPos, rows);
+  const mineList = [], lentList = [], doneList = [];
+  ctx.slots.forEach((s) => {
+    if (!s.a || !s.b) return;                                  // a match needs both players
+    if (s.kind === 'ko' && s.m && s.m.bye) return;             // a bye is not played
+    const row = rowBy[s.pos] || null;
+    if (row && row.paper) return;                              // scored on paper: on no device (D16)
+    const place = placeFor(s, myBoard, lends);
+    if (!place) return;                                        // not on this board: a knockout match with no board is on none (D7)
+    if (LiveBoards.slotDone(s)) { if (place.own) doneList.push(matchView(ctx, s, row, place, me, busy)); return; }
+    if (!s.open) return;                                       // waiting for its players, or its group has not started
+    if (place.forBoard) {
+      if (LiveBoards.heldBy(row)) return;                      // a lent board lists only what is still waiting
+      lentList.push(matchView(ctx, s, row, place, me, busy));
+    } else mineList.push(matchView(ctx, s, row, place, me, busy));
+  });
+  return mineList.concat(lentList, doneList);
+}
+
+module.exports = { boardCountOf, buildList, load, matchView, placeFor, busyEntries, stageOf, gameFor, MAX_BOARDS };

@@ -80,6 +80,10 @@ var DD_SCORE_EN = {
   'reason.link_ended': 'the link has ended',
   'reason.invalid': 'not a valid result',
   'reason.missing': 'the match is no longer in the event',
+  'live.onTablet': 'Scoring on tablet',
+  'live.playingOn': 'playing on Board {b}',
+  'live.playedOn': 'played on Board {b}',
+  'reason.on_tablet': 'a tablet is scoring this match',
   'dismiss': 'Done',
   'changedByOrganiser': 'Changed by the organiser.'
 };

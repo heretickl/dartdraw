@@ -220,8 +220,79 @@ function sameText(a, b) {
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
+/* ---------- the device's boards and matches (spec sections 5, 7.3 and 8) ---------- */
+
+const cleanRow = (r) => ({
+  pos: r.pos, state: r.state, device_id: r.device_id || null, paper: !!r.paper, retired_side: r.retired_side || null,
+  board: r.board == null ? null : Number(r.board), played_on_board: r.played_on_board == null ? null : Number(r.played_on_board)
+});
+/* Every live_matches row of the event, as { pos, state, device_id, board, played_on_board, paper, retired_side }. */
+async function liveRows(tournamentId) {
+  return q(async () => {
+    const rows = await sql`SELECT pos, state, device_id, board, played_on_board, paper, retired_side FROM live_matches WHERE tournament_id = ${tournamentId}`;
+    return rows.map(cleanRow);
+  });
+}
+/* One match's row, or null. */
+async function liveRow(tournamentId, pos) {
+  return q(async () => {
+    const rows = await sql`SELECT pos, state, device_id, board, played_on_board, paper, retired_side FROM live_matches WHERE tournament_id = ${tournamentId} AND pos = ${pos}`;
+    return rows.length ? cleanRow(rows[0]) : null;
+  });
+}
+/* The lends running now (ended_at empty): [{ from, to }]. */
+async function liveLends(tournamentId) {
+  return q(async () => {
+    const rows = await sql`SELECT from_board, to_board FROM live_lends WHERE tournament_id = ${tournamentId} AND ended_at IS NULL`;
+    return rows.map((r) => ({ from: Number(r.from_board), to: Number(r.to_board) }));
+  });
+}
+/* The boards the event's signed-in devices hold: [{ id, board }] (a device that was logged out holds nothing). */
+async function boardHolders(tournamentId) {
+  return q(async () => {
+    const rows = await sql`SELECT id, board FROM live_devices WHERE tournament_id = ${tournamentId} AND logged_out_at IS NULL AND board IS NOT NULL`;
+    return rows.map((r) => ({ id: r.id, board: Number(r.board) }));
+  });
+}
+/* A device takes its board, once. Refused (false) when the device has a board already, was logged out, or another signed-in device
+   holds that board and no running lend lends it (two devices share a board only through a lend: spec 7.3). One statement, so
+   the test and the write are not apart; two devices picking the same free board at the very same moment are the one case a
+   single statement cannot fully separate (it would need a lock); the match claim below is exact. */
+async function setBoard(deviceId, tournamentId, n) {
+  return q(async () => {
+    const rows = await sql`
+      UPDATE live_devices SET board = ${n}
+      WHERE id = ${deviceId} AND tournament_id = ${tournamentId} AND board IS NULL AND logged_out_at IS NULL
+        AND (NOT EXISTS (SELECT 1 FROM live_devices o WHERE o.tournament_id = ${tournamentId} AND o.board = ${n} AND o.logged_out_at IS NULL AND o.id <> ${deviceId})
+          OR EXISTS (SELECT 1 FROM live_lends l WHERE l.tournament_id = ${tournamentId} AND l.from_board = ${n} AND l.ended_at IS NULL))
+      RETURNING board`;
+    return rows.length > 0;
+  });
+}
+/* A device claims a match: exactly one of any number of simultaneous callers wins. A match with no row gets one by INSERT ... ON
+   CONFLICT DO NOTHING (a loser inserts nothing); a match whose row nobody holds (device_id empty, not paper, not over) is taken
+   by UPDATE ... WHERE device_id IS NULL. true = this device now holds the match. board: the match's own board; playedOn: the
+   board it is played on (the same, unless a lend sends the device to another board's group). A fresh claim is state 'waiting'
+   (a held match that has not started: live-boards.js); the device moves it on to checkedIn / playing. */
+async function claimMatch(tournamentId, pos, deviceId, board, playedOn) {
+  return q(async () => {
+    const ins = await sql`
+      INSERT INTO live_matches (tournament_id, pos, state, device_id, board, played_on_board)
+      VALUES (${tournamentId}, ${pos}, 'waiting', ${deviceId}, ${board}, ${playedOn})
+      ON CONFLICT (tournament_id, pos) DO NOTHING
+      RETURNING pos`;
+    if (ins.length) return true;
+    const upd = await sql`
+      UPDATE live_matches SET device_id = ${deviceId}, board = ${board}, played_on_board = ${playedOn}
+      WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND device_id IS NULL AND paper = false AND state NOT IN ('confirmed', 'retired', 'voided')
+      RETURNING pos`;
+    return upd.length > 0;
+  });
+}
+
 module.exports = {
   LiveError, PASSWORD_LENGTH, PASSWORD_ALPHABET,
   enable, show, newPassword: newPasswordFor,
-  deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent
+  deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent,
+  liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch
 };

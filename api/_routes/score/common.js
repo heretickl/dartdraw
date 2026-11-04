@@ -7,6 +7,8 @@ const jwt = require('jsonwebtoken');
 const { sql } = require('../../_lib/db');
 const officials = require('../../_lib/officials');
 const { engine } = require('../../_lib/engine');
+const LiveBoards = require('../../../live-boards');
+const LiveSettings = require('../../../live-settings');
 
 const CORRECT_MS = 5 * 60 * 1000;   // an official may correct their own result for this long (owner: "briefly")
 
@@ -77,13 +79,16 @@ async function readEvent(id) {
   const rows = await sql`SELECT id, data, updated_at FROM tournaments WHERE id = ${id}`;
   return rows[0] || null;
 }
-/* What the official's page shows for one match. */
-function slotView(e, t, s, officialId, now) {
+/* What the official's page shows for one match. liveRow: on a Live event the match's live_matches row (or null when it has none);
+   left out on a Manual event, which then gets exactly the view it always had (no live keys at all). On a Live event the view also
+   says live (the match's live state: live-boards.js), onTablet (a device holds it and is scoring it: the official cannot enter it)
+   and playedOn (the board a lent match is really played on, else null). */
+function slotView(e, t, s, officialId, now, liveRow) {
   const r = s.get();
   const by = !r ? null : (r.by === officialId ? 'me' : (!r.by || r.by === 'o') ? 'o' : 'other');
   const done = s.kind === 'rr' ? !!r : !!(s.m.winnerId || s.m.void || s.m.bye);
   const round = s.kind === 'ko' ? e.plain(e.roundInfo(s.bracket, s.ri)) : null;   // {code, n}: the page names it in its own language
-  return {
+  const view = {
     pos: s.pos, kind: s.kind, stage: s.stage, boards: s.boards, a: s.a || null, b: s.b || null,
     group: s.kind === 'rr' ? s.group.label : (s.pod ? s.pod.label : null), round,
     bracket: s.kind === 'ko' ? (s.bracketKey === 'knockoutLosers' ? 'plate' : s.pod ? 'group' : (t.knockout && t.knockout.podFinals ? 'finals' : 'main')) : null,
@@ -94,6 +99,26 @@ function slotView(e, t, s, officialId, now) {
     canCorrect: by === 'me' && !!r.at && now - r.at < CORRECT_MS,
     info: e.plain(e.matchInfo(t, s))   // match number, chart positions, board group: as printed on the paper
   };
+  if (liveRow !== undefined) {
+    const row = liveRow || null;
+    view.live = row ? LiveBoards.stateOf(s, row) : null;
+    view.onTablet = !done && !!LiveBoards.heldBy(row);
+    view.playedOn = row && row.played_on_board != null && row.board != null && row.played_on_board !== row.board ? row.played_on_board : null;
+  }
+  return view;
+}
+/* A Live event's live_matches rows by pos (an empty map when it has none, or when the live tables are not there yet: the page
+   works without them). null on a Manual event: nothing is read, and the page behaves exactly as it always did. */
+async function liveRowsOf(data, id) {
+  if (!LiveSettings.isLive(data)) return null;
+  try {
+    const map = {};
+    (await require('../../_lib/live').liveRows(id)).forEach((r) => { map[r.pos] = r; });
+    return map;
+  } catch (e) {
+    if (e && (e.code === 'not_set_up' || e.code === '42P01')) return {};
+    throw e;
+  }
 }
 
-module.exports = { CORRECT_MS, sendError, bodyObject, methodNotAllowed, signScoreSession, scoreSession, sendRefused, writeIfUnchanged, readEvent, slotView, officials, engine };
+module.exports = { CORRECT_MS, liveRowsOf, sendError, bodyObject, methodNotAllowed, signScoreSession, scoreSession, sendRefused, writeIfUnchanged, readEvent, slotView, officials, engine };

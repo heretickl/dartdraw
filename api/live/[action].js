@@ -2,10 +2,16 @@
 // (the handlers live in api/_routes/live/, which is not deployed as functions, to stay within Vercel Hobby's limit).
 //
 //   /api/live/login   a tablet or phone signs in with the event's scoring login -> a session (X-Live-Session)
+//   /api/live/boards  the boards a device can pick (and which are taken)
+//   /api/live/matches the matches of the device's board (and of a board lent to it)
+//   /api/live/pick    the device picks its board ({ board }) or claims a match ({ pos })
 //
 // The action is read from req.url. Anything else answers 404 { code: 'not_found', error: 'Not found.' }.
 const ROUTES = {
-  login: () => require('../_routes/live/login')
+  login: () => require('../_routes/live/login'),
+  boards: () => require('../_routes/live/boards'),
+  matches: () => require('../_routes/live/matches'),
+  pick: () => require('../_routes/live/pick')
 };
 
 function lastSegment(url) {

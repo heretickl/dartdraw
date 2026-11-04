@@ -183,7 +183,8 @@
       var sec = function(title, rows){ return rows.length ? '<div class="bh">' + esc(T('board', { b: b }) + ' · ' + title) + '</div>' + rows.map(rowHTML).join('') : ''; };
       var parts = [[T('sec.toPlay'), toPlay], [T('sec.waiting'), mine.filter(function(s){ return s.state === 'waiting'; })], [T('sec.done'), mine.filter(function(s){ return s.state === 'done'; })]].filter(function(p){ return p[1].length; });
       /* nothing called on this board: the first match to play is marked Next (a guide on this phone only; nothing is announced) */
-      nextPos = toPlay.length && toPlay[0].state !== 'called' ? toPlay[0].pos : null;
+      var playable = toPlay.filter(function(s){ return !s.onTablet; });   // a match a tablet is scoring is not "Next"
+      nextPos = playable.length && playable[0].state !== 'called' ? playable[0].pos : null;
       html += parts.map(function(p){ return sec(p[0], p[1]); }).join('');
     });
     m.innerHTML = html;
@@ -203,10 +204,13 @@
     var names2 = '<div class="nm">' + esc(names(s[o[0]])) + '</div><div class="vs">' + esc(T('v')) + '</div><div class="nm">' + esc(names(s[o[1]])) + '</div>';
     if(s.state === 'done'){
       var by = s.pending ? '<span class="pending">' + esc(T('pending')) + '</span>' : esc(T('by.' + (s.by || 'o')));
+      if(s.playedOn) by += ' · ' + esc(T('live.playedOn', { b: s.playedOn }));   // a lent board's match, on a Live event
       var fix = view !== 'ended' && !s.pending && s.canCorrect && s.at && Date.now() - s.at < CORRECT_MS
         ? '<button class="btn ghost" data-pos="' + esc(s.pos) + '">' + esc(T('correct', { time: mmss(CORRECT_MS - (Date.now() - s.at)) })) + '</button>' : '';
       return '<div class="mrow done"><div class="tx">' + tag + names2 + '<div class="won">' + esc(doneText(s)) + '</div><div class="meta">' + by + '</div></div>' + (fix ? '<div class="side">' + fix + '</div>' : '') + '</div>';
     }
+    /* Live event: a match a tablet is scoring takes no entry here (the paper switch comes later); it says where it is played */
+    if(s.onTablet) return '<div class="mrow wait"><div class="tx">' + tag + names2 + '<div class="meta">' + esc(T('live.onTablet')) + (s.playedOn ? ' · ' + esc(T('live.playingOn', { b: s.playedOn })) : '') + '</div></div></div>';
     if(s.state === 'waiting' || view === 'ended') return '<div class="mrow wait"><div class="tx">' + tag + names2 + '</div></div>';
     var called = s.state === 'called', next = !called && s.pos === nextPos;
     return '<button type="button" class="mrow' + (called ? ' called' : next ? ' next' : '') + '" data-pos="' + esc(s.pos) + '"><span class="tx">' + tag + names2 +
