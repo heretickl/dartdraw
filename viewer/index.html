@@ -1121,7 +1121,9 @@ function patchLive(){
     if(m && m[1] === node.getAttribute('data-lvs')) continue;
     var ae = document.activeElement, keep = ae && ae !== document.body && node.contains(ae) && ae.getAttribute ? ae.getAttribute('data-lvopen') : null;
     node.outerHTML = html;
-    if(keep){ var nb = document.querySelector('[data-lvopen="' + keep.replace(/["\\]/g, '\\function progressText(){') + '"]'); if(nb && nb.focus) nb.focus(); }
+    if(keep){   // put the keyboard focus back on the same control; a selector that cannot be built must never stop the patch
+      try{ var nb = document.querySelector('[data-lvopen="' + (window.CSS && CSS.escape ? CSS.escape(keep) : keep.replace(/["\\]/g, '\\$&')) + '"]'); if(nb && nb.focus) nb.focus(); }catch(e){}
+    }
   }
 }
 function applyLive(resp){
