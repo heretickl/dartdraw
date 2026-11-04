@@ -181,12 +181,12 @@ var DD_VIEWER_MS = {
   'ev.slot.winnerOf': 'Pemenang {tag}', 'ev.slot.noShow': 'tidak hadir',
   'ev.mt.void': 'Kedua-dua tidak hadir', 'ev.mt.notPlayed': 'Tidak dimainkan', 'ev.mt.bye': 'Bye', 'ev.mt.wo': 'Walkover', 'ev.mt.toPlay': 'Belum dimainkan', 'ev.mt.waiting': 'Menunggu',
   /* perlawanan langsung (acara Live): baris dalam jadual dan bracket, dan papan markah langsung */
-  'lv.watch': 'Lihat langsung', 'lv.now': 'Sedang dimainkan', 'lv.moved': 'Board {b} → dimainkan di Board {p}', 'lv.thrower': 'sedang membaling',
+  'lv.watch': 'Tonton langsung', 'lv.now': 'Sedang dimainkan', 'lv.moved': 'Board {b} → dimainkan di Board {p}', 'lv.thrower': 'sedang membaling',
   'lv.confirming': 'Mengesahkan keputusan', 'lv.title': 'Perlawanan langsung',
   'lv.legs': 'Leg', 'lv.left': 'Baki', 'lv.leftN': 'baki {n}', 'lv.leg': 'Leg {n}',
-  'lv.avg': 'Purata 3 dart: {avg}', 'lv.last': 'Balingan terakhir', 'lv.noTurns': 'Belum ada balingan.', 'lv.hint': 'Checkout: {route}',
+  'lv.avg': 'Purata 3 dart: {avg}', 'lv.last': 'Giliran terakhir', 'lv.noTurns': 'Belum ada giliran.', 'lv.hint': 'Checkout: {route}',
   'tv.free': 'Kosong', 'tv.idle': 'Tiada perlawanan', 'tv.playingOn': 'Dimainkan di Board {p}', 'tv.lentFrom': 'Perlawanan Board {b}', 'tv.none': 'Belum ada board untuk dipaparkan.',
-  'lv.ended': 'Perlawanan ini tidak sedang dimarkahkan secara langsung. Apabila tamat, keputusannya dipaparkan pada tab Kumpulan atau Bracket.',
+  'lv.ended': 'Perlawanan ini tidak sedang dicatat skornya secara langsung. Apabila tamat, keputusannya dipaparkan pada tab Kumpulan atau Bracket.',
 
   /* home page */
   'hm.title': 'DartDraw Live',
