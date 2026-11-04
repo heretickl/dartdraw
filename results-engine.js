@@ -267,9 +267,13 @@ function settleVoids(rounds, force){
    bracketKey is knockout, knockoutLosers (the Plate) or pod:<id> (a Group Boards group; its Finals is `knockout`).
    Every stored result also carries rv (its version: the server adds 1 on each change), by ('o' = the organiser, or a
    floor official's id) and at (when, server clock). The organiser app removes rv from a result it changed, which is
-   how the server knows the organiser changed it (api/tournaments/[id].js). */
+   how the server knows the organiser changed it (api/tournaments/[id].js).
+   x01 = { a:{s,d}, b:{s,d} } (points scored and darts thrown in the x01 legs; a = the slot's first side) is written by the
+   device-confirm route in the same write as a device's result. It is meta like rv/by/at (it is not part of the result itself:
+   bareResult ignores it, settingsView and merges carry it with the result), and it goes when anyone but a device
+   (organiser, official) writes the result. */
 var RESULT_FIELDS_KO = ['aLegs', 'bLegs', 'winnerId', 'void', 'wo', 'called', 'calledAt', 'calledPair'];
-var RESULT_META = ['rv', 'by', 'at'];
+var RESULT_META = ['rv', 'by', 'at', 'x01'];
 function reBrackets(t){
   var out = [];
   ['knockout', 'knockoutLosers'].forEach(function(k){ if(t[k] && Array.isArray(t[k].rounds)) out.push({ key: k, bracket: t[k], pod: null }); });
@@ -406,6 +410,7 @@ function applyResult(t, pos, op, args, meta){
     if(!now) return;
     now = x.kind === 'rr' ? x.group.scores[x.key] : x.m;
     now.rv = Math.max(beforeRv[x.pos] || 0, now.rv || 0) + 1; now.by = meta.by || 'o'; now.at = meta.at || Date.now();
+    if(meta.by !== 'dev') delete now.x01;   // device live data belongs to the device's own result only
   });
   return { ok: true, changed: changed };
 }
@@ -469,6 +474,7 @@ function stampOrganiserResults(prev, next, now){
     if(!r || bareResult(r) === bareResult(was)) return;
     var target = s.kind === 'rr' ? s.group.scores[s.key] : s.m;
     target.rv = ((was && was.rv) || 0) + 1; target.by = 'o'; target.at = now || Date.now();
+    delete target.x01;   // the organiser's result has no live data
   });
 }
 /* The slots whose result differs between `base` (the copy an edit started from) and `cur`: what the organiser changed. */

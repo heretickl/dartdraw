@@ -73,6 +73,26 @@ function summarize(turns, startFor, latest, next, prevThrower) {
   return { legs, remaining, thrower };
 }
 
+/* What a match gives to a 3-dart average: { a:{s,d}, b:{s,d} } = the x01 points each side scored (s) and the darts it threw (d),
+   or null when the match has no x01 turn. turns: the non-ignored turns, oldest first; a turn another counting turn corrects is
+   replaced by the correction (effectiveTurns). A turn counts only in an x01 leg: the turn says x01 AND the leg's game (startFor,
+   which follows the pattern of a mixed game) is an x01 too, so a Cricket leg never takes part. A turn's points are entered.score
+   (0 for a bust) and its darts entered.darts (3 on a bust). startFor may be missing: then the turn's own game decides. */
+function x01Totals(turns, startFor) {
+  const tot = { a: { s: 0, d: 0 }, b: { s: 0, d: 0 } };
+  let any = false;
+  effectiveTurns(turns).forEach((t) => {
+    const e = t.entered;
+    if (!e || e.game !== 'x01') return;
+    if (typeof startFor === 'function' && typeof startFor(t.leg) !== 'number') return;
+    const side = t.side === 'b' ? tot.b : tot.a;
+    side.s += e.bust ? 0 : (Number(e.score) || 0);
+    side.d += Number(e.darts) || 0;
+    any = true;
+  });
+  return any ? tot : null;
+}
+
 /* The chains of corrections among a match's turns (ALL of them, oldest first: { id, leg, side, entered, supersedes, ignored }).
    Only turns that are not ignored take part: an ignored turn is kept but never counts, so it is no link in a chain. A turn whose
    `supersedes` names no counting turn starts its own chain. Returns the pieces annotateTurns and chainHeadOf need:
@@ -127,4 +147,4 @@ function annotateTurns(turns, startFor) {
   return turns.map((t) => Object.assign({}, t, { current: !t.ignored && !c.replaced[t.id], left: leftOf(t) }));
 }
 
-module.exports = { cleanEntered, effectiveTurns, summarize, chainsOf, chainHeadOf, annotateTurns, ENTERED_MAX_CHARS };
+module.exports = { cleanEntered, effectiveTurns, x01Totals, summarize, chainsOf, chainHeadOf, annotateTurns, ENTERED_MAX_CHARS };

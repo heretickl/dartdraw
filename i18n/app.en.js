@@ -513,6 +513,8 @@ var DD_APP_EN = {
   /* ---------- step 2: Format & branding ---------- */
   's2.tbOrder': 'Tie-break order (used only when points are equal — final position on each chart is calculated automatically from this)',
   's2.tbOrderHint': 'Suggested default order shown. Reorder to match your rules — the printed footer and standings both follow this order.',
+  's2.tbAddAvg': 'Add 3-dart average',
+  's2.tbAvgHint': 'Splits players level on points by their 3-dart average. It is used in a group only when every match of that group was scored live on a tablet; otherwise the tie note says which match stopped it.',
   'sched.breakRr': 'Break during round robin',
   'sched.breakBetween': 'Break between round robin and knockout',
   'sched.breakKo': 'Break during knockout',

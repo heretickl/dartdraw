@@ -8,7 +8,7 @@ const { writeIfUnchanged, readEvent } = require('../score/common');
 const LiveBoards = require('../../../live-boards');
 const { load, matchView, heldPlace } = require('./view');
 
-const bare = (r) => { if (!r) return 'null'; const o = {}; Object.keys(r).sort().forEach((k) => { if (['rv', 'by', 'at', 'doneAt'].indexOf(k) < 0) o[k] = r[k]; }); return JSON.stringify(o); };
+const bare = (r) => { if (!r) return 'null'; const o = {}; Object.keys(r).sort().forEach((k) => { if (['rv', 'by', 'at', 'doneAt', 'x01'].indexOf(k) < 0) o[k] = r[k]; }); return JSON.stringify(o); };
 
 /* Would this action leave the match exactly as it is stored now? (the same action sent twice: the first answer was lost) */
 function alreadyApplied(e, t, slot, op, args) {
@@ -51,6 +51,10 @@ async function applyForDevice(found, pos, op, args, opts) {
     if (!slot.open) return { fail: [409, 'not_open', 'This match is not ready to play.'] };
     const out = e.applyResult(t, pos, op, args, { by: 'dev', at: now });
     if (!out.ok) return { fail: out.code === 'invalid' ? [400, 'invalid', 'Not a valid result.'] : [409, 'blocked', 'This result cannot be saved now.'] };
+    if (opts && opts.x01) {   // the match's x01 points and darts go on the result in the same write (the 3-dart average reads them)
+      const written = e.resultSlots(t).find((s) => s.pos === pos), target = written && (written.kind === 'rr' ? written.group.scores[written.key] : written.m);
+      if (target && target.by === 'dev') target.x01 = JSON.parse(JSON.stringify(opts.x01));
+    }
     e.rebuildDerived(t);
     const data = e.plain(t);
     const stamp = await writeIfUnchanged(ev.id, ev.updated_at, data);

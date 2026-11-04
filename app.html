@@ -5773,6 +5773,11 @@ function stage2(){
     '</div>'+
   '</div>';
 }
+/* The optional 3-dart average rule (render.js DD_AVG_RULE) can be added only on a Live event and never on a Teams event
+   (averages come from the scoring devices' turns); it can always be removed. */
+function canAddAvgTieBreak(){
+  return typeof LiveSettings!=='undefined' && LiveSettings.isLive(state) && !isTeamsEvent(state) && state.tieBreakOrder.indexOf(DD_AVG_RULE)<0;
+}
 function tieBreakEditor(){
   const order = state.tieBreakOrder;
   return '<div class="field"><label>'+T('s2.tbOrder')+'</label>'+
@@ -5781,12 +5786,28 @@ function tieBreakEditor(){
         return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;'+(i? 'border-top:1px solid var(--line)':'')+'">'+
           '<span style="font-size:11px;font-weight:800;color:#8a97a5;width:16px">'+(i+1)+'</span>'+
           '<span style="flex:1;font-size:12px">'+escapeHtml(ddRuleName(rule))+'</span>'+
+          (rule===DD_AVG_RULE ? '<button class="btn ghost" style="padding:4px 8px" onclick="removeAvgTieBreak()">'+T('s2.remove')+'</button>' : '')+
           '<button class="btn ghost" style="padding:4px 8px" '+(i===0?'disabled':'')+' onclick="moveTieBreak('+i+',-1)">↑</button>'+
           '<button class="btn ghost" style="padding:4px 8px" '+(i===order.length-1?'disabled':'')+' onclick="moveTieBreak('+i+',1)">↓</button>'+
         '</div>';
       }).join('')+
     '</div><div class="hint">'+T('s2.tbOrderHint')+'</div>'+
+    (canAddAvgTieBreak() ? '<div style="margin-top:8px"><button class="btn ghost" onclick="addAvgTieBreak()">'+T('s2.tbAddAvg')+'</button><div class="hint">'+T('s2.tbAvgHint')+'</div></div>' : '')+
   '</div>';
+}
+function addAvgTieBreak(){
+  if(!canAddAvgTieBreak()) return;
+  const order = state.tieBreakOrder, at = order.indexOf('Organiser decision / playoff');
+  order.splice(at<0 ? order.length : at, 0, DD_AVG_RULE);   // before the organiser's decision, like the other automatic rules
+  persist();
+  render();
+}
+function removeAvgTieBreak(){
+  const order = state.tieBreakOrder, i = order.indexOf(DD_AVG_RULE);
+  if(i<0) return;
+  order.splice(i, 1);
+  persist();
+  render();
 }
 function moveTieBreak(i, dir){
   const order = state.tieBreakOrder;

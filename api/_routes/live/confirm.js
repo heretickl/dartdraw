@@ -13,6 +13,8 @@
 //   401 no_session · 403 live_off · 503 live_not_set_up
 const { sendError, bodyObject, methodNotAllowed, requireSession, sendRefused, refuse, refusePaper, live } = require('./common');
 const { applyForDevice, slotAnswer } = require('./apply');
+const { load, startForOf } = require('./view');
+const { x01Totals } = require('../../_lib/live-summary');
 
 const legsOk = (v) => Number.isInteger(v) && v >= 0 && v <= 99;
 
@@ -31,7 +33,15 @@ module.exports = async (req, res) => {
     if (row.changed_by_organiser) { refuse(res, 409, 'changed_by_organiser', 'The organiser entered this result.'); return; }
     if (row.state === 'retired' || row.state === 'voided') { refuse(res, 409, 'match_over', 'This match is over.'); return; }
     if (row.state !== 'playing' && row.state !== 'awaitingConfirm' && row.state !== 'confirmed') { refuse(res, 409, 'wrong_state', 'This match has not started.'); return; }
-    const out = await applyForDevice(found, pos, 'score', { la: b.la, lb: b.lb }, { settled: row.state === 'confirmed' });
+    // The match's x01 points and darts (for the 3-dart average), written onto the result in the same write as the result.
+    let x01 = null;
+    if (row.state !== 'confirmed') {
+      const turns = await live.matchTurns(id, pos);   // a failed read stops the confirm: the device sends it again
+      let startFor;
+      try { startFor = startForOf(load(found), pos); } catch (e) { startFor = undefined; }
+      x01 = x01Totals(turns, startFor);
+    }
+    const out = await applyForDevice(found, pos, 'score', { la: b.la, lb: b.lb }, { settled: row.state === 'confirmed', x01 });
     if (out.refused) { sendRefused(res, out.refused); return; }
     if (out.organiser) {
       await live.markChangedByOrganiser(id, pos);

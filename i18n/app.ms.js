@@ -508,6 +508,8 @@ var DD_APP_MS = {
   /* ---------- step 2: Format & branding ---------- */
   's2.tbOrder': 'Susunan pemecah seri (digunakan hanya apabila mata sama — kedudukan akhir pada setiap carta dikira secara automatik daripada susunan ini)',
   's2.tbOrderHint': 'Susunan lalai yang dicadangkan dipaparkan. Susun semula mengikut peraturan anda — kaki halaman cetakan dan kedudukan kedua-duanya mengikut susunan ini.',
+  's2.tbAddAvg': 'Tambah purata 3 dart',
+  's2.tbAvgHint': 'Memisahkan pemain yang sama mata menggunakan purata 3 dart mereka. Ia digunakan dalam sesebuah kumpulan hanya apabila setiap perlawanan kumpulan itu dimarkahkan secara langsung pada tablet; jika tidak, nota seri akan menyatakan perlawanan mana yang menghalangnya.',
   'sched.breakRr': 'Rehat semasa round robin',
   'sched.breakBetween': 'Rehat antara round robin dan kalah mati',
   'sched.breakKo': 'Rehat semasa kalah mati',

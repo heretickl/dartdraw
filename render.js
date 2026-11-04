@@ -18,16 +18,17 @@ var DD_RENDER_EN = {
   'r.bye': 'BYE', 'r.wo': 'WO', 'r.noShow': 'NO-SHOW', 'r.vs': 'VS', 'r.final': 'FINAL', 'r.champion': 'CHAMPION',
   'r.markNoShow': 'Mark no-show…',
   'r.th.pos': 'Pos.', 'r.th.entry': 'Entry', 'r.th.mp': 'MP', 'r.th.mw': 'MW', 'r.th.ml': 'ML', 'r.th.md': 'MD', 'r.th.lw': 'LW',
-  'r.th.diff': '+/-', 'r.th.pts': 'Pts', 'r.th.tb': 'TB', 'r.th.legs': 'Legs',
+  'r.th.diff': '+/-', 'r.th.pts': 'Pts', 'r.th.tb': 'TB', 'r.th.legs': 'Legs', 'r.th.avg': 'Avg',
   'r.tt.mp': 'Matches played', 'r.tt.mw': 'Matches won', 'r.tt.ml': 'Matches lost', 'r.tt.md': 'Matches drawn', 'r.tt.lw': 'Legs won',
+  'r.tt.avg': '3-dart average: points scored per three darts thrown (x01 legs only)',
   'r.tt.diff': 'Leg difference (legs won minus legs lost)', 'r.tt.pts': 'Points', 'r.tt.tb': 'Tie-break that separated this entry from the one beside it',
   'r.tt.miniMp': 'Matches played between these entries', 'r.tt.miniPts': 'Points from these matches', 'r.tt.miniLegs': 'Legs won–lost in these matches',
   'r.tb.level': 'Level on points after every tie-break rule',
   'r.tb.sep': 'Separated from the entry beside it on points by: {rule}',
   'r.tb.sepMini': 'Separated from the entry beside it on points by: {rule} (mini-table of the {n} tied entries)',
   'r.tb.way': '{n}-way {badge}',
-  'r.rule.h2h': 'Head-to-head result', 'r.rule.ld': 'Leg difference', 'r.rule.lw': 'Legs won', 'r.rule.org': 'Organiser decision / playoff',
-  'r.badge.h2h': 'H2H', 'r.badge.ld': 'LD', 'r.badge.lw': 'LW',
+  'r.rule.h2h': 'Head-to-head result', 'r.rule.ld': 'Leg difference', 'r.rule.lw': 'Legs won', 'r.rule.org': 'Organiser decision / playoff', 'r.rule.avg': '3-dart average',
+  'r.badge.h2h': 'H2H', 'r.badge.ld': 'LD', 'r.badge.lw': 'LW', 'r.badge.avg': 'AVG',
   'r.list.and': ' and {last}',
   'r.tie.levelPublic': '{names} are still level on {pts} pts after every tie-break rule — needs an organiser decision or a playoff.',
   'r.tie.levelOrg': '{names} are still level on {pts} pts after every tie-break rule — needs an organiser decision or a playoff (use Adjust positions).',
@@ -37,6 +38,9 @@ var DD_RENDER_EN = {
   'r.tie.ldMini': '{hi} ahead of {lo} — level on {pts} pts, separated by leg difference among the tied entries ({a} vs {b}).',
   'r.tie.lw': '{hi} ahead of {lo} — level on {pts} pts, separated by legs won ({a} vs {b}).',
   'r.tie.lwMini': '{hi} ahead of {lo} — level on {pts} pts, separated by legs won among the tied entries ({a} vs {b}).',
+  'r.tie.avg': '{hi} ahead of {lo} — level on {pts} pts, separated by 3-dart average ({a} vs {b}).',
+  'r.tie.avgPaper': 'Average not used: Match {n} was scored on paper.',
+  'r.tie.avgNotLive': 'Average not used: Match {n} was not scored live.',
   'r.tie.other': '{hi} ahead of {lo} — level on {pts} pts, separated by {rule}.',
   'r.tie.manual': 'Position set manually by the organiser.',
   'r.tie.mini': 'Mini-table: {names} — level on {pts} pts, only the matches between them count.',
@@ -54,7 +58,7 @@ function ddRT(key, vars){
   return ddFormat(Object.prototype.hasOwnProperty.call(DD_RENDER_EN, key) ? DD_RENDER_EN[key] : key, vars);
 }
 /* The stored tie-break rule names are data (English ids); these are their keys. Anything else is shown as it is. */
-var DD_RULE_KEY = {'Head-to-head result':'h2h','Leg difference':'ld','Legs won':'lw','Organiser decision / playoff':'org'};
+var DD_RULE_KEY = {'Head-to-head result':'h2h','Leg difference':'ld','Legs won':'lw','Organiser decision / playoff':'org','3-dart average':'avg'};
 function ddRuleName(rule){ return Object.prototype.hasOwnProperty.call(DD_RULE_KEY, rule) ? ddRT('r.rule.'+DD_RULE_KEY[rule]) : String(rule); }
 
 function bracketEntryName(t, entryId){
@@ -548,11 +552,22 @@ function groupIsComplete(g){
   return groupMatches(g).every(([a,b])=> !!getScore(g,a,b));
 }
 
+/* The optional tie-break rule 3-dart average (Live events only; never in Teams). It counts only when EVERY scored match of
+   the group is live data: a result a scoring device confirmed (by 'dev') that carries x01 = {a:{s,d}, b:{s,d}} (points
+   scored and darts thrown in the x01 legs; a = the side whose legs are legs1 / aLegs, i.e. the lower entry id in a
+   round robin pair). One match scored on paper, by an official, changed by the organiser or a walkover switches the rule
+   off for the whole group (avgOK false, every row's avg null, compareByRule treats it as level) and tieNotesHTML says why. */
+var DD_AVG_RULE = '3-dart average';
+
 function computeStandings(g){
   const table = {};
   const results = []; // every scored match as {a,b,la,lb}, for the tie-break mini-tables
   g.entryIds.forEach(id=> table[id] = {id, pts:0, played:0, legsFor:0, legsAgainst:0, wins:0, losses:0, draws:0, h2h:{}} );
-  groupMatches(g).forEach(([a,b])=>{
+  const avgSum = {}; // id -> {s: x01 points scored, d: darts thrown} over the counted live matches (kept off the rows)
+  g.entryIds.forEach(id=> avgSum[id] = {s:0, d:0});
+  let avgBlockedBy = null, avgWhy = null; // the first counted match that is not live data: its match number and why
+  const avgTeams = !!(state && state.eventCreation && state.eventCreation.competitionUnit==='Teams');
+  groupMatches(g).forEach(([a,b], mIdx)=>{
     const key = scoreKey(a,b);
     const sc = g.scores && g.scores[key];
     if(!sc) return;
@@ -563,6 +578,11 @@ function computeStandings(g){
     const la=parseInt(legsA), lb=parseInt(legsB);
     if(isNaN(la)||isNaN(lb)) return;
     results.push({a, b, la, lb});
+    const x01 = (sc.by==='dev' && !sc.wo && sc.x01 && sc.x01.a && sc.x01.b && isFinite(sc.x01.a.s) && isFinite(sc.x01.a.d) && isFinite(sc.x01.b.s) && isFinite(sc.x01.b.d)) ? sc.x01 : null;
+    if(x01){
+      const xa = firstIsA ? x01.a : x01.b, xb = firstIsA ? x01.b : x01.a;
+      avgSum[a].s += Number(xa.s); avgSum[a].d += Number(xa.d); avgSum[b].s += Number(xb.s); avgSum[b].d += Number(xb.d);
+    } else if(avgBlockedBy===null){ avgBlockedBy = mIdx+1; avgWhy = (sc.by==='dev' || sc.wo) ? 'notLive' : 'paper'; }
     table[a].played++; table[b].played++;
     table[a].legsFor+=la; table[a].legsAgainst+=lb;
     table[b].legsFor+=lb; table[b].legsAgainst+=la;
@@ -571,6 +591,12 @@ function computeStandings(g){
     else if(lb>la){ table[b].pts+=1; table[b].wins++; table[a].losses++; table[b].h2h[a]='W'; table[a].h2h[b]='L'; }
     else { table[a].draws++; table[b].draws++; table[a].h2h[b]='D'; table[b].h2h[a]='D'; }
   });
+  const avgOK = !avgTeams && avgBlockedBy===null;
+  Object.keys(table).forEach(id=>{
+    const sum = avgSum[id];
+    table[id].avg = avgOK && sum.d>0 ? Math.round(300*sum.s/sum.d)/100 : null;   // 2 decimals; the rule compares these rounded figures
+  });
+  let avgSkipped = false; // the average rule was reached but the group is not eligible: the tie note says so
   const order = (state && state.tieBreakOrder) || ['Legs won','Leg difference','Head-to-head result','Organiser decision / playoff'];
   /* Ranking: points first, then ties on points are resolved per cluster.
      - Two level: the usual rules in order (head-to-head, then overall leg
@@ -601,6 +627,7 @@ function computeStandings(g){
     if(ids.length===2){
       const x = table[ids[0]], y = table[ids[1]];
       for(const rule of order){
+        if(rule===DD_AVG_RULE && !avgOK) avgSkipped = true;
         const c = compareByRule(rule, x, y);
         if(c!==0){
           const [hi, lo] = c<0 ? [x,y] : [y,x];
@@ -610,10 +637,15 @@ function computeStandings(g){
       return {ids:ids.slice(), splits:[{hi:ids[0], lo:ids[1], rule:null, size:2}]};
     }
     const ms = miniStats(ids);
-    const keyFor = {'Head-to-head result': id=>ms[id].mpts, 'Leg difference': id=>ms[id].ld, 'Legs won': id=>ms[id].lf};
+    // 3-dart average: each player's overall group average, not one worked out from the mini-table's matches
+    const keyFor = {'Head-to-head result': id=>ms[id].mpts, 'Leg difference': id=>ms[id].ld, 'Legs won': id=>ms[id].lf, [DD_AVG_RULE]: id=>table[id].avg};
     for(const rule of order){
       const key = keyFor[rule];
       if(!key) continue; // e.g. organiser decision — nothing automatic
+      if(rule===DD_AVG_RULE){
+        if(!avgOK) avgSkipped = true;
+        if(ids.some(id=> table[id].avg==null)) continue; // not eligible, or somebody has no average
+      }
       if(new Set(ids.map(key)).size===1) continue;
       const sorted = ids.slice().sort((p,q)=> key(q)-key(p)); // stable: ties keep list order
       const groups = [];
@@ -665,6 +697,11 @@ function computeStandings(g){
   });
   arr.tieNotes = tieNotes;
   arr.tieClusters = tieClusters;
+  arr.avgOK = avgOK;
+  arr.avgBlockedBy = avgOK ? null : avgBlockedBy;
+  arr.avgWhy = avgOK ? null : (avgTeams ? 'teams' : avgWhy);
+  arr.avgSkipped = avgSkipped && !avgTeams;
+  arr.avgCounted = results.length;
   const overrides = g.positionOverrides || {};
   arr.forEach(r=>{
     const ov = overrides[r.id];
@@ -676,7 +713,7 @@ function computeStandings(g){
 }
 
 /* ---------- Standings table + tie-break explanation ---------- */
-var TIE_RULE_SHORT = {'Head-to-head result':'H2H','Leg difference':'LD','Legs won':'LW'};
+var TIE_RULE_SHORT = {'Head-to-head result':'H2H','Leg difference':'LD','Legs won':'LW','3-dart average':'AVG'};
 
 function fmtLegDiff(n){ return n>0 ? '+'+n : String(n); }
 
@@ -684,6 +721,7 @@ function standingsTableHTML(g, standings){
   standings = standings || computeStandings(g);
   const t = state;
   const showDraws = standings.some(s=> s.draws>0);
+  const showAvg = !!standings.avgOK && standings.avgCounted>0;   // only when every counted match has live x01 data
   const anyTie = standings.some(s=> s.tieRule);
   const rows = standings.map(st=>{
     const ent = t.entriesList.find(e=>e.id===st.id);
@@ -705,6 +743,7 @@ function standingsTableHTML(g, standings){
       '<td>'+st.legsFor+'</td>'+
       '<td class="'+(diff<0?'neg':'')+'">'+fmtLegDiff(diff)+'</td>'+
       '<td class="pts">'+st.pts+'</td>'+
+      (showAvg?'<td>'+(st.avg==null?'–':st.avg.toFixed(2))+'</td>':'')+
       (anyTie?'<td>'+tb+'</td>':'')+
     '</tr>';
   }).join('');
@@ -713,6 +752,7 @@ function standingsTableHTML(g, standings){
     th('pos', 'l')+th('entry', 'l')+th('mp')+th('mw')+th('ml')+
     (showDraws?th('md'):'')+
     th('lw')+th('diff')+th('pts')+
+    (showAvg?th('avg'):'')+
     (anyTie?th('tb'):'')+
   '</tr></thead><tbody>'+rows+'</tbody></table>';
 }
@@ -757,12 +797,18 @@ function tieNotesHTML(g, standings, opts){
     } else if(n.rule==='Legs won'){
       v.a = mini ? n.hiMini.lf : hi.legsFor; v.b = mini ? n.loMini.lf : lo.legsFor;
       lines.push('<div>'+ddRT(mini ? 'r.tie.lwMini' : 'r.tie.lw', v)+'</div>');
+    } else if(n.rule===DD_AVG_RULE){
+      v.a = hi.avg==null ? '–' : hi.avg.toFixed(2); v.b = lo.avg==null ? '–' : lo.avg.toFixed(2);   // overall group averages, also in a 3+ way tie
+      lines.push('<div>'+ddRT('r.tie.avg', v)+'</div>');
     } else if(n.rule){
       v.rule = escapeHtml(ddRuleName(n.rule));
       lines.push('<div>'+ddRT('r.tie.other', v)+'</div>');
     }
   });
   flushLevel();
+  // The average rule is in the order but this group cannot use it: say which match stopped it (organiser view only; a Teams event never uses it).
+  if(!forPublic && standings.avgSkipped && standings.avgBlockedBy!=null && notes.some(n=> !(byId[n.hi].manualOverride || byId[n.lo].manualOverride)))
+    lines.push('<div>'+ddRT(standings.avgWhy==='paper' ? 'r.tie.avgPaper' : 'r.tie.avgNotLive', {n:standings.avgBlockedBy})+'</div>');
   if(groupHasPositionOverrides(g)) lines.push('<div><b>*</b> '+escapeHtml(ddRT('r.tie.manual'))+'</div>');
   // Mini-tables behind any 3+ way tie, so the organiser can see exactly what was compared.
   const minis = (standings.tieClusters||[]).filter(c=> !c.ids.some(id=> byId[id].manualOverride)).map(c=>{
@@ -797,5 +843,9 @@ function compareByRule(rule, x, y){
     return yd-xd;
   }
   if(rule==='Legs won'){ return y.legsFor-x.legsFor; }
+  if(rule===DD_AVG_RULE){   // avg is null for every row of a group that cannot use it (see computeStandings): level
+    if(x.avg==null || y.avg==null) return 0;
+    return y.avg-x.avg;
+  }
   return 0; // Organiser decision / playoff — no automatic ordering
 }
