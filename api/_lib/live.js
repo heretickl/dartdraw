@@ -9,8 +9,11 @@
 // session_nonce: New password rotates it, which logs every device out (a device's token carries the nonce it signed in with).
 //
 // A device session is a signed token (HS256, SESSION_SECRET) { did, tid, nonce } sent in the X-Live-Session header. Every
-// request re-reads the device row, its login and its event (sessionFor): a rotated nonce (New password), a logged-out device, a
-// finalized event or an event that is no longer Live refuses it.
+// request re-reads the device row, its login and its event (sessionFor): a rotated nonce (New password) answers 401, a
+// logged-out device (Close event) answers 410 and an event that is no longer Live answers 403. A FINALIZED event does NOT end
+// a device's session (spec 7.6: finalising does not log devices out, and turns arriving afterwards are kept, never applied):
+// sessionFor passes it through marked finalized:true, and a route only accepts that when it asks for it
+// (requireSession(req, res, { allowFinalized: true }); only `turn` and `confirm` do). Every other route answers 410.
 //
 // THE CONTRACT FOR live_turns.entered (what the scoring app sends for one turn; Task 6 consumes it):
 //   { mode: 'total' | 'darts',      how the turn was keyed: one total, or dart by dart
@@ -39,13 +42,15 @@ const USERNAME_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 const USERNAME_MAX = 40;
 const PASSWORD_MAX = 100;
 const SESSION_DAYS = 7;
-/* wrong or repeated attempts: 5 a minute per address and username (a volunteer is never locked out for longer than a minute),
-   30 wrong in 10 minutes per username from anywhere, 30 unknown usernames in 10 minutes per address */
+/* Sign-in throttling counts WRONG passwords only; a correct sign-in never counts, so a venue's tablets (one shared public
+   address, one shared username) can all sign in as often as they like. 5 wrong in a minute for one address+username block that
+   pair until the minute is over; 20 wrong in 10 minutes from one address (any usernames, known or not) block that address until
+   the 10 minutes are over. The address cap also bounds the bcrypt work a guesser can cause. There is no limit per username:
+   it is shared by every tablet and not secret, so a per-username limit would let anyone lock the venue out. */
 const WINDOW_MS = 60 * 1000;
 const PAIR_LIMIT = 5;
-const LOGIN_WINDOW_MS = 10 * 60 * 1000;
-const LOGIN_LIMIT = 30;
-const UNKNOWN_LIMIT = 30;
+const IP_WINDOW_MS = 10 * 60 * 1000;
+const IP_LIMIT = 20;
 
 function pick(alphabet, n) {
   let s = '';
@@ -150,25 +155,25 @@ const tournamentView = (data) => {
   return { name: c.tournamentName || '', eventName: c.eventName || '' };
 };
 
-/* Signs a device in. Throws LiveError: login_required, rate_limited, bad_login, link_ended (finalized), live_off. Returns
-   { token, device: { id }, tournament: { name, eventName } }. A wrong password is counted per address+username (and per
-   username from anywhere); a right one clears the per-address count. */
+/* Signs a device in. Throws LiveError: login_required, rate_limited, bad_login, link_ended (finalized: a NEW sign-in to a
+   finalized event is refused; devices already signed in stay, see sessionFor), live_off. Returns
+   { token, device: { id }, tournament: { name, eventName } }. Throttling: see IP_LIMIT above. */
 async function deviceLogin(username, password, ip) {
   if (typeof username !== 'string' || typeof password !== 'string' || !username.trim() || !password.trim()) throw new LiveError('login_required');
   const user = normUsername(username), pass = normPassword(password);
   if (user.length > USERNAME_MAX || pass.length > PASSWORD_MAX) throw new LiveError('bad_login');
   return q(async () => {
-    const pairKey = 'live-login:' + user + ':' + ip, userKey = 'live-login-user:' + user;
-    if (await throttle.isBlocked(userKey, LOGIN_LIMIT, LOGIN_WINDOW_MS) || await throttle.hit(pairKey, PAIR_LIMIT, WINDOW_MS)) throw new LiveError('rate_limited');
+    const pairKey = 'live-login:' + user + ':' + ip, ipKey = 'live-login-ip:' + ip;
+    if (await throttle.isBlocked(pairKey, PAIR_LIMIT, WINDOW_MS) || await throttle.isBlocked(ipKey, IP_LIMIT, IP_WINDOW_MS)) throw new LiveError('rate_limited');
     const rows = await sql`
       SELECT l.tournament_id, l.password_hash, l.session_nonce, t.data AS t_data
       FROM live_logins l JOIN tournaments t ON t.id = l.tournament_id WHERE l.username = ${user}`;
     const row = rows[0] || null;
-    if (!row && await throttle.hit('live-login-unknown:' + ip, UNKNOWN_LIMIT, LOGIN_WINDOW_MS)) throw new LiveError('rate_limited');
-    // an unknown username costs the same bcrypt work as a known one (the answer is the same, and so is the time)
+    // an unknown username costs the same bcrypt work and the same database calls as a known one with a wrong password
     const ok = await bcrypt.compare(pass, row ? row.password_hash : DUMMY_HASH);
     if (!row || !ok) {
-      if (row) await throttle.hit(userKey, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+      await throttle.hit(pairKey, PAIR_LIMIT, WINDOW_MS);
+      await throttle.hit(ipKey, IP_LIMIT, IP_WINDOW_MS);
       throw new LiveError('bad_login');
     }
     await throttle.clear(pairKey);
@@ -182,10 +187,13 @@ async function deviceLogin(username, password, ip) {
 }
 const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(12).toString('hex'), BCRYPT_COST);
 
-/* The device and event behind a session's claims, looked up again on every request.
-     { device, tournament }  the session works
-     { refused }             it was valid once: 'finalized' | 'closed' (410 link_ended) or 'live_off' (403)
-     null                    no valid session (never signed in, a New password, a device that is not there): 401 no_session */
+/* The device and event behind a session's claims, looked up again on every request. Checked in this order:
+     null                          no valid session (never signed in, a New password, a device that is not there): 401 no_session
+     { refused: 'closed' }         the device was logged out (Close event): 410 link_ended
+     { refused: 'live_off' }       the event is no longer Live: 403 live_off
+     { device, tournament, finalized: true }   the event is finalized: the device stays signed in (spec 7.6), but only a route
+                                   that opts in (requireSession allowFinalized) may use it; every other route answers 410 link_ended
+     { device, tournament }        the session works */
 async function sessionFor(claims) {
   if (!claims) return null;
   return q(async () => {
@@ -196,14 +204,15 @@ async function sessionFor(claims) {
     const r = rows[0];
     if (!r || r.tournament_id !== claims.tid || !r.login_nonce) return null;
     if (!sameText(r.session_nonce, claims.nonce) || !sameText(r.login_nonce, claims.nonce)) return null;
-    if (isFinalized(r.t_data)) return { refused: 'finalized' };
     if (r.logged_out_at) return { refused: 'closed' };
     if (!LiveSettings.isLive(r.t_data)) return { refused: 'live_off' };
     await sql`UPDATE live_devices SET last_seen_at = now() WHERE id = ${r.id}`;
-    return {
+    const out = {
       device: { id: r.id, tournamentId: r.tournament_id, board: r.board == null ? null : Number(r.board), unsent: Number(r.unsent) || 0 },
       tournament: { id: r.tournament_id, data: r.t_data, updated_at: r.t_updated_at }
     };
+    if (isFinalized(r.t_data)) out.finalized = true;
+    return out;
   });
 }
 function sameText(a, b) {

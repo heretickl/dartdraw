@@ -1,7 +1,8 @@
 // Shared pieces of the live-scoring device endpoints (api/live/[action].js).
 // A device's session is a signed token (not a cookie, so one tablet can hold logins for several events) sent back in the
 // X-Live-Session header. It names the device, the event and the login's nonce; every request looks them up again
-// (live.sessionFor), so New password, a logged-out device, a finalized event or an event switched back to Manual ends it.
+// (live.sessionFor), so New password, a logged-out device or an event switched back to Manual ends it. A finalized event does
+// NOT end a session (spec 7.6): requireSession refuses it with 410 unless the route passes { allowFinalized: true }.
 const live = require('../../_lib/live');
 
 const ERRORS = {
@@ -27,8 +28,8 @@ function bodyObject(req) {
 }
 function methodNotAllowed(res) { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); }
 
-/* The device behind the request's session: { device, tournament } when it works, { refused } when it ended ('finalized' or
-   'closed' -> 410, 'live_off' -> 403), null when there is no valid session at all. */
+/* The device behind the request's session: { device, tournament } when it works ({ ..., finalized: true } when the event is
+   finalized), { refused } when it ended ('closed' -> 410, 'live_off' -> 403), null when there is no valid session at all. */
 async function liveSession(req) {
   const raw = req.headers && (req.headers['x-live-session'] || req.headers['X-Live-Session']);
   return live.sessionFor(live.verifySession(raw));
@@ -39,11 +40,14 @@ function sendRefused(res, reason) {
   res.status(410).json({ reason, code: 'link_ended', error: 'This scoring link no longer works.' });
 }
 function sendNoSession(res) { res.status(401).json({ code: 'no_session', error: 'Open your scoring link again.' }); }
-/* For the routes that need a working session: the { device, tournament }, or null after the refusal has been sent. */
-async function requireSession(req, res) {
+/* For the routes that need a working session: the { device, tournament }, or null after the refusal has been sent. A finalized
+   event is refused (410 link_ended, reason 'finalized') unless the route passes { allowFinalized: true } (only turn and
+   confirm do): then the session is returned with finalized: true and the route must not apply anything. */
+async function requireSession(req, res, opts) {
   const found = await liveSession(req);
   if (!found) { sendNoSession(res); return null; }
   if (found.refused) { sendRefused(res, found.refused); return null; }
+  if (found.finalized && !(opts && opts.allowFinalized)) { sendRefused(res, 'finalized'); return null; }
   return found;
 }
 
