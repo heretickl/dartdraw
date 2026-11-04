@@ -10,9 +10,11 @@
 --   * only events the organiser published (same rule as public_tournaments) that score Live (format.scoring.mode = 'live')
 --   * only matches that have started or are over: playing, awaitingConfirm, confirmed, retired. A waiting match has no
 --     live picture yet, and a match scored on paper (paper = true) never appears.
---   * summary is rebuilt here with only the keys the public page reads: legs, remaining, thrower, last (the last 6 turns:
---     leg, side, score, left) and tot (x01 points and darts per side). Any other key in live_matches.summary stays private.
---     The viewer's code publishes tot (and per-match x01) only when the organiser switched "public stats" on.
+--   * a match the organiser entered a result for over a tablet (changed_by_organiser) is left out; the flag itself is not shown.
+--   * summary is rebuilt here with only the keys the public page reads: legs, remaining, thrower and last (the last 6 turns:
+--     leg, side, score, left). tot (x01 points and darts per side) is included ONLY when the organiser switched "public
+--     stats" on (format.scoring.publicStats). Any other key in live_matches.summary stays private. (The viewer's code gates
+--     tot and per-match x01 on the same switch as well.)
 --   * pos is the match's place in the event ('rr:<group>:<pair>' or 'ko:<bracket>:<round>:<match>'), which is how the
 --     public page finds the match; it holds no player data.
 
@@ -27,16 +29,18 @@ CREATE OR REPLACE VIEW live_public AS
       'legs',      m.summary->'legs',
       'remaining', m.summary->'remaining',
       'thrower',   m.summary->'thrower',
-      'last',      m.summary->'last',
-      'tot',       m.summary->'tot'
-    ) AS summary
+      'last',      m.summary->'last'
+    ) || CASE WHEN t.data->'format'->'scoring'->>'publicStats' = 'true'
+              THEN jsonb_build_object('tot', m.summary->'tot')
+              ELSE '{}'::jsonb END AS summary
   FROM live_matches m
   JOIN tournaments t ON t.id = m.tournament_id
   WHERE t.data->>'published' = 'true'
     AND t.data->>'publicSlug' IS NOT NULL
     AND t.data->'format'->'scoring'->>'mode' = 'live'
     AND m.state IN ('playing', 'awaitingConfirm', 'confirmed', 'retired')
-    AND NOT m.paper;
+    AND NOT m.paper
+    AND NOT m.changed_by_organiser;
 
 -- viewer_ro is created by readonly.sql; if it is not there yet the grant is skipped (run this file again after creating it).
 DO $$

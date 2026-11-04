@@ -109,7 +109,9 @@ function publicMatch(m, ctx, pos) {
   if (board >= 1 && board <= 9999) out.board = board; else delete out.board;
   if (ctx && ctx.live) {
     if (ctx.stats) Object.assign(out, resultStamps(m));
-    if (ctx.rows[pos]) out.live = ctx.rows[pos];
+    // a match that already has a result shows no live picture (the organiser may have entered it over a tablet's match)
+    const decided = !!(out.winnerId || out.void || out.wo || out.bye);
+    if (ctx.rows[pos] && !decided) out.live = ctx.rows[pos];
   }
   return out;
 }
@@ -141,7 +143,11 @@ function groupLive(g, ctx) {
   const out = {};
   if (!ctx || !ctx.live) return out;
   const prefix = 'rr:' + g.id + ':';
-  Object.keys(ctx.rows).forEach((pos) => { if (pos.indexOf(prefix) === 0) out[pos.slice(prefix.length)] = ctx.rows[pos]; });
+  const scores = g.scores && typeof g.scores === 'object' ? g.scores : {};
+  Object.keys(ctx.rows).forEach((pos) => {
+    const key = pos.slice(prefix.length);
+    if (pos.indexOf(prefix) === 0 && !scores[key]) out[key] = ctx.rows[pos];   // a scored pair shows no live picture
+  });
   return out;
 }
 
