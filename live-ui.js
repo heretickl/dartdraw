@@ -687,6 +687,28 @@ function liveLoginHTML(d){
       '<button class="btn ghost fo-btn" style="color:var(--red)" onclick="liveNewPasswordModal()">' + T('lb.newPassword') + '</button>' +
     '</div></div>';
 }
+/* ---------- venue TV display (spec 13, D14): the viewer's own page, opened for anyone with the event link ----------
+   The same viewer address as the Public results card (publicResultsUrl) with the TV route the viewer already uses. It needs the event
+   to be published; without that the card says so instead. */
+function liveTvUrl(withLang){
+  var url = state && state.published && typeof publicResultsUrl === 'function' ? publicResultsUrl() : '';
+  return url ? url + (withLang ? '?lang=' + ddUiLang() : '') + '#/boards?tv=1' : '';
+}
+function liveCopyTv(btn){
+  var url = liveTvUrl(false);
+  if(!url) return;
+  var done = function(){ if(btn){ var old = btn.textContent; btn.textContent = T('pub.copied'); setTimeout(function(){ btn.textContent = old; }, 1500); } };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function(){ window.prompt(T('pub.copyThis'), url); });
+  else window.prompt(T('pub.copyThis'), url);
+}
+function liveTvBlockHTML(){
+  var url = liveTvUrl(false);
+  return '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.tv.title') + '</b>' +
+    (url ? '<div class="hint" style="margin:4px 0 6px">' + T('lb.tv.intro') + '</div>' +
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><a class="btn ghost fo-btn" href="' + escapeHtml(liveTvUrl(true)) + '" target="_blank" rel="noopener">' + T('lb.tv.open') + '</a>' +
+      '<button class="btn ghost fo-btn" onclick="liveCopyTv(this)">' + T('lb.tv.copy') + '</button></div>'
+    : '<p class="hint" style="margin:4px 0 0">' + T('lb.tv.hint') + '</p>') + '</div>';
+}
 function liveBoardsHTML(){
   if(!liveBoardsOn()) return '';
   loadLive(false);
@@ -702,6 +724,7 @@ function liveBoardsHTML(){
   if(closed) html += liveClosedNoteHTML(d);
   else if(fin) html += '<div class="confirm-box finalized-note" style="margin:8px 0">' + T('lb.finalized.note') + '</div>';
   else html += liveLoginHTML(d) + liveInboxHTML(d);
+  if(!closed) html += liveTvBlockHTML();
   if(!fin) html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.boards') + '</b>' +
     '<div class="lb-wrap"><table class="lb-table"><thead><tr><th>' + T('lb.col.board') + '</th><th>' + T('lb.col.group') + '</th><th>' + T('lb.col.playing') + '</th><th>' + T('lb.col.waiting') + '</th><th>' + T('lb.col.devices') + '</th><th></th></tr></thead><tbody>' +
     d.boards.map(function(b){ return liveBoardRowHTML(b, d); }).join('') + '</tbody></table></div></div>';
