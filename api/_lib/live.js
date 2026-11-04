@@ -163,6 +163,8 @@ async function logoutDevice(tournamentId, deviceId) {
     const rows = await sql`UPDATE live_devices SET logged_out_at = now() WHERE id = ${deviceId} AND tournament_id = ${tournamentId} AND logged_out_at IS NULL RETURNING id, board`;
     if (!rows.length) return false;
     await releaseWaiting(tournamentId);
+    // a take-over request this device was still waiting on can never be carried out: it is void (the log keeps it)
+    await sql`UPDATE live_takeovers SET answer = 'void', decided_by = 'system', decided_at = now() WHERE tournament_id = ${tournamentId} AND answer IS NULL AND to_device = ${deviceId}`;
     const board = rows[0].board == null ? null : Number(rows[0].board);
     if (board != null && !(await boardHolders(tournamentId)).some((h) => h.board === board)) {
       await sql`UPDATE live_lends SET ended_at = now() WHERE tournament_id = ${tournamentId} AND from_board = ${board} AND ended_at IS NULL`;
@@ -175,6 +177,7 @@ async function logoutAllDevices(tournamentId) {
   return q(async () => {
     await sql`UPDATE live_devices SET logged_out_at = now() WHERE tournament_id = ${tournamentId} AND logged_out_at IS NULL`;
     await releaseWaiting(tournamentId);
+    await sql`UPDATE live_takeovers SET answer = 'void', decided_by = 'system', decided_at = now() WHERE tournament_id = ${tournamentId} AND answer IS NULL`;   // every asking device is out now
     await sql`UPDATE live_lends SET ended_at = now() WHERE tournament_id = ${tournamentId} AND ended_at IS NULL`;
   });
 }
@@ -471,10 +474,17 @@ async function markChangedByOrganiser(tournamentId, pos) {
 /* ---------- take-over requests (spec 7.4; routes takeover, panel, score/takeover) ---------- */
 
 /* A device asks for a match another device is scoring. At most ONE waiting request per match (the statement tests it, and a
-   partial unique index backs it up): false = there is one already. Returns the new request's id. */
+   partial unique index backs it up): false = there is one already. Returns the new request's id. First, a waiting request for
+   this match that can no longer be carried out (it names a device that is not the match's holder any more, or its asking
+   device was logged out) is made void, so it cannot block every later request. */
 async function requestTakeover(tournamentId, pos, fromDevice, toDevice) {
   return q(async () => {
     const id = 'tko_' + crypto.randomBytes(9).toString('base64url').replace(/[^A-Za-z0-9]/g, 'x');
+    await sql`
+      UPDATE live_takeovers SET answer = 'void', decided_by = 'system', decided_at = now()
+      WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND answer IS NULL
+        AND (from_device IS DISTINCT FROM (SELECT device_id FROM live_matches WHERE tournament_id = ${tournamentId} AND pos = ${pos})
+          OR to_device IN (SELECT id FROM live_devices WHERE tournament_id = ${tournamentId} AND logged_out_at IS NOT NULL))`;
     try {
       const rows = await sql`
         INSERT INTO live_takeovers (id, tournament_id, pos, from_device, to_device)
@@ -506,22 +516,27 @@ async function answerTakeover(tournamentId, id, answer, decidedBy) {
     return rows.length ? rows[0] : null;
   });
 }
-/* An allowed request whose match had moved on before the move could happen is marked void (the log keeps who allowed it). */
-async function voidAllowed(tournamentId, id) {
-  return q(async () => { await sql`UPDATE live_takeovers SET answer = 'void' WHERE tournament_id = ${tournamentId} AND id = ${id} AND answer = 'allow'`; });
-}
-/* The match goes to the asking device: a compare-and-set on the CURRENT holder (and on the match still being in progress, and the
-   asking device still being signed in). Nothing else about the match changes: its state, turns and summary stay. false = it
-   moved or ended meanwhile. */
-async function moveHolder(tournamentId, pos, fromDevice, toDevice) {
+/* Allow, in ONE statement (each sql call is its own transaction, so the answer and the move happen together or not at all): the
+   waiting request is locked (FOR UPDATE), the match goes to the asking device as a compare-and-set on the CURRENT holder (the match
+   still in progress, not on paper, not changed by the organiser, the asking device still signed in; nothing else about the
+   match changes), and the request's answer becomes 'allow' when the match moved, else 'void' (it had moved on or ended). Returns
+   the final answer ('allow' | 'void'), or null when the request was answered already (or is not there). */
+async function allowTakeover(tournamentId, id, decidedBy) {
   return q(async () => {
     const rows = await sql`
-      UPDATE live_matches SET device_id = ${toDevice}
-      WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND device_id = ${fromDevice} AND paper = false AND changed_by_organiser = false
-        AND state IN ('checkedIn', 'playing', 'awaitingConfirm')
-        AND EXISTS (SELECT 1 FROM live_devices WHERE id = ${toDevice} AND tournament_id = ${tournamentId} AND logged_out_at IS NULL)
-      RETURNING pos`;
-    return rows.length > 0;
+      WITH tk AS (
+        SELECT id, pos, from_device, to_device FROM live_takeovers WHERE tournament_id = ${tournamentId} AND id = ${id} AND answer IS NULL FOR UPDATE
+      ), mv AS (
+        UPDATE live_matches m SET device_id = tk.to_device FROM tk
+        WHERE m.tournament_id = ${tournamentId} AND m.pos = tk.pos AND m.device_id = tk.from_device AND m.paper = false AND m.changed_by_organiser = false
+          AND m.state IN ('checkedIn', 'playing', 'awaitingConfirm')
+          AND EXISTS (SELECT 1 FROM live_devices d WHERE d.id = tk.to_device AND d.tournament_id = ${tournamentId} AND d.logged_out_at IS NULL)
+        RETURNING m.pos
+      )
+      UPDATE live_takeovers k SET answer = CASE WHEN EXISTS (SELECT 1 FROM mv) THEN 'allow' ELSE 'void' END, decided_by = ${decidedBy}, decided_at = now()
+      FROM tk WHERE k.tournament_id = ${tournamentId} AND k.id = tk.id AND k.answer IS NULL
+      RETURNING k.id, k.answer`;
+    return rows.length ? rows[0].answer : null;
   });
 }
 /* The requests that still mean something: waiting, the match still held by the device the request names, the asking device still
@@ -553,5 +568,5 @@ module.exports = {
   deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent,
   liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch,
   matchFull, insertTurn, turnById, matchTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser,
-  requestTakeover, takeoverById, answerTakeover, voidAllowed, moveHolder, openTakeovers
+  requestTakeover, takeoverById, answerTakeover, allowTakeover, openTakeovers
 };

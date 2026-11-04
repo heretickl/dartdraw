@@ -63,7 +63,7 @@ async function status(req, res) {
    'allow' | 'deny'; decidedBy: 'org:<id>' | 'off:<id>'; ctx: view.load(...) when the caller has it. Exactly one of any number of
    simultaneous answers wins (answerTakeover compares-and-sets on "not answered yet"). Resolves { ok: true } or { status, body }
    (the refusal to send). A request for a match that is over becomes void (match_over); an allow whose match moved on meanwhile
-   becomes void (takeover_stale) and the match stays where it is. */
+   becomes void (takeover_stale) and the match stays where it is (allow is ONE statement: the answer and the move cannot part). */
 async function decide(ev, id, answer, decidedBy, ctx) {
   const tid = ev.id;
   const tk = await live.takeoverById(tid, id);
@@ -76,11 +76,14 @@ async function decide(ev, id, answer, decidedBy, ctx) {
     if (!(await live.answerTakeover(tid, id, 'void', decidedBy))) return answered;
     return { status: 409, body: { code: 'match_over', error: 'This match is over.' } };
   }
-  if (!(await live.answerTakeover(tid, id, answer, decidedBy))) return answered;
-  if (answer === 'allow' && !(await live.moveHolder(tid, tk.pos, tk.from_device, tk.to_device))) {
-    await live.voidAllowed(tid, id);
-    return { status: 409, body: { code: 'takeover_stale', error: 'That match has moved on, so the request was cancelled.' } };
+  if (answer === 'allow') {
+    // one statement: the answer and the move of the match happen together (live.allowTakeover)
+    const final = await live.allowTakeover(tid, id, decidedBy);
+    if (!final) return answered;
+    if (final === 'void') return { status: 409, body: { code: 'takeover_stale', error: 'That match has moved on, so the request was cancelled.' } };
+    return { ok: true };
   }
+  if (!(await live.answerTakeover(tid, id, answer, decidedBy))) return answered;
   return { ok: true };
 }
 

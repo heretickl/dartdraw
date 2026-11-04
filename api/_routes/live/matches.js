@@ -4,7 +4,8 @@
 //         forBoard?, playedOn?, done?, result?, takeoverable?, inProgress?, pending? }] }
 //   409 no_board (pick a board first) · 401 no_session · 403 live_off · 410 link_ended · 503 live_not_set_up
 // The device's board's matches in play order (round robin: the group's own order; knockout: bracket order), then the matches of
-// a board lent to it (forBoard = that board, playedOn = this device's board), then the matches already done. A knockout match
+// a board lent to it (forBoard = that board, playedOn = this device's board), then the matches in progress on another device on a
+// board this device does not play (always onAnother + takeoverable: any signed-in device may ask to take them over), then the matches already done. A knockout match
 // without a board and a match scored on paper are on no list. A match another device holds is listed with onAnother and cannot
 // be picked; one in progress there (checked in, playing, awaiting confirmation) also has takeoverable, inProgress { legs, remaining,
 // thrower } and pending ('mine' | 'other' | null: a waiting take-over request, see takeover.js). state is live-boards.js's (waiting, called, checkedIn, playing, awaitingConfirm, confirmed, voided ...).

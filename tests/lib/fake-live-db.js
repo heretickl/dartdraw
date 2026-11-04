@@ -212,14 +212,32 @@ function createFakeLiveDb(opts) {
       Object.assign(x, { answer: vals[0], decided_by: vals[1], decided_at: iso() });
       return [{ id: x.id, pos: x.pos, from_device: x.from_device, to_device: x.to_device }];
     }
-    if (text === "UPDATE live_takeovers SET answer = 'void' WHERE tournament_id = ? AND id = ? AND answer = 'allow'") {
-      const x = db.takeovers.find((y) => y.tournament_id === vals[0] && y.id === vals[1] && y.answer === 'allow'); if (x) x.answer = 'void'; return [];
+    if (text === "UPDATE live_takeovers SET answer = 'void', decided_by = 'system', decided_at = now() WHERE tournament_id = ? AND pos = ? AND answer IS NULL AND (from_device IS DISTINCT FROM (SELECT device_id FROM live_matches WHERE tournament_id = ? AND pos = ?) OR to_device IN (SELECT id FROM live_devices WHERE tournament_id = ? AND logged_out_at IS NOT NULL))") {
+      const [tid, pos] = vals, holder = db.matches.find((m) => m.tournament_id === tid && m.pos === pos);
+      db.takeovers.forEach((x) => {
+        if (x.tournament_id !== tid || x.pos !== pos || x.answer != null) return;
+        const out = db.devices.some((d) => d.id === x.to_device && d.tournament_id === tid && d.logged_out_at);
+        if ((holder ? holder.device_id : null) !== x.from_device || out) Object.assign(x, { answer: 'void', decided_by: 'system', decided_at: iso() });   // NULL IS DISTINCT FROM 'x' is true
+      });
+      return [];
     }
-    if (text === "UPDATE live_matches SET device_id = ? WHERE tournament_id = ? AND pos = ? AND device_id = ? AND paper = false AND changed_by_organiser = false AND state IN ('checkedIn', 'playing', 'awaitingConfirm') AND EXISTS (SELECT 1 FROM live_devices WHERE id = ? AND tournament_id = ? AND logged_out_at IS NULL) RETURNING pos") {
-      const [to, tid, pos, from] = vals;
-      const m = db.matches.find((x) => x.tournament_id === tid && x.pos === pos && x.device_id === from && !x.paper && !x.changed_by_organiser && ['checkedIn', 'playing', 'awaitingConfirm'].indexOf(x.state) >= 0);
-      if (!m || !db.devices.some((d) => d.id === vals[4] && d.tournament_id === vals[5] && !d.logged_out_at)) return [];
-      m.device_id = to; return [{ pos: m.pos }];
+    if (text === "UPDATE live_takeovers SET answer = 'void', decided_by = 'system', decided_at = now() WHERE tournament_id = ? AND answer IS NULL AND to_device = ?") {
+      db.takeovers.forEach((x) => { if (x.tournament_id === vals[0] && x.answer == null && x.to_device === vals[1]) Object.assign(x, { answer: 'void', decided_by: 'system', decided_at: iso() }); });
+      return [];
+    }
+    if (text === "UPDATE live_takeovers SET answer = 'void', decided_by = 'system', decided_at = now() WHERE tournament_id = ? AND answer IS NULL") {
+      db.takeovers.forEach((x) => { if (x.tournament_id === vals[0] && x.answer == null) Object.assign(x, { answer: 'void', decided_by: 'system', decided_at: iso() }); });
+      return [];
+    }
+    // allow: the request is locked, the match moves (compare-and-set on the holder) and the answer is written, all in this one statement
+    if (text === "WITH tk AS ( SELECT id, pos, from_device, to_device FROM live_takeovers WHERE tournament_id = ? AND id = ? AND answer IS NULL FOR UPDATE ), mv AS ( UPDATE live_matches m SET device_id = tk.to_device FROM tk WHERE m.tournament_id = ? AND m.pos = tk.pos AND m.device_id = tk.from_device AND m.paper = false AND m.changed_by_organiser = false AND m.state IN ('checkedIn', 'playing', 'awaitingConfirm') AND EXISTS (SELECT 1 FROM live_devices d WHERE d.id = tk.to_device AND d.tournament_id = ? AND d.logged_out_at IS NULL) RETURNING m.pos ) UPDATE live_takeovers k SET answer = CASE WHEN EXISTS (SELECT 1 FROM mv) THEN 'allow' ELSE 'void' END, decided_by = ?, decided_at = now() FROM tk WHERE k.tournament_id = ? AND k.id = tk.id AND k.answer IS NULL RETURNING k.id, k.answer") {
+      const [tid, id, , , by] = vals;
+      const x = db.takeovers.find((y) => y.tournament_id === tid && y.id === id && y.answer == null); if (!x) return [];
+      const m = db.matches.find((y) => y.tournament_id === tid && y.pos === x.pos && y.device_id === x.from_device && !y.paper && !y.changed_by_organiser && ['checkedIn', 'playing', 'awaitingConfirm'].indexOf(y.state) >= 0);
+      const asker = m && db.devices.some((d) => d.id === x.to_device && d.tournament_id === tid && !d.logged_out_at);
+      if (asker) m.device_id = x.to_device;
+      Object.assign(x, { answer: asker ? 'allow' : 'void', decided_by: by, decided_at: iso() });
+      return [{ id: x.id, answer: x.answer }];
     }
     if (text === 'SELECT id, pos, from_device, to_device, created_at FROM live_takeovers WHERE tournament_id = ? AND answer IS NULL ORDER BY created_at, id') {
       return db.takeovers.filter((x) => x.tournament_id === vals[0] && x.answer == null).slice()
