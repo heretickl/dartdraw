@@ -153,7 +153,7 @@ test('stage 2 shows the segment editor for Teams in Basic and Advanced setup in 
     assert.match(html, /A team can win at most <b>10<\/b> legs in a match/, label);
     assert.doesNotMatch(html, /id="f_bestof"|id="f_podlegs"|f_kolegs_|Best of legs/, label);
     assert.doesNotMatch(html, /Players per team|Team format|Foursome \(quad\)|[Rr]ubber|handout/, label);
-    ['Singles', 'Doubles', 'Trios', 'Foursome'].forEach((ty) => assert.match(html, new RegExp('<option value="' + ty.toLowerCase() + '"( selected)?>' + ty + '</option>'), label + ' ' + ty));
+    [['singles', 'Singles'], ['doubles', 'Doubles'], ['trios', 'Trios'], ['foursome', 'Quads']].forEach(([v, ty]) => assert.match(html, new RegExp('<option value="' + v + '"( selected)?>' + ty + '</option>'), label + ' ' + ty));   // the foursome is called Quads (owner, 2026-11-04)
     [301, 501, 701, 1001].forEach((sc) => assert.match(html, new RegExp('<option value="' + sc + '"( selected)?>' + sc + '</option>'), label + ' ' + sc));
     // every row's controls have their own names
     ['Segment 1 type', 'Segment 5 starting score', 'Segment 3 legs (best of)', 'Move segment 2 up', 'Remove segment 4', 'Tie-breaker type', 'Tie-breaker legs (best of)'].forEach((a) => assert.ok(html.includes('aria-label="' + a + '"'), label + ' ' + a));
@@ -260,7 +260,7 @@ test('the segments lock once either stage has begun: read-only list, the handler
   const html = render(2);
   assert.doesNotMatch(html, /class="team-seg-row"|\+ Add segment/);
   assert.match(html, /Games have started, so the segments are locked/);
-  assert.match(html, /<li>Foursome \(1001, best of 1\)<\/li>/);
+  assert.match(html, /<li>Quads \(1001, best of 1\)<\/li>/);
   assert.match(html, /Round robin matches: played only when the total legs are level after the main segments \(there are no draws\)/, 'the fixed round robin line');
   assert.equal(tickHTML(html, 'rr'), null, 'the round robin has no tick: it can not be switched off');
   domStub({});
@@ -284,7 +284,7 @@ test('the segments lock once either stage has begun: read-only list, the handler
   const od = teamsEvent('roundrobin', 4); storeDraw(od);
   assert.equal(f('teamRrTieBreakerForced')(od), false);
   const odHtml = render(2);
-  assert.match(odHtml, /Round robin matches: tie-breaker Foursome \(1001, best of 1\) <span[^>]*>\(this stage has begun with it, so it stays on\)/);
+  assert.match(odHtml, /Round robin matches: tie-breaker Quads \(1001, best of 1\) <span[^>]*>\(this stage has begun with it, so it stays on\)/);
   assert.equal(tickHTML(odHtml, 'rr'), null);
   domStub({}); f('setTeamTieBreakerStage')('rr', false); app.document = DOC;
   assert.equal(saveStep2(), null);
@@ -312,7 +312,7 @@ test('a knockout has begun with a started round, a called match or any result; b
   assert.equal(f('teamSegmentsLocked')(p), true);
   pm.called = false; pm.aLegs = 6; pm.bLegs = 2;
   assert.equal(f('teamSegmentsLocked')(p), true);
-  assert.match(render(2), /Knockout matches: tie-breaker Foursome/);
+  assert.match(render(2), /Knockout matches: tie-breaker Quads/);
 });
 
 test('each stage\'s tick locks only when THAT stage begins; the knockout tick can be switched on later, never off', () => {
@@ -594,7 +594,7 @@ test('the tick and tie-breaker handlers refuse what Save would refuse, so the ed
   assert.equal(d.tieBreaker.inRoundRobin, true); assert.equal(d.tieBreaker.legs, 1);
   const html = render(2);
   assert.equal(tickHTML(html, 'rr'), null);
-  assert.match(html, /Tie-breaker: Foursome \(1001, best of 1\)/);
+  assert.match(html, /Tie-breaker: Quads \(1001, best of 1\)/);
 });
 
 test('a started Teams event keeps its competition type on step 1; other types are unchanged', () => {
@@ -969,9 +969,9 @@ test('the lineup sheet: a bar per segment, TIE-BREAKER before the last block TOT
   const [a, b] = t.entriesList;
   const ko = f('lineupCardHTML')(a, b, { groupLabel: 'Bracket', board: 'Final', gameNo: 1, stage: 'ko' });
   const titles2 = [...ko.matchAll(/<div class="lineup-seg-title">([^<]*) <small>([^<]*)<\/small>/g)].map((m) => m[1] + ' | ' + m[2]);
-  assert.deepEqual(titles2, ['FOURSOME 1 | 1001 x 1 Leg', 'SINGLES 1 | 501 x 3 Legs', 'DOUBLES 1 | 501 x 3 Legs', 'SINGLES 2 | 501 x 3 Legs', 'DOUBLES 2 | 501 x 3 Legs', 'TRIOS 1 | 701 x 3 Legs', 'TIE-BREAKER | 1001 x 1 Leg']);
+  assert.deepEqual(titles2, ['QUADS 1 | 1001 x 1 Leg', 'SINGLES 1 | 501 x 3 Legs', 'DOUBLES 1 | 501 x 3 Legs', 'SINGLES 2 | 501 x 3 Legs', 'DOUBLES 2 | 501 x 3 Legs', 'TRIOS 1 | 701 x 3 Legs', 'TIE-BREAKER | 1001 x 1 Leg']);
   const blocks = lineupBlocks(ko);
-  assert.deepEqual(blocks.map((x) => x[0].split(' ')[0]), ['FOURSOME', 'SINGLES', 'DOUBLES', 'SINGLES', 'DOUBLES', 'TRIOS', 'TIE-BREAKER', 'TOTAL'], 'TOTAL POINTS is last, after the tie-breaker');
+  assert.deepEqual(blocks.map((x) => x[0].split(' ')[0]), ['QUADS', 'SINGLES', 'DOUBLES', 'SINGLES', 'DOUBLES', 'TRIOS', 'TIE-BREAKER', 'TOTAL'], 'TOTAL POINTS is last, after the tie-breaker');
   assert.deepEqual(blocks.map((x) => x[2]), [4, 1, 2, 1, 2, 3, 4, 0], 'numbered name lines per type');
   const H = blocks[0][1], h2 = Math.round(H / 2);
   assert.deepEqual(blocks.map((x) => x[1]), [H, h2, H, h2, H, H, H, 'css'], 'fixed heights: Singles half of the others; TOTAL POINTS a fixed CSS block');
@@ -1066,12 +1066,12 @@ test('the lineup tick box is offered for every Teams event (and no other type), 
 
 test('the rules sheet follows the tie-breaker of each stage, with no contradiction; headers name the segments, never a best of', () => {
   reset();
-  const SEGS = 'Each match has 5 segments: Foursome (1001, best of 1), Singles (501, best of 3), Doubles (501, best of 3), Singles (501, best of 3), Doubles (501, best of 3).';
+  const SEGS = 'Each match has 5 segments: Quads (1001, best of 1), Singles (501, best of 3), Doubles (501, best of 3), Singles (501, best of 3), Doubles (501, best of 3).';
   const lines = (t) => plain(f('formatDescriptionLines')(t)).join('\n');
   // round robin with the tie-breaker: no draws anywhere
   const rr = teamsEvent('roundrobin', 8);
   let L = lines(rr);
-  assert.ok(L.includes(SEGS + ' Tie-breaker if the totals are level: Foursome (1001, best of 1). The team with more total legs wins.'), L);
+  assert.ok(L.includes(SEGS + ' Tie-breaker if the totals are level: Quads (1001, best of 1). The team with more total legs wins.'), L);
   assert.match(L, /Scoring: Win = 1 point, Loss = 0 points\. .*level totals go to the tie-breaker, so there are no draws\./);
   assert.doesNotMatch(L, /[Dd]raw = |are a draw/);
   // round robin with the stored tick off: no draws either (the tie-breaker is always there), and it is named
@@ -1087,7 +1087,7 @@ test('the rules sheet follows the tie-breaker of each stage, with no contradicti
   L = lines(rk);
   assert.match(L, /Group stage scoring: Win = 1 point, Loss = 0 points\. .*level totals go to the tie-breaker, so there are no draws\./);
   assert.match(L, /Knockout stage matches \(and the Plate pool\) use the same segments and cannot end level: level totals go to the tie-breaker\./);
-  assert.ok(L.includes(SEGS + ' Tie-breaker if the totals are level: Foursome (1001, best of 1).'), L);
+  assert.ok(L.includes(SEGS + ' Tie-breaker if the totals are level: Quads (1001, best of 1).'), L);
   rk.format.teamTieBreaker.inKnockout = false;
   assert.ok(lines(rk).includes(' Tie-breaker in round robin matches if the totals are level'));
   assert.match(lines(rk), /use the same segments and cannot end level\.\n/);
@@ -1097,7 +1097,7 @@ test('the rules sheet follows the tie-breaker of each stage, with no contradicti
   assert.match(L, /Group stage scoring: Win = 1 point, Loss = 0 points\. .*level totals are a draw \(no points\)\./);
   assert.doesNotMatch(L, /Draw = 1/);
   assert.match(L, /Knockout stage matches \(and the Plate pool\) use the same segments and cannot end level: level totals go to the tie-breaker\./);
-  assert.ok(L.includes(SEGS + ' Tie-breaker in knockout matches if the totals are level: Foursome (1001, best of 1).'), L);
+  assert.ok(L.includes(SEGS + ' Tie-breaker in knockout matches if the totals are level: Quads (1001, best of 1).'), L);
   ro.format.teamTieBreaker.inRoundRobin = true; ro.format.teamTieBreaker.inKnockout = false;
   assert.ok(lines(ro).includes(' Tie-breaker in round robin matches if the totals are level'));
   assert.match(lines(ro), /use the same segments and cannot end level\.\n/);
@@ -1111,7 +1111,7 @@ test('the rules sheet follows the tie-breaker of each stage, with no contradicti
   assert.doesNotMatch(L, /[Tt]ie-breaker/);
   [rr, rk, ko, gb].forEach((t) => assert.doesNotMatch(lines(t), /best of 5|first to|Legs increase|named players|rubber/i));
   const one = teamsEvent('roundrobin', 8); one.format.teamTieBreaker.inRoundRobin = false; one.format.teamSegments = [{ type: 'trios', startingScore: 701, legs: 5 }];
-  assert.ok(plain(f('formatDescriptionLines')(one)).includes('Each match has 1 segment: Trios (701, best of 5). Tie-breaker if the totals are level: Foursome (1001, best of 1). The team with more total legs wins.'));
+  assert.ok(plain(f('formatDescriptionLines')(one)).includes('Each match has 1 segment: Trios (701, best of 5). Tie-breaker if the totals are level: Quads (1001, best of 1). The team with more total legs wins.'));
   // an older event holding a drawn result, tick off: no tie-breaker named
   storeDraw(one);
   assert.ok(plain(f('formatDescriptionLines')(one)).includes('Each match has 1 segment: Trios (701, best of 5). The team with more total legs wins.'));

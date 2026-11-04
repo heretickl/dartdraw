@@ -29,7 +29,7 @@ const holes = (v) => [...new Set(forms(v).join(' ').match(/\{\w+\}/g) || [])].so
 
 /* Values that are deliberately the same in both languages: codes, symbols, kept darts words, names, numbers and patterns
    whose words are all kept (Round Robin, Group Boards, Board N, OK, Pro, Edit, Format, Logo). */
-const SAME = new Set(['m.ok', 'sheet.marker', 'list.sep', 'fmt.roundrobin', 'seg.numbered', 'ko.cl.score', 'ko.cl.scoreWo', 'ko.cl.line', 'dur.line', 'dur.rr', 'org.pro',
+const SAME = new Set(['autoName.trio', 'm.ok', 'sheet.marker', 'list.sep', 'fmt.roundrobin', 'seg.numbered', 'ko.cl.score', 'ko.cl.scoreWo', 'ko.cl.line', 'dur.line', 'dur.rr', 'org.pro',
   'saved.line', 'cw.sub', 'sum.edit', 'sum.format', 'sum.logo', 'cc.board', 'boards.list', 'tooMany.withHint', 'sheet.tbItem', 'paper.fitItem', 'nw.rr', 'jump.rr',
   's2.rr', 's2.secFormat', 'pods.countOf', 'bp.board', 'br.bracket', 's1.basic' /* no: Asas */, 'pods.boardsLabel', 's3.boardsLabel', 'dur.rr',
   'bg.plate', 'bg.sheetBoard' /* Plate and BOARD stay English (glossary) */]);
@@ -340,7 +340,7 @@ const PLUMBING_FNS = new Set(['mkoPaginate']);
 const PRINT_FNS = new Set(['runningOrderSheetHTML', 'rulesSheetHTML', 'formatDescriptionLines', 'teamsFormatDescriptionLines', 'rrAdvanceLine', 'koSheetChrome', 'kbSplitSheetsHTML', 'knockoutBracketSheetHTML',
   'knockoutLegsSummary', 'groupBoardsBracketSheetHTML', 'sheetShellHTML', 'scaledArtHTML', 'projectedTooBigSheetHTML', 'projectedBracketSheetHTML', 'gbPlaceholderHTML', 'gbFitFontSize', 'koUnitNoun', 'mkoPaginate', 'mkoPageHTML',
   'lineupSheetHTML', 'lineupCardHTML', 'lineupSegmentHTML', 'printPackNow', 'bpPlayersSheetsHTML', 'bpBoardsSheetHTML', 'bpSheetShell', 'bpPlayerRows', 'bpClock', 'podsPrintClick']);
-const CODES = new Set(['Open', 'Women', 'Youth', 'Singles', 'Doubles', 'Triples', 'Teams', 'Trios', 'Foursome', 'Player', 'Pair', 'Triple', 'Team', 'Entry', 'Bracket', 'Main bracket', 'Plate pool', 'Finals',
+const CODES = new Set(['Open', 'Women', 'Youth', 'Singles', 'Doubles', 'Triples', 'Teams', 'Trios', 'Quads', 'Foursome', 'Player', 'Pair', 'Triple', 'Trio', 'Quad', 'Team', 'Entry', 'Bracket', 'Main bracket', 'Plate pool', 'Finals',
   'Main bracket (projected)', 'Plate pool (projected)', 'Head-to-head result', 'Leg difference', 'Legs won', 'Organiser decision / playoff', 'Verbal warning', 'Formal warning', 'Disqualification', 'Other',
   'Event creation', 'Format & branding', 'Chart details', 'Confirm & Print Bracket', 'Manage Tournament', 'Finalize Standings', 'Print Final Chart', 'DartDraw', 'Content-Type', 'Not authenticated', 'Enter', 'Escape',
   'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'Mid', 'Byes', 'EntryId', 'FromPod', 'Group ', 'Plate', '#deviceGatePhone',

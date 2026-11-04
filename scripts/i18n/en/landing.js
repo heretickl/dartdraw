@@ -35,7 +35,7 @@ module.exports = {
     explore: 'Explore the features',
     ctaNote: 'No account yet? Accounts are created by the site admin.',
     typesLabel: 'Competition types',
-    types: ['Singles', 'Doubles', 'Teams'],
+    types: ['Singles', 'Doubles', 'Trios', 'Quads', 'Teams'],
     // the decorative app preview (aria-hidden)
     preview: {
       workspace: 'Tournament workspace',
@@ -77,7 +77,7 @@ module.exports = {
       { h: 'Fair draws, built for you', li: ['Groups are built and balanced automatically', 'Keep entries from the same organisation apart, in a group or in the first knockout round', 'Seeded or random placement into the bracket, with board numbers for each group'] },
       { h: 'Scoring that does the sums', li: ['Enter scores straight onto the chart; standings update as you go', 'Tie-breaks by legs won, leg difference, head-to-head, then your decision &mdash; and DartDraw flags any tie that needs one', 'No-shows, walkovers, withdrawals and check-in'] },
       { h: 'Legs your way', p: 'Set best-of legs for the whole event, or vary them by knockout round: early rounds, quarter-finals, semi-finals and the final.' },
-      { h: 'Singles, doubles and teams', p: 'Run singles, doubles or team events. A pair or a team is simply its name on the charts, results and live page. A team match is made of segments (singles, doubles, trios or a foursome, with an optional tie-breaker), and you enter one result: the total legs each team won.' },
+      { h: 'Singles, doubles and teams', p: 'Run singles, doubles or team events. A pair or a team is simply its name on the charts, results and live page. A team match is made of segments (singles, doubles, trios or quads, with an optional tie-breaker), and you enter one result: the total legs each team won.' },
       { h: 'Your branding, ready to print', li: ['Your logo, sponsor logos and a rules or footer line', 'An A4 pack of blank charts before the day, and the final chart with every result afterwards', 'A QR code on the group charts and bracket sheets that opens the live page, once results are published'] },
       { h: 'Live results for everyone', li: ['Share one link: players see their group, their next match and the bracket, and can follow friends', 'The page refreshes by itself, and shows &ldquo;Final results&rdquo; when it&rsquo;s done', 'Events can also appear on a public home page'] },
       { h: 'Tools for the day', li: ['Estimated start times, breaks and a board plan', 'Open the round robin and the knockout in separate windows for several screens', 'A private incident log, and accepted results lock the final standings'] },
@@ -90,7 +90,7 @@ module.exports = {
     lede: 'Seven steps, in the order you&rsquo;ll do them. The app guides you through each one.',
     stepsLabel: 'The seven steps',
     steps: [
-      { h: 'Event creation', p: 'Name it, choose the category and Singles, Doubles or Teams, set the date and the number of entries: players, pairs or teams.' },
+      { h: 'Event creation', p: 'Name it, choose the category and Singles, Doubles, Trios, Quads or Teams, set the date and the number of entries: players, pairs or teams.' },
       { h: 'Format &amp; branding', p: 'Pick the format and best-of legs, including a knockout with Group Boards if you want a champion for every group before the finals. Add your logo, sponsors and footer. Basic setup keeps things simple; Advanced adds scheduling, per-round legs and the Plate pool.' },
       { h: 'Chart details', p: 'Add your entries. DartDraw builds balanced groups and gives each its boards, and you can adjust anything by hand.' },
       { h: 'Confirm &amp; Print Bracket', p: 'Check each chart, confirm it, and print the blank A4 pack. Want QR codes on the sheets? Publish the results first: this step offers a button for it.' },

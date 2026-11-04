@@ -1,6 +1,7 @@
 /* Player library in the organiser app (spec: docs/superpowers/specs/2026-10-29-player-library-design.md).
    - The organiser's players are loaded once (GET /api/players/list) into libraryState and searched here as you type.
-   - Step 3 builds the entries: a search box for Singles, "Add pair" for Doubles, "Add team" for Teams (and Triples).
+   - Step 3 builds the entries: a search box for Singles, "Add pair / trio / quad" for Doubles, Trios and Quads (one box per
+     player, team name optional), "Add team" for Teams (and an older Triples event).
      A typed new name is either saved to the library ("Add ... as a new player") or kept in this event only
      ("Add to this event only", e.g. a nickname: member.eventOnly, never sent to the library).
    - An entry keeps its own copies: entry.members = [{ playerId, name, club, eventOnly? }], entry.teamName (Doubles:
@@ -116,10 +117,14 @@ if(typeof window !== 'undefined' && window.addEventListener) window.addEventList
 
 /* ---------- the entry model ---------- */
 function plUnit(t){ var u = (t || state).eventCreation.competitionUnit; return u === 'Triples' ? 'Teams' : (u || 'Singles'); }
+/* Doubles, Trios and Quads: a fixed number of players, each in its own box, and an optional team name. (Not Teams.) */
+var PL_GROUPS = { Doubles: { size: 2, key: 'Pair' }, Trios: { size: 3, key: 'Trio' }, Quads: { size: 4, key: 'Quad' } };
+function plGroup(unit){ return PL_GROUPS[unit] || null; }
+function plGroupSize(unit){ var g = plGroup(unit); return g ? g.size : 0; }
 function entryDisplayName(unit, teamName, members){
   var names = (members || []).map(function(m){ return libCleanName(m && m.name); }).filter(Boolean);
   var team = libCleanName(teamName);
-  if(unit === 'Doubles') return team ? team + ' : ' + names.join(' / ') : names.join(' / ');
+  if(plGroup(unit)) return team ? team + ' : ' + names.join(' / ') : names.join(' / ');
   if(unit === 'Teams' || unit === 'Triples') return team;
   return names[0] || '';
 }
@@ -220,8 +225,8 @@ function entryPickerHTML(){
   if(libraryState.status === 'idle') loadLibrary();
   var unit = plUnit();
   var box;
-  if(unit === 'Doubles'){
-    box = '<div class="buttonrow" style="margin:0"><button class="btn primary" onclick="openPairDialog(null)">' + T('pl.addPair') + '</button></div>';
+  if(plGroup(unit)){
+    box = '<div class="buttonrow" style="margin:0"><button class="btn primary" onclick="openPairDialog(null)">' + T('pl.add' + plGroup(unit).key) + '</button></div>';
   } else if(unit === 'Teams'){
     box = '<div class="buttonrow" style="margin:0"><button class="btn primary" onclick="openTeamDialog(null)">' + T('pl.addTeam') + '</button>' +
       (plForeign() ? '' : '<button class="btn secondary" onclick="openCopyTeamDialog()">' + T('pl.copyTeam') + '</button>') + '</div>';
@@ -229,7 +234,7 @@ function entryPickerHTML(){
     box = '<div class="field" style="margin:0;position:relative"><input type="text" id="pickerBox" autocomplete="off" placeholder="' + T('pl.searchPh') + '" value="' + escText(pickerState.q) + '" oninput="pickerInput(this.value)" onkeydown="pickerKey(event)">' +
       '<div id="pickerResults">' + pickerResultsHTML() + '</div></div>';
   }
-  return '<div class="entries-panel" id="entryPicker"><h2>' + T('pl.addTitle') + '</h2><p class="intro">' + T(unit === 'Singles' ? 'pl.addIntro' : unit === 'Doubles' ? 'pl.addIntroPair' : 'pl.addIntroTeam') + '</p>' +
+  return '<div class="entries-panel" id="entryPicker"><h2>' + T('pl.addTitle') + '</h2><p class="intro">' + T(unit === 'Singles' ? 'pl.addIntro' : plGroup(unit) ? 'pl.addIntro' + plGroup(unit).key : 'pl.addIntroTeam') + '</p>' +
     box + libraryNoteHTML() + entryPickerHintHTML() + '</div>';
 }
 /* The rows under a search box: library matches, then "Add as a new player" and "Add to this event only".
@@ -297,22 +302,28 @@ async function plAddNew(slot, eventOnly){
   if(addEntryFromMembers('Singles', '', [m])) pickerReset();
 }
 
-/* ---------- Doubles and Teams: the pair / team box ---------- */
-var plDialog = null;   // { kind: 'pair'|'team', entryId, teamName, club, clubTyped, members: [] }
+/* ---------- Doubles, Trios, Quads and Teams: the pair / trio / quad / team box ---------- */
+var plDialog = null;   // { kind: 'pair'|'team', unit, size, entryId, teamName, club, clubTyped, members: [] }  ('pair': one box per player, slots p1..pN)
+function plSlotIndex(slot){ return parseInt(String(slot).slice(1), 10) - 1; }
 function plDialogClub(){ var el = document.getElementById('plClub'); return el ? el.value : (plDialog ? plDialog.club : ''); }
 function plSlotHTML(slot, label){
-  var m = plDialog.kind === 'pair' ? plDialog.members[slot === 'p1' ? 0 : 1] : null;
+  var m = plDialog.kind === 'pair' ? plDialog.members[plSlotIndex(slot)] : null;
   if(m) return '<div class="field"><label>' + label + '</label><div class="pl-chosen"><b>' + escText(m.name) + '</b>' + (m.club ? ' · ' + escText(m.club) : '') +
     (m.eventOnly ? ' <span style="color:var(--muted)">(' + T('pl.eventOnlyTag') + ')</span>' : '') +
     ' <button type="button" class="btn ghost" style="padding:3px 8px;font-size:10px" onclick="plDialogClear(\'' + slot + '\')">' + T('pl.change') + '</button></div></div>';
-  return '<div class="field"><label>' + label + '</label><input type="text" id="ps_' + slot + '" autocomplete="off" placeholder="' + T('pl.searchPh') + '" oninput="plSlotInput(\'' + slot + '\',this.value)">' +
+  return '<div class="field"><label>' + label + '</label><input type="text" id="ps_' + slot + '" autocomplete="off" placeholder="' + T('pl.slotPh') + '" oninput="plSlotInput(\'' + slot + '\',this.value)">' +
     '<div id="psr_' + slot + '"></div></div>';
 }
 function plDialogInnerHTML(){
   var d = plDialog;
-  var head = '<div class="field"><label>' + T(d.kind === 'pair' ? 'pl.teamNameOpt' : 'pl.teamNameReq') + '</label><input type="text" id="plTeamName" maxlength="80" value="' + escText(d.teamName) + '" oninput="plDialog.teamName=this.value"></div>' +
-    '<div class="field"><label>' + T('pl.club') + '</label><input type="text" id="plClub" maxlength="80" value="' + escText(d.club) + '" oninput="plDialog.club=this.value;plDialog.clubTyped=true"></div>';
-  if(d.kind === 'pair') return head + plSlotHTML('p1', T('pl.player1')) + plSlotHTML('p2', T('pl.player2'));
+  /* the team name is required for pairs, trios and quads too (owner, 2026-11-04); the club stays optional, with why it helps */
+  var head = '<div class="field"><label>' + T('pl.teamNameReq') + '</label><input type="text" id="plTeamName" maxlength="80" value="' + escText(d.teamName) + '" oninput="plDialog.teamName=this.value"></div>' +
+    '<div class="field"><label>' + T('pl.clubOpt') + '</label><input type="text" id="plClub" maxlength="80" value="' + escText(d.club) + '" oninput="plDialog.club=this.value;plDialog.clubTyped=true"><div class="hint">' + T('pl.clubWhy') + '</div></div>';
+  if(d.kind === 'pair'){
+    var slots = '';
+    for(var i = 1; i <= d.size; i++) slots += plSlotHTML('p' + i, i <= 2 ? T('pl.player' + i) : T('pl.playerN', { n: i }));
+    return head + slots;
+  }
   var list = d.members.map(function(m, i){
     return '<div class="pl-chosen" style="margin-bottom:4px"><span class="num">' + (i + 1) + '</span> <b>' + escText(m.name) + '</b>' + (m.club ? ' · ' + escText(m.club) : '') +
       (m.eventOnly ? ' <span style="color:var(--muted)">(' + T('pl.eventOnlyTag') + ')</span>' : '') +
@@ -335,25 +346,27 @@ function plDialogSet(slot, m){
   if(!plDialog) return;
   if(plDialog.members.some(function(x){ return x && ((m.playerId && x.playerId === m.playerId) || libFold(x.name) === libFold(m.name)); })) return;
   if(slot === 'add') plDialog.members.push(m);
-  else plDialog.members[slot === 'p1' ? 0 : 1] = m;
+  else plDialog.members[plSlotIndex(slot)] = m;
   if(plDialog.kind === 'pair' && !plDialog.clubTyped) plDialog.club = entryClubFromMembers(plDialog.members.filter(Boolean));
-  plDialogRedraw(slot === 'add' ? 'add' : (plDialog.members[1] ? null : 'p2'));
+  var empty = plDialog.kind === 'pair' ? plDialog.members.indexOf(null) : -1;   // the next box still to fill
+  plDialogRedraw(slot === 'add' ? 'add' : (empty >= 0 ? 'p' + (empty + 1) : null));
 }
-function plDialogClear(slot){ if(plDialog){ plDialog.members[slot === 'p1' ? 0 : 1] = null; plDialogRedraw(slot); } }
+function plDialogClear(slot){ if(plDialog){ plDialog.members[plSlotIndex(slot)] = null; plDialogRedraw(slot); } }
 function plDialogDrop(i){ if(plDialog){ plDialog.members.splice(i, 1); plDialogRedraw('add'); } }
 function plOpenDialog(kind, entryId, preset){
   if(isLocked(state) || libDrawExists(state)) return;
   if(libraryState.status === 'idle') loadLibrary();
   var ent = entryId ? state.entriesList.find(function(e){ return e.id === entryId; }) : null;
   var src = preset || ent;
+  var unit = kind === 'pair' ? (plGroup(plUnit()) ? plUnit() : 'Doubles') : 'Teams';
   plDialog = {
-    kind: kind, entryId: ent ? ent.id : null,
+    kind: kind, unit: unit, size: plGroupSize(unit), entryId: ent ? ent.id : null,
     teamName: src ? (src.teamName || '') : '', club: src ? (src.org || '') : '', clubTyped: !!(src && src.org),
     members: src && src.members ? src.members.map(function(m){ return Object.assign({}, m); }) : []
   };
-  if(kind === 'pair') while(plDialog.members.length < 2) plDialog.members.push(null);
+  if(kind === 'pair') while(plDialog.members.length < plDialog.size) plDialog.members.push(null);
   openModal({
-    title: T(kind === 'pair' ? (ent ? 'pl.editPair' : 'pl.addPair') : (ent ? 'pl.editTeam' : 'pl.addTeam')),
+    title: T(kind === 'pair' ? (ent ? 'pl.edit' : 'pl.add') + plGroup(unit).key : (ent ? 'pl.editTeam' : 'pl.addTeam')),
     bodyHTML: '<div id="plDialog">' + plDialogInnerHTML() + '</div>',
     confirmLabel: T('pl.save'), confirmClass: 'primary', help: false,
     onConfirm: function(){ return plDialogSave(); }
@@ -365,10 +378,10 @@ function plDialogSave(){
   var d = plDialog;
   if(!d) return;
   var team = libCleanName(d.teamName), members = d.members.filter(Boolean).map(plCleanMember);
-  if(d.kind === 'pair' && members.length < 2) return { error: T('pl.needPair') };
-  if(d.kind === 'team' && !team) return { error: T('pl.needTeamName') };
+  if(d.kind === 'pair' && members.length < d.size) return { error: d.size === 2 ? T('pl.needPair') : T('pl.needAll', { n: d.size }) };
+  if(!team) return { error: T('pl.needTeamName') };
   if(d.kind === 'team' && !members.length) return { error: T('pl.needTeamPlayer') };
-  var unit = d.kind === 'pair' ? 'Doubles' : 'Teams';
+  var unit = d.unit;
   var club = libCleanName(d.club);
   if(!d.entryId){
     var active = activeEntryCount(state);
@@ -476,7 +489,7 @@ function playersFail(r){
 }
 function plNameClubForm(name, club){
   return '<div class="field"><label>' + T('pl.col.name') + '</label><input type="text" id="plFormName" maxlength="80" value="' + escText(name || '') + '"></div>' +
-    '<div class="field"><label>' + T('pl.clubOpt') + '</label><input type="text" id="plFormClub" maxlength="80" value="' + escText(club || '') + '"></div>';
+    '<div class="field"><label>' + T('pl.clubOpt') + '</label><input type="text" id="plFormClub" maxlength="80" value="' + escText(club || '') + '"><div class="hint">' + T('pl.clubWhyLib') + '</div></div>';
 }
 function plFormValues(){ return { name: libCleanName(document.getElementById('plFormName').value), club: libCleanName(document.getElementById('plFormClub').value) }; }
 function playersAdd(){

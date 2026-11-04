@@ -37,7 +37,7 @@ var DD_I18N = { lang: 'en', forced: null, hooks: [], warned: {}, want: null, hel
 function ddHasLang(l){ return l === 'en' || (l === 'ms' && ddMsLoaded()); }
 /* The automatic entry names ("Pemain A1") in BM, needed even on an English page that has not loaded the BM tables:
    applyAutoNames keeps a name that is the slot's name in either language. Equal to app.ms.js (tests/app-i18n.test.js). */
-var DD_AUTONAME_MS = { 'autoName.entry': 'Peserta {label}', 'autoName.player': 'Pemain {label}', 'autoName.pair': 'Pasangan {label}', 'autoName.triple': 'Trio {label}', 'autoName.team': 'Pasukan {label}' };
+var DD_AUTONAME_MS = { 'autoName.entry': 'Peserta {label}', 'autoName.player': 'Pemain {label}', 'autoName.pair': 'Pasangan {label}', 'autoName.trio': 'Trio {label}', 'autoName.quad': 'Berempat {label}', 'autoName.triple': 'Trio {label}', 'autoName.team': 'Pasukan {label}' };
 
 /* ---- loading the BM tables on demand. done(ok) is called once every file has arrived or failed; ok: the tables are in.
    A file that fails is taken off the page so the next try asks for it again. ---- */

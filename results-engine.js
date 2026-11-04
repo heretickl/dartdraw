@@ -20,7 +20,7 @@
    "Trios" is the name for three players (an older event's 'triples' segment is migrated to 'trios'). */
 const DEFAULT_TIE_BREAK_ORDER = ['Legs won','Leg difference','Head-to-head result','Organiser decision / playoff'];
 const OLD_DEFAULT_TIE_BREAK_ORDER = ['Head-to-head result','Leg difference','Legs won','Organiser decision / playoff'];   // the default before Oct 2026
-const TEAM_SEGMENT_TYPES = [['singles','Singles'],['doubles','Doubles'],['trios','Trios'],['foursome','Foursome']];
+const TEAM_SEGMENT_TYPES = [['singles','Singles'],['doubles','Doubles'],['trios','Trios'],['foursome','Quads']];
 const TEAM_SEGMENT_PLAYERS = { singles:1, doubles:2, trios:3, foursome:4 };
 const TEAM_STARTING_SCORES = [301,501,701,1001];
 const TEAM_MAX_SEGMENTS = 8;   // so the lineup sheet always fits one A4 page

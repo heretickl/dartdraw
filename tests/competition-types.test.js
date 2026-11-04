@@ -38,10 +38,10 @@ function blank(unit, formatType, n) {
 const render = (n) => { run(app, 'formSectionCollapsed.format = false'); app.__n = n; run(app, 'currentStage = __n'); return run(app, 'stage' + n + '()'); };
 
 /* ---------- stage 1: the competition type picker ---------- */
-test('stage 1 offers exactly Singles, Doubles and Teams for a new event, Singles selected', () => {
+test('stage 1 offers exactly Singles, Doubles, Trios, Quads and Teams for a new event, Singles selected', () => {
   reset(); const t = f('blankTournament')(); useState(app, t);
   const html = render(1);
-  assert.deepEqual(optionValues(html, 'f_unit'), ['Singles', 'Doubles', 'Teams']);
+  assert.deepEqual(optionValues(html, 'f_unit'), ['Singles', 'Doubles', 'Trios', 'Quads', 'Teams']);
   assert.match(html, /<option value="Singles" selected>Singles<\/option>/);
   assert.doesNotMatch(html, /Triples|existing event/);
   assert.match(html, /For singles, doubles or teams events\./);
@@ -50,13 +50,13 @@ test('stage 1 offers exactly Singles, Doubles and Teams for a new event, Singles
 test('stage 1 keeps Triples selectable only for an event that already has it; Teams is a normal choice', () => {
   reset();
   const tr = blank('Triples'); const html = render(1);
-  assert.deepEqual(optionValues(html, 'f_unit'), ['Singles', 'Doubles', 'Teams', 'Triples']);
+  assert.deepEqual(optionValues(html, 'f_unit'), ['Singles', 'Doubles', 'Trios', 'Quads', 'Teams', 'Triples']);
   assert.match(html, /<option value="Triples" selected>Triples \(existing event\)<\/option>/);
   const tm = blank('Teams');
-  assert.deepEqual(optionValues(render(1), 'f_unit'), ['Singles', 'Doubles', 'Teams']);
+  assert.deepEqual(optionValues(render(1), 'f_unit'), ['Singles', 'Doubles', 'Trios', 'Quads', 'Teams']);
   assert.match(render(1), /<option value="Teams" selected>Teams<\/option>/);
   const d = blank('Doubles'); useState(app, d);
-  assert.deepEqual(optionValues(render(1), 'f_unit'), ['Singles', 'Doubles', 'Teams']);
+  assert.deepEqual(optionValues(render(1), 'f_unit'), ['Singles', 'Doubles', 'Trios', 'Quads', 'Teams']);
   assert.match(render(1), /<option value="Doubles" selected>/);
   void tr; void tm;
 });

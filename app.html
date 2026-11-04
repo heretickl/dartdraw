@@ -936,10 +936,10 @@ function blankTournament(){
   };
 }
 
-function unitWordFor(unit){ return { Singles:'Player', Doubles:'Pair', Triples:'Triple', Teams:'Team' }[unit] || 'Entry'; }
-/* What one entry is called on screen, in the UI language: player / pair / triple / team / entry, singular or plural by n
+function unitWordFor(unit){ return { Singles:'Player', Doubles:'Pair', Trios:'Trio', Quads:'Quad', Triples:'Triple', Teams:'Team' }[unit] || 'Entry'; }
+/* What one entry is called on screen, in the UI language: player / pair / trio / quad / triple / team / entry, singular or plural by n
    (unitWordFor above is the English word of the automatic entry names, see autoNameWord). */
-function unitKeyFor(unit){ return { Singles:'player', Doubles:'pair', Triples:'triple', Teams:'team' }[unit] || 'entry'; }
+function unitKeyFor(unit){ return { Singles:'player', Doubles:'pair', Trios:'trio', Quads:'quad', Triples:'triple', Teams:'team' }[unit] || 'entry'; }
 function unitNoun(unit, n){ return T('noun.'+unitKeyFor(unit), {n: n==null ? 1 : n}); }
 /* A stored code shown in words: the competition type, the category, the format. */
 function unitLabel(unit){ return TC('unit.', unit); }
@@ -2275,7 +2275,7 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
   const clampAttr = teams ? teamResultBoxAttr(majority) : 'min="0" max="'+majority+'" step="1" oninput="this.value=this.value===\'\'?\'\':Math.min(Math.max(parseInt(this.value)||0,0),'+majority+')"';
   openModal({
     title: T('ko.vs', {a: escapeHtml(aName), b: escapeHtml(bName)}),
-    bodyHTML: (m.void ? '<div class="confirm-box" style="margin:0 0 10px"><b>'+T(teams ? 'ko.void.team' : state.eventCreation.competitionUnit==='Doubles' ? 'ko.void.pair' : 'ko.void.player')+'</b>'+T('ko.void.text', {btn: '<button type="button" class="btn secondary" style="padding:3px 9px;font-size:11px" onclick="closeModal();reverseKnockoutVoid(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+');">'+T('ko.reverse')+'</button>'})+'</div>' : '')+
+    bodyHTML: (m.void ? '<div class="confirm-box" style="margin:0 0 10px"><b>'+T(teams ? 'ko.void.team' : plGroup(state.eventCreation.competitionUnit) ? 'ko.void.'+unitKeyFor(state.eventCreation.competitionUnit) : 'ko.void.player')+'</b>'+T('ko.void.text', {btn: '<button type="button" class="btn secondary" style="padding:3px 9px;font-size:11px" onclick="closeModal();reverseKnockoutVoid(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+');">'+T('ko.reverse')+'</button>'})+'</div>' : '')+
       '<p style="margin:-4px 0 10px;font-size:11px;color:var(--muted)">'+T('ko.matchTag', {tag: escapeHtml(koMatchTag(bracket, state, roundIdx, matchIdx)), round: escapeHtml(koRoundName(bracket, roundIdx))})+'</p>'+
       /* Click the result under the player who won (or Winner only: a winner alone moves them on with no score); the leg
          boxes below stay for the keyboard. */
@@ -2625,7 +2625,7 @@ function koPaperKey(t){ t = t||state; const p = t && t.printSettings && t.printS
 function isGroupBoardsBracket(t, bracket){ return t.format.formatType==='podknockout' || !!(bracket && (bracket.podFinals || bracket.podLabel)); }
 function koUnitNoun(t, n){
   const u = t.eventCreation.competitionUnit;
-  return T(u==='Doubles' ? 'noun.pair' : u==='Teams' ? 'noun.team' : 'noun.entry', {n});
+  return T(plGroup(u) ? 'noun.'+unitKeyFor(u) : u==='Teams' ? 'noun.team' : 'noun.entry', {n});
 }
 /* A bracket's printed label in capitals, in the print language: BRACKET, MAIN BRACKET, PLATE POOL, FINALS (BM: BRACKET UTAMA...). */
 function printBracketLabel(bracket){
@@ -5449,9 +5449,10 @@ function fitPopoutChart(){
 window.addEventListener('resize', ()=>{ if(popoutMode){ if(staleOpen()) renderStaleBanner(); fitPopoutChart(); } });
 
 /* ---------- Stage 1: Event Creation ---------- */
-/* Competition types offered for a new event: Singles, Doubles and Teams. Triples is hidden, not removed: an existing
-   Triples event keeps it (as an extra option, so saving stage 1 never silently changes its type). */
-const OFFERED_UNITS = ['Singles','Doubles','Teams'];
+/* Competition types offered for a new event: Singles, Doubles, Trios, Quads (each player in its own box, team name optional)
+   and Teams (a team event with segments). The older Triples is hidden, not removed: an existing Triples event keeps it (as an
+   extra option, so saving stage 1 never silently changes its type). */
+const OFFERED_UNITS = ['Singles','Doubles','Trios','Quads','Teams'];
 function unitOptionsHTML(current){
   const opts = OFFERED_UNITS.map(o=>'<option value="'+o+'"'+(current===o?' selected':'')+'>'+unitLabel(o)+'</option>');
   if(current && OFFERED_UNITS.indexOf(current)<0)
@@ -6458,9 +6459,9 @@ function entryFieldsHTML(ent, showOrg){
   /* A pair or team built from players (players-ui.js) is edited in its box until the draw; its name is made from the box. */
   const built = unit!=='Singles' && Array.isArray(ent.members);
   const nameHTML = built
-    ? '<div style="flex:1;font-size:13px"><b>'+escapeHtml(ent.name)+'</b>'+(unit==='Doubles' ? '' : '<div class="hint" style="margin:2px 0 0">'+ent.members.map(m=> escapeHtml(m.name)).join(', ')+'</div>')+'</div>'+
-      (libDrawExists(state) || isLocked(state) ? '' : '<button class="btn ghost" style="padding:6px 9px;font-size:10px" onclick="'+(unit==='Doubles'?'openPairDialog':'openTeamDialog')+'(\''+escJs(ent.id)+'\')">'+T('pl.edit')+'</button>')
-    : '<input type="text" style="flex:1" value="'+escapeHtml(ent.name)+'" onchange="renameEntry(\''+escJs(ent.id)+'\',this.value)" placeholder="'+T(unit==='Doubles'?'s3.pairName':(unit==='Teams'||unit==='Triples')?'s3.teamName':'s3.name')+'">';
+    ? '<div style="flex:1;font-size:13px"><b>'+escapeHtml(ent.name)+'</b>'+(plGroup(unit) ? '' : '<div class="hint" style="margin:2px 0 0">'+ent.members.map(m=> escapeHtml(m.name)).join(', ')+'</div>')+'</div>'+
+      (libDrawExists(state) || isLocked(state) ? '' : '<button class="btn ghost" style="padding:6px 9px;font-size:10px" onclick="'+(plGroup(unit)?'openPairDialog':'openTeamDialog')+'(\''+escJs(ent.id)+'\')">'+T('pl.edit')+'</button>')
+    : '<input type="text" style="flex:1" value="'+escapeHtml(ent.name)+'" onchange="renameEntry(\''+escJs(ent.id)+'\',this.value)" placeholder="'+T(unit==='Doubles'?'s3.pairName':(plGroup(unit)||unit==='Teams'||unit==='Triples')?'s3.teamName':'s3.name')+'">';
   return '<div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:160px">'+
     '<div style="display:flex;gap:6px;align-items:center">'+
       nameHTML+
@@ -7296,7 +7297,7 @@ function runningOrderSheetHTML(confirmed){
   const t = state;
   const boards = runningOrderBoards(t, confirmed);
   const totalMatches = confirmed.reduce((n,g)=> n+groupMatches(g).length, 0);
-  const noun = (n)=> T(isTeamsEvent(t) ? 'noun.team' : t.eventCreation.competitionUnit==='Doubles' ? 'noun.pair' : 'noun.player', {n});
+  const noun = (n)=> T(isTeamsEvent(t) ? 'noun.team' : plGroup(t.eventCreation.competitionUnit) ? 'noun.'+unitKeyFor(t.eventCreation.competitionUnit) : 'noun.player', {n});
   const sheets = [];
   for(let i=0;i<Math.max(1, boards.length);i+=8){
     const set = boards.slice(i, i+8);
@@ -7388,6 +7389,8 @@ function formatDescriptionLines(t){
     }
   }
   if(unit==='Doubles') lines.push(T('pr.f.pair'));
+  else if(unit==='Trios') lines.push(T('pr.f.trio'));
+  else if(unit==='Quads') lines.push(T('pr.f.quad'));
   else if(unit==='Triples') lines.push(T('pr.f.triple'));
   if(f.orgSplit) lines.push(T('pr.f.org'));
   return lines;

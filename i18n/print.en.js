@@ -58,6 +58,8 @@ var DD_PRINT_EN = {
   'pr.f.plateFlat': 'Plate pool matches are best of {n} legs.',
   'pr.f.pair': 'Each entry is a pair of 2 players.',
   'pr.f.triple': 'Each entry is a team of 3 players.',
+  'pr.f.trio': 'Each entry is a trio of 3 players.',
+  'pr.f.quad': 'Each entry is a quad of 4 players.',
   'pr.f.org': 'Entries from the same organisation are kept apart where possible, both in round robin groups and in the first knockout round.',
   'pr.f.advance': { one: 'Advancing to the knockout: top {n} entry from each group, {how}.{plate}', other: 'Advancing to the knockout: top {n} entries from each group, {how}.{plate}' },
   'pr.f.seeded': 'seeded by group finishing position',

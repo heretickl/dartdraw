@@ -317,7 +317,7 @@ test('the sync leaves a name that was edited while the request was out, and neve
 
 /* ---------- Doubles and Teams boxes ---------- */
 
-test('Add pair: two players (picked or typed), an optional team name, the club filled from the players unless typed', async () => {
+test('Add pair: two players (picked or typed), a team name (required), the club filled from the players unless typed', async () => {
   const t = reset('Doubles');
   f('openPairDialog')(null);
   assert.equal(modals[0].title, T('pl.addPair'));
@@ -339,9 +339,11 @@ test('Add pair: two players (picked or typed), an optional team name, the club f
   typeIn('plClub', 'Mixed');
   await f('plAddNew')('p2', false);
   run(app, 'plDialog.club = "Mixed"; plDialog.clubTyped = true');
+  assert.deepEqual(plain(modals[1].onConfirm()), { error: T('pl.needTeamName') }, 'the team name is required (owner, 2026-11-04)');
+  run(app, 'plDialog.teamName = "Mix"');
   assert.equal(modals[1].onConfirm(), undefined);
   await tick();
-  assert.deepEqual([t.entriesList[1].name, t.entriesList[1].org, t.entriesList[1].members[1].playerId], ['Iskandar / Kamil', 'Mixed', 'p_new1_0']);
+  assert.deepEqual([t.entriesList[1].name, t.entriesList[1].org, t.entriesList[1].members[1].playerId], ['Mix : Iskandar / Kamil', 'Mixed', 'p_new1_0']);
 });
 
 test('a pair with a player already in another pair is refused in the box, in plain words', () => {
@@ -349,6 +351,7 @@ test('a pair with a player already in another pair is refused in the box, in pla
   t.entriesList.push({ id: 'e1', name: 'A & B', teamName: '<b>A&B</b>', members: [{ playerId: 'p1', name: 'Ahmad Faiz', club: '' }, { playerId: 'p9', name: 'X', club: '' }] });
   f('openPairDialog')(null);
   f('plChoose')('p1', 'p1'); f('plChoose')('p2', 'p2');
+  run(app, 'plDialog.teamName = "Pair B"');
   const r = modals[0].onConfirm();
   assert.equal(r.error, T('pl.inUse', { name: 'Ahmad Faiz', entry: '<b>A&B</b>' }), 'not HTML-escaped: the box shows it as text');
   assert.equal(t.entriesList.length, 1);

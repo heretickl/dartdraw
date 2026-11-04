@@ -55,6 +55,8 @@ var DD_PRINT_MS = {
   'pr.f.plateFlat': 'Perlawanan saingan Plate ialah terbaik daripada {n} leg.',
   'pr.f.pair': 'Setiap peserta ialah pasangan 2 pemain.',
   'pr.f.triple': 'Setiap peserta ialah pasukan 3 pemain.',
+  'pr.f.trio': 'Setiap peserta ialah trio 3 pemain.',
+  'pr.f.quad': 'Setiap peserta ialah kumpulan berempat 4 pemain.',
   'pr.f.org': 'Peserta dari organisasi yang sama dipisahkan jika boleh, dalam kumpulan round robin dan dalam pusingan kalah mati pertama.',
   'pr.f.advance': 'Mara ke kalah mati: {n} peserta teratas dari setiap kumpulan, {how}.{plate}',
   'pr.f.seeded': 'diberi seed mengikut kedudukan akhir dalam kumpulan',

@@ -35,7 +35,7 @@ module.exports = {
     // NEW (same sentence as the sign-in box's "No account yet?" line)
     ctaNote: 'Belum ada akaun? Akaun dibuka oleh pentadbir laman.',
     typesLabel: 'Jenis pertandingan',
-    types: ['Perseorangan', 'Beregu', 'Berpasukan'],
+    types: ['Perseorangan', 'Beregu', 'Trio', 'Berempat', 'Berpasukan'],
     preview: {
       workspace: 'Ruang kerja kejohanan',
       menu: ['Ringkasan', 'Carta &amp; cetakan', 'Kumpulan', 'Kalah mati', 'Pemain', 'Tetapan acara'],
@@ -91,7 +91,7 @@ module.exports = {
     stepsLabel: 'Tujuh langkah',
     // NEW: the step titles are now the app's stage names, and steps 1, 4, 5, 6 and 7 say more
     steps: [
-      { h: 'Cipta acara', p: 'Namakan acara, pilih kategori dan Perseorangan, Beregu atau Berpasukan, tetapkan tarikh dan bilangan peserta: pemain, pasangan atau pasukan.' },
+      { h: 'Cipta acara', p: 'Namakan acara, pilih kategori dan Perseorangan, Beregu, Trio, Berempat atau Berpasukan, tetapkan tarikh dan bilangan peserta: pemain, pasangan atau pasukan.' },
       { h: 'Format &amp; penjenamaan', p: 'Pilih format dan bilangan leg (terbaik daripada), termasuk kalah mati dengan Group Boards jika anda mahukan juara bagi setiap kumpulan sebelum peringkat akhir. Tambah logo, penaja dan kaki halaman anda. Persediaan Asas memudahkan urusan; Lanjutan menambah penjadualan, leg bagi setiap pusingan dan saingan Plate.' },
       { h: 'Butiran carta', p: 'Tambah peserta anda. DartDraw membina kumpulan yang seimbang dan memberikan board kepada setiap kumpulan, dan anda boleh melaraskan apa-apa secara manual.' },
       { h: 'Sahkan &amp; Cetak Bracket', p: 'Semak setiap carta, sahkan, dan cetak set A4 kosong. Mahukan kod QR pada helaian? Terbitkan keputusan dahulu: langkah ini menyediakan butang untuknya.' },
