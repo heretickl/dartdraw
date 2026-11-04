@@ -10,7 +10,7 @@ const { SLUG_RE, validFinalizedAt } = require('./publicView');
 const DAY = 86400000, HOUR = 3600000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/, TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const FORMATS = ['roundrobin', 'knockout', 'rrknockout', 'podknockout'];
-const UNITS = ['Singles', 'Doubles', 'Triples', 'Teams'];
+const UNITS = ['Singles', 'Doubles', 'Triples', 'Trios', 'Quads', 'Teams'];
 
 const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);

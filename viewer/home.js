@@ -5,7 +5,7 @@
    T(); the data from the server is codes and numbers (format, unit, stage, round, next), turned into words here. */
 
 var HM_FORMATS = ['roundrobin', 'knockout', 'rrknockout', 'podknockout'];
-var HM_UNITS = ['Singles', 'Doubles', 'Triples', 'Teams'];
+var HM_UNITS = ['Singles', 'Doubles', 'Triples', 'Trios', 'Quads', 'Teams'];
 var HM_TABS = ['live', 'upcoming', 'results'];
 
 function hmEsc(s){

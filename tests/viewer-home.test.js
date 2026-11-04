@@ -21,6 +21,8 @@ test('format labels and entry wording follow the unit and the count', () => {
   assert.equal(call('hmEntriesHTML', item({ entries: 1 })), '<b>1</b> player');
   assert.equal(call('hmEntriesHTML', item({ entries: 16, unit: 'Doubles' })), '<b>16</b> pairs');
   assert.equal(call('hmEntriesHTML', item({ entries: 8, unit: 'Teams' })), '<b>8</b> teams');
+  assert.equal(call('hmEntriesHTML', item({ entries: 6, unit: 'Trios' })), '<b>6</b> trios');
+  assert.equal(call('hmEntriesHTML', item({ entries: 1, unit: 'Quads' })), '<b>1</b> quad');
   assert.equal(call('hmEntriesHTML', item({ entries: 0 })), '');
 });
 
