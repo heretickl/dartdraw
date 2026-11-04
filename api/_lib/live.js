@@ -137,6 +137,91 @@ async function newPasswordFor(organizer, tournamentId) {
   });
 }
 
+/* ---------- the organiser's Boards panel (spec 7.2, 7.3; route panel) ---------- */
+
+const toIso = (v) => (v ? new Date(v).toISOString() : null);
+/* Every device the event has seen, oldest first: [{ id, board, lastSeenAt, unsent, loggedOut }]. */
+async function panelDevices(tournamentId) {
+  return q(async () => {
+    const rows = await sql`SELECT id, board, last_seen_at, unsent, logged_out_at FROM live_devices WHERE tournament_id = ${tournamentId} ORDER BY created_at, id`;
+    return rows.map((r) => ({ id: r.id, board: r.board == null ? null : Number(r.board), lastSeenAt: toIso(r.last_seen_at), unsent: Number(r.unsent) || 0, loggedOut: !!r.logged_out_at }));
+  });
+}
+/* The matches a logged-out device still holds but has not started ('waiting') go back to the pool (device_id empty); a match it
+   is playing (playing / awaitingConfirm) stays held until the organiser takes it over (spec 7.4). */
+async function releaseWaiting(tournamentId) {
+  await sql`
+    UPDATE live_matches SET device_id = NULL
+    WHERE tournament_id = ${tournamentId} AND state = 'waiting'
+      AND device_id IN (SELECT id FROM live_devices WHERE tournament_id = ${tournamentId} AND logged_out_at IS NOT NULL)`;
+}
+/* Logs one device out. false = no such device of this event, or it was out already. A lend FROM its board ends with it unless
+   another signed-in device holds that board. */
+async function logoutDevice(tournamentId, deviceId) {
+  return q(async () => {
+    const rows = await sql`UPDATE live_devices SET logged_out_at = now() WHERE id = ${deviceId} AND tournament_id = ${tournamentId} AND logged_out_at IS NULL RETURNING id, board`;
+    if (!rows.length) return false;
+    await releaseWaiting(tournamentId);
+    const board = rows[0].board == null ? null : Number(rows[0].board);
+    if (board != null && !(await boardHolders(tournamentId)).some((h) => h.board === board)) {
+      await sql`UPDATE live_lends SET ended_at = now() WHERE tournament_id = ${tournamentId} AND from_board = ${board} AND ended_at IS NULL`;
+    }
+    return true;
+  });
+}
+/* New password: the devices already answer 401 (the nonce moved); this also marks them out, frees their waiting matches and ends every lend. */
+async function logoutAllDevices(tournamentId) {
+  return q(async () => {
+    await sql`UPDATE live_devices SET logged_out_at = now() WHERE tournament_id = ${tournamentId} AND logged_out_at IS NULL`;
+    await releaseWaiting(tournamentId);
+    await sql`UPDATE live_lends SET ended_at = now() WHERE tournament_id = ${tournamentId} AND ended_at IS NULL`;
+  });
+}
+/* The lends running now, with their ids: [{ id, from, to, startedAt }]. */
+async function activeLends(tournamentId) {
+  return q(async () => {
+    const rows = await sql`SELECT id, from_board, to_board, started_at FROM live_lends WHERE tournament_id = ${tournamentId} AND ended_at IS NULL ORDER BY started_at, id`;
+    return rows.map((r) => ({ id: r.id, from: Number(r.from_board), to: Number(r.to_board), startedAt: toIso(r.started_at) }));
+  });
+}
+/* A free board lends its tablet to a busy board. One statement, so two lends from the same board cannot both start: false = a
+   lend from that board is running already. */
+async function addLend(tournamentId, from, to) {
+  return q(async () => {
+    const id = 'lend_' + crypto.randomBytes(9).toString('base64url').replace(/[^A-Za-z0-9]/g, 'x');
+    const rows = await sql`
+      INSERT INTO live_lends (id, tournament_id, from_board, to_board)
+      SELECT ${id}, ${tournamentId}, ${from}, ${to}
+      WHERE NOT EXISTS (SELECT 1 FROM live_lends WHERE tournament_id = ${tournamentId} AND from_board = ${from} AND ended_at IS NULL)
+      RETURNING id`;
+    return rows.length ? id : false;
+  });
+}
+/* End lend. false = no running lend with that id in this event. A match the lent device already holds stays its own (heldPlace). */
+async function endLend(tournamentId, id) {
+  return q(async () => {
+    const rows = await sql`UPDATE live_lends SET ended_at = now() WHERE id = ${id} AND tournament_id = ${tournamentId} AND ended_at IS NULL RETURNING id`;
+    return rows.length > 0;
+  });
+}
+/* A lend ends by itself when the board it helps has no waiting match left (spec 7.3). `event` is the event ({ data }); the same
+   notion of "waiting" as the device's list (routes/live/view.js isWaiting). ctx and rows may be passed when the caller has them
+   already. Returns the ids it ended. Called when the panel is read and right after a match is claimed. */
+async function endIdleLends(tournamentId, event, pre) {
+  const lends = await activeLends(tournamentId);
+  if (!lends.length) return [];
+  const view = require('../_routes/live/view');   // lazily: the view needs the engine, which the other organiser calls do not
+  const ctx = (pre && pre.ctx) || view.load({ tournament: event });
+  const rows = (pre && pre.rows) || await liveRows(tournamentId);
+  const ended = [];
+  for (const to of Array.from(new Set(lends.map((l) => l.to)))) {
+    if (view.waitingOn(ctx, rows, to).length) continue;
+    const done = await q(() => sql`UPDATE live_lends SET ended_at = now() WHERE tournament_id = ${tournamentId} AND to_board = ${to} AND ended_at IS NULL RETURNING id`);
+    done.forEach((r) => ended.push(r.id));
+  }
+  return ended;
+}
+
 /* ---------- the device's side ---------- */
 
 function signSession(device) {
@@ -384,6 +469,7 @@ async function markChangedByOrganiser(tournamentId, pos) {
 module.exports = {
   LiveError, PASSWORD_LENGTH, PASSWORD_ALPHABET,
   enable, show, newPassword: newPasswordFor,
+  panelDevices, logoutDevice, logoutAllDevices, activeLends, addLend, endLend, endIdleLends,
   deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent,
   liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch,
   matchFull, insertTurn, turnById, matchTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser

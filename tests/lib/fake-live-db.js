@@ -152,6 +152,49 @@ function createFakeLiveDb(opts) {
       m.state = 'retired'; m.retired_side = vals[0]; m.ended_at = iso(); return [{ pos: m.pos }];
     }
     if (text === 'UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ? AND pos = ?') { const m = mOf(vals[0], vals[1]); if (m) m.changed_by_organiser = true; return []; }
+    // the organiser's Boards panel (api/_lib/live.js: panelDevices, logoutDevice, logoutAllDevices, lends; route panel)
+    if (text === 'SELECT id, board, last_seen_at, unsent, logged_out_at FROM live_devices WHERE tournament_id = ? ORDER BY created_at, id') {
+      return db.devices.filter((d) => d.tournament_id === vals[0]).slice()
+        .sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
+        .map((d) => ({ id: d.id, board: d.board, last_seen_at: d.last_seen_at, unsent: d.unsent, logged_out_at: d.logged_out_at }));
+    }
+    if (text === 'UPDATE live_devices SET logged_out_at = now() WHERE id = ? AND tournament_id = ? AND logged_out_at IS NULL RETURNING id, board') {
+      const d = db.devices.find((x) => x.id === vals[0] && x.tournament_id === vals[1] && !x.logged_out_at); if (!d) return [];
+      d.logged_out_at = iso(); return [{ id: d.id, board: d.board }];
+    }
+    if (text === 'UPDATE live_devices SET logged_out_at = now() WHERE tournament_id = ? AND logged_out_at IS NULL') {
+      db.devices.forEach((d) => { if (d.tournament_id === vals[0] && !d.logged_out_at) d.logged_out_at = iso(); }); return [];
+    }
+    if (text === "UPDATE live_matches SET device_id = NULL WHERE tournament_id = ? AND state = 'waiting' AND device_id IN (SELECT id FROM live_devices WHERE tournament_id = ? AND logged_out_at IS NOT NULL)") {
+      db.matches.forEach((m) => {
+        if (m.tournament_id === vals[0] && m.state === 'waiting' && m.device_id != null && db.devices.some((d) => d.id === m.device_id && d.tournament_id === vals[1] && d.logged_out_at)) m.device_id = null;
+      });
+      return [];
+    }
+    if (text === 'SELECT id, from_board, to_board, started_at FROM live_lends WHERE tournament_id = ? AND ended_at IS NULL ORDER BY started_at, id') {
+      return db.lends.filter((l) => l.tournament_id === vals[0] && l.ended_at == null).slice()
+        .sort((x, y) => (x.started_at < y.started_at ? -1 : x.started_at > y.started_at ? 1 : x.id < y.id ? -1 : 1))
+        .map((l) => ({ id: l.id, from_board: l.from_board, to_board: l.to_board, started_at: l.started_at }));
+    }
+    if (text === 'INSERT INTO live_lends (id, tournament_id, from_board, to_board) SELECT ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM live_lends WHERE tournament_id = ? AND from_board = ? AND ended_at IS NULL) RETURNING id') {
+      const [id, tid, from, to] = vals;
+      if (db.lends.some((l) => l.tournament_id === tid && l.from_board === from && l.ended_at == null)) return [];
+      db.lends.push({ id, tournament_id: tid, from_board: from, to_board: to, started_at: iso(), ended_at: null }); return [{ id }];
+    }
+    if (text === 'UPDATE live_lends SET ended_at = now() WHERE id = ? AND tournament_id = ? AND ended_at IS NULL RETURNING id') {
+      const l = db.lends.find((x) => x.id === vals[0] && x.tournament_id === vals[1] && x.ended_at == null); if (!l) return [];
+      l.ended_at = iso(); return [{ id: l.id }];
+    }
+    if (text === 'UPDATE live_lends SET ended_at = now() WHERE tournament_id = ? AND to_board = ? AND ended_at IS NULL RETURNING id') {
+      const hit = db.lends.filter((x) => x.tournament_id === vals[0] && x.to_board === vals[1] && x.ended_at == null);
+      hit.forEach((l) => { l.ended_at = iso(); }); return hit.map((l) => ({ id: l.id }));
+    }
+    if (text === 'UPDATE live_lends SET ended_at = now() WHERE tournament_id = ? AND from_board = ? AND ended_at IS NULL') {
+      db.lends.forEach((l) => { if (l.tournament_id === vals[0] && l.from_board === vals[1] && l.ended_at == null) l.ended_at = iso(); }); return [];
+    }
+    if (text === 'UPDATE live_lends SET ended_at = now() WHERE tournament_id = ? AND ended_at IS NULL') {
+      db.lends.forEach((l) => { if (l.tournament_id === vals[0] && l.ended_at == null) l.ended_at = iso(); }); return [];
+    }
     // auth_throttle (api/_lib/throttle.js)
     if (text.startsWith('INSERT INTO auth_throttle')) {
       const [key, windowMs] = [vals[0], Number(vals[vals.length - 1])];

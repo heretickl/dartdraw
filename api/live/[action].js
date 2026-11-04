@@ -9,6 +9,7 @@
 //   /api/live/state   the device moves its match to playing / awaitingConfirm
 //   /api/live/confirm the device sends the match's final legs (applied through the rule engine, by 'dev')
 //   /api/live/retire  a side retires: the existing no-show walkover
+//   /api/live/panel   the organiser's Boards panel (organiser session, not a device): login, devices, boards, lend, log out
 //
 // The action is read from req.url. Anything else answers 404 { code: 'not_found', error: 'Not found.' }.
 const ROUTES = {
@@ -19,7 +20,8 @@ const ROUTES = {
   turn: () => require('../_routes/live/turn'),
   state: () => require('../_routes/live/state'),
   confirm: () => require('../_routes/live/confirm'),
-  retire: () => require('../_routes/live/retire')
+  retire: () => require('../_routes/live/retire'),
+  panel: () => require('../_routes/live/panel')
 };
 
 function lastSegment(url) {

@@ -32,6 +32,11 @@ var DD_ERR_EN = {
   'err.bad_login': "That username or password is not right.",
   'err.live_off': "Live scoring is not switched on for this event.",
   'err.no_board': "Pick a board first.",
+  'err.lend_invalid_board': "That board is not part of this event.",
+  'err.lend_same_board': "A board cannot lend to itself.",
+  'err.lend_no_device': "No device is signed in on that board.",
+  'err.lend_active': "That board is already lent out. End that lend first.",
+  'err.lend_nothing_waiting': "That board has no waiting matches.",
   /* every endpoint */
   'err.method_not_allowed': 'Method not allowed',
   'err.not_found': 'Not found.',

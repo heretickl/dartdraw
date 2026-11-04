@@ -27,6 +27,11 @@ var DD_ERR_MS = {
   'err.bad_login': "Nama pengguna atau kata laluan itu tidak betul.",
   'err.live_off': "Skor langsung tidak dihidupkan untuk acara ini.",
   'err.no_board': "Pilih board dahulu.",
+  'err.lend_invalid_board': "Board itu bukan sebahagian daripada acara ini.",
+  'err.lend_same_board': "Sesebuah board tidak boleh dipinjamkan kepada dirinya sendiri.",
+  'err.lend_no_device': "Tiada peranti yang log masuk di board itu.",
+  'err.lend_active': "Board itu sudah dipinjamkan. Tamatkan pinjaman itu dahulu.",
+  'err.lend_nothing_waiting': "Board itu tiada perlawanan yang menunggu.",
   /* every endpoint */
   'err.method_not_allowed': 'Kaedah tidak dibenarkan',
   'err.not_found': 'Tidak dijumpai.',

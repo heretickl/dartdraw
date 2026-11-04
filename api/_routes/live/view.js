@@ -96,6 +96,21 @@ function matchView(ctx, s, row, place, me, busy) {
   else if (!(row && row.state === 'playing') && (busy[s.a] || busy[s.b])) out.playerBusy = true;
   return out;
 }
+/* A match is WAITING when a device could pick it: both players there, not a bye, not on paper, not over, open to play and held by
+   no device. This is the lent branch of buildList below (what a lent board lists), and what the organiser's panel counts. */
+function isWaiting(s, row) {
+  if (!s.a || !s.b) return false;
+  if (s.kind === 'ko' && s.m && s.m.bye) return false;
+  if (row && row.paper) return false;
+  if (LiveBoards.slotDone(s) || !s.open) return false;
+  return !LiveBoards.heldBy(row);
+}
+/* The waiting matches (result slots) whose own board group is `board`. rows: live.liveRows. */
+function waitingOn(ctx, rows, board) {
+  const rowBy = {};
+  rows.forEach((r) => { rowBy[r.pos] = r; });
+  return ctx.slots.filter((s) => (s.boards || []).map(Number).indexOf(board) >= 0 && isWaiting(s, rowBy[s.pos] || null));
+}
 /* The device's match list: its board's matches (round robin in the group's own order, knockout in bracket order), then the
    matches of a board lent to it, then the matches already done. Knockout matches without a board and paper matches are on no list. */
 function buildList(found, rows, lends) {
@@ -123,4 +138,4 @@ function buildList(found, rows, lends) {
   return mineList.concat(lentList, doneList);
 }
 
-module.exports = { boardCountOf, buildList, load, matchView, placeFor, heldPlace, busyEntries, stageOf, gameFor, MAX_BOARDS };
+module.exports = { boardCountOf, buildList, load, matchView, placeFor, heldPlace, busyEntries, stageOf, gameFor, isWaiting, waitingOn, entryOf, MAX_BOARDS };

@@ -50,6 +50,9 @@ async function claim(found, res, pos) {
     if (now && now.device_id === me) { answer(now); return; }
     refuse(res, 409, 'taken', 'Another device has this match.'); return;
   }
+  if (lends.length) {   // this may have been the last waiting match of a lent board: the lend ends by itself (spec 7.3); the claim stands whatever happens here
+    try { await live.endIdleLends(id, found.tournament); } catch (e) { console.error('live endIdleLends failed: ' + (e && e.message ? e.message : e)); }
+  }
   answer(Object.assign({}, row || { pos, state: 'waiting', paper: false, retired_side: null }, { device_id: me, board, played_on_board: myBoard }));
 }
 
