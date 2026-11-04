@@ -363,3 +363,55 @@ body.tv .langsw{display:none}
 .langbar a{display:inline-block;padding:8px 2px;font-weight:600;color:var(--gold-text)}
 .langbar-x{flex:none;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--ink);font-size:24px;line-height:1;cursor:pointer}
 @media print{.langbar,.langsw{display:none!important}}
+
+/* ---- Live matches (Live events): rows in group tables and brackets, chips on a player's page, and the live scoreboard ---- */
+.live-pill.sm{font-size:12px;padding:2px 9px;gap:5px}
+.live-pill.sm i{width:6px;height:6px}
+.lvdot{display:inline-block;flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:var(--live)}
+.lvdot.off{visibility:hidden}
+.lvlist{margin:0 0 12px}
+.lvlist h3{margin-top:0}
+.lvrow{margin:0 0 8px}
+.lvbtn{display:block;width:100%;box-sizing:border-box;text-align:left;font:inherit;color:inherit;background:var(--paper2);border:1px solid var(--line);border-left:3px solid var(--live);border-radius:12px;padding:8px 12px;cursor:pointer}
+.lvbtn:hover{border-color:var(--line-strong);border-left-color:var(--live)}
+.lvbtn:focus-visible,.lvwatch:focus-visible,.lvchip:focus-visible,button.back:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.lvtop{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;min-height:24px;margin-bottom:2px}
+.lvbd{font-size:12px;color:var(--muted)}
+.lvs{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:15px;min-height:34px}
+.lvs+.lvs{border-top:1px solid var(--line)}
+.lvs .lvn{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;font-weight:600}
+.lvs.thr .lvn{font-weight:700}
+.lvrem,.lvl{font-family:var(--display);font-weight:700;font-size:22px;line-height:1;text-align:right}
+.lvrem{min-width:2.4em}
+.lvl{min-width:1.1em;color:var(--muted)}
+.lvcell{text-align:center}
+/* a live knockout card: the remaining score sits beside the legs, a watch button closes the card */
+.rs .lvrem{margin-left:auto;font-size:24px}
+.rs .lvrem+b{margin-left:14px}
+.rs .lvdot{margin-left:2px}
+.lvwatch{display:block;width:100%;box-sizing:border-box;margin:4px 0 6px;min-height:44px;padding:8px 14px;border:1px solid var(--live);border-radius:12px;background:transparent;color:var(--ink);font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.lvwatch:hover{background:var(--red-tint)}
+.lvwatch::after{content:" \203A"}
+/* a player's page: "Live 2–1" where "To play" was */
+.lvchip{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;min-height:36px;padding:2px 4px 2px 2px;border:1px solid var(--line-strong);border-radius:99px;background:var(--paper2);color:var(--ink);font:inherit;cursor:pointer}
+.lvchip .lvcs{font-family:var(--display);font-size:18px;font-weight:700;letter-spacing:.04em;padding-right:8px;white-space:nowrap}
+/* the scoreboard */
+button.back{border:0;background:none;padding:0;min-height:44px;cursor:pointer}
+.lvboard h2{margin-bottom:6px}
+.lvmeta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;font-size:13px;color:var(--muted)}
+.lvsides{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
+.lvside{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--paper2)}
+.lvside.thr{border-color:var(--live);box-shadow:inset 3px 0 0 var(--live)}
+.lvtitle{display:flex;align-items:center;gap:8px}
+.lvname{font-size:19px;font-weight:600;overflow-wrap:anywhere}
+.lvnums{display:flex;gap:22px;margin-top:6px}
+.lvnum b{display:block;font-family:var(--display);font-weight:700;font-size:44px;line-height:1}
+.lvnum span{display:block;margin-top:2px;font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.lvx{margin-top:8px;font-size:14px;color:var(--muted)}
+.lvhint{padding:6px 10px;border-radius:10px;background:var(--blue-tint);color:var(--ink);font-weight:600}
+.lvturns{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lvtcol h4{margin:0 0 4px;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.lvtcol ol{list-style:none;margin:0;padding:0}
+.lvtcol li{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 8px;padding:6px 0;border-top:1px solid var(--line)}
+.lvtcol li b{font-family:var(--display);font-size:20px;font-weight:700;min-width:1.6em}
+@media (min-width:700px){.lvsides{grid-template-columns:1fr 1fr}}

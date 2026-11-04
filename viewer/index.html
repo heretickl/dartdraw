@@ -267,7 +267,8 @@ function matchesHTML(id){
   if(gr && gr.g.gameStarted){
     gr.rows.forEach(function(r){
       var res = !r.played ? {txt:T('ev.res.toPlay'), cls:'t'} : resultOf(r.my>r.op ? 'won' : r.my<r.op ? 'lost' : 'drew', r.my, r.op, r.wo);
-      rows.push('<div class="mrow"><span class="tap" data-eid="'+escapeHtml(r.opp)+'">'+escapeHtml(T('ev.vs', {name:entryName(r.opp)}))+'</span>'+resultHTML(res)+'</div>');
+      var chip = r.played ? '' : lvChipFor('rr', gr.g, scoreKey(id, r.opp), id);   // a pair on a board right now (Live events)
+      rows.push('<div class="mrow"><span class="tap" data-eid="'+escapeHtml(r.opp)+'">'+escapeHtml(T('ev.vs', {name:entryName(r.opp)}))+'</span>'+(chip || resultHTML(res))+'</div>');
     });
   }
   koLines(id).forEach(function(l){
@@ -276,7 +277,7 @@ function matchesHTML(id){
     /* a knockout match the organiser put on a board (floor officials, 2026-10-30): its board, as for Group Boards */
     if(!info){ var km = l.b && l.b.rounds && l.b.rounds[l.ri] && l.b.rounds[l.ri][l.mi]; if(km && km.board && !km.winnerId) info = { board: km.board }; }
     rows.push('<div class="mrow"><span>'+escapeHtml((state.format.formatType==='podknockout' ? l.title+' · ' : '')+l.round)+' <span class="note">'+escapeHtml(l.tag)+'</span>'+(info ? ' · '+escapeHtml(T('ev.board', {b:info.board})) : '')+
-      (opp ? ' · <span class="tap" data-eid="'+escapeHtml(opp)+'">'+escapeHtml(T('ev.vs', {name:entryName(opp)}))+'</span>' : '')+'</span>'+resultHTML(res)+'</div>');
+      (opp ? ' · <span class="tap" data-eid="'+escapeHtml(opp)+'">'+escapeHtml(T('ev.vs', {name:entryName(opp)}))+'</span>' : '')+'</span>'+(lvChipFor('ko', l, null, id) || resultHTML(res))+'</div>');
   });
   return rows.length ? rows.join('') : '<p class="empty">'+escapeHtml(T('ev.noMatches'))+'</p>';
 }
@@ -381,6 +382,8 @@ function addressNamesScreen(tabs){
 function currentRoute(tabs){
   var raw = (location.hash||'').replace(/^#\/?/, ''), tv = /[?&]tv=1(&|$)/.test(raw), h = raw.split('?')[0], m = /^p\/(.+)$/.exec(h);
   if(m){ var pid; try{ pid = decodeURIComponent(m[1]); }catch(e){ pid = m[1]; } return {name:'p', id:pid}; }
+  var lm = /^lv\/(.+)$/.exec(h);
+  if(lm){ var lpos; try{ lpos = decodeURIComponent(lm[1]); }catch(e){ lpos = lm[1]; } return {name:'lv', pos:lpos}; }
   var sub = /^(groups|bracket)\/(.+)$/.exec(h);
   if(sub && tabs.indexOf(sub[1])!==-1){ var sel; try{ sel = decodeURIComponent(sub[2]); }catch(e){ sel = sub[2]; } return {name:sub[1], sel:sel, tv:false}; }
   var name = tabs.indexOf(h)!==-1 ? h : defaultTab(tabs);
@@ -458,7 +461,7 @@ function resultsGridHTML(g){
     var cells = ids.map(function(colId, ci){
       if(rowId===colId) return '<td class="diag"></td>';
       var sc = getScore(g, rowId, colId);
-      if(!sc || sc.legs1===undefined || sc.legs1==='' || sc.legs2===undefined || sc.legs2==='') return '<td>·</td>';
+      if(!sc || sc.legs1===undefined || sc.legs1==='' || sc.legs2===undefined || sc.legs2==='') return grpLive(g, scoreKey(rowId, colId)) ? '<td class="lvcell"><span class="lvdot" aria-hidden="true"></span><span class="sr">'+escapeHtml(T('ev.pill.live'))+'</span></td>' : '<td>·</td>';
       var first = rowId < colId;
       var my = parseInt(first ? sc.legs1 : sc.legs2), opp = parseInt(first ? sc.legs2 : sc.legs1);
       if(isNaN(my) || isNaN(opp)) return '<td>·</td>';
@@ -495,7 +498,7 @@ function qualifyLineHTML(){
 /* The standings table with the places that go through marked (a green bar on the position, and words for a screen reader). */
 function markedStandingsHTML(g, st){
   var q = qualifiersPerGroup(), i = 0;
-  var html = standingsTableHTML(g, st);
+  var html = standingsTableHTML(g, st, {avgColumn: statsOn()});   // the Avg column only when the organiser's stats switch is on
   // MD only shows when a match was drawn; the class tells the phone layout which columns are LW and +/-
   if(st.some(function(s){ return s.draws>0; })) html = html.replace('<table class="std-table">', '<table class="std-table has-draws">');
   if(!q) return html;
@@ -526,7 +529,7 @@ function keyToggleHTML(id, label, items, foot){
 }
 /* The tie-break notes and mini-tables: closed until tapped, like the keys (same button, same remembered state). */
 function tieToggleHTML(g, st){
-  var notes = tieNotesHTML(g, st, {public:true});
+  var notes = tieNotesHTML(g, st, {public:true, avgFigures: statsOn()});
   if(!notes) return '';
   var id = 't:'+g.id, open = !!keysOpen[id], dom = keyDomId(id);
   return '<div class="tkey"><button type="button" class="keybtn" data-key="'+escapeHtml(id)+'" aria-expanded="'+open+'" aria-controls="'+dom+'">'+escapeHtml(T('ev.key.ties'))+'</button>'+
@@ -583,7 +586,7 @@ function groupCardHTML(g){
       '<p class="empty">'+T('ev.grp.notStarted')+'</p>';
   } else {
     var st = computeStandings(g);
-    body = '<div class="scroll">'+markedStandingsHTML(g, st)+'</div>'+
+    body = lvGroupListHTML(g)+'<div class="scroll">'+markedStandingsHTML(g, st)+'</div>'+
       (q && st.length && st.length<=q ? '<p class="note qall">'+escapeHtml(T('ev.q.all'))+'</p>' : '')+
       tableKeyHTML(g, st)+tieToggleHTML(g, st)+
       '<h3>'+escapeHtml(T('ev.grp.results'))+'</h3>'+resultsGridHTML(g);
@@ -746,6 +749,7 @@ function bracketCardHTML(bracket, key, title){
   return '<section class="card" id="'+key+'"><h2>'+escapeHtml(title)+'</h2>'+
     (champ ? '<div class="champ"><b>'+escapeHtml(T('ev.br.winner', {name:entryName(champ)}))+'</b>'+(runner?'<div>'+escapeHtml(T('ev.br.runnerUp', {name:entryName(runner)}))+'</div>':'')+'</div>' : '')+
     bracketToolsHTML(key, bracketView(bracket))+
+    (bracketView(bracket)==='rounds' ? '' : lvBracketListHTML(bracket))+
     (bracketView(bracket)==='rounds' ? roundsViewHTML(bracket, key)
       : '<div class="scroll" data-bracket="'+key+'">'+mirroredChartHTML(bracket, state, {interactive:false, readable:true})+'</div>')+
     bracketKeyHTML(bracket, key)+
@@ -792,13 +796,16 @@ function rsSlotHTML(b, ri, mi, side){
     return '<div class="rs ph"><span>'+escapeHtml(txt)+'</span></div>';
   }
   var won = !!m.winnerId && m.winnerId===id, lost = !!m.winnerId && !won;
+  var lv = koLive(m), lvs = lv ? lvSide(lv, side) : null;   // a Live event's match on a board: the remaining score and who is throwing
   var who = id===myId() ? ' is-me' : isFollowing(id) ? ' is-fol' : '';
   var seed = ri===0 ? bracketSeedForDisplay(state, b.seeds, b.seedLabels, id) : null;
   return '<div class="rs'+(won ? ' won' : '')+(lost ? ' lost' : '')+who+'">'+
     (seed ? '<i class="sd">'+escapeHtml(String(seed))+'</i>' : '')+
     '<span class="tap" data-eid="'+escapeHtml(id)+'">'+(who===' is-fol' ? '★ ' : '')+escapeHtml(entryName(id))+'</span>'+
+    (lvs ? lvDotHTML(lvs.thr) : '')+
     (m.wo && lost ? '<small class="note wo">'+escapeHtml(T('ev.slot.noShow'))+'</small>' : '')+
-    '<b>'+(legs!=null ? legs : '')+'</b></div>';
+    (lvs ? lvRemHTML(lvs.rem) : '')+
+    '<b>'+(lvs ? lvs.legs : (legs!=null ? legs : ''))+'</b></div>';
 }
 function rsMatchHTML(b, ri, mi){
   var m = b.rounds[ri][mi], tag = koMatchTag(b, state, ri, mi);
@@ -811,8 +818,10 @@ function rsMatchHTML(b, ri, mi){
   var mine = m.aEntryId===myId() || m.bEntryId===myId();
   var fol = !mine && (isFollowing(m.aEntryId) || isFollowing(m.bEntryId));
   var info = bpMatchInfo(bpKeyOf(b), ri, mi);
-  return '<div class="rm'+(mine ? ' me' : fol ? ' fol' : '')+'"><div class="rmh"><span class="mtag">'+escapeHtml(tag)+'</span>'+(info ? '<span class="mbd">'+escapeHtml(T('ev.board', {b:info.board}))+'</span>' : '')+status+'</div>'+
-    rsSlotHTML(b, ri, mi, 'a')+rsSlotHTML(b, ri, mi, 'b')+'</div>';
+  var lv = koLive(m), lpos = lv ? lvKoPos(b, ri, mi) : null, lbd = lpos ? lvBoardText(lv) : '';
+  if(lpos) status = lvPillHTML(lv);
+  return '<div class="rm'+(mine ? ' me' : fol ? ' fol' : '')+'"'+(lpos ? lvAttrs(lpos, 'card', lv) : '')+'><div class="rmh"><span class="mtag">'+escapeHtml(tag)+'</span>'+(lbd ? '<span class="mbd">'+escapeHtml(lbd)+'</span>' : info ? '<span class="mbd">'+escapeHtml(T('ev.board', {b:info.board}))+'</span>' : '')+status+'</div>'+
+    rsSlotHTML(b, ri, mi, 'a')+rsSlotHTML(b, ri, mi, 'b')+(lpos ? '<button type="button" class="lvwatch" data-lvopen="'+escapeHtml(lpos)+'">'+escapeHtml(T('lv.watch'))+'</button>' : '')+'</div>';
 }
 function roundsViewHTML(b, key){
   var sel = (roundSel[key]!=null && roundSel[key]<b.rounds.length) ? roundSel[key] : currentRoundIdx(b);
@@ -865,6 +874,285 @@ function applyBracketFit(){
       box.style.overflowX = 'hidden';
     } else { art.style.transform = ''; box.style.height = ''; box.style.overflowX = ''; }
   });
+}
+
+/* ---------- Live matches (Live events: scores keyed on tablets at the board) ----------
+   The server adds match.live to a knockout match, and group.live[pairKey] to a round robin group (a pair with no result yet has no
+   score to hang it on; side a is the first id of the key). Only a Live event has any of it, so every function here draws nothing for
+   a Manual event and the page is exactly what it was. A live picture is { state, legs:[a,b], remaining:[a,b]|null (null: cricket),
+   thrower:'a'|'b'|null, last:[{leg,side,score,left}], board, playedOn, tot? }; state.scoring is { live, stats, hints }.
+   Every number is read as a whole number and every name is escaped. */
+var LIVE_MS = 10000, liveTimer = null, liveBusy = false, lvBackY = null, lvFromHash = '';
+function lvInt(v){ var n = parseInt(v, 10); return isFinite(n) ? n : null; }
+function statsOn(){ return !!(state && state.scoring && state.scoring.stats === true); }   // the organiser's "public stats" switch
+function hintsOn(){ return !!(state && state.scoring && state.scoring.hints === true); }   // the organiser's "checkout hints" switch
+/* A live picture is shown only while the match is being played or waiting to be confirmed, never next to a result. */
+function lvShown(l){ return !!l && typeof l === 'object' && !Array.isArray(l) && (l.state === 'playing' || l.state === 'awaitingConfirm'); }
+function koLive(m){ return m && lvShown(m.live) && !(m.winnerId || m.void || m.wo || m.bye) ? m.live : null; }
+function grpLive(g, key){ return g && g.live && typeof g.live === 'object' && lvShown(g.live[key]) && !(g.scores && g.scores[key]) ? g.live[key] : null; }
+/* Where each bracket sits, named as the server names it in a match's position ('ko:<key>:<round>:<match>'). */
+function lvBrackets(s){
+  var out = [['knockout', s.knockout], ['knockoutLosers', s.knockoutLosers]];
+  (s.pods || []).forEach(function(p){ out.push(['pod:' + p.id, p.bracket]); });
+  return out.filter(function(pr){ return pr[1] && Array.isArray(pr[1].rounds); });
+}
+function lvBracketKey(b){ var hit = lvBrackets(state).find(function(pr){ return pr[1] === b; }); return hit ? hit[0] : null; }
+function lvKoPos(b, ri, mi){ var k = lvBracketKey(b); return k ? 'ko:' + k + ':' + ri + ':' + mi : null; }
+/* A live match by its position: { kind, pos, live, aId, bId, + b, ri, mi, m (knockout) or g, key (round robin) }, or null when it is not live. */
+function liveLookup(pos){
+  if(!state || typeof pos !== 'string') return null;
+  var m = /^ko:(.+):(\d+):(\d+)$/.exec(pos);
+  if(m){
+    var hit = lvBrackets(state).find(function(pr){ return pr[0] === m[1]; }), ri = +m[2], mi = +m[3];
+    var mm = hit && hit[1].rounds[ri] && hit[1].rounds[ri][mi], lv = koLive(mm);
+    return lv ? {kind:'ko', pos:pos, live:lv, aId:mm.aEntryId || null, bId:mm.bEntryId || null, b:hit[1], ri:ri, mi:mi, m:mm} : null;
+  }
+  m = /^rr:([^:]+):(.+)$/.exec(pos);
+  if(m){
+    var g = (state.groups || []).find(function(x){ return x.id === m[1]; }), l = g ? grpLive(g, m[2]) : null, ids = m[2].split('|');
+    return l && ids.length === 2 ? {kind:'rr', pos:pos, live:l, aId:ids[0], bId:ids[1], g:g, key:m[2]} : null;
+  }
+  return null;
+}
+/* Every live match on the page, in page order: [{ pos, live }]. */
+function liveList(){
+  var out = [];
+  if(!state) return out;
+  lvBrackets(state).forEach(function(pr){
+    pr[1].rounds.forEach(function(round, ri){ (Array.isArray(round) ? round : []).forEach(function(m, mi){
+      var l = koLive(m); if(l) out.push({pos:'ko:' + pr[0] + ':' + ri + ':' + mi, live:l});
+    }); });
+  });
+  (state.groups || []).forEach(function(g){ Object.keys(g.live || {}).forEach(function(k){ var l = grpLive(g, k); if(l) out.push({pos:'rr:' + g.id + ':' + k, live:l}); }); });
+  return out;
+}
+function liveSig(){ return liveList().map(function(x){ return x.pos + '=' + x.live.state; }).join('|'); }
+
+/* What a live picture says, as numbers: [legs a, legs b], [remaining a, remaining b] or null, the board line. */
+function lvLegs(l){ var a = Array.isArray(l.legs) ? l.legs : []; return [lvInt(a[0]) || 0, lvInt(a[1]) || 0]; }
+function lvRem(l){
+  var r = l.remaining;
+  if(!Array.isArray(r) || r.length !== 2) return null;
+  var a = lvInt(r[0]), b = lvInt(r[1]);
+  return a === null || b === null ? null : [a, b];
+}
+/* "Board 3", or "Board 3 → played on Board 7" when the match was moved to another board. */
+function lvBoardText(l){
+  var b = lvInt(l.board), p = lvInt(l.playedOn);
+  if(b === null && p === null) return '';
+  if(b !== null && p !== null && p !== b) return T('lv.moved', {b:b, p:p});
+  return T('ev.board', {b: b !== null ? b : p});
+}
+/* A short fingerprint of what a node shows, so a poll can leave an unchanged node (and its keyboard focus) alone. */
+function lvSig(l){
+  var s = JSON.stringify([l, statsOn(), hintsOn()]), h = 5381;
+  for(var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+function lvAttrs(pos, kind, l, extra){
+  return ' data-lvpos="' + escapeHtml(pos) + '" data-lvk="' + kind + '" data-lvs="' + lvSig(l) + '"' + (extra || '');
+}
+function lvPillHTML(l){ return '<span class="live-pill sm"><i></i>' + escapeHtml(T(l.state === 'awaitingConfirm' ? 'lv.confirming' : 'ev.pill.live')) + '</span>'; }
+/* The marker beside the side that is throwing, with words for a screen reader; a hidden one keeps the rows in line. */
+function lvDotHTML(on){
+  return on ? '<span class="lvdot" aria-hidden="true"></span><span class="sr">' + escapeHtml(T('lv.thrower')) + '</span>' : '<span class="lvdot off" aria-hidden="true"></span>';
+}
+function lvSide(l, side){
+  var i = side === 'a' ? 0 : 1, rem = lvRem(l);
+  return {side:side, legs:lvLegs(l)[i], rem:rem ? rem[i] : null, thr:l.thrower === side};
+}
+function lvRemHTML(rem){ return rem === null ? '' : '<span class="lvrem"><span class="sr">' + escapeHtml(T('lv.left')) + ' </span>' + rem + '</span>'; }
+function lvLegsHTML(n){ return '<span class="lvl"><span class="sr">' + escapeHtml(T('lv.legs')) + ' </span>' + n + '</span>'; }
+/* Where a live match is: its round and place (knockout), or its group (round robin). */
+function lvContext(lk){
+  if(lk.kind === 'rr') return groupLabel(lk.g.label);
+  var pod = (state.pods || []).find(function(p){ return p.bracket === lk.b; });
+  return [pod ? groupLabel(pod.label) : (lk.b === state.knockoutLosers ? T('ev.br.plate') : ''), koRoundName(lk.b, lk.ri), koMatchTag(lk.b, state, lk.ri, lk.mi)].filter(Boolean).join(' · ');
+}
+
+/* One live match as a tappable row: the pill, the board, each side with the remaining score and legs. withCtx adds where it is. */
+function lvRowHTML(pos, withCtx){
+  var lk = liveLookup(pos);
+  if(!lk) return '';
+  var l = lk.live, bt = lvBoardText(l), ctx = withCtx ? lvContext(lk) : '';
+  return '<div class="lvrow"' + lvAttrs(pos, 'row', l, withCtx ? ' data-lvctx="1"' : '') + '><button type="button" class="lvbtn" data-lvopen="' + escapeHtml(pos) + '">' +
+    '<span class="lvtop">' + lvPillHTML(l) + (ctx ? '<span class="lvbd">' + escapeHtml(ctx) + '</span>' : '') + (bt ? '<span class="lvbd">' + escapeHtml(bt) + '</span>' : '') + '</span>' +
+    [['a', lk.aId], ['b', lk.bId]].map(function(p){
+      var s = lvSide(l, p[0]);
+      return '<span class="lvs' + (s.thr ? ' thr' : '') + '">' + lvDotHTML(s.thr) + '<span class="lvn">' + escapeHtml(p[1] ? entryName(p[1]) : T('ev.slot.tbd')) + '</span>' + lvRemHTML(s.rem) + lvLegsHTML(s.legs) + '</span>';
+    }).join('') + '</button></div>';
+}
+/* Round robin: the pairs on a board in this group, above its table. */
+function lvGroupListHTML(g){
+  var keys = Object.keys(g.live || {}).filter(function(k){ return grpLive(g, k); });
+  if(!keys.length) return '';
+  return '<div class="lvlist"><h3>' + escapeHtml(T('lv.now')) + '</h3>' + keys.map(function(k){ return lvRowHTML('rr:' + g.id + ':' + k, false); }).join('') + '</div>';
+}
+/* Knockout chart: the matches on a board in this bracket, above the chart (the rounds view marks them on their own cards). */
+function lvBracketListHTML(b){
+  var rows = [], key = lvBracketKey(b);
+  if(!key) return '';
+  b.rounds.forEach(function(round, ri){ round.forEach(function(m, mi){ if(koLive(m)) rows.push(lvRowHTML('ko:' + key + ':' + ri + ':' + mi, true)); }); });
+  return rows.length ? '<div class="lvlist"><h3>' + escapeHtml(T('lv.now')) + '</h3>' + rows.join('') + '</div>' : '';
+}
+/* A small tappable "Live 2–1" in place of "To play" on a player's page; me: the side ('a' or 'b') this player is. */
+function lvChipHTML(pos, me){
+  var lk = liveLookup(pos);
+  if(!lk) return '';
+  var l = lk.live, legs = lvLegs(l), i = me === 'b' ? 1 : 0;
+  return '<button type="button" class="lvchip" data-lvopen="' + escapeHtml(pos) + '"' + lvAttrs(pos, 'chip', l, ' data-lvme="' + (me === 'b' ? 'b' : 'a') + '"') + '>' + lvPillHTML(l) + '<span class="lvcs">' + legs[i] + '–' + legs[1 - i] + '</span></button>';
+}
+function lvChipFor(kind, a, b, c){
+  if(kind === 'rr'){   // a: the group, b: the pair key, c: this player's id
+    return grpLive(a, b) ? lvChipHTML('rr:' + a.id + ':' + b, c === b.split('|')[0] ? 'a' : 'b') : '';
+  }
+  var pos = lvKoPos(a.b, a.ri, a.mi);   // a: a koLines entry, c: this player's id
+  return koLive(a.m) && pos ? lvChipHTML(pos, a.m.aEntryId === c ? 'a' : 'b') : '';
+}
+
+/* ---------- Checkout hints (only when the organiser switched them on) ----------
+   Standard double-out routes for 170 and under, three darts at most, in the usual order (the ones printed on a checkout chart).
+   A score that cannot be checked out in three darts (169, 168, 166, 165, 163, 162, 159) or is 1 has none. */
+var LV_CO = {
+  170:'T20 T20 Bull', 167:'T20 T19 Bull', 164:'T20 T18 Bull', 161:'T20 T17 Bull', 160:'T20 T20 D20', 158:'T20 T20 D19', 157:'T20 T19 D20', 156:'T20 T20 D18',
+  155:'T20 T19 D19', 154:'T20 T18 D20', 153:'T20 T19 D18', 152:'T20 T20 D16', 151:'T20 T17 D20', 150:'T20 T18 D18', 149:'T20 T19 D16', 148:'T20 T16 D20',
+  147:'T20 T17 D18', 146:'T20 T18 D16', 145:'T20 T15 D20', 144:'T20 T20 D12', 143:'T20 T17 D16', 142:'T20 T14 D20', 141:'T20 T19 D12', 140:'T20 T20 D10',
+  139:'T20 T13 D20', 138:'T20 T18 D12', 137:'T20 T19 D10', 136:'T20 T20 D8', 135:'T20 T17 D12', 134:'T20 T14 D16', 133:'T20 T19 D8', 132:'T20 T16 D12',
+  131:'T20 T13 D16', 130:'T20 20 Bull', 129:'T19 T16 D12', 128:'T18 T14 D16', 127:'T20 17 Bull', 126:'T19 19 Bull', 125:'25 T20 D20', 124:'T20 14 Bull',
+  123:'T19 16 Bull', 122:'T18 T18 D7', 121:'T20 11 Bull', 120:'T20 20 D20', 119:'T19 12 Bull', 118:'T20 18 D20', 117:'T20 17 D20', 116:'T20 16 D20',
+  115:'T20 15 D20', 114:'T20 14 D20', 113:'T20 13 D20', 112:'T20 12 D20', 111:'T20 11 D20', 110:'T20 Bull', 109:'T20 9 D20', 108:'T20 8 D20',
+  107:'T19 10 D20', 106:'T20 6 D20', 105:'T20 5 D20', 104:'T18 10 D20', 103:'T19 6 D20', 102:'T20 10 D16', 101:'T20 1 D20', 100:'T20 D20',
+  99:'T19 10 D16', 98:'T20 D19', 97:'T19 D20', 96:'T20 D18', 95:'T19 D19', 94:'T18 D20', 93:'T19 D18', 92:'T20 D16',
+  91:'T17 D20', 90:'T20 D15', 89:'T19 D16', 88:'T20 D14', 87:'T17 D18', 86:'T18 D16', 85:'T15 D20', 84:'T20 D12',
+  83:'T17 D16', 82:'Bull D16', 81:'T19 D12', 80:'T20 D10', 79:'T19 D11', 78:'T18 D12', 77:'T19 D10', 76:'T20 D8',
+  75:'T17 D12', 74:'T14 D16', 73:'T19 D8', 72:'T16 D12', 71:'T13 D16', 70:'T18 D8', 69:'T19 D6', 68:'T20 D4',
+  67:'T17 D8', 66:'T10 D18', 65:'T19 D4', 64:'T16 D8', 63:'T13 D12', 62:'T10 D16', 61:'T15 D8', 60:'20 D20'
+};
+/* The darts of a checkout for n, as ['T20', 'T19', 'D12'], or null. */
+function lvCheckout(n){
+  if(!(n >= 2 && n <= 170) || n !== Math.floor(n)) return null;
+  if(LV_CO[n]) return LV_CO[n].split(' ');
+  if(n === 50) return ['Bull'];
+  if(n <= 40 && n % 2 === 0) return ['D' + (n / 2)];
+  if(n >= 41 && n <= 59) return [String(n - 40), 'D20'];
+  var ds = [16, 8, 4, 2, 1];
+  for(var i = 0; i < ds.length; i++){ var s = n - 2 * ds[i]; if(s >= 1 && s <= 20) return [String(s), 'D' + ds[i]]; }
+  return null;
+}
+function lvHintText(rem){
+  var r = hintsOn() && rem !== null ? lvCheckout(rem) : null;
+  return r ? T('lv.hint', {route:r.join(' · ')}) : '';
+}
+/* The 3-dart average from the x01 points and darts of a side (only with the stats switch on): 3 × points ÷ darts, 2 decimals. */
+function lvAvgText(l, side){
+  var t = statsOn() && l.tot && typeof l.tot === 'object' ? l.tot[side] : null;
+  if(!t || typeof t !== 'object') return '';
+  var s = Number(t.s), d = Number(t.d);
+  if(!isFinite(s) || !isFinite(d)) return '';
+  return T('lv.avg', {avg: d > 0 ? (3 * s / d).toFixed(2) : '–'});
+}
+
+/* ---------- The live scoreboard of one match (read-only; the address is #/lv/<position>, so Back returns to the page) ---------- */
+function lvTurnsHTML(lk){
+  var l = lk.live, turns = (Array.isArray(l.last) ? l.last : []).filter(function(t){ return t && (t.side === 'a' || t.side === 'b'); });
+  var legsSeen = {}; turns.forEach(function(t){ legsSeen[lvInt(t.leg)] = 1; });
+  var multi = Object.keys(legsSeen).length > 1;
+  var cols = [['a', lk.aId], ['b', lk.bId]].map(function(p){
+    var mine = turns.filter(function(t){ return t.side === p[0]; }).reverse();   // newest first
+    return '<div class="lvtcol"><h4>' + escapeHtml(p[1] ? entryName(p[1]) : T('ev.slot.tbd')) + '</h4>' + (mine.length ? '<ol>' + mine.map(function(t){
+      var left = t.left === null || t.left === undefined ? null : lvInt(t.left);
+      return '<li><b>' + (lvInt(t.score) === null ? '–' : lvInt(t.score)) + '</b>' + (left !== null ? ' <span class="note">' + escapeHtml(T('lv.leftN', {n:left})) + '</span>' : '') +
+        (multi ? ' <span class="note lvleg">' + escapeHtml(T('lv.leg', {n:lvInt(t.leg) || 1})) + '</span>' : '') + '</li>';
+    }).join('') + '</ol>' : '<p class="note">–</p>') + '</div>';
+  }).join('');
+  return '<h3>' + escapeHtml(T('lv.last')) + '</h3>' + (turns.length ? '<div class="lvturns">' + cols + '</div>' : '<p class="empty">' + escapeHtml(T('lv.noTurns')) + '</p>');
+}
+function liveBoardHTML(pos){
+  var lk = liveLookup(pos), back = '<button type="button" class="back" data-act="back">' + escapeHtml(T('ev.back')) + '</button>';
+  var head = '<section class="card lvboard" aria-labelledby="lvh"';
+  if(!lk) return head + ' data-lvpos="' + escapeHtml(pos || '') + '" data-lvk="board" data-lvs="gone">' + back + '<h2 id="lvh">' + escapeHtml(T('lv.title')) + '</h2><p class="empty">' + escapeHtml(T('lv.ended')) + '</p></section>';
+  var l = lk.live, bt = lvBoardText(l);
+  var sides = [['a', lk.aId], ['b', lk.bId]].map(function(p){
+    var s = lvSide(l, p[0]), avg = lvAvgText(l, p[0]), hint = lvHintText(s.rem), tap = p[1] && entryObj(p[1]);
+    return '<div class="lvside' + (s.thr ? ' thr' : '') + '"><div class="lvtitle">' + lvDotHTML(s.thr) + '<span class="lvname' + (tap ? ' tap" data-eid="' + escapeHtml(p[1]) : '') + '">' + escapeHtml(p[1] ? entryName(p[1]) : T('ev.slot.tbd')) + '</span></div>' +
+      '<div class="lvnums"><div class="lvnum"><b>' + s.legs + '</b><span>' + escapeHtml(T('lv.legs')) + '</span></div>' +
+      (s.rem !== null ? '<div class="lvnum"><b>' + s.rem + '</b><span>' + escapeHtml(T('lv.left')) + '</span></div>' : '') + '</div>' +
+      (avg ? '<div class="lvx lvavg">' + escapeHtml(avg) + '</div>' : '') + (hint ? '<div class="lvx lvhint">' + escapeHtml(hint) + '</div>' : '') + '</div>';
+  }).join('');
+  return head + lvAttrs(pos, 'board', l) + '>' + back + '<h2 id="lvh">' + escapeHtml(T('lv.title')) + '</h2>' +
+    '<div class="lvmeta">' + lvPillHTML(l) + '<span>' + escapeHtml([lvContext(lk), bt].filter(Boolean).join(' · ')) + '</span></div>' +
+    '<div class="lvsides">' + sides + '</div>' + (lvRem(l) !== null ? lvTurnsHTML(lk) : '') + '</section>';
+}
+
+/* ---------- Keeping it current: the light 10-second live poll ----------
+   While some match on the page is live and the tab is showing, GET /api/public/<slug>?live=1 returns just the live pictures; they
+   are written into the page's data and only the live nodes are redrawn. It does not look at updatedAt (a live score never changes
+   it). When the set of live matches changes, the screen is drawn again, as for any other change. The full refresh (POLL_MS) still
+   runs, and carries the same live data. A failed poll is silent; the next one tries again. */
+function lvWalk(s, fn){
+  lvBrackets(s).forEach(function(pr){ pr[1].rounds.forEach(function(round, ri){ (Array.isArray(round) ? round : []).forEach(function(m, mi){ if(m) fn(m, 'ko:' + pr[0] + ':' + ri + ':' + mi); }); }); });
+}
+function liveFromView(v){
+  var out = {live:{}, groups:{}};
+  lvWalk(v, function(m, pos){ if(m.live) out.live[pos] = m.live; });
+  (v.groups || []).forEach(function(g){ if(g && g.live) out.groups[g.id] = g.live; });
+  return out;
+}
+function setLive(resp){
+  var live = resp && resp.live && typeof resp.live === 'object' ? resp.live : {}, groups = resp && resp.groups && typeof resp.groups === 'object' ? resp.groups : {};
+  lvWalk(state, function(m, pos){ if(live[pos] && typeof live[pos] === 'object') m.live = live[pos]; else delete m.live; });
+  (state.groups || []).forEach(function(g){ if(groups[g.id] && typeof groups[g.id] === 'object') g.live = groups[g.id]; else delete g.live; });
+}
+function lvRegen(node){
+  var pos = node.getAttribute('data-lvpos'), k = node.getAttribute('data-lvk');
+  if(k === 'board') return liveBoardHTML(pos);
+  if(k === 'row') return lvRowHTML(pos, node.getAttribute('data-lvctx') === '1');
+  if(k === 'chip') return lvChipHTML(pos, node.getAttribute('data-lvme'));
+  var lk = k === 'card' ? liveLookup(pos) : null;
+  return lk && lk.kind === 'ko' ? rsMatchHTML(lk.b, lk.ri, lk.mi) : '';
+}
+/* Redraw the live nodes whose picture changed (rows, cards, chips and an open scoreboard); the rest of the page is left alone. */
+function patchLive(){
+  var nodes = document.querySelectorAll('[data-lvpos]');
+  for(var i = 0; i < nodes.length; i++){
+    var node = nodes[i], html = lvRegen(node);
+    if(!html) continue;
+    var m = /data-lvs="([^"]*)"/.exec(html);
+    if(m && m[1] === node.getAttribute('data-lvs')) continue;
+    var ae = document.activeElement, keep = ae && ae !== document.body && node.contains(ae) && ae.getAttribute ? ae.getAttribute('data-lvopen') : null;
+    node.outerHTML = html;
+    if(keep){ var nb = document.querySelector('[data-lvopen="' + keep.replace(/["\\]/g, '\\function progressText(){') + '"]'); if(nb && nb.focus) nb.focus(); }
+  }
+}
+function applyLive(resp){
+  if(!state) return;
+  var before = liveSig();
+  setLive(resp);
+  if(liveSig() !== before) render(); else patchLive();
+  liveSync();
+}
+function liveWanted(){ return !!(SLUG && state && !document.hidden && liveList().length); }
+function liveSync(){
+  if(typeof setTimeout !== 'function') return;
+  if(liveWanted()){ if(!liveTimer) liveTimer = setTimeout(liveTick, LIVE_MS); }
+  else if(liveTimer){ clearTimeout(liveTimer); liveTimer = null; }
+}
+async function livePoll(){
+  if(liveBusy) return;
+  liveBusy = true;
+  try{
+    var res = await fetch('/api/public/' + encodeURIComponent(SLUG) + '?live=1', {cache:'no-store'});
+    if(!res.ok) return;
+    var body = await res.json();
+    if(body && typeof body === 'object') applyLive(body);
+  }catch(e){ /* silent: the next poll tries again */ }
+  finally{ liveBusy = false; }
+}
+async function liveTick(){
+  liveTimer = null;
+  if(!liveWanted()) return;
+  await livePoll();
+  liveSync();
 }
 
 function progressText(){
@@ -1005,12 +1293,13 @@ function render(){
     return;
   }
   var r = currentRoute(tabs), body = '';
-  if(!landingTab && r.name!=='me' && r.name!=='following' && r.name!=='p' && !addressNamesScreen(tabs)) landingTab = r.name;
+  if(!landingTab && r.name!=='me' && r.name!=='following' && r.name!=='p' && r.name!=='lv' && !addressNamesScreen(tabs)) landingTab = r.name;
   if(podSel==null && (state.pods||[]).length) podSel = defaultPodSel();
   if(!(r.name==='bracket' && r.sel)) appliedSel = null;
   if(r.name==='me') body = meHTML();
   else if(r.name==='following') body = followingHTML();
   else if(r.name==='p') body = playerPageHTML(r.id, {back:true});
+  else if(r.name==='lv') body = liveBoardHTML(r.pos);
   else if(r.name==='groups') body = groupsTabHTML(r.sel);
   else if(r.name==='boards') body = boardsTabHTML(!!r.tv);
   else if(r.name==='bracket'){
@@ -1023,7 +1312,7 @@ function render(){
   }
   el('app').innerHTML = stageStripHTML(r, tabs) + body;
   fitStandingNames();
-  var activeTab = r.name==='p' ? (r.id===myId() ? 'me' : '') : r.name;
+  var activeTab = r.name==='p' ? (r.id===myId() ? 'me' : '') : r.name==='lv' ? '' : r.name;
   el('navLinks').innerHTML = tabs.map(function(t){
     var n = t==='following' ? followIds().length : 0;
     return '<a href="#/'+t+'"'+(t===activeTab ? ' class="on" aria-current="page"' : '')+'>'+escapeHtml(n ? T('ev.tab.count', {label:tabLabel(t), n:n}) : tabLabel(t))+'</a>';
@@ -1061,6 +1350,8 @@ document.addEventListener('click', function(e){
     if(body) body.hidden = !open;
     return;
   }
+  var lo = t.closest('[data-lvopen]');   // a live match: its scoreboard (Back returns to this screen and this scroll position)
+  if(lo){ lvBackY = window.scrollY || 0; lvFromHash = location.hash; location.hash = '#/lv/'+encodeURIComponent(lo.getAttribute('data-lvopen')); return; }
   var ss = t.closest('[data-stagesel]');   // a Group Boards stage card: pick that view even when the address does not change
   if(ss){
     var sv = ss.getAttribute('data-stagesel'), gm = /^group-(.+)$/.exec(sv), gp = gm ? (state.pods||[]).find(function(x){ return x.label===gm[1]; }) : null;
@@ -1088,7 +1379,15 @@ document.addEventListener('click', function(e){
   var go = t.closest('[data-eid]');
   if(go) goToPlayer(go.getAttribute('data-eid'));
 });
-window.addEventListener('hashchange', function(){ if(state){ render(); window.scrollTo(0, 0); } });
+window.addEventListener('hashchange', function(){
+  if(!state) return;
+  var y = 0;
+  if(lvBackY !== null && location.hash === lvFromHash) y = lvBackY;   // back from a live scoreboard
+  if(!/^#\/?lv\//.test(location.hash)) lvBackY = null;
+  render();
+  var bd = /^#\/?lv\//.test(location.hash) ? document.querySelector('.lvboard') : null;   // a scoreboard opens with its top under the tab bar
+  window.scrollTo(0, bd ? Math.max(0, Math.round(bd.getBoundingClientRect().top + (window.scrollY || 0) - 64)) : y);
+});
 document.addEventListener('change', function(e){ if(e.target && e.target.id==='podSelect'){ podSel = e.target.value; render(); } });
 el('finder').addEventListener('input', showFinderResults);
 el('finder').addEventListener('keydown', function(e){
@@ -1208,7 +1507,7 @@ function toggleStartBar(btn){   // open or close in place: no redraw, so the but
 }
 function setStatus(){
   var stale = lastOkAt && (Date.now() - lastOkAt) > POLL_MS*3;
-  var started = state ? eventStarted(state) : false;
+  var started = state ? (eventStarted(state) || liveList().length > 0) : false;
   el('hStatus').innerHTML = statusPillHTML(started, stale, lastUpdatedAt, !!(state && state.finalizedAt), lastOkAt);   // Final results only once the organiser has finalized the event (the server sends finalizedAt only for a valid date)
 }
 
@@ -1236,7 +1535,8 @@ async function load(){
       state.entriesList = state.entriesList || []; state.groups = state.groups || []; state.format = state.format || {};
       shownMessage = null;
       render();
-    }
+      liveSync();
+    } else if(body.view && body.view.scoring) applyLive(liveFromView(body.view));   // a live score never changes updatedAt: the full answer carries it too
     setStatus();
     return true;
   }catch(e){
@@ -1268,7 +1568,8 @@ async function tick(){
   if(keepGoing) timer = setTimeout(tick, POLL_MS);
 }
 document.addEventListener('visibilitychange', function(){
-  if(!document.hidden && SLUG){ clearTimeout(timer); tick(); }
+  if(!document.hidden && SLUG){ clearTimeout(timer); tick(); }   // back on screen: refresh everything now (live scores included)
+  liveSync();   // a hidden tab stops the live poll; a shown one starts it again
 });
 tick();
 </script>

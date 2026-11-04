@@ -239,4 +239,24 @@ function toPublicView(data, liveRows) {
   };
 }
 
-module.exports = { toPublicView, validFinalizedAt, isLiveEvent, SLUG_RE };
+// The light "live only" answer (GET /api/public/<slug>?live=1): just the live pictures of a Live event's running matches, built by
+// the same cleaners as the full copy (liveContext / cleanLive), keyed so the page can patch them in without a full redraw:
+//   { live: { '<ko position>': live }, groups: { '<group id>': { '<pairKey>': live } } }
+// A knockout position is 'ko:<bracketKey>:<round>:<match>'; a round robin pair is 'rr:<group id>:<pairKey>' (see groupLive). This
+// answer does not know which matches already have a result: the page ignores a picture for a match it knows is decided.
+// data needs only format.scoring (all that gates what may ship). A Manual event, or no rows: both maps empty.
+function toPublicLive(data, liveRows) {
+  const out = { live: Object.create(null), groups: Object.create(null) };
+  const ctx = liveContext(data || {}, liveRows);
+  if (!ctx.live) return out;
+  Object.keys(ctx.rows).forEach((pos) => {
+    const rr = /^rr:([^:]+):(.+)$/.exec(pos);
+    if (rr) {
+      if (!out.groups[rr[1]]) out.groups[rr[1]] = Object.create(null);
+      out.groups[rr[1]][rr[2]] = ctx.rows[pos];
+    } else if (pos.indexOf('ko:') === 0) out.live[pos] = ctx.rows[pos];
+  });
+  return out;
+}
+
+module.exports = { toPublicView, toPublicLive, validFinalizedAt, isLiveEvent, SLUG_RE };

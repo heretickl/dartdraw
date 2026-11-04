@@ -24,7 +24,7 @@ const sha = (s) => crypto.createHash('sha1').update(String(s)).digest('hex').sli
 // Values deliberately the same in both languages (codes, names, darts words the glossary keeps in English).
 const SAME = new Set(['r.bye', 'r.wo', 'r.th.diff', 'r.th.tb', 'r.badge.h2h', 'ev.tab.bracket', 'ev.br.bracket', 'ev.legs.lab.rr', 'ev.legs.labeled', 'ev.tab.count',
   'theme.auto', 'hm.theme.auto', 'fmt.roundrobin', 'fmt.podknockout', 'hm.title', 'hm.dateLabel', 'hm.tba', 'ev.key.grid', 'ev.key.bye', 'ev.res.bye', 'ev.mt.bye', 'ev.mt.wo',
-  'ev.board', 'ev.chg.otherDay', 'ev.chg.otherYear', 'hm.stage.rr', 'date.mon.0', 'date.mon.1', 'date.mon.3', 'date.mon.5', 'date.mon.6', 'date.mon.8', 'date.mon.10']);
+  'ev.board', 'lv.leg', 'lv.hint', 'ev.chg.otherDay', 'ev.chg.otherYear', 'hm.stage.rr', 'date.mon.0', 'date.mon.1', 'date.mon.3', 'date.mon.5', 'date.mon.6', 'date.mon.8', 'date.mon.10']);
 
 // ---------- the tables ----------
 const forms = (v) => (v && typeof v === 'object' ? [v.one, v.other] : [v]);

@@ -1,5 +1,5 @@
 const { sql } = require('../_lib/db');
-const { toPublicView, isLiveEvent, SLUG_RE } = require('../_lib/publicView');
+const { toPublicView, toPublicLive, isLiveEvent, SLUG_RE } = require('../_lib/publicView');
 const listView = require('../_lib/listView');
 
 // The live picture of a Live event's matches (the live_public view, see sql/live.sql). Never throws: a view that is not there
@@ -14,6 +14,22 @@ async function liveRowsOf(slug) {
   } catch (e) {
     return [];
   }
+}
+
+// GET /api/public/:slug?live=1 -> { live, groups }: only the live pictures of the running matches (see toPublicLive), for the page's
+// 10-second live poll. Small, and it reads only the event's scoring settings (not the whole tournament) plus the live_public rows.
+// Same 404 rule as the full answer; any failure reading the live rows gives empty maps, as in the full answer.
+async function liveOnly(slug, res) {
+  const rows = await sql`
+    SELECT data->'format'->'scoring' AS scoring FROM public_tournaments
+    WHERE slug = ${slug}
+    LIMIT 1
+  `;
+  if (!rows.length) { res.status(404).json({ error: 'Not found.' }); return; }
+  const data = { format: { scoring: rows[0].scoring } };
+  const live = isLiveEvent(data) ? await liveRowsOf(slug) : [];
+  res.setHeader('Cache-Control', 'public, s-maxage=5');
+  res.status(200).json(toPublicLive(data, live));
 }
 
 // GET /api/public/:slug -> { updatedAt, view, stages }
@@ -33,6 +49,7 @@ module.exports = async (req, res) => {
   if (!SLUG_RE.test(slug)) { res.status(404).json({ error: 'Not found.' }); return; }
 
   try {
+    if (String(req.query.live || '') === '1') { await liveOnly(slug, res); return; }
     const rows = await sql`
       SELECT data, updated_at FROM public_tournaments
       WHERE slug = ${slug}

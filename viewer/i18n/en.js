@@ -182,6 +182,12 @@ var DD_VIEWER_EN = {
   'ev.rd.current': 'current round',
   'ev.slot.winnerOf': 'Winner of {tag}', 'ev.slot.noShow': 'did not show',
   'ev.mt.void': 'Neither attended', 'ev.mt.notPlayed': 'Not played', 'ev.mt.bye': 'Bye', 'ev.mt.wo': 'Walkover', 'ev.mt.toPlay': 'To play', 'ev.mt.waiting': 'Waiting',
+  /* live matches (Live events): rows in the tables and brackets, and the live scoreboard */
+  'lv.watch': 'Watch live', 'lv.now': 'Live now', 'lv.moved': 'Board {b} → played on Board {p}', 'lv.thrower': 'throwing now',
+  'lv.confirming': 'Confirming result', 'lv.title': 'Live match',
+  'lv.legs': 'Legs', 'lv.left': 'Left', 'lv.leftN': '{n} left', 'lv.leg': 'Leg {n}',
+  'lv.avg': '3-dart average: {avg}', 'lv.last': 'Last turns', 'lv.noTurns': 'No turns yet.', 'lv.hint': 'Checkout: {route}',
+  'lv.ended': 'This match is not being scored live right now. When it finishes, its result shows on the Groups or Bracket tab.',
 
   /* home page (home.js) */
   'hm.title': 'DartDraw Live',
