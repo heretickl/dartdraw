@@ -717,11 +717,12 @@ var TIE_RULE_SHORT = {'Head-to-head result':'H2H','Leg difference':'LD','Legs wo
 
 function fmtLegDiff(n){ return n>0 ? '+'+n : String(n); }
 
-function standingsTableHTML(g, standings){
+// opts.avgColumn === false (the public viewer, when the event's stats switch is off): never the Avg column. The organiser app passes no opts.
+function standingsTableHTML(g, standings, opts){
   standings = standings || computeStandings(g);
   const t = state;
   const showDraws = standings.some(s=> s.draws>0);
-  const showAvg = !!standings.avgOK && standings.avgCounted>0;   // only when every counted match has live x01 data
+  const showAvg = !!standings.avgOK && standings.avgCounted>0 && !(opts && opts.avgColumn===false);   // only when every counted match has live x01 data
   const anyTie = standings.some(s=> s.tieRule);
   const rows = standings.map(st=>{
     const ent = t.entriesList.find(e=>e.id===st.id);
@@ -758,8 +759,10 @@ function standingsTableHTML(g, standings){
 }
 
 // opts.public: wording for spectators (no organiser instructions like "use Adjust positions").
+// opts.avgFigures === false (the public viewer, stats switch off): a tie settled by 3-dart average is named without the two averages.
 function tieNotesHTML(g, standings, opts){
   const forPublic = !!(opts && opts.public);
+  const avgFigures = !(opts && opts.avgFigures===false);
   standings = standings || computeStandings(g);
   const t = state;
   const notes = standings.tieNotes || [];
@@ -797,7 +800,7 @@ function tieNotesHTML(g, standings, opts){
     } else if(n.rule==='Legs won'){
       v.a = mini ? n.hiMini.lf : hi.legsFor; v.b = mini ? n.loMini.lf : lo.legsFor;
       lines.push('<div>'+ddRT(mini ? 'r.tie.lwMini' : 'r.tie.lw', v)+'</div>');
-    } else if(n.rule===DD_AVG_RULE){
+    } else if(n.rule===DD_AVG_RULE && avgFigures){
       v.a = hi.avg==null ? '–' : hi.avg.toFixed(2); v.b = lo.avg==null ? '–' : lo.avg.toFixed(2);   // overall group averages, also in a 3+ way tie
       lines.push('<div>'+ddRT('r.tie.avg', v)+'</div>');
     } else if(n.rule){
