@@ -1454,6 +1454,7 @@ var DD_APP_MS = {
   'lb.hist.restoreHint': "Pulihkan meletakkan semula versi terdahulu sebagai yang terbaharu. Tiada apa yang ditimpa atau dipadam.",
   'lb.hist.overHint': "Perlawanan ini sudah tamat, jadi giliran tidak boleh dipulihkan. Keputusan diubah dengan memasukkannya semula.",
   'lb.hist.notCounted': "tidak dikira: {why}",
+  'lb.hist.restarted': "Keputusan dikosongkan — perlawanan dimulakan semula",
   'lb.hist.why.not_holder': "perlawanan berada pada peranti lain",
   'lb.hist.why.changed_by_organiser': "penganjur telah memasukkan keputusan",
   'lb.hist.why.match_over': "perlawanan sudah tamat",

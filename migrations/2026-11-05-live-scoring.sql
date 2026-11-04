@@ -63,9 +63,14 @@ CREATE TABLE IF NOT EXISTS live_matches (
   summary              jsonb NOT NULL DEFAULT '{}'::jsonb,
   changed_by_organiser boolean NOT NULL DEFAULT false,
   disputed             boolean NOT NULL DEFAULT false,
+  restarted_at         timestamptz,
   PRIMARY KEY (tournament_id, pos)
 );
 -- disputed: a flag the organiser sets from the match history when a result is questioned; only the Boards panel reads it.
+-- restarted_at: set when the organiser clears a device's finished result and the match starts again. live_turns is append-only, so the
+-- turns before this moment stay in the table (the organiser's history shows them greyed) but never count: every read of the turns
+-- that count takes only those with created_at >= restarted_at (a null restarted_at: all of them).
+ALTER TABLE live_matches ADD COLUMN IF NOT EXISTS restarted_at timestamptz;
 
 -- live_turns: every turn a device keyed. APPEND-ONLY: the code never runs UPDATE or DELETE on this table. A correction is a new
 -- row whose supersedes names the turn it replaces. id is made by the device and doubles as the idempotency key, so a turn sent

@@ -5,7 +5,7 @@
 //   const db = createFakeLiveDb({ tournaments });   // tournaments: { id: { data, updated_at, created_by } } (shared ok)
 //   db.logins: [{ tournament_id, username, password_hash, password_shown, session_nonce, closed_at, created_at }]
 //   db.devices: [{ id, tournament_id, board, session_nonce, last_seen_at, logged_out_at, unsent, created_at }]
-//   db.matches: [{ tournament_id, pos, state, device_id, board, played_on_board, paper, retired_side, started_at, ended_at, summary, changed_by_organiser, disputed }]
+//   db.matches: [{ tournament_id, pos, state, device_id, board, played_on_board, paper, retired_side, started_at, ended_at, summary, changed_by_organiser, disputed, restarted_at }]
 //   db.turns: [{ id, tournament_id, pos, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason, created_at }]
 //   db.lends: [{ id, tournament_id, from_board, to_board, started_at, ended_at }]
 //   db.takeovers: [{ id, tournament_id, pos, from_device, to_device, decided_by, answer, created_at, decided_at }]
@@ -25,6 +25,8 @@ function createFakeLiveDb(opts) {
   const copy = (x) => (x == null ? x : JSON.parse(JSON.stringify(x)));
   const tOf = (id) => db.tournaments[id];
   const matchRow = (m) => ({ pos: m.pos, state: m.state, device_id: m.device_id, board: m.board, played_on_board: m.played_on_board, paper: m.paper, retired_side: m.retired_side, summary: copy(m.summary || {}) });
+  // a turn older than its match's restarted_at (the organiser cleared the result and the match started again) never counts
+  const before = (x) => { const m = db.matches.find((y) => y.tournament_id === x.tournament_id && y.pos === x.pos); return !!(m && m.restarted_at != null && x.created_at < m.restarted_at); };
   const dup = () => Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
 
   db.sql = async (strings, ...vals) => {
@@ -134,15 +136,15 @@ function createFakeLiveDb(opts) {
     if (text === 'SELECT pos, device_id, ignored, ignored_reason FROM live_turns WHERE tournament_id = ? AND id = ?') {
       return db.turns.filter((x) => x.tournament_id === vals[0] && x.id === vals[1]).map((x) => ({ pos: x.pos, device_id: x.device_id, ignored: x.ignored, ignored_reason: x.ignored_reason }));
     }
-    if (text === 'SELECT id, leg, side, player, entered, supersedes FROM live_turns WHERE tournament_id = ? AND pos = ? AND ignored = false ORDER BY created_at, id') {
-      return db.turns.filter((x) => x.tournament_id === vals[0] && x.pos === vals[1] && !x.ignored)
+    if (text === 'SELECT t.id, t.leg, t.side, t.player, t.entered, t.supersedes FROM live_turns t LEFT JOIN live_matches m ON m.tournament_id = t.tournament_id AND m.pos = t.pos WHERE t.tournament_id = ? AND t.pos = ? AND t.ignored = false AND (m.restarted_at IS NULL OR t.created_at >= m.restarted_at) ORDER BY t.created_at, t.id') {
+      return db.turns.filter((x) => x.tournament_id === vals[0] && x.pos === vals[1] && !x.ignored && !before(x))
         .sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
         .map((x) => ({ id: x.id, leg: x.leg, side: x.side, player: x.player, entered: copy(x.entered), supersedes: x.supersedes }));
     }
     // the organiser's Event stats (api/_lib/live.js: eventTurns)
-    if (text === "SELECT t.id, t.pos, t.leg, t.side, t.player, t.entered, t.supersedes FROM live_turns t JOIN live_matches m ON m.tournament_id = t.tournament_id AND m.pos = t.pos WHERE t.tournament_id = ? AND t.ignored = false AND m.state IN ('confirmed', 'retired') ORDER BY t.pos, t.created_at, t.id") {
+    if (text === "SELECT t.id, t.pos, t.leg, t.side, t.player, t.entered, t.supersedes FROM live_turns t JOIN live_matches m ON m.tournament_id = t.tournament_id AND m.pos = t.pos WHERE t.tournament_id = ? AND t.ignored = false AND m.state IN ('confirmed', 'retired') AND (m.restarted_at IS NULL OR t.created_at >= m.restarted_at) ORDER BY t.pos, t.created_at, t.id") {
       const over = (x) => db.matches.some((m) => m.tournament_id === x.tournament_id && m.pos === x.pos && ['confirmed', 'retired'].indexOf(m.state) >= 0);
-      return db.turns.filter((x) => x.tournament_id === vals[0] && !x.ignored && over(x))
+      return db.turns.filter((x) => x.tournament_id === vals[0] && !x.ignored && over(x) && !before(x))
         .sort((x, y) => (x.pos < y.pos ? -1 : x.pos > y.pos ? 1 : x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
         .map((x) => ({ id: x.id, pos: x.pos, leg: x.leg, side: x.side, player: x.player, entered: copy(x.entered), supersedes: x.supersedes }));
     }
@@ -179,15 +181,16 @@ function createFakeLiveDb(opts) {
       return [];
     }
     // the organiser's save CLEARED results (api/_lib/live.js: releaseClearedResults): a finished match goes back to waiting, unheld, unflagged; turns stay
-    if (text === "UPDATE live_matches SET state = 'waiting', device_id = NULL, changed_by_organiser = false, ended_at = NULL WHERE tournament_id = ? AND pos = ANY(?::text[]) AND paper = false AND state IN ('confirmed', 'retired')") {
-      db.matches.forEach((m) => { if (m.tournament_id === vals[0] && vals[1].indexOf(m.pos) >= 0 && !m.paper && ['confirmed', 'retired'].indexOf(m.state) >= 0) Object.assign(m, { state: 'waiting', device_id: null, changed_by_organiser: false, ended_at: null }); });
+    if (text === "UPDATE live_matches SET state = 'waiting', device_id = NULL, changed_by_organiser = false, ended_at = NULL, restarted_at = now(), summary = '{}'::jsonb, started_at = NULL, retired_side = NULL WHERE tournament_id = ? AND pos = ANY(?::text[]) AND paper = false AND state IN ('confirmed', 'retired')") {
+      db.advance(1);   // restarted_at is later than every turn already stored, as now() is across requests
+      db.matches.forEach((m) => { if (m.tournament_id === vals[0] && vals[1].indexOf(m.pos) >= 0 && !m.paper && ['confirmed', 'retired'].indexOf(m.state) >= 0) Object.assign(m, { state: 'waiting', device_id: null, changed_by_organiser: false, ended_at: null, restarted_at: iso(), summary: {}, started_at: null, retired_side: null }); });
       return [];
     }
     // the match history (api/_lib/live.js: allTurns, matchTakeovers, disputedPositions, setDisputed)
-    if (text === 'SELECT id, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason, created_at FROM live_turns WHERE tournament_id = ? AND pos = ? ORDER BY created_at, id') {
+    if (text === 'SELECT t.id, t.leg, t.side, t.player, t.entered, t.device_id, t.supersedes, t.ignored, t.ignored_reason, t.created_at, (m.restarted_at IS NOT NULL AND t.created_at < m.restarted_at) AS before_restart FROM live_turns t LEFT JOIN live_matches m ON m.tournament_id = t.tournament_id AND m.pos = t.pos WHERE t.tournament_id = ? AND t.pos = ? ORDER BY t.created_at, t.id') {
       return db.turns.filter((x) => x.tournament_id === vals[0] && x.pos === vals[1])
         .sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
-        .map((x) => ({ id: x.id, leg: x.leg, side: x.side, player: x.player, entered: copy(x.entered), device_id: x.device_id, supersedes: x.supersedes, ignored: x.ignored, ignored_reason: x.ignored_reason, created_at: x.created_at }));
+        .map((x) => ({ id: x.id, leg: x.leg, side: x.side, player: x.player, entered: copy(x.entered), device_id: x.device_id, supersedes: x.supersedes, ignored: x.ignored, ignored_reason: x.ignored_reason, created_at: x.created_at, before_restart: before(x) }));
     }
     if (text === 'SELECT id, from_device, to_device, answer, decided_by, created_at, decided_at FROM live_takeovers WHERE tournament_id = ? AND pos = ? ORDER BY created_at, id') {
       return db.takeovers.filter((x) => x.tournament_id === vals[0] && x.pos === vals[1]).slice()

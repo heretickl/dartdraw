@@ -1459,6 +1459,7 @@ var DD_APP_EN = {
   'lb.hist.restoreHint': "Restore puts an earlier version back as the newest one. Nothing is overwritten or deleted.",
   'lb.hist.overHint': "This match is over, so its turns cannot be restored. A result is changed by entering it again.",
   'lb.hist.notCounted': "not counted: {why}",
+  'lb.hist.restarted': "Result cleared — match restarted",
   'lb.hist.why.not_holder': "the match was on another device",
   'lb.hist.why.changed_by_organiser': "the organiser entered the result",
   'lb.hist.why.match_over': "the match was already over",

@@ -1135,13 +1135,13 @@ function liveHistBodyHTML(){
   if(!h.turns.length) html += '<p class="hint">' + T('lb.hist.noTurns') + '</p>';
   else {
     html += '<div class="hint" style="margin:0 0 6px">' + T(fin ? 'lb.hist.finalHint' : over ? 'lb.hist.overHint' : 'lb.hist.restoreHint') + '</div>';
-    var rows = liveHistRows(h.turns), legs = [];
-    rows.forEach(function(r){ if(legs.indexOf(r.leg) < 0) legs.push(r.leg); });
-    legs.sort(function(p, q){ return p - q; });
-    legs.forEach(function(leg){
-      html += '<div style="font-weight:800;font-size:12px;margin:10px 0 2px;border-bottom:1px solid var(--line)">' + T('lb.hist.leg', { n: leg }) + '</div>';
-      rows.filter(function(r){ return r.leg === leg; }).forEach(function(r){ html += liveHistRowHTML(r, h, ro); });
-    });
+    /* turns from before the organiser cleared the result and the match started again: greyed, above a divider line, never restorable */
+    var before = h.turns.filter(function(t){ return t.beforeRestart; }), now = h.turns.filter(function(t){ return !t.beforeRestart; });
+    if(before.length){
+      html += '<div style="opacity:.5">' + liveHistLegsHTML(before, h, true) + '</div>';
+      html += '<div style="margin:12px 0;padding:4px 0;border-top:2px solid var(--line);border-bottom:2px solid var(--line);text-align:center;font-weight:800;font-size:12px">' + T('lb.hist.restarted') + '</div>';
+    }
+    html += liveHistLegsHTML(now, h, ro);
   }
   var tks = h.takeovers || [];
   if(tks.length){
@@ -1151,6 +1151,17 @@ function liveHistBodyHTML(){
       return '<div style="margin:4px 0;font-size:12px">' + ask + ' ' + done + '</div>';
     }).join('');
   }
+  return html;
+}
+/* The turns grouped leg by leg (liveHistRows), each leg under its own heading. */
+function liveHistLegsHTML(turns, h, ro){
+  var html = '', rows = liveHistRows(turns), legs = [];
+  rows.forEach(function(r){ if(legs.indexOf(r.leg) < 0) legs.push(r.leg); });
+  legs.sort(function(p, q){ return p - q; });
+  legs.forEach(function(leg){
+    html += '<div style="font-weight:800;font-size:12px;margin:10px 0 2px;border-bottom:1px solid var(--line)">' + T('lb.hist.leg', { n: leg }) + '</div>';
+    rows.filter(function(r){ return r.leg === leg; }).forEach(function(r){ html += liveHistRowHTML(r, h, ro); });
+  });
   return html;
 }
 function liveHistRowHTML(r, h, over){

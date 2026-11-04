@@ -484,10 +484,11 @@ async function turnById(tournamentId, id) {
     return rows.length ? { pos: rows[0].pos, device_id: rows[0].device_id, ignored: !!rows[0].ignored, ignored_reason: rows[0].ignored_reason || null } : null;
   });
 }
-/* The turns of a match that count (not ignored), oldest first: [{ id, leg, side, player, entered, supersedes }]. */
+/* The turns of a match that count (not ignored, and not from before the match was restarted: the organiser cleared a finished result
+   and the match started again, live_matches.restarted_at), oldest first: [{ id, leg, side, player, entered, supersedes }]. */
 async function matchTurns(tournamentId, pos) {
   return q(async () => {
-    const rows = await sql`SELECT id, leg, side, player, entered, supersedes FROM live_turns WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND ignored = false ORDER BY created_at, id`;
+    const rows = await sql`SELECT t.id, t.leg, t.side, t.player, t.entered, t.supersedes FROM live_turns t LEFT JOIN live_matches m ON m.tournament_id = t.tournament_id AND m.pos = t.pos WHERE t.tournament_id = ${tournamentId} AND t.pos = ${pos} AND t.ignored = false AND (m.restarted_at IS NULL OR t.created_at >= m.restarted_at) ORDER BY t.created_at, t.id`;
     return rows.map((r) => ({ id: r.id, leg: Number(r.leg), side: r.side, player: r.player == null ? null : r.player, entered: r.entered, supersedes: r.supersedes || null }));
   });
 }
@@ -495,18 +496,19 @@ async function matchTurns(tournamentId, pos) {
    a match): [{ id, pos, leg, side, player, entered, supersedes }]. The organiser's Event stats read it; nothing is written. */
 async function eventTurns(tournamentId) {
   return q(async () => {
-    const rows = await sql`SELECT t.id, t.pos, t.leg, t.side, t.player, t.entered, t.supersedes FROM live_turns t JOIN live_matches m ON m.tournament_id = t.tournament_id AND m.pos = t.pos WHERE t.tournament_id = ${tournamentId} AND t.ignored = false AND m.state IN ('confirmed', 'retired') ORDER BY t.pos, t.created_at, t.id`;
+    const rows = await sql`SELECT t.id, t.pos, t.leg, t.side, t.player, t.entered, t.supersedes FROM live_turns t JOIN live_matches m ON m.tournament_id = t.tournament_id AND m.pos = t.pos WHERE t.tournament_id = ${tournamentId} AND t.ignored = false AND m.state IN ('confirmed', 'retired') AND (m.restarted_at IS NULL OR t.created_at >= m.restarted_at) ORDER BY t.pos, t.created_at, t.id`;
     return rows.map((r) => ({ id: r.id, pos: r.pos, leg: Number(r.leg), side: r.side, player: r.player == null ? null : r.player, entered: r.entered, supersedes: r.supersedes || null }));
   });
 }
-/* EVERY turn of a match, ignored ones too, oldest first (the organiser's match history). raw device id: the route turns it into
-   "Device N". [{ id, leg, side, player, entered, deviceId, supersedes, ignored, ignoredReason, createdAt }] */
+/* EVERY turn of a match, ignored ones too and those from before a restart, oldest first (the organiser's match history). raw device id:
+   the route turns it into "Device N". beforeRestart: the turn is older than the match's restarted_at (it never counts).
+   [{ id, leg, side, player, entered, deviceId, supersedes, ignored, ignoredReason, createdAt, beforeRestart }] */
 async function allTurns(tournamentId, pos) {
   return q(async () => {
-    const rows = await sql`SELECT id, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason, created_at FROM live_turns WHERE tournament_id = ${tournamentId} AND pos = ${pos} ORDER BY created_at, id`;
+    const rows = await sql`SELECT t.id, t.leg, t.side, t.player, t.entered, t.device_id, t.supersedes, t.ignored, t.ignored_reason, t.created_at, (m.restarted_at IS NOT NULL AND t.created_at < m.restarted_at) AS before_restart FROM live_turns t LEFT JOIN live_matches m ON m.tournament_id = t.tournament_id AND m.pos = t.pos WHERE t.tournament_id = ${tournamentId} AND t.pos = ${pos} ORDER BY t.created_at, t.id`;
     return rows.map((r) => ({
       id: r.id, leg: Number(r.leg), side: r.side, player: r.player == null ? null : r.player, entered: r.entered, deviceId: r.device_id,
-      supersedes: r.supersedes || null, ignored: !!r.ignored, ignoredReason: r.ignored_reason || null, createdAt: toIso(r.created_at)
+      supersedes: r.supersedes || null, ignored: !!r.ignored, ignoredReason: r.ignored_reason || null, createdAt: toIso(r.created_at), beforeRestart: !!r.before_restart
     }));
   });
 }
@@ -588,12 +590,13 @@ async function markOrganiserResults(tournamentId, positions) {
 
 /* The organiser CLEARED these results on a Live event (D18): a match a device had finished (confirmed / retired) is open again, so
    it goes back to the start: waiting, nobody holds it, not flagged (it can be picked, or typed by hand, again). The turns stay
-   (live_turns is append-only). Never fails the save (same rule as markOrganiserResults). Paper matches are left alone. */
+   (live_turns is append-only) but are no longer counted: restarted_at marks the restart, the public summary and started_at are
+   emptied and a retirement is forgotten, so the next play of the match starts from nothing. Never fails the save (same rule as markOrganiserResults). Paper matches are left alone. */
 async function releaseClearedResults(tournamentId, positions) {
   const list = Array.isArray(positions) ? positions.filter((p) => typeof p === 'string').slice(0, 5000) : [];
   if (!list.length) return;
   try {
-    await sql`UPDATE live_matches SET state = 'waiting', device_id = NULL, changed_by_organiser = false, ended_at = NULL WHERE tournament_id = ${tournamentId} AND pos = ANY(${list}::text[]) AND paper = false AND state IN ('confirmed', 'retired')`;
+    await sql`UPDATE live_matches SET state = 'waiting', device_id = NULL, changed_by_organiser = false, ended_at = NULL, restarted_at = now(), summary = '{}'::jsonb, started_at = NULL, retired_side = NULL WHERE tournament_id = ${tournamentId} AND pos = ANY(${list}::text[]) AND paper = false AND state IN ('confirmed', 'retired')`;
   } catch (e) {
     if (!(e && e.code === '42P01')) console.error('releaseClearedResults failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
   }

@@ -24,7 +24,8 @@
 //     op 'restore' { pos, turnId } the turn is put back as the latest version of its chain: a NEW turn row is appended (copy of that
 //                                 version; supersedes = the chain's latest counting turn; device 'organiser'), the match's picture is
 //                                 rewritten. 404 not_found (no such turn in that match) · 409 match_confirmed (the match is over: a result
-//                                 changes by normal result entry) · 409 turn_not_restorable (the turn is ignored, or already the latest).
+//                                 changes by normal result entry) · 409 turn_not_restorable (the turn is ignored, already the
+//                                 latest, or from before the match was restarted after its result was cleared).
 //     op 'dispute' { pos, on }    flags / clears "disputed" on a match that has a live row (404 not_found otherwise).
 //     op 'close' { force? }       Close event (spec 7.6). Blockers: a signed-in device with turns not sent, a match a device holds that is
 //                                 checked in / playing / awaiting confirmation. With blockers and no force: 409 close_blocked { blockers },
@@ -48,10 +49,11 @@
 // the organiser's score boxes say "Retired · walkover" for these instead of the plain walkover tag. A label only.
 // blockers: [{ device: 'Device N', deviceNo: N|null, board, unsent, matches: [{ pos, info }] }], one per device, in the devices' order.
 // history: { pos, info, a, b, state, board, disputed, summary, turns: [{ id, leg, side, player, entered, supersedes, ignored, ignoredReason,
-//   device: 'Device N' | 'Organiser', deviceNo, byOrganiser?, at, left, current }], takeovers: [{ answer, decidedBy: 'organiser' | 'official' | 'system' | null,
+//   device: 'Device N' | 'Organiser', deviceNo, byOrganiser?, at, left, current, beforeRestart? }], takeovers: [{ answer, decidedBy: 'organiser' | 'official' | 'system' | null,
 //   requestedAt, decidedAt, from, to, fromNo, toNo }] } (every turn, ignored ones too, oldest first; left: the x01 score left after the turn,
 //   null for Cricket and ignored turns; current: the latest version of its chain). board: the board the match is on (where it is played, else the
-//   one it was claimed on), null when it has no live row. Device ids never leave the server in these.
+//   one it was claimed on), null when it has no live row. beforeRestart: true on a turn from before the organiser cleared the match's result and it
+//   started again (kept for the history, never counted, never current, not restorable; the turns of the new play come after them). Device ids never leave the server in these.
 // held: a device holds a match on the board (started or not; with playing it says the board is not free for the knockout board suggestions).
 // idleSince: ms of the latest end of a match played on the board, null when none ended yet (read only: the suggestions are made in the browser).
 // group: the labels of the round robin groups and pods played on the board, joined by ", " ('' when none); ko: knockout matches are on
@@ -211,10 +213,13 @@ async function historyOf(ev, pos) {
   const label = deviceLabels(devices);
   let startFor = () => null;
   try { startFor = startForOf(ctx, pos); } catch (e) { /* no scores left, the turns still show */ }
-  const shownTurns = annotateTurns(turns, startFor).map((x) => Object.assign({
-    id: x.id, leg: x.leg, side: x.side, player: x.player, entered: x.entered, supersedes: x.supersedes,
-    ignored: x.ignored, ignoredReason: x.ignoredReason
-  }, label(x.deviceId), { at: x.createdAt, left: x.left, current: x.current }));
+  /* turns from before a restart (the organiser cleared a finished result and the match started again) are kept and shown, flagged
+     beforeRestart; they are worked out apart from the turns of the new play (their legs and chains are not mixed), and none is current */
+  const shownTurns = annotateTurns(turns.filter((x) => x.beforeRestart), startFor).map((x) => Object.assign({}, x, { current: false }))
+    .concat(annotateTurns(turns.filter((x) => !x.beforeRestart), startFor)).map((x) => Object.assign({
+      id: x.id, leg: x.leg, side: x.side, player: x.player, entered: x.entered, supersedes: x.supersedes,
+      ignored: x.ignored, ignoredReason: x.ignoredReason
+    }, x.beforeRestart ? { beforeRestart: true } : {}, label(x.deviceId), { at: x.createdAt, left: x.left, current: x.current }));
   const who = (kind) => (typeof kind === 'string' && kind.indexOf('org:') === 0 ? 'organiser' : typeof kind === 'string' && kind.indexOf('off:') === 0 ? 'official' : kind === 'system' ? 'system' : null);
   const log = tks.map((k) => ({
     answer: k.answer, decidedBy: who(k.decided_by), requestedAt: k.requestedAt, decidedAt: k.decidedAt,
@@ -269,8 +274,8 @@ const OPS = {
     if (OVER.indexOf(slot ? LiveBoards.stateOf(slot, row, false) : (row ? row.state : '')) >= 0 || (row && OVER.indexOf(row.state) >= 0)) {
       res.status(409).json({ code: 'match_confirmed', error: 'This match is already confirmed. A result is changed by entering it again.' }); return true;
     }
-    const head = chainHeadOf(turns, chosen.id);
-    if (chosen.ignored || !head || head.id === chosen.id) { res.status(409).json({ code: 'turn_not_restorable', error: 'That version cannot be restored.' }); return true; }
+    const head = chainHeadOf(turns.filter((x) => !x.beforeRestart), chosen.id);
+    if (chosen.ignored || chosen.beforeRestart || !head || head.id === chosen.id) { res.status(409).json({ code: 'turn_not_restorable', error: 'That version cannot be restored.' }); return true; }
     const id = 'org_' + crypto.randomBytes(9).toString('base64url').replace(/[^A-Za-z0-9]/g, 'x');
     await live.insertTurn(ev.id, { id, pos: b.pos, leg: chosen.leg, side: chosen.side, player: chosen.player, entered: chosen.entered, deviceId: 'organiser', supersedes: head.id, ignored: false, ignoredReason: null });
     await turnRoute.rewriteSummary({ tournament: ev }, row, { pos: b.pos, side: chosen.side, supersedes: head.id }, undefined);
