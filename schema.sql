@@ -135,9 +135,11 @@ CREATE TABLE live_matches (
 
 -- live_turns: every turn a device keyed. APPEND-ONLY: the code never runs UPDATE or DELETE on this table. A correction is a new
 -- row whose supersedes names the turn it replaces. id is made by the device and doubles as the idempotency key, so a turn sent
--- twice (bad Wi-Fi, retry) is stored once.
+-- twice (bad Wi-Fi, retry) is stored once; it is unique within an event (the primary key is tournament_id + id).
+-- ignored: the turn was stored but never applied (it came from a device that had been taken over, or after the event was
+-- finalised or closed); ignored_reason says why. It is set when the row is inserted, never by a later update.
 CREATE TABLE live_turns (
-  id            text PRIMARY KEY,
+  id            text NOT NULL,
   tournament_id text NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
   pos           text NOT NULL,
   leg           int NOT NULL,
@@ -146,7 +148,10 @@ CREATE TABLE live_turns (
   entered       jsonb NOT NULL,
   device_id     text NOT NULL,
   supersedes    text,
-  created_at    timestamptz NOT NULL DEFAULT now()
+  ignored       boolean NOT NULL DEFAULT false,
+  ignored_reason text,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tournament_id, id)
 );
 CREATE INDEX idx_live_turns_match ON live_turns (tournament_id, pos, created_at);
 
@@ -164,3 +169,15 @@ CREATE TABLE live_takeovers (
   decided_at    timestamptz
 );
 CREATE INDEX idx_live_takeovers_match ON live_takeovers (tournament_id, pos);
+
+-- live_lends: a free board lent whole to a busy board (before any match row exists for it). ended_at is empty while the lend
+-- is running.
+CREATE TABLE live_lends (
+  id            text PRIMARY KEY,
+  tournament_id text NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+  from_board    int NOT NULL,
+  to_board      int NOT NULL,
+  started_at    timestamptz NOT NULL DEFAULT now(),
+  ended_at      timestamptz
+);
+CREATE INDEX idx_live_lends_tournament ON live_lends (tournament_id);
