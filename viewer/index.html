@@ -1128,12 +1128,22 @@ function patchLive(){
     }
   }
 }
-function applyLive(resp){
+/* A live match that is not live any more has ended (or was released): the 10 s poll carries no scores, so the standings, brackets and
+   each board's Next are stale until the full refresh. It is asked for right away, once (liveReload stops a second one meanwhile);
+   quiet = the answer came from that full refresh itself, which is current already. */
+var liveReload = false;
+function applyLive(resp, quiet){
   if(!state) return;
-  var before = liveSig();
+  var before = liveSig(), was = liveList().map(function(x){ return x.pos; });
   setLive(resp);
+  var now = {}; liveList().forEach(function(x){ now[x.pos] = true; });
+  var gone = was.some(function(p){ return !now[p]; });
   if(liveSig() !== before) render(); else patchLive();
   liveSync();
+  if(gone && !quiet && !liveReload){
+    liveReload = true;
+    Promise.resolve().then(load).catch(function(){}).then(function(){ liveReload = false; });
+  }
 }
 function liveWanted(){ return !!(SLUG && state && !document.hidden && liveList().length); }
 function liveSync(){
@@ -1189,7 +1199,7 @@ function tvNextByBoard(){
     var boards = tvGroupBoards(g);
     if(!boards.length) return;
     var busy = {};
-    Object.keys(g.live || {}).forEach(function(k){ var l = grpLive(g, k); if(l){ var bb = lvInt(l.board); busy[bb !== null ? bb : lvInt(l.playedOn)] = true; } });
+    Object.keys(g.live || {}).forEach(function(k){ var l = grpLive(g, k); if(l){ var bb = lvInt(l.playedOn); busy[bb !== null ? bb : lvInt(l.board)] = true; } });   // the board the match is PLAYED on (a lent match does not busy its home board)
     var order = boards.filter(function(b){ return !busy[b]; }).concat(boards.filter(function(b){ return busy[b]; }));
     var pending = groupMatches(g).filter(function(p){ return !getScore(g, p[0], p[1]) && !grpLive(g, scoreKey(p[0], p[1])); });
     order.forEach(function(b, i){ if(pending[i]) put(b, T('ev.match.v', {a:entryName(pending[i][0]), b:entryName(pending[i][1])})); });
@@ -1640,7 +1650,7 @@ async function load(){
       shownMessage = null;
       render();
       liveSync();
-    } else if(body.view && body.view.scoring) applyLive(liveFromView(body.view));   // a live score never changes updatedAt: the full answer carries it too
+    } else if(body.view && body.view.scoring) applyLive(liveFromView(body.view), true);   // a live score never changes updatedAt: the full answer carries it too
     setStatus();
     return true;
   }catch(e){
