@@ -827,6 +827,8 @@ function liveWithin(p, ms){
 var LIVE_HELD_STATES = ['checkedIn', 'playing', 'awaitingConfirm'];
 var liveGuardSeq = 0;
 function liveGuardOn(){ return liveBoardsOn() && !isLocked(state) && !netOffline; }
+/* Still the window the look started in: its confirm button (captured then) is the one on screen. A Cancel followed by another box has a new button. */
+function liveSameModal(ok){ return !!ok && ok.isConnected && document.getElementById('modalConfirmBtn') === ok && liveModalOpen(); }
 function liveModalOpen(){ var b = document.getElementById('modalBackdrop'); return !!b && b.classList.contains('show'); }
 /* What openModal does with the value its Save handler returns, for a handler that was run later (after a look). */
 function liveSettleModal(r){
@@ -847,7 +849,7 @@ function liveHeldGuard(positions, commit, bare){
   var seq = ++liveGuardSeq, id = state.id, ok = bare ? null : document.getElementById('modalConfirmBtn');
   if(ok) ok.disabled = true;
   Promise.all(positions.map(function(p){ return liveWithin(liveMatchLookup(p), 4000); })).then(function(list){
-    if(seq !== liveGuardSeq || !state || state.id !== id || (!bare && !liveModalOpen())) return;   // the window was closed (or another opened) meanwhile
+    if(seq !== liveGuardSeq || !state || state.id !== id || (!bare && !liveSameModal(ok))) return;   // the window was closed (or another opened) meanwhile
     var held = null;
     list.forEach(function(b){ if(!held && b && LIVE_HELD_STATES.indexOf(b.state) >= 0) held = b; });
     if(!held){ if(bare) commit(); else liveSettleModal(commit()); return; }
@@ -872,7 +874,7 @@ function liveLateGuard(bracketKey, ri, mi, newWinnerId, commit){
   var seq = ++liveGuardSeq, id = state.id, ok = document.getElementById('modalConfirmBtn');
   if(ok) ok.disabled = true;
   liveWithin(liveMatchLookup(nx.pos), 4000).then(function(b){
-    if(seq !== liveGuardSeq || !state || state.id !== id || !liveModalOpen()) return;
+    if(seq !== liveGuardSeq || !state || state.id !== id || !liveSameModal(ok)) return;
     var states = {}; if(b && b.state) states[nx.pos] = b.state;
     var block = lateCorrectionBlock(state, pos, newWinnerId, states);
     if(block){ liveLateModal(bracketKey, ri, mi, block); return; }

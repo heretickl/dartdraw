@@ -197,7 +197,7 @@ module.exports = async (req, res) => {
         }
         inc.settingsRev = (Number(sto.settingsRev) || 0) + (e.settingsView(inc) !== e.settingsView(sto) ? 1 : 0);
         data = e.plain(inc);
-        changedPos = e.plain(e.changedSlots(sto, inc));   // the results this save changed (the organiser's own: a stale save keeps every other as stored)
+        changedPos = e.plain(e.changedResultSlots(sto, inc));   // the results this save changed (the organiser's own: a stale save keeps every other as stored; a call/uncall is not a result)
         // Conditional on the stamp just read (to the millisecond, the precision of the JS value), so a save or a
         // finalize that lands between the read and this write is not overwritten.
         updated = isAdmin

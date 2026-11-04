@@ -555,7 +555,7 @@ async function markOrganiserResults(tournamentId, positions) {
   const list = Array.isArray(positions) ? positions.filter((p) => typeof p === 'string').slice(0, 5000) : [];
   if (!list.length) return;
   try {
-    await sql`UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ${tournamentId} AND pos = ANY(${list}::text[]) AND state NOT IN ('retired', 'voided')`;
+    await sql`UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ${tournamentId} AND pos = ANY(${list}::text[]) AND paper = false AND state NOT IN ('retired', 'voided')`;
   } catch (e) {
     if (!(e && e.code === '42P01')) console.error('markOrganiserResults failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
   }

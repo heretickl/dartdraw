@@ -515,10 +515,24 @@ function lateCorrectionBlock(t, pos, newWinnerId, liveStates){
   var nx = lateNextOf(t, pos);
   if(!nx) return null;
   var m = nx.m, st = liveStates && typeof liveStates === 'object' ? liveStates[nx.pos] : null;
-  var done = !!(m.winnerId || m.bye || m.void);
+  var done = !!(m.winnerId || m.bye || m.void || st === 'confirmed' || st === 'retired' || st === 'voided');   // a live row that says it is over counts even if this copy has not seen the result
   var playing = !done && (m.aLegs != null || m.bLegs != null || LATE_PLAYING_STATES.indexOf(st) >= 0);
   if(!done && !playing) return null;
   var name = function(id){ var e = id ? (t.entriesList || []).find(function(x){ return x && x.id === id; }) : null; return e ? e.name : ''; };
   return { pos: nx.pos, state: done ? 'done' : 'playing', names: [name(m.aEntryId), name(m.bEntryId)] };
+}
+/* The slots whose RESULT differs between `base` and `cur`: the score, winner, void, walkover and bye fields only (round robin: legs1, legs2, wo).
+   A board call / uncall (called, calledAt, calledPair) and the version stamps are not results, so they never count. The Live flag on a tablet's
+   match (changed_by_organiser) is set from this, not from changedSlots. */
+var RESULT_ONLY_RR = ['legs1', 'legs2', 'wo'], RESULT_ONLY_KO = ['aLegs', 'bLegs', 'winnerId', 'void', 'wo', 'bye'];
+function resultOnlyKey(s){
+  var src = s.kind === 'rr' ? s.get() : s.m, fields = s.kind === 'rr' ? RESULT_ONLY_RR : RESULT_ONLY_KO, o = {}, any = false;
+  if(!src) return 'null';
+  fields.forEach(function(f){ if(src[f] !== undefined && src[f] !== null && src[f] !== false){ o[f] = src[f]; any = true; } });
+  return any ? JSON.stringify(o) : 'null';
+}
+function changedResultSlots(base, cur){
+  var old = {}; if(base) resultSlots(base).forEach(function(s){ old[s.pos] = resultOnlyKey(s); });
+  return resultSlots(cur).filter(function(s){ return resultOnlyKey(s) !== (old[s.pos] || 'null'); }).map(function(s){ return s.pos; });
 }
 if (typeof module !== 'undefined' && module.exports) module.exports = { resultSlots: resultSlots, settingsView: settingsView, applyResult: applyResult, rebuildDerived: rebuildDerived, lateCorrectionBlock: lateCorrectionBlock, lateNextOf: lateNextOf };

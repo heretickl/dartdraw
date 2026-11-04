@@ -57,6 +57,8 @@ function engine() {
     stampOrganiserResults: (prev, next, now) => run('stampOrganiserResults')(prev, next, now),
     /* The positions whose result differs between two copies (what the organiser's save changed). */
     changedSlots: (base, cur) => run('changedSlots')(base, cur),
+    /* The positions whose RESULT differs (a board call / uncall is not one): what the Live flag is set from. */
+    changedResultSlots: (base, cur) => run('changedResultSlots')(base, cur),
     /* Would changing a knockout winner reach a match that has started? (results-engine.js lateCorrectionBlock) */
     lateCorrectionBlock: (t, pos, newWinnerId, liveStates) => run('lateCorrectionBlock')(t, pos, newWinnerId, liveStates),
     /* Winners moving on again in every bracket, after results were merged match by match. */
