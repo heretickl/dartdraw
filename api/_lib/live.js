@@ -30,6 +30,7 @@ const jwt = require('jsonwebtoken');
 const { sql } = require('./db');
 const throttle = require('./throttle');
 const LiveSettings = require('../../live-settings');
+const LiveBoards = require('../../live-boards');
 
 class LiveError extends Error {
   constructor(code, reason) { super(code); this.code = code; if (reason) this.reason = reason; }
@@ -309,19 +310,20 @@ function sameText(a, b) {
 
 const cleanRow = (r) => ({
   pos: r.pos, state: r.state, device_id: r.device_id || null, paper: !!r.paper, retired_side: r.retired_side || null,
-  board: r.board == null ? null : Number(r.board), played_on_board: r.played_on_board == null ? null : Number(r.played_on_board)
+  board: r.board == null ? null : Number(r.board), played_on_board: r.played_on_board == null ? null : Number(r.played_on_board),
+  summary: r.summary && typeof r.summary === 'object' ? r.summary : {}
 });
-/* Every live_matches row of the event, as { pos, state, device_id, board, played_on_board, paper, retired_side }. */
+/* Every live_matches row of the event, as { pos, state, device_id, board, played_on_board, paper, retired_side, summary }. */
 async function liveRows(tournamentId) {
   return q(async () => {
-    const rows = await sql`SELECT pos, state, device_id, board, played_on_board, paper, retired_side FROM live_matches WHERE tournament_id = ${tournamentId}`;
+    const rows = await sql`SELECT pos, state, device_id, board, played_on_board, paper, retired_side, summary FROM live_matches WHERE tournament_id = ${tournamentId}`;
     return rows.map(cleanRow);
   });
 }
 /* One match's row, or null. */
 async function liveRow(tournamentId, pos) {
   return q(async () => {
-    const rows = await sql`SELECT pos, state, device_id, board, played_on_board, paper, retired_side FROM live_matches WHERE tournament_id = ${tournamentId} AND pos = ${pos}`;
+    const rows = await sql`SELECT pos, state, device_id, board, played_on_board, paper, retired_side, summary FROM live_matches WHERE tournament_id = ${tournamentId} AND pos = ${pos}`;
     return rows.length ? cleanRow(rows[0]) : null;
   });
 }
@@ -405,11 +407,11 @@ async function turnById(tournamentId, id) {
     return rows.length ? { pos: rows[0].pos, device_id: rows[0].device_id, ignored: !!rows[0].ignored, ignored_reason: rows[0].ignored_reason || null } : null;
   });
 }
-/* The turns of a match that count (not ignored), oldest first: [{ id, leg, side, entered, supersedes }]. */
+/* The turns of a match that count (not ignored), oldest first: [{ id, leg, side, player, entered, supersedes }]. */
 async function matchTurns(tournamentId, pos) {
   return q(async () => {
-    const rows = await sql`SELECT id, leg, side, entered, supersedes FROM live_turns WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND ignored = false ORDER BY created_at, id`;
-    return rows.map((r) => ({ id: r.id, leg: Number(r.leg), side: r.side, entered: r.entered, supersedes: r.supersedes || null }));
+    const rows = await sql`SELECT id, leg, side, player, entered, supersedes FROM live_turns WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND ignored = false ORDER BY created_at, id`;
+    return rows.map((r) => ({ id: r.id, leg: Number(r.leg), side: r.side, player: r.player == null ? null : r.player, entered: r.entered, supersedes: r.supersedes || null }));
   });
 }
 /* The public one-line picture of a match, rewritten after every accepted turn. */
@@ -466,11 +468,90 @@ async function markChangedByOrganiser(tournamentId, pos) {
   return q(async () => { await sql`UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ${tournamentId} AND pos = ${pos}`; });
 }
 
+/* ---------- take-over requests (spec 7.4; routes takeover, panel, score/takeover) ---------- */
+
+/* A device asks for a match another device is scoring. At most ONE waiting request per match (the statement tests it, and a
+   partial unique index backs it up): false = there is one already. Returns the new request's id. */
+async function requestTakeover(tournamentId, pos, fromDevice, toDevice) {
+  return q(async () => {
+    const id = 'tko_' + crypto.randomBytes(9).toString('base64url').replace(/[^A-Za-z0-9]/g, 'x');
+    try {
+      const rows = await sql`
+        INSERT INTO live_takeovers (id, tournament_id, pos, from_device, to_device)
+        SELECT ${id}, ${tournamentId}, ${pos}, ${fromDevice}, ${toDevice}
+        WHERE NOT EXISTS (SELECT 1 FROM live_takeovers WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND answer IS NULL)
+        RETURNING id`;
+      return rows.length ? id : false;
+    } catch (e) {
+      if (e && e.code === '23505') return false;   // another request got in at the same moment
+      throw e;
+    }
+  });
+}
+/* One request of the event: { id, pos, from_device, to_device, answer, decided_by, created_at } or null. answer is null while waiting. */
+async function takeoverById(tournamentId, id) {
+  return q(async () => {
+    const rows = await sql`SELECT id, pos, from_device, to_device, answer, decided_by, created_at FROM live_takeovers WHERE tournament_id = ${tournamentId} AND id = ${id}`;
+    return rows.length ? rows[0] : null;
+  });
+}
+/* The answer, once: of any number of simultaneous answers exactly one updates the row (answer IS NULL is the compare-and-set).
+   answer: 'allow' | 'deny' | 'void'; decidedBy: 'org:<id>' | 'off:<id>' | 'system'. null = it was answered already. */
+async function answerTakeover(tournamentId, id, answer, decidedBy) {
+  return q(async () => {
+    const rows = await sql`
+      UPDATE live_takeovers SET answer = ${answer}, decided_by = ${decidedBy}, decided_at = now()
+      WHERE tournament_id = ${tournamentId} AND id = ${id} AND answer IS NULL
+      RETURNING id, pos, from_device, to_device`;
+    return rows.length ? rows[0] : null;
+  });
+}
+/* An allowed request whose match had moved on before the move could happen is marked void (the log keeps who allowed it). */
+async function voidAllowed(tournamentId, id) {
+  return q(async () => { await sql`UPDATE live_takeovers SET answer = 'void' WHERE tournament_id = ${tournamentId} AND id = ${id} AND answer = 'allow'`; });
+}
+/* The match goes to the asking device: a compare-and-set on the CURRENT holder (and on the match still being in progress, and the
+   asking device still being signed in). Nothing else about the match changes: its state, turns and summary stay. false = it
+   moved or ended meanwhile. */
+async function moveHolder(tournamentId, pos, fromDevice, toDevice) {
+  return q(async () => {
+    const rows = await sql`
+      UPDATE live_matches SET device_id = ${toDevice}
+      WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND device_id = ${fromDevice} AND paper = false AND changed_by_organiser = false
+        AND state IN ('checkedIn', 'playing', 'awaitingConfirm')
+        AND EXISTS (SELECT 1 FROM live_devices WHERE id = ${toDevice} AND tournament_id = ${tournamentId} AND logged_out_at IS NULL)
+      RETURNING pos`;
+    return rows.length > 0;
+  });
+}
+/* The requests that still mean something: waiting, the match still held by the device the request names, the asking device still
+   signed in. [{ id, pos, fromDevice, toDevice, fromBoard, toBoard, requestedAt }] oldest first. pre: { rows, devices } when the
+   caller has them already (liveRows, panelDevices). */
+async function openTakeovers(tournamentId, pre) {
+  const [pending, rows, devices] = await Promise.all([
+    q(() => sql`SELECT id, pos, from_device, to_device, created_at FROM live_takeovers WHERE tournament_id = ${tournamentId} AND answer IS NULL ORDER BY created_at, id`),
+    (pre && pre.rows) || liveRows(tournamentId),
+    (pre && pre.devices) || panelDevices(tournamentId)
+  ]);
+  const rowBy = {}, devBy = {};
+  rows.forEach((r) => { rowBy[r.pos] = r; });
+  devices.forEach((d) => { devBy[d.id] = d; });
+  const out = [];
+  pending.forEach((p) => {
+    const r = rowBy[p.pos], to = devBy[p.to_device], from = devBy[p.from_device];
+    if (!r || LiveBoards.heldBy(r) !== p.from_device || !to || to.loggedOut) return;
+    const fromBoard = from && from.board != null ? from.board : (r.played_on_board != null ? r.played_on_board : r.board);
+    out.push({ id: p.id, pos: p.pos, fromDevice: p.from_device, toDevice: p.to_device, fromBoard: fromBoard == null ? null : fromBoard, toBoard: to.board == null ? null : to.board, requestedAt: toIso(p.created_at) });
+  });
+  return out;
+}
+
 module.exports = {
   LiveError, PASSWORD_LENGTH, PASSWORD_ALPHABET,
   enable, show, newPassword: newPasswordFor,
   panelDevices, logoutDevice, logoutAllDevices, activeLends, addLend, endLend, endIdleLends,
   deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent,
   liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch,
-  matchFull, insertTurn, turnById, matchTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser
+  matchFull, insertTurn, turnById, matchTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser,
+  requestTakeover, takeoverById, answerTakeover, voidAllowed, moveHolder, openTakeovers
 };

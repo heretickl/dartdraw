@@ -9,7 +9,9 @@
 //   /api/live/state   the device moves its match to playing / awaitingConfirm
 //   /api/live/confirm the device sends the match's final legs (applied through the rule engine, by 'dev')
 //   /api/live/retire  a side retires: the existing no-show walkover
-//   /api/live/panel   the organiser's Boards panel (organiser session, not a device): login, devices, boards, lend, log out
+//   /api/live/takeover a device asks to take a match over from the device scoring it (POST { pos }), and polls its request (GET ?id)
+//   /api/live/turns   the turns of a match, for the device that holds it now (a new holder resumes where the old one stopped)
+//   /api/live/panel   the organiser's Boards panel (organiser session, not a device): login, devices, boards, lend, log out, take-over answers
 //
 // The action is read from req.url. Anything else answers 404 { code: 'not_found', error: 'Not found.' }.
 const ROUTES = {
@@ -21,6 +23,8 @@ const ROUTES = {
   state: () => require('../_routes/live/state'),
   confirm: () => require('../_routes/live/confirm'),
   retire: () => require('../_routes/live/retire'),
+  takeover: () => require('../_routes/live/takeover'),
+  turns: () => require('../_routes/live/turns'),
   panel: () => require('../_routes/live/panel')
 };
 

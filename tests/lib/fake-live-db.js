@@ -8,6 +8,7 @@
 //   db.matches: [{ tournament_id, pos, state, device_id, board, played_on_board, paper, retired_side, started_at, ended_at, summary, changed_by_organiser }]
 //   db.turns: [{ id, tournament_id, pos, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason, created_at }]
 //   db.lends: [{ id, tournament_id, from_board, to_board, started_at, ended_at }]
+//   db.takeovers: [{ id, tournament_id, pos, from_device, to_device, decided_by, answer, created_at, decided_at }]
 //   db.calls: [{ text, vals }]; db.before = (text, vals) => {} runs before each statement; db.failWith = (text) => code|null
 //   db.setNow(ms) / db.advance(ms): the database clock (now()), for throttle windows
 //
@@ -16,14 +17,14 @@
 function createFakeLiveDb(opts) {
   opts = opts || {};
   let now = opts.now || Date.parse('2026-11-05T02:00:00.000Z');
-  const db = { tournaments: opts.tournaments || {}, logins: [], devices: [], matches: [], turns: [], lends: [], throttle: {}, calls: [], before: null, failWith: null };
+  const db = { tournaments: opts.tournaments || {}, logins: [], devices: [], matches: [], turns: [], lends: [], takeovers: [], throttle: {}, calls: [], before: null, failWith: null };
   db.setNow = (ms) => { now = ms; };
   db.advance = (ms) => { now += ms; };
   db.now = () => now;
   const iso = () => new Date(now).toISOString();
   const copy = (x) => (x == null ? x : JSON.parse(JSON.stringify(x)));
   const tOf = (id) => db.tournaments[id];
-  const matchRow = (m) => ({ pos: m.pos, state: m.state, device_id: m.device_id, board: m.board, played_on_board: m.played_on_board, paper: m.paper, retired_side: m.retired_side });
+  const matchRow = (m) => ({ pos: m.pos, state: m.state, device_id: m.device_id, board: m.board, played_on_board: m.played_on_board, paper: m.paper, retired_side: m.retired_side, summary: copy(m.summary || {}) });
   const dup = () => Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
 
   db.sql = async (strings, ...vals) => {
@@ -72,10 +73,10 @@ function createFakeLiveDb(opts) {
     }
     if (text === 'UPDATE live_devices SET last_seen_at = now() WHERE id = ?') { const d = db.devices.find((x) => x.id === vals[0]); if (d) d.last_seen_at = iso(); return []; }
     // live_matches / live_lends / board holders (api/_lib/live.js: the device's boards and matches)
-    if (text === 'SELECT pos, state, device_id, board, played_on_board, paper, retired_side FROM live_matches WHERE tournament_id = ?') {
+    if (text === 'SELECT pos, state, device_id, board, played_on_board, paper, retired_side, summary FROM live_matches WHERE tournament_id = ?') {
       return db.matches.filter((m) => m.tournament_id === vals[0]).map(matchRow);
     }
-    if (text === 'SELECT pos, state, device_id, board, played_on_board, paper, retired_side FROM live_matches WHERE tournament_id = ? AND pos = ?') {
+    if (text === 'SELECT pos, state, device_id, board, played_on_board, paper, retired_side, summary FROM live_matches WHERE tournament_id = ? AND pos = ?') {
       return db.matches.filter((m) => m.tournament_id === vals[0] && m.pos === vals[1]).map(matchRow);
     }
     if (text === 'SELECT from_board, to_board FROM live_lends WHERE tournament_id = ? AND ended_at IS NULL') {
@@ -125,10 +126,10 @@ function createFakeLiveDb(opts) {
     if (text === 'SELECT pos, device_id, ignored, ignored_reason FROM live_turns WHERE tournament_id = ? AND id = ?') {
       return db.turns.filter((x) => x.tournament_id === vals[0] && x.id === vals[1]).map((x) => ({ pos: x.pos, device_id: x.device_id, ignored: x.ignored, ignored_reason: x.ignored_reason }));
     }
-    if (text === 'SELECT id, leg, side, entered, supersedes FROM live_turns WHERE tournament_id = ? AND pos = ? AND ignored = false ORDER BY created_at, id') {
+    if (text === 'SELECT id, leg, side, player, entered, supersedes FROM live_turns WHERE tournament_id = ? AND pos = ? AND ignored = false ORDER BY created_at, id') {
       return db.turns.filter((x) => x.tournament_id === vals[0] && x.pos === vals[1] && !x.ignored)
         .sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
-        .map((x) => ({ id: x.id, leg: x.leg, side: x.side, entered: copy(x.entered), supersedes: x.supersedes }));
+        .map((x) => ({ id: x.id, leg: x.leg, side: x.side, player: x.player, entered: copy(x.entered), supersedes: x.supersedes }));
     }
     const mOf = (tid, pos) => db.matches.find((x) => x.tournament_id === tid && x.pos === pos);
     if (text === 'UPDATE live_matches SET summary = ?::jsonb WHERE tournament_id = ? AND pos = ?') { const m = mOf(vals[1], vals[2]); if (m) m.summary = JSON.parse(vals[0]); return []; }
@@ -194,6 +195,36 @@ function createFakeLiveDb(opts) {
     }
     if (text === 'UPDATE live_lends SET ended_at = now() WHERE tournament_id = ? AND ended_at IS NULL') {
       db.lends.forEach((l) => { if (l.tournament_id === vals[0] && l.ended_at == null) l.ended_at = iso(); }); return [];
+    }
+    // take-over requests (api/_lib/live.js: requestTakeover, takeoverById, answerTakeover, voidAllowed, moveHolder, openTakeovers)
+    if (text === 'INSERT INTO live_takeovers (id, tournament_id, pos, from_device, to_device) SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM live_takeovers WHERE tournament_id = ? AND pos = ? AND answer IS NULL) RETURNING id') {
+      const [id, tid, pos, from, to] = vals;
+      if (db.takeovers.some((x) => x.tournament_id === tid && x.pos === pos && x.answer == null)) return [];
+      db.advance(1);
+      db.takeovers.push({ id, tournament_id: tid, pos, from_device: from, to_device: to, decided_by: null, answer: null, created_at: iso(), decided_at: null });
+      return [{ id }];
+    }
+    if (text === 'SELECT id, pos, from_device, to_device, answer, decided_by, created_at FROM live_takeovers WHERE tournament_id = ? AND id = ?') {
+      return db.takeovers.filter((x) => x.tournament_id === vals[0] && x.id === vals[1]).map((x) => ({ id: x.id, pos: x.pos, from_device: x.from_device, to_device: x.to_device, answer: x.answer, decided_by: x.decided_by, created_at: x.created_at }));
+    }
+    if (text === 'UPDATE live_takeovers SET answer = ?, decided_by = ?, decided_at = now() WHERE tournament_id = ? AND id = ? AND answer IS NULL RETURNING id, pos, from_device, to_device') {
+      const x = db.takeovers.find((y) => y.tournament_id === vals[2] && y.id === vals[3] && y.answer == null); if (!x) return [];
+      Object.assign(x, { answer: vals[0], decided_by: vals[1], decided_at: iso() });
+      return [{ id: x.id, pos: x.pos, from_device: x.from_device, to_device: x.to_device }];
+    }
+    if (text === "UPDATE live_takeovers SET answer = 'void' WHERE tournament_id = ? AND id = ? AND answer = 'allow'") {
+      const x = db.takeovers.find((y) => y.tournament_id === vals[0] && y.id === vals[1] && y.answer === 'allow'); if (x) x.answer = 'void'; return [];
+    }
+    if (text === "UPDATE live_matches SET device_id = ? WHERE tournament_id = ? AND pos = ? AND device_id = ? AND paper = false AND changed_by_organiser = false AND state IN ('checkedIn', 'playing', 'awaitingConfirm') AND EXISTS (SELECT 1 FROM live_devices WHERE id = ? AND tournament_id = ? AND logged_out_at IS NULL) RETURNING pos") {
+      const [to, tid, pos, from] = vals;
+      const m = db.matches.find((x) => x.tournament_id === tid && x.pos === pos && x.device_id === from && !x.paper && !x.changed_by_organiser && ['checkedIn', 'playing', 'awaitingConfirm'].indexOf(x.state) >= 0);
+      if (!m || !db.devices.some((d) => d.id === vals[4] && d.tournament_id === vals[5] && !d.logged_out_at)) return [];
+      m.device_id = to; return [{ pos: m.pos }];
+    }
+    if (text === 'SELECT id, pos, from_device, to_device, created_at FROM live_takeovers WHERE tournament_id = ? AND answer IS NULL ORDER BY created_at, id') {
+      return db.takeovers.filter((x) => x.tournament_id === vals[0] && x.answer == null).slice()
+        .sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
+        .map((x) => ({ id: x.id, pos: x.pos, from_device: x.from_device, to_device: x.to_device, created_at: x.created_at }));
     }
     // auth_throttle (api/_lib/throttle.js)
     if (text.startsWith('INSERT INTO auth_throttle')) {

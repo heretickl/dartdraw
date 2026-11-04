@@ -84,6 +84,12 @@ var DD_SCORE_MS = {
   'live.playingOn': 'dimainkan di Board {b}',
   'live.playedOn': 'dimainkan di Board {b}',
   'reason.on_tablet': 'sebuah tablet sedang memasukkan skor perlawanan ini',
+  'tk.text': 'Tablet Board {to} mahu mengambil alih {match} daripada tablet Board {from}.',
+  'tk.textNoBoard': 'Sebuah tablet mahu mengambil alih {match} daripada tablet Board {from}.',
+  'tk.matchPlain': 'sebuah perlawanan',
+  'tk.allow': 'Benarkan',
+  'tk.deny': 'Tolak',
+  'tk.failed': 'Permintaan itu tidak dapat dijawab. Mungkin ia sudah dijawab.',
   'dismiss': 'Selesai',
   'changedByOrganiser': 'Diubah oleh penganjur.'
 };

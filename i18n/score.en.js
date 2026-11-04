@@ -84,6 +84,12 @@ var DD_SCORE_EN = {
   'live.playingOn': 'playing on Board {b}',
   'live.playedOn': 'played on Board {b}',
   'reason.on_tablet': 'a tablet is scoring this match',
+  'tk.text': 'The Board {to} tablet wants to take over {match} from the Board {from} tablet.',
+  'tk.textNoBoard': 'A tablet wants to take over {match} from the Board {from} tablet.',
+  'tk.matchPlain': 'a match',
+  'tk.allow': 'Allow',
+  'tk.deny': 'Deny',
+  'tk.failed': 'Could not answer that request. It may have been answered already.',
   'dismiss': 'Done',
   'changedByOrganiser': 'Changed by the organiser.'
 };

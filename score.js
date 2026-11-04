@@ -163,6 +163,7 @@
       var key = { link_stopped: 'ended.stopped', stopped: 'ended.stopped', link_replaced: 'ended.replaced', new_link: 'ended.replaced', event_finalized: 'ended.finalized', finalized: 'ended.finalized' }[endedReason] || 'ended.ended';
       html += '<div class="card notsent"><h2>' + esc(T('ended.title')) + '</h2><p>' + esc(T(key, { date: profile && profile.event && profile.event.date || '' })) + '</p></div>';
     }
+    html += takeoversHTML();
     html += notSentHTML();
     var list = slotsView();
     if(!list.length){ m.innerHTML = html + '<div class="card"><p class="hint">' + esc(T('none')) + '</p></div>'; return; }
@@ -188,6 +189,7 @@
       html += parts.map(function(p){ return sec(p[0], p[1]); }).join('');
     });
     m.innerHTML = html;
+    Array.prototype.forEach.call(m.querySelectorAll('[data-tk]'), function(btn){ btn.onclick = function(){ answerTakeover(btn.getAttribute('data-tk'), btn.getAttribute('data-ans')); }; });
     Array.prototype.forEach.call(m.querySelectorAll('[data-pos]'), function(btn){ btn.onclick = function(e){ if(e && e.stopPropagation) e.stopPropagation(); openForm(btn.getAttribute('data-pos')); }; });
     var tabs = document.getElementById('tabs');
     if(tabs){
@@ -230,6 +232,34 @@
     activeBoard = String(b);
     render();
     try{ window.scrollTo(0, 0); }catch(e){}
+  }
+  /* Live event whose organiser lets floor officials approve: a tablet on another board asks to take over a match from the tablet
+     scoring it, on one of this official's boards. The server sends the waiting requests (data.takeovers) only when the
+     official may answer them; Allow / Deny go to /api/score/takeover and the row goes away at once (the next list confirms). */
+  var tkBusy = false, tkMsg = '';
+  function takeoversHTML(){
+    var list = (data && data.takeovers) || [];
+    if(view === 'ended' || !list.length) return '';
+    return '<div class="card tk">' + list.map(function(x){
+      var match = x.info && x.info.matchNo ? T('matchNo', { n: x.info.matchNo }) : T('tk.matchPlain');
+      var from = x.fromBoard != null ? x.fromBoard : '?';
+      var text = x.toBoard != null ? T('tk.text', { to: x.toBoard, match: match, from: from }) : T('tk.textNoBoard', { match: match, from: from });
+      return '<div class="row"><div class="who">' + esc(text) + '</div><div class="side"><button type="button" class="btn" data-tk="' + esc(x.id) + '" data-ans="allow">' + esc(T('tk.allow')) + '</button> ' +
+        '<button type="button" class="btn ghost" data-tk="' + esc(x.id) + '" data-ans="deny">' + esc(T('tk.deny')) + '</button></div></div>';
+    }).join('') + (tkMsg ? '<div class="err">' + esc(tkMsg) + '</div>' : '') + '</div>';
+  }
+  function answerTakeover(id, answer){
+    if(tkBusy) return;
+    tkBusy = true;
+    call('POST', '/api/score/takeover', { id: id, answer: answer }).then(function(r){
+      tkBusy = false;
+      if(r.status === 401){ view = 'pin'; render(); return; }
+      if(r.status === 410){ view = 'ended'; endedReason = r.body.code || r.body.reason; render(); return; }
+      tkMsg = r.ok && r.body.ok ? '' : T('tk.failed');
+      if(r.ok && data && data.takeovers){ data.takeovers = data.takeovers.filter(function(x){ return x.id !== id; }); saveData(); }
+      render();
+      refresh();   // what the server now says: an answered or void request is gone
+    }, function(){ tkBusy = false; tkMsg = T('tk.failed'); render(); });
   }
   function notSentHTML(){
     if(!notSent.length) return '';

@@ -3,22 +3,29 @@
 // answers 404 not_found.
 //   GET  ?t=<event id>            -> the panel (below). 403 live_off when the event is not a Live event. Reading it first ends the
 //                                    lends whose board has no waiting match left.
+//   GET  ?t=<event id>&brief=1    -> { takeovers: n, now }: only how many take-over requests are waiting (the Stage 5 tab's badge,
+//                                    polled while another step is open). Writes nothing and ends no lend.
 //   POST { t, op, ... }           -> the panel again, after the op:
 //     op 'enable'                 the event's scoring login (made once; the same one every time after)
 //     op 'newPassword'            a new password: every device is logged out (their waiting matches go back to the pool)
 //     op 'logout' { deviceId }    one device logged out (a match it is playing stays held, for a take-over: spec 7.4)
 //     op 'lend' { from, to }      board `from` (free, with a device) lends its whole tablet to board `to` (which has waiting matches)
 //     op 'endLend' { id }         a lend ends (a match the lent device already holds stays its own)
-//   The ops of later tasks (close event, take-over answers, knockout board suggestions, the paper switch) are added to OPS below.
+//     op 'takeover' { id, answer } answer a waiting take-over request: 'allow' (the match moves to the asking device) or 'deny'.
+//                                 404 not_found · 409 takeover_answered (somebody answered first) · 409 match_over (the match ended:
+//                                 the request is void) · 409 takeover_stale (the match moved meanwhile: void). Logged as decided_by 'org:<id>'.
+//   The ops of later tasks (close event, knockout board suggestions, the paper switch) are added to OPS below.
 //   { login: {username, password} | null, devices: [{ id, board, lastSeenAt, unsent, loggedOut }],
 //     boards: [{ n, group, ko, playing: {pos, state, info, a, b} | null, waiting, devices: [ids], lentTo?, lentFrom? }],
-//     lends: [{ id, from, to, startedAt }], playingCount, now }
+//     lends: [{ id, from, to, startedAt }], takeovers: [{ id, pos, info, fromDevice, fromBoard, toDevice, toBoard, requestedAt }], playingCount, now }
 // group: the labels of the round robin groups and pods played on the board, joined by ", " ('' when none); ko: knockout matches are on
-// it. playingCount: matches a device holds that are checked in, playing or awaiting confirmation (the Manual switch is refused while it is not 0).
+// it. takeovers: the waiting requests, oldest first (live.openTakeovers: the match is still held by fromDevice, toDevice is signed in);
+// info is the match as the paper numbers it (info.matchNo), the device ids are opaque. playingCount: matches a device holds that are checked in, playing or awaiting confirmation (the Manual switch is refused while it is not 0).
 // The password hash never leaves the server; the login's password is shown here, to the signed-in organiser only.
 const { requireAuth } = require('../../_lib/auth');
 const { sendError, bodyObject, methodNotAllowed, live } = require('./common');
 const { boardCountOf, load, waitingOn, entryOf } = require('./view');
+const takeoverRoute = require('./takeover');
 const LiveSettings = require('../../../live-settings');
 const LiveBoards = require('../../../live-boards');
 
@@ -31,11 +38,15 @@ async function panelOf(organizer, ev) {
   const t = ev.id;
   const login = await live.show(organizer, t);
   const now = Date.now();
-  if (!login) return { login: null, devices: [], boards: [], lends: [], playingCount: 0, now };
+  if (!login) return { login: null, devices: [], boards: [], lends: [], takeovers: [], playingCount: 0, now };
   const ctx = load({ tournament: ev });
   const rows = await live.liveRows(t);
   await live.endIdleLends(t, ev, { ctx, rows });
   const [devices, lends] = await Promise.all([live.panelDevices(t), live.activeLends(t)]);
+  const takeovers = (await live.openTakeovers(t, { rows, devices })).map((p) => {
+    const s = ctx.slotsByPos[p.pos];
+    return Object.assign({}, p, { info: s ? ctx.e.plain(ctx.e.matchInfo(ctx.t, s)) : null });
+  });
   const rowBy = {};
   rows.forEach((r) => { rowBy[r.pos] = r; });
   /* what is playing, per board (the match's own board group), and how many matches are in progress in all */
@@ -73,7 +84,7 @@ async function panelOf(organizer, ev) {
     if (inn) b.lentFrom = inn.from;
     boards.push(b);
   }
-  return { login, devices, boards, lends, playingCount, now };
+  return { login, devices, boards, lends, takeovers, playingCount, now };
 }
 
 /* The ops that change something. Each gets (organizer, ev, body, res) and returns true when it has sent its own refusal. */
@@ -100,6 +111,12 @@ const OPS = {
   },
   async endLend(organizer, ev, b, res) {
     if (typeof b.id !== 'string' || !b.id || b.id.length > 100 || !(await live.endLend(ev.id, b.id))) { res.status(404).json({ code: 'not_found', error: 'Not found.' }); return true; }
+  },
+  async takeover(organizer, ev, b, res) {
+    if (typeof b.id !== 'string' || !b.id || b.id.length > 100) { res.status(404).json({ code: 'not_found', error: 'Not found.' }); return true; }
+    if (b.answer !== 'allow' && b.answer !== 'deny') { res.status(400).json({ code: 'invalid_op', error: 'Unknown action.' }); return true; }
+    const out = await takeoverRoute.decide(ev, b.id, b.answer, 'org:' + organizer.id);
+    if (!out.ok) { res.status(out.status).json(out.body); return true; }
   }
 };
 
@@ -112,6 +129,7 @@ module.exports = async (req, res) => {
       if (!t || typeof t !== 'string') { res.status(400).json({ code: 'missing_id', error: 'Missing id.' }); return; }
       const ev = await live.ownEvent(organizer, t);
       if (!LiveSettings.isLive(ev.data)) { res.status(403).json({ code: 'live_off', error: 'Live scoring is not switched on for this event.' }); return; }
+      if (req.query.brief === '1') { res.status(200).json({ takeovers: (await live.openTakeovers(t)).length, now: Date.now() }); return; }
       res.status(200).json(await panelOf(organizer, ev));
       return;
     }

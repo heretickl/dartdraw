@@ -52,6 +52,9 @@ button{font-family:inherit}
 .step.done:before{background:var(--green)}
 .step h3{font-size:13px;margin:0 0 5px}
 .step p{margin:0;color:#a9b9ca;font-size:12px;line-height:1.45}
+.live-badge{position:absolute;right:0;top:-1px;min-width:18px;padding:0 6px;border-radius:99px;background:var(--gold);color:#1b2433;font-size:11px;font-weight:800;line-height:18px;text-align:center;cursor:default}
+.live-badge[hidden]{display:none}
+.live-badge-inline{position:static;display:inline-block;margin-left:6px;vertical-align:middle}
 .event-card{margin-top:22px;padding:16px;border:1px solid #405974;border-radius:12px;background:#162d4a}
 .event-card label{color:#a9c7ec;font-size:10px;letter-spacing:.11em;text-transform:uppercase}
 .event-card strong{display:block;margin:6px 0 2px;font-size:14px}
@@ -745,7 +748,7 @@ svg.kb-conn{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;
     <div class="step" id="navstep2" onclick="goStage(2)"><h3 data-i18n="nav.2">2. Format &amp; branding</h3><p data-i18n="nav.2.sub">Round robin/knockout, legs, logos.</p></div>
     <div class="step" id="navstep3" onclick="goStage(3)"><h3 data-i18n="nav.3">3. Chart details</h3><p data-i18n="nav.3.sub">Groups, entries, boards.</p></div>
     <div class="step" id="navstep4" onclick="goStage(4)"><h3 data-i18n="nav.4">4. Confirm &amp; Print Bracket</h3><p data-i18n="nav.4.sub">Confirm each chart, print the blank pack.</p></div>
-    <div class="step" id="navstep5" onclick="goStage(5)"><h3 data-i18n="nav.5">5. Manage Tournament</h3><p data-i18n="nav.5.sub">Start games, enter scores.</p></div>
+    <div class="step" id="navstep5" onclick="goStage(5)"><h3 data-i18n="nav.5">5. Manage Tournament</h3><p data-i18n="nav.5.sub">Start games, enter scores.</p><span class="live-badge" id="navbadge5" hidden></span></div>
     <div class="step" id="navstep6" onclick="goStage(6)"><h3 data-i18n="nav.6">6. Finalize Standings</h3><p data-i18n="nav.6.sub">Review final standings.</p></div>
     <div class="step" id="navstep7" onclick="goStage(7)"><h3 data-i18n="nav.7">7. Print Final Chart</h3><p data-i18n="nav.7.sub">Print the pack with results.</p></div>
     <div class="event-card" id="currentWorkspaceCard" style="display:none">
@@ -4648,7 +4651,7 @@ function compactMenuHTML(){
     html += '<div class="compact-menu-h" role="presentation">'+T('cm.steps')+'</div>';
     for(let n=1;n<=7;n++){
       const ok = stageReachable(n);
-      html += '<button class="compact-item'+(n===currentStage?' active':'')+'"'+(n===currentStage?' aria-current="step"':'')+(ok?' onclick="compactGo('+n+')"':' disabled')+'>'+n+'. '+escapeHtml(stageTitle(n))+'</button>';
+      html += '<button class="compact-item'+(n===currentStage?' active':'')+'"'+(n===currentStage?' aria-current="step"':'')+(ok?' onclick="compactGo('+n+')"':' disabled')+'>'+n+'. '+escapeHtml(stageTitle(n))+(n===5 ? liveBadgeHTML() : '')+'</button>';
     }
   }
   /* the open event's own Rename / Duplicate / Delete (the sidebar's buttons; the same functions and the same rules) */
@@ -5283,6 +5286,7 @@ function renderSavedList(){
     else if(n===4 && state.groups.length && state.groups.every(g=>g.confirmed)) el.classList.add('done');
     else if(n===5 && confirmedGroups.length && confirmedGroups.every(g=>g.gameStarted)) el.classList.add('done');
   });
+  liveBadgeRender();   // the number of waiting take-over requests on the Stage 5 tab (live-ui.js)
 }
 
 /* ---------- Main render dispatcher ---------- */

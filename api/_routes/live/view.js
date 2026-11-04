@@ -75,8 +75,16 @@ function load(found) {
   (t.entriesList || []).forEach((en) => { if (en && en.id) byId[en.id] = en; });
   return { e, t, slots, slotsByPos, byId, data: found.tournament.data };
 }
-/* One match as the device's list shows it. row: its live_matches row or null; place: from placeFor. */
-function matchView(ctx, s, row, place, me, busy) {
+/* What a device that asks to take a match over is told of it: the score the match stands at (from the match's public summary). */
+const IN_PROGRESS = ['checkedIn', 'playing', 'awaitingConfirm'];
+const pairOf = (v) => (Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n)) ? [v[0], v[1]] : null);
+function inProgressOf(row) {
+  const sm = row && row.summary && typeof row.summary === 'object' ? row.summary : {};
+  return { legs: pairOf(sm.legs) || [0, 0], remaining: pairOf(sm.remaining), thrower: sm.thrower === 'a' || sm.thrower === 'b' ? sm.thrower : null };
+}
+/* One match as the device's list shows it. row: its live_matches row or null; place: from placeFor. takeovers: { pos: 'mine' | 'other' }
+   (the waiting take-over requests: 'mine' = this device asked), left out when the caller has none to show. */
+function matchView(ctx, s, row, place, me, busy, takeovers) {
   const v = slotView(ctx.e, ctx.t, s, null, Date.now());   // the same view the floor officials' page uses (match number, chart positions, legs)
   const state = LiveBoards.stateOf(s, row, s.kind === 'ko' ? !!(s.m && s.m.called) : false);
   const held = LiveBoards.heldBy(row);
@@ -91,7 +99,14 @@ function matchView(ctx, s, row, place, me, busy) {
   if (v.teamCap != null) out.teamCap = v.teamCap;
   if (place && place.forBoard) { out.forBoard = place.forBoard; out.playedOn = place.playedOn; }   // played on the asking device's board; the match stays in its own board group
   if (held && held === me) out.mine = true;
-  if (held && held !== me) out.onAnother = true;
+  if (held && held !== me) {
+    out.onAnother = true;
+    if (IN_PROGRESS.indexOf(state) >= 0 && !LiveBoards.slotDone(s)) {   // being played on another device: this one may ask to take it over (spec 7.4)
+      out.takeoverable = true;
+      out.inProgress = inProgressOf(row);
+      out.pending = (takeovers && takeovers[s.pos]) || null;
+    }
+  }
   if (LiveBoards.slotDone(s)) { out.done = true; out.result = v.result; }
   else if (!(row && row.state === 'playing') && (busy[s.a] || busy[s.b])) out.playerBusy = true;
   return out;
@@ -113,11 +128,13 @@ function waitingOn(ctx, rows, board) {
 }
 /* The device's match list: its board's matches (round robin in the group's own order, knockout in bracket order), then the
    matches of a board lent to it, then the matches already done. Knockout matches without a board and paper matches are on no list. */
-function buildList(found, rows, lends) {
+function buildList(found, rows, lends, takeovers) {
   const ctx = load(found), me = found.device.id, myBoard = found.device.board;
   const rowBy = {};
   rows.forEach((r) => { rowBy[r.pos] = r; });
   const busy = busyEntries(ctx.slotsByPos, rows);
+  const asked = {};
+  (takeovers || []).forEach((t) => { asked[t.pos] = t.toDevice === me ? 'mine' : 'other'; });
   const mineList = [], lentList = [], doneList = [];
   ctx.slots.forEach((s) => {
     if (!s.a || !s.b) return;                                  // a match needs both players
@@ -127,13 +144,13 @@ function buildList(found, rows, lends) {
     const mine = heldPlace(row, me, myBoard);                  // a match this device holds stays on its list, lend or no lend
     const place = mine || placeFor(s, myBoard, lends);
     if (!place) return;                                        // not on this board: a knockout match with no board is on none (D7)
-    if (LiveBoards.slotDone(s)) { if (place.own) doneList.push(matchView(ctx, s, row, place, me, busy)); return; }
+    if (LiveBoards.slotDone(s)) { if (place.own) doneList.push(matchView(ctx, s, row, place, me, busy, asked)); return; }
     if (!s.open) return;                                       // waiting for its players, or its group has not started
-    if (mine) { mineList.push(matchView(ctx, s, row, place, me, busy)); return; }
+    if (mine) { mineList.push(matchView(ctx, s, row, place, me, busy, asked)); return; }
     if (place.forBoard) {
       if (LiveBoards.heldBy(row)) return;                      // a lent board lists only what is still waiting
-      lentList.push(matchView(ctx, s, row, place, me, busy));
-    } else mineList.push(matchView(ctx, s, row, place, me, busy));
+      lentList.push(matchView(ctx, s, row, place, me, busy, asked));
+    } else mineList.push(matchView(ctx, s, row, place, me, busy, asked));
   });
   return mineList.concat(lentList, doneList);
 }

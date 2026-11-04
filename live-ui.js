@@ -425,11 +425,17 @@ function liveNamesChecklistHTML(){
    devices signed in, lending a board and logging a device out. Everything comes from /api/live/panel (organiser session); the
    card reads it with loadLive and redraws only itself, so nothing typed elsewhere on step 5 is disturbed. It refreshes every 10 s
    while step 5 is on screen and the page is visible (liveSyncPolling, called after each draw), and the timer is gone as soon as
-   either stops being true. Later additions: the take-over inbox, match history and Close event (a block between the boards and
+   either stops being true. The take-over inbox sits above the boards: each waiting request from a tablet, with Allow / Deny (op
+   'takeover'). While another step is open the Stage 5 tab in the sidebar still shows how many requests wait (a small number):
+   a light poll (/api/live/panel?brief=1, every 20 s, only while the page is visible and the event is Live and step 5 is NOT on
+   screen; one timer, stopped by the same checks). Later additions: match history and Close event (blocks between the boards and
    the devices), the knockout board suggestions and the paper switch (their own blocks), each with its own op on the same route. */
 var liveState = { id: null, data: null, loading: false, error: '', shown: false };   // shown: the password is on screen
 var LIVE_PANEL_API = '/api/live/panel';
 var liveTimer = null;
+var liveBadge = { id: null, n: 0, busy: false, offId: null };   // waiting take-over requests of the open event (the Stage 5 tab's number)
+var liveBriefTimer = null, LIVE_BRIEF_MS = 20000;
+var liveAnswering = {};   // take-over requests being answered right now (a double tap answers once)
 
 /* The card is for a saved, Live, unfinalized event that is not the sample. */
 function liveBoardsOn(){
@@ -446,6 +452,7 @@ function loadLive(force){
     liveState.loading = false;
     if(x.r.ok){
       liveState.data = x.b; liveState.error = '';
+      liveBadgeSet(id, (x.b && x.b.takeovers || []).length);   // on step 5 this card's own poll keeps the tab's number current
       liveRedraw();   // every poll: "seen 20 s ago" and the red late flag come from the clock, so a quiet device must age on screen (the card is small and the redraw is only the card)
     } else { liveState.error = (x.b && x.b.code) || 'request_failed'; liveRedraw(); }
   }).catch(function(){ if(liveState.id === id){ liveState.loading = false; liveState.error = 'offline'; liveRedraw(); } });
@@ -454,8 +461,12 @@ function loadLive(force){
 function liveRedraw(){
   if(!state || currentStage !== 5 || popoutMode) return;
   var el = typeof document !== 'undefined' && document.getElementById ? document.getElementById('liveBoards') : null;
-  if(el && liveBoardsOn() && liveState.id === state.id) el.outerHTML = liveBoardsHTML();
-  else render();
+  if(el && liveBoardsOn() && liveState.id === state.id){
+    /* never swap the card out from under a box someone is typing in or choosing from (an input, select or textarea inside it) */
+    var ae = document.activeElement;
+    if(ae && el.contains && el.contains(ae) && /^(INPUT|SELECT|TEXTAREA)$/.test(String(ae.tagName || '').toUpperCase())) return;
+    el.outerHTML = liveBoardsHTML();
+  } else render();
 }
 function liveWantsPolling(){
   return liveBoardsOn() && currentStage === 5 && !popoutMode && typeof document !== 'undefined' && !document.hidden &&
@@ -467,16 +478,68 @@ function liveTick(){
   if(netOffline || liveState.loading) return;
   loadLive(true);
 }
-/* Starts or stops the 10 s refresh: after every draw of the page, and when the page is shown or hidden. */
+/* Starts or stops the 10 s refresh (step 5) and the 20 s light poll (any other step): after every draw of the page, and when the page is shown or hidden. */
 function liveSyncPolling(){
   if(typeof setInterval !== 'function') return;   // the server's copy of the app has no timers
-  if(!liveWantsPolling()){ liveStopPolling(); return; }
-  if(!liveTimer){ liveTimer = setInterval(liveTick, 10000); liveTick(); }   // coming back to step 5 shows what is current, not what was last seen
+  if(!liveWantsPolling()) liveStopPolling();
+  else if(!liveTimer){ liveTimer = setInterval(liveTick, 10000); liveTick(); }   // coming back to step 5 shows what is current, not what was last seen
+  if(!liveBriefWants()){ liveBriefStop(); return; }
+  if(!liveBriefTimer){ liveBriefTimer = setInterval(liveBriefTick, LIVE_BRIEF_MS); liveBriefTick(); }
+}
+
+/* ---------- the Stage 5 tab's number (waiting take-over requests) ---------- */
+function liveBadgeCount(){ return liveBoardsOn() && liveBadge.id === state.id ? liveBadge.n : 0; }
+function liveBadgeSet(id, n){
+  liveBadge.id = id; liveBadge.n = n > 0 ? n : 0;
+  liveBadgeRender();
+}
+function liveBadgeTitle(n){ return T('lb.tk.badge', { n: n }); }
+/* The number as markup, for a list that is built as text (the compact menu's step 5 line); empty when nothing waits. */
+function liveBadgeHTML(){
+  var n = liveBadgeCount();
+  return n ? ' <span class="live-badge live-badge-inline" title="' + escapeHtml(liveBadgeTitle(n)) + '">' + n + '</span>' : '';
+}
+/* Writes the number into the sidebar's tab (#navbadge5) and any copy of it in the compact menu. */
+function liveBadgeRender(){
+  if(typeof document === 'undefined' || !document.getElementById) return;
+  try{
+    var n = liveBadgeCount();
+    var el = document.getElementById('navbadge5');
+    if(el){
+      el.textContent = n ? String(n) : '';
+      el.hidden = !n;
+      if(n) el.setAttribute('title', liveBadgeTitle(n)); else el.removeAttribute('title');
+    }
+    if(document.querySelectorAll) Array.prototype.forEach.call(document.querySelectorAll('.compact-item .live-badge-inline'), function(x){
+      if(n){ x.textContent = String(n); x.setAttribute('title', liveBadgeTitle(n)); } else if(x.parentNode) x.parentNode.removeChild(x);
+    });
+  }catch(e){}
+}
+/* The light poll runs only for an open, saved, Live, unfinalized event, on a step other than 5 (step 5's card has its own poll), while
+   the page is visible and the Live tables exist. */
+function liveBriefWants(){
+  return liveBoardsOn() && currentStage !== 5 && !popoutMode && typeof document !== 'undefined' && !document.hidden && liveBadge.offId !== state.id;
+}
+function liveBriefStop(){ if(liveBriefTimer){ clearInterval(liveBriefTimer); liveBriefTimer = null; } }
+function liveBriefTick(){
+  if(!liveBriefWants()){ liveBriefStop(); return; }
+  if(netOffline || liveBadge.busy) return;
+  var id = state.id;
+  liveBadge.busy = true;
+  apiFetch(LIVE_PANEL_API + '?t=' + encodeURIComponent(id) + '&brief=1').then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(b){
+      liveBadge.busy = false;
+      if(!state || state.id !== id) return;
+      if(r.ok) liveBadgeSet(id, b && b.takeovers > 0 ? Math.floor(b.takeovers) : 0);
+      else if(b && b.code === 'live_not_set_up'){ liveBadge.offId = id; liveBadgeSet(id, 0); }   // nothing can be waiting: stop asking
+    });
+  }).catch(function(){ liveBadge.busy = false; });
 }
 if(typeof document !== 'undefined' && typeof document.addEventListener === 'function'){
   document.addEventListener('visibilitychange', function(){
     liveSyncPolling();
     if(liveTimer && !document.hidden) liveTick();   // back on the page: bring the card up to date at once
+    if(liveBriefTimer && !document.hidden) liveBriefTick();
   });
 }
 
@@ -490,8 +553,14 @@ async function liveCall(body){
     loadLive(true);   // what the refusal was about may be out of date here
     return null;
   }
-  if(state && state.id === id){ liveState.id = id; liveState.data = b; liveState.error = ''; liveRedraw(); }
+  if(state && state.id === id){ liveState.id = id; liveState.data = b; liveState.error = ''; liveBadgeSet(id, (b && b.takeovers || []).length); liveRedraw(); }
   return b;
+}
+/* Allow or deny a waiting take-over request (the answer is final: the first answer, from here or from a floor official, wins). */
+function liveTakeover(id, answer){
+  if(liveAnswering[id]) return;
+  liveAnswering[id] = true;
+  liveCall({ op: 'takeover', id: id, answer: answer }).then(function(){ delete liveAnswering[id]; }, function(){ delete liveAnswering[id]; });
 }
 function liveEnable(){ liveCall({ op: 'enable' }); }
 function liveTogglePassword(){ liveState.shown = !liveState.shown; liveRedraw(); }
@@ -576,6 +645,23 @@ function liveBoardRowHTML(b, d){
     }).join(' ');
   return '<tr><td><b>' + b.n + '</b></td><td>' + (group || '<span class="hint" style="margin:0">—</span>') + '</td><td>' + play + '</td><td>' + b.waiting + '</td><td>' + devs + lendTxt + '</td><td>' + btns + '</td></tr>';
 }
+/* The take-over inbox: a tablet asks for a match another tablet is scoring. "Board 5 tablet wants to take over Match 12 (Board 3)". Nothing
+   is drawn while no request waits. */
+function liveInboxHTML(d){
+  var list = d.takeovers || [];
+  if(!list.length) return '';
+  return '<div class="lb-inbox" style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.tk.title') + '</b> <span class="live-badge live-badge-inline">' + list.length + '</span>' +
+    '<div class="hint" style="margin:4px 0 6px">' + T('lb.tk.hint') + '</div>' +
+    list.map(function(x){
+      var who = x.toBoard != null ? T('lb.tk.tablet', { b: x.toBoard }) : T('lb.tk.noBoard');
+      var no = x.info && x.info.matchNo != null && x.info.matchNo !== '' ? T('lb.match', { n: escText(x.info.matchNo) }) : T('lb.tk.aMatch');
+      var from = x.fromBoard != null ? T('lb.boardN', { n: x.fromBoard }) : T('lb.tk.fromUnknown');
+      return '<div class="fo-row" style="padding:6px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="flex:1;min-width:200px">' +
+        T('lb.tk.text', { who: '<b>' + escText(who) + '</b>', match: '<b>' + no + '</b>', from: escText(from) }) + '</span>' +
+        '<button class="btn primary fo-btn" onclick="liveTakeover(\'' + escJs(x.id) + '\',\'allow\')">' + T('lb.tk.allow') + '</button> ' +
+        '<button class="btn ghost fo-btn" onclick="liveTakeover(\'' + escJs(x.id) + '\',\'deny\')">' + T('lb.tk.deny') + '</button></div>';
+    }).join('') + '</div>';
+}
 function liveLoginHTML(d){
   var lg = d.login;
   return '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.login') + '</b>' +
@@ -598,10 +684,11 @@ function liveBoardsHTML(){
   if(!d.login) return html + '<button class="btn primary" onclick="liveEnable()">' + T('lb.enable') + '</button><p class="hint">' + T('lb.enableHint') + '</p></div>';
   var active = d.devices.filter(function(x){ return !x.loggedOut; });
   html += liveLoginHTML(d);
+  html += liveInboxHTML(d);
   html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.boards') + '</b>' +
     '<div class="lb-wrap"><table class="lb-table"><thead><tr><th>' + T('lb.col.board') + '</th><th>' + T('lb.col.group') + '</th><th>' + T('lb.col.playing') + '</th><th>' + T('lb.col.waiting') + '</th><th>' + T('lb.col.devices') + '</th><th></th></tr></thead><tbody>' +
     d.boards.map(function(b){ return liveBoardRowHTML(b, d); }).join('') + '</tbody></table></div></div>';
-  /* later tasks: the take-over inbox, match history and Close event go here */
+  /* later tasks: match history and Close event go here */
   html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.devices') + '</b>';
   if(!active.length) html += '<p class="hint">' + T('lb.none') + '</p>';
   else html += active.map(function(dv){

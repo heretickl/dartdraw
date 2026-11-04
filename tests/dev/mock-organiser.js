@@ -26,8 +26,8 @@ require.cache[dbModPath] = { id: dbModPath, filename: dbModPath, loaded: true, e
 require.cache[authModPath] = { id: authModPath, filename: authModPath, loaded: true, exports: { requireAuth: async () => ({ id: 'u1', role: process.env.MOCK_ADMIN === '1' ? 'admin' : 'organizer' }) } };
 const scoreRouter = require('../../api/score/[action].js'), liveRouter = require('../../api/live/[action].js');
 /* --live-sample: a drawn Singles round robin on 4 boards, Live with a scoring login (ev-sample / ABCD2345EFGH6789) and four devices (a
-   match waiting on board 1, one playing on board 2 with 3 turns not sent, one on board 3, one without a board); and the same event on
-   Manual, to see that the card is not there. */
+   match waiting on board 1, one playing on board 2 with 3 turns not sent, one on board 3, one without a board, and the board 3 tablet
+   asking to take over the match playing on board 2); and the same event on Manual, to see that the card is not there. */
 function seedLiveSample() {
   const { buildStates } = require('../lib/app-states');
   const src = buildStates().find((s) => s.unit === 'Singles' && s.format === 'roundrobin' && s.phase === 'drawn').data;
@@ -51,6 +51,7 @@ function seedLiveSample() {
   const row = (s, state, device, board) => liveDb.matches.push({ tournament_id: 'live-sample', pos: s.pos, state, device_id: device, board, played_on_board: board, paper: false, retired_side: null, started_at: ago(300), ended_at: null, summary: {}, changed_by_organiser: false });
   row(onBoard(2)[0], 'playing', 'dev_sample2', 2);
   row(onBoard(1)[0], 'waiting', 'dev_sample1', 1);
+  liveDb.takeovers.push({ id: 'tko_sample1', tournament_id: 'live-sample', pos: onBoard(2)[0].pos, from_device: 'dev_sample2', to_device: 'dev_sample3', decided_by: null, answer: null, created_at: ago(40), decided_at: null });
 }
 if (process.env.MOCK_LIVE === '1') seedLiveSample();
 async function vercelCall(handler, req, url, res) {

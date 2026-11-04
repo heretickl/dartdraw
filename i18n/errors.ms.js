@@ -32,6 +32,10 @@ var DD_ERR_MS = {
   'err.lend_no_device': "Tiada peranti yang log masuk di board itu.",
   'err.lend_active': "Board itu sudah dipinjamkan. Tamatkan pinjaman itu dahulu.",
   'err.lend_nothing_waiting': "Board itu tiada perlawanan yang menunggu.",
+  'err.not_allowed': "Penganjur tidak membenarkan pegawai lantai menjawab permintaan ambil alih.",
+  'err.match_over': "Perlawanan ini sudah tamat.",
+  'err.takeover_stale': "Perlawanan itu telah berpindah, jadi permintaan dibatalkan.",
+  'err.takeover_answered': "Permintaan itu sudah dijawab.",
   /* every endpoint */
   'err.method_not_allowed': 'Kaedah tidak dibenarkan',
   'err.not_found': 'Tidak dijumpai.',

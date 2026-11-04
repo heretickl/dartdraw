@@ -37,6 +37,10 @@ var DD_ERR_EN = {
   'err.lend_no_device': "No device is signed in on that board.",
   'err.lend_active': "That board is already lent out. End that lend first.",
   'err.lend_nothing_waiting': "That board has no waiting matches.",
+  'err.not_allowed': "The organiser has not allowed floor officials to answer take-over requests.",
+  'err.match_over': "This match is over.",
+  'err.takeover_stale': "That match has moved on, so the request was cancelled.",
+  'err.takeover_answered': "That request has already been answered.",
   /* every endpoint */
   'err.method_not_allowed': 'Method not allowed',
   'err.not_found': 'Not found.',

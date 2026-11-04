@@ -5,13 +5,15 @@
 //   /api/score/open        a floor official opens their link: link + PIN -> a session for that link
 //   /api/score/matches     the official's matches (their boards only)
 //   /api/score/result      one result (or no-show, "Neither showed", call) for one match
+//   /api/score/takeover    answer a take-over request on one of the official's boards (Live events that let officials approve)
 //
 // The action is read from req.url. Anything else answers 404 { code: 'not_found', error: 'Not found.' }.
 const ROUTES = {
   officials: () => require('../_routes/score/officials'),
   open: () => require('../_routes/score/open'),
   matches: () => require('../_routes/score/matches'),
-  result: () => require('../_routes/score/result')
+  result: () => require('../_routes/score/result'),
+  takeover: () => require('../_routes/score/takeover')
 };
 
 function lastSegment(url) {

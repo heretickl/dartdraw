@@ -159,8 +159,9 @@ CREATE TABLE live_turns (
 );
 CREATE INDEX idx_live_turns_match ON live_turns (tournament_id, pos, created_at);
 
--- live_takeovers: a second device asking to take over a match the first one is scoring. decided_by says who answered (the
--- current device, the organiser, or a timeout); answer is the outcome; decided_at stays empty while it is still waiting.
+-- live_takeovers: a second device asking to take over a match the first one is scoring. decided_by says who answered
+-- ('org:<organiser id>', 'off:<floor official id>' or 'system' when the request went void by itself); answer is the outcome
+-- ('allow', 'deny' or 'void'); both stay empty while the request is still waiting. Every request and every answer is kept.
 CREATE TABLE live_takeovers (
   id            text PRIMARY KEY,
   tournament_id text NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
@@ -173,6 +174,8 @@ CREATE TABLE live_takeovers (
   decided_at    timestamptz
 );
 CREATE INDEX idx_live_takeovers_match ON live_takeovers (tournament_id, pos);
+-- at most ONE waiting request per match: a second request for the same match is refused (takeover_pending)
+CREATE UNIQUE INDEX idx_live_takeovers_pending ON live_takeovers (tournament_id, pos) WHERE answer IS NULL;
 
 -- live_lends: a free board lent whole to a busy board (before any match row exists for it). ended_at is empty while the lend
 -- is running.
