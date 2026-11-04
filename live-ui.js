@@ -63,10 +63,17 @@ function liveGamesPrune(g){
   ['rr', 'pod', 'finals'].forEach(function(k){ if(liveIsPlain(g[k]) && !Object.keys(g[k]).length) delete g[k]; });
 }
 
-/* Switching back to Manual is refused while a match is being scored on a device. The live match records come with the server
-   (a later task); until then nothing is ever playing, so this allows it. */
-function liveHasPlayingMatch(t){
-  return typeof liveMatchesPlaying === 'function' ? !!liveMatchesPlaying(t) : false;
+/* Switching back to Manual is refused while a match is being scored on a device (spec 4). The count comes from the Boards panel's
+   server (a fresh read each time: step 5's copy is not kept up to date while this step is open). Resolves to the number of matches
+   in progress, 0 when Live scoring was never set up (nothing can be playing), or -1 when that could not be found out. */
+function liveFetchPlayingCount(){
+  if(!state || !state.id) return Promise.resolve(0);
+  return apiFetch(LIVE_PANEL_API + '?t=' + encodeURIComponent(state.id)).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(b){
+      if(r.ok) return b && b.playingCount > 0 ? b.playingCount : 0;
+      return b && b.code === 'live_not_set_up' ? 0 : -1;
+    });
+  }).catch(function(){ return -1; });
 }
 
 /* Runs fn (a draw of the page) and puts back what was typed in the boxes that have an id, so a switch that redraws the
@@ -137,8 +144,17 @@ function liveSetMode(mode){
   var d = liveDraftGet();
   mode = mode === 'live' ? 'live' : 'manual';
   if(d.scoring.mode === mode) return;
-  if(mode === 'manual' && LiveSettings.isLive(state) && liveHasPlayingMatch(state)){
-    openModal({ title: T('live.backRefusedTitle'), body: T('live.backRefused'), confirmLabel: T('m.ok'), confirmClass: 'primary', onConfirm: function(){} });
+  if(mode === 'manual' && LiveSettings.isLive(state)){
+    var id = state.id;
+    liveFetchPlayingCount().then(function(n){
+      if(!state || state.id !== id || currentStage !== 2) return;
+      if(n !== 0){
+        openModal({ title: T('live.backRefusedTitle'), body: n > 0 ? T('live.backRefusedN', { n: n }) : T('live.backCheckFailed'), confirmLabel: T('m.ok'), confirmClass: 'primary', onConfirm: function(){}, help: false });
+        return;
+      }
+      liveDraftGet().scoring.mode = mode;
+      liveKeepFields(render);
+    });
     return;
   }
   d.scoring.mode = mode;
@@ -402,4 +418,205 @@ function liveNamesChecklistHTML(){
         (canEdit ? '<button class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="openPairDialog(\'' + escJs(m.entry.id) + '\')">' + T('pl.edit') + '</button>' : '') +
       '</div>';
     }).join('') + '</div></div>';
+}
+
+/* ---------- the Boards panel (step 5, Live events only; spec section 7) ----------
+   The card under Floor officials: the event's one scoring login, the boards (what is playing, what waits, which devices), the
+   devices signed in, lending a board and logging a device out. Everything comes from /api/live/panel (organiser session); the
+   card reads it with loadLive and redraws only itself, so nothing typed elsewhere on step 5 is disturbed. It refreshes every 10 s
+   while step 5 is on screen and the page is visible (liveSyncPolling, called after each draw), and the timer is gone as soon as
+   either stops being true. Later additions: the take-over inbox, match history and Close event (a block between the boards and
+   the devices), the knockout board suggestions and the paper switch (their own blocks), each with its own op on the same route. */
+var liveState = { id: null, data: null, loading: false, error: '', shown: false };   // shown: the password is on screen
+var LIVE_PANEL_API = '/api/live/panel';
+var liveTimer = null;
+
+/* The card is for a saved, Live, unfinalized event that is not the sample. */
+function liveBoardsOn(){
+  return !!state && !state.isSample && !isLocked(state) && !!state.id && !!state.eventCreation && !!state.eventCreation.saved && LiveSettings.isLive(state);
+}
+/* The same answer with the clock left out: a poll that changed nothing does not redraw. */
+function liveSame(a, b){
+  if(!a || !b) return false;
+  var x = liveCopy(a), y = liveCopy(b);
+  delete x.now; delete y.now;
+  return JSON.stringify(x) === JSON.stringify(y);
+}
+function loadLive(force){
+  if(!liveBoardsOn()) return;
+  if(!force && liveState.id === state.id && (liveState.data || liveState.loading || liveState.error)) return;
+  if(liveState.id !== state.id){ liveState.data = null; liveState.error = ''; liveState.shown = false; }
+  liveState.id = state.id; liveState.loading = true;
+  var id = state.id;
+  apiFetch(LIVE_PANEL_API + '?t=' + encodeURIComponent(id)).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(b){ return { r: r, b: b }; }); }).then(function(x){
+    if(liveState.id !== id) return;
+    liveState.loading = false;
+    if(x.r.ok){
+      var changed = !liveSame(liveState.data, x.b) || !!liveState.error;
+      liveState.data = x.b; liveState.error = '';
+      if(changed) liveRedraw();
+    } else { liveState.error = (x.b && x.b.code) || 'request_failed'; liveRedraw(); }
+  }).catch(function(){ if(liveState.id === id){ liveState.loading = false; liveState.error = 'offline'; liveRedraw(); } });
+}
+/* Draws the card again where it is (or the whole page when it is not there yet and step 5 is open). */
+function liveRedraw(){
+  if(!state || currentStage !== 5 || popoutMode) return;
+  var el = typeof document !== 'undefined' && document.getElementById ? document.getElementById('liveBoards') : null;
+  if(el && liveBoardsOn() && liveState.id === state.id) el.outerHTML = liveBoardsHTML();
+  else render();
+}
+function liveWantsPolling(){
+  return liveBoardsOn() && currentStage === 5 && !popoutMode && typeof document !== 'undefined' && !document.hidden &&
+    !!(document.getElementById && document.getElementById('liveBoards'));
+}
+function liveStopPolling(){ if(liveTimer){ clearInterval(liveTimer); liveTimer = null; } }
+function liveTick(){
+  if(!liveWantsPolling()){ liveStopPolling(); return; }
+  if(netOffline || liveState.loading) return;
+  loadLive(true);
+}
+/* Starts or stops the 10 s refresh: after every draw of the page, and when the page is shown or hidden. */
+function liveSyncPolling(){
+  if(typeof setInterval !== 'function') return;   // the server's copy of the app has no timers
+  if(!liveWantsPolling()){ liveStopPolling(); return; }
+  if(!liveTimer){ liveTimer = setInterval(liveTick, 10000); liveTick(); }   // coming back to step 5 shows what is current, not what was last seen
+}
+if(typeof document !== 'undefined' && typeof document.addEventListener === 'function'){
+  document.addEventListener('visibilitychange', function(){
+    liveSyncPolling();
+    if(liveTimer && !document.hidden) liveTick();   // back on the page: bring the card up to date at once
+  });
+}
+
+/* One call that changes something; the answer is the whole panel again. Returns it, or null after saying what went wrong. */
+async function liveCall(body){
+  if(needsConnection()) return null;
+  var id = state.id, r = null, b = {};
+  try{ r = await apiFetch(LIVE_PANEL_API, { method: 'POST', body: JSON.stringify(Object.assign({ t: id }, body)) }); b = await r.json().catch(function(){ return {}; }); }catch(e){ r = null; }
+  if(!r || !r.ok){
+    openModal({ title: T('lb.title'), body: escapeHtml(ddApiError(b, T('lb.err.request'))), confirmLabel: T('m.ok'), confirmClass: 'primary', onConfirm: function(){}, help: false });
+    loadLive(true);   // what the refusal was about may be out of date here
+    return null;
+  }
+  if(state && state.id === id){ liveState.id = id; liveState.data = b; liveState.error = ''; liveRedraw(); }
+  return b;
+}
+function liveEnable(){ liveCall({ op: 'enable' }); }
+function liveTogglePassword(){ liveState.shown = !liveState.shown; liveRedraw(); }
+function liveCopyLogin(){
+  var lg = liveState.data && liveState.data.login;
+  if(!lg) return;
+  var ec = state.eventCreation || {};
+  var text = T('lb.loginMsg', { event: [ec.tournamentName, ec.eventName].filter(Boolean).join(' — '), user: lg.username, pass: lg.password });
+  var ok = function(){ openModal({ title: T('lb.title'), body: escapeHtml(T('lb.copied')), confirmLabel: T('m.ok'), confirmClass: 'primary', onConfirm: function(){}, help: false }); };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, function(){ window.prompt(T('pub.copyThis'), text); });
+  else window.prompt(T('pub.copyThis'), text);
+}
+function liveNewPasswordModal(){
+  var n = liveState.data ? liveState.data.playingCount || 0 : 0;
+  openModal({ title: T('lb.newPassword'), body: escapeHtml(T('lb.newPasswordBody')) + (n ? '</p><p>' + escapeHtml(T('lb.newPasswordPlaying', { n: n })) : ''),
+    confirmLabel: T('lb.newPassword'), confirmClass: 'danger', help: false,
+    onConfirm: function(){ liveCall({ op: 'newPassword' }); } });
+}
+/* A device's name on screen: its place in the event's list of devices ("Device 3"), as the server lists them. */
+function liveDeviceName(id){
+  var list = (liveState.data && liveState.data.devices) || [];
+  for(var i = 0; i < list.length; i++) if(list[i].id === id) return T('lb.deviceN', { n: i + 1 });
+  return T('lb.deviceN', { n: '?' });
+}
+function liveLogoutModal(id){
+  var name = escapeHtml(liveDeviceName(id));
+  openModal({ title: T('lb.logoutTitle', { name: name }), body: escapeHtml(T('lb.logoutBody')), confirmLabel: T('lb.logout'), confirmClass: 'danger', help: false,
+    onConfirm: function(){ liveCall({ op: 'logout', deviceId: id }); } });
+}
+function liveEndLend(id){ liveCall({ op: 'endLend', id: id }); }
+function liveLendModal(from){
+  var d = liveState.data; if(!d) return;
+  var opts = d.boards.filter(function(b){ return b.n !== from && b.waiting > 0; });
+  if(!opts.length){
+    openModal({ title: T('lb.lendTitle', { n: from }), body: escapeHtml(T('lb.lendNone')), confirmLabel: T('m.ok'), confirmClass: 'primary', onConfirm: function(){}, help: false });
+    return;
+  }
+  openModal({ title: T('lb.lendTitle', { n: from }), help: false, bodyHTML:
+    '<p>' + escapeHtml(T('lb.lendBody', { n: from })) + '</p>' +
+    '<div class="field"><label for="liveLendTo">' + T('lb.lendPick') + '</label><select id="liveLendTo">' +
+      opts.map(function(b){ return '<option value="' + b.n + '">' + escapeHtml(T('lb.lendOption', { n: b.n, w: b.waiting })) + '</option>'; }).join('') + '</select></div>',
+    confirmLabel: T('lb.lendBtn'), confirmClass: 'primary',
+    onConfirm: function(){ var to = parseInt(document.getElementById('liveLendTo').value, 10); if(to > 0) liveCall({ op: 'lend', from: from, to: to }); } });
+}
+
+/* How long ago, in words: "just now", "40 s ago", "3 min ago", "2 h ago". */
+function liveAgo(iso, now){
+  var t = iso ? Date.parse(iso) : NaN;
+  if(isNaN(t)) return T('lb.neverSeen');
+  var s = Math.max(0, Math.round(((now || Date.now()) - t) / 1000));
+  var txt = s < 15 ? T('lb.ago.now') : s < 60 ? T('lb.ago.s', { n: s }) : s < 3600 ? T('lb.ago.m', { n: Math.floor(s / 60) }) : T('lb.ago.h', { n: Math.floor(s / 3600) });
+  return T('lb.seen', { ago: txt });
+}
+function liveDeviceLine(dv, now){
+  var seen = liveAgo(dv.lastSeenAt, now);
+  var late = dv.lastSeenAt && (now - Date.parse(dv.lastSeenAt)) > 120000;
+  return '<span class="hint" style="margin:0' + (late ? ';color:var(--red)' : '') + '">' + escapeHtml(seen) + '</span>' +
+    (dv.unsent > 0 ? ' <span class="hint" style="margin:0;color:var(--red);font-weight:700">' + escapeHtml(T('lb.unsent', { n: dv.unsent })) + '</span>' : '');
+}
+function liveBoardRowHTML(b, d){
+  var byId = {};
+  d.devices.forEach(function(x){ byId[x.id] = x; });
+  var group = b.group ? T('grp.label', { g: escText(b.group) }) : '';
+  if(b.ko) group += (group ? ' · ' : '') + T('lb.ko');
+  var play = '<span class="hint" style="margin:0">' + T('lb.nothing') + '</span>';
+  if(b.playing){
+    var p = b.playing, no = p.info && p.info.matchNo != null && p.info.matchNo !== '' ? T('lb.match', { n: escText(p.info.matchNo) }) : '';
+    var st = p.state === 'awaitingConfirm' ? T('lb.st.awaitingConfirm') : p.state === 'checkedIn' ? T('lb.st.checkedIn') : '';
+    play = '<b>' + escText(p.a) + '</b> v <b>' + escText(p.b) + '</b>' + ((no || st) ? '<div class="hint" style="margin:0">' + [no, st].filter(Boolean).join(' · ') + '</div>' : '');
+  }
+  var devs = b.devices.length ? b.devices.map(function(id){
+    var dv = byId[id];
+    return dv ? '<div>' + escapeHtml(liveDeviceName(id)) + ' ' + liveDeviceLine(dv, d.now) + '</div>' : '';
+  }).join('') : '<span class="hint" style="margin:0">' + T('lb.noDevice') + '</span>';
+  var lendOut = d.lends.filter(function(l){ return l.from === b.n; })[0];
+  var lendIn = d.lends.filter(function(l){ return l.to === b.n; });
+  var lendTxt = (lendOut ? '<div class="hint" style="margin:2px 0 0">' + T('lb.lentTo', { n: lendOut.to }) + '</div>' : '') +
+    lendIn.map(function(l){ return '<div class="hint" style="margin:2px 0 0">' + T('lb.lentFrom', { n: l.from }) + '</div>'; }).join('');
+  var btns = (b.devices.length && !lendOut ? '<button class="btn ghost fo-btn" onclick="liveLendModal(' + b.n + ')">' + T('lb.lendTo') + '</button> ' : '') +
+    d.lends.filter(function(l){ return l.from === b.n || l.to === b.n; }).map(function(l){
+      return '<button class="btn ghost fo-btn" onclick="liveEndLend(\'' + escJs(l.id) + '\')">' + T('lb.endLend') + '</button>';
+    }).join(' ');
+  return '<tr><td><b>' + b.n + '</b></td><td>' + (group || '<span class="hint" style="margin:0">—</span>') + '</td><td>' + play + '</td><td>' + b.waiting + '</td><td>' + devs + lendTxt + '</td><td>' + btns + '</td></tr>';
+}
+function liveLoginHTML(d){
+  var lg = d.login;
+  return '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.login') + '</b>' +
+    '<div style="margin:6px 0">' + T('lb.username') + ': <span class="lb-pass">' + escText(lg.username) + '</span></div>' +
+    '<div style="margin:6px 0">' + T('lb.password') + ': <span class="lb-pass">' + (liveState.shown ? escText(lg.password) : '••••••••••••••••') + '</span></div>' +
+    '<div class="buttonrow" style="margin:4px 0 0">' +
+      '<button class="btn ghost fo-btn" onclick="liveTogglePassword()">' + T(liveState.shown ? 'lb.hide' : 'lb.show') + '</button>' +
+      '<button class="btn ghost fo-btn" onclick="liveCopyLogin()">' + T('lb.copy') + '</button>' +
+      '<button class="btn ghost fo-btn" style="color:var(--red)" onclick="liveNewPasswordModal()">' + T('lb.newPassword') + '</button>' +
+    '</div></div>';
+}
+function liveBoardsHTML(){
+  if(!liveBoardsOn()) return '';
+  loadLive(false);
+  var d = liveState.data;
+  var html = '<div class="card" id="liveBoards"><h2 style="margin:0 0 6px">' + T('lb.title') + '</h2><p class="intro">' + T('lb.intro') + '</p>';
+  if(liveState.error === 'live_not_set_up') return html + '<p class="hint">' + T('lb.notSetUp') + '</p></div>';
+  if(liveState.error && !d) return html + '<p class="hint">' + T('lb.err.load') + ' <a href="javascript:void(0)" onclick="loadLive(true)">' + T('fo.retry') + '</a></p></div>';
+  if(!d) return html + '<p class="hint">' + T('fo.loading') + '</p></div>';
+  if(!d.login) return html + '<button class="btn primary" onclick="liveEnable()">' + T('lb.enable') + '</button><p class="hint">' + T('lb.enableHint') + '</p></div>';
+  var active = d.devices.filter(function(x){ return !x.loggedOut; });
+  html += liveLoginHTML(d);
+  html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.boards') + '</b>' +
+    '<div class="lb-wrap"><table class="lb-table"><thead><tr><th>' + T('lb.col.board') + '</th><th>' + T('lb.col.group') + '</th><th>' + T('lb.col.playing') + '</th><th>' + T('lb.col.waiting') + '</th><th>' + T('lb.col.devices') + '</th><th></th></tr></thead><tbody>' +
+    d.boards.map(function(b){ return liveBoardRowHTML(b, d); }).join('') + '</tbody></table></div></div>';
+  /* later tasks: the take-over inbox, match history and Close event go here */
+  html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.devices') + '</b>';
+  if(!active.length) html += '<p class="hint">' + T('lb.none') + '</p>';
+  else html += active.map(function(dv){
+    var i = d.devices.indexOf(dv);
+    return '<div class="fo-row" style="padding:6px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="flex:1;min-width:200px"><b>' + escapeHtml(T('lb.deviceN', { n: i + 1 })) + '</b> · ' +
+      (dv.board != null ? T('lb.boardN', { n: dv.board }) : '<span class="hint" style="margin:0">' + T('lb.noBoardYet') + '</span>') + ' ' + liveDeviceLine(dv, d.now) + '</span>' +
+      '<button class="btn ghost fo-btn" style="color:var(--red)" onclick="liveLogoutModal(\'' + escJs(dv.id) + '\')">' + T('lb.logout') + '</button></div>';
+  }).join('');
+  return html + '</div></div>';
 }

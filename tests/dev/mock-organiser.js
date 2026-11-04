@@ -1,8 +1,10 @@
 // Local organiser for checking screens in a browser without Neon or login:  node tests/dev/mock-organiser.js
 // then open http://localhost:5393/app (the organiser app is app.html, served at /app). Tournaments live in memory and are lost when the server stops.
-// Flags: --admin (signed in as an Admin: MOCK_ADMIN=1), --no-library (player library not set up: MOCK_NO_LIBRARY=1).
+// Flags: --admin (signed in as an Admin: MOCK_ADMIN=1), --no-library (player library not set up: MOCK_NO_LIBRARY=1),
+//   --live-sample (two sample events, one Live with a scoring login and a few devices, one Manual: MOCK_LIVE=1).
 if (process.argv.includes('--admin')) process.env.MOCK_ADMIN = '1';
 if (process.argv.includes('--no-library')) process.env.MOCK_NO_LIBRARY = '1';
+if (process.argv.includes('--live-sample')) process.env.MOCK_LIVE = '1';
 const http = require('http'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const db = {};   // id -> { data, updated_at }
@@ -13,10 +15,44 @@ if (!process.env.SESSION_SECRET) process.env.SESSION_SECRET = 'local-mock-secret
 const scoreDb = require('../lib/fake-score-db').createFakeScoreDb({ tournaments: db });
 setInterval(() => scoreDb.setNow(Date.now()), 1000).unref();
 scoreDb.setNow(Date.now());
+/* Live scoring (/api/live/*): the real handlers on tests/lib/fake-live-db.js, which shares the events above. One `sql` serves both
+   databases: the live one answers its own statements, the officials' one the rest. */
+const liveDb = require('../lib/fake-live-db').createFakeLiveDb({ tournaments: db });
+setInterval(() => liveDb.setNow(Date.now()), 1000).unref();
+liveDb.setNow(Date.now());
+const sqlBoth = async (...a) => { try { return await liveDb.sql(...a); } catch (e) { if (/unrecognised SQL/.test(String(e && e.message))) return scoreDb.sql(...a); throw e; } };
 const dbModPath = require.resolve('../../api/_lib/db'), authModPath = require.resolve('../../api/_lib/auth');
-require.cache[dbModPath] = { id: dbModPath, filename: dbModPath, loaded: true, exports: { sql: (...a) => scoreDb.sql(...a) } };
+require.cache[dbModPath] = { id: dbModPath, filename: dbModPath, loaded: true, exports: { sql: sqlBoth } };
 require.cache[authModPath] = { id: authModPath, filename: authModPath, loaded: true, exports: { requireAuth: async () => ({ id: 'u1', role: process.env.MOCK_ADMIN === '1' ? 'admin' : 'organizer' }) } };
-const scoreRouter = require('../../api/score/[action].js');
+const scoreRouter = require('../../api/score/[action].js'), liveRouter = require('../../api/live/[action].js');
+/* --live-sample: a drawn Singles round robin on 4 boards, Live with a scoring login (ev-sample / ABCD2345EFGH6789) and four devices (a
+   match waiting on board 1, one playing on board 2 with 3 turns not sent, one on board 3, one without a board); and the same event on
+   Manual, to see that the card is not there. */
+function seedLiveSample() {
+  const { buildStates } = require('../lib/app-states');
+  const src = buildStates().find((s) => s.unit === 'Singles' && s.format === 'roundrobin' && s.phase === 'drawn').data;
+  const make = (id, name, live) => {
+    const t = JSON.parse(JSON.stringify(src));
+    t.id = id; t.eventCreation.tournamentName = name; t.eventCreation.boards = 4;
+    t.groups.forEach((g, i) => { g.boards = [i + 1]; g.gameStarted = true; g.scores = {}; });
+    if (live) t.format.scoring = { mode: 'live' };
+    db[id] = { data: t, updated_at: new Date().toISOString(), created_by: 'u1' };
+    return t;
+  };
+  const t = make('live-sample', 'Live sample event', true);
+  make('manual-sample', 'Manual sample event', false);
+  const ago = (s) => new Date(Date.now() - s * 1000).toISOString();
+  liveDb.logins.push({ tournament_id: 'live-sample', username: 'ev-sample', password_hash: require('bcryptjs').hashSync('ABCD2345EFGH6789', 4), password_shown: 'ABCD2345EFGH6789', session_nonce: 'sample-nonce', created_at: ago(900) });
+  const dev = (id, board, seen, unsent) => liveDb.devices.push({ id, tournament_id: 'live-sample', board, session_nonce: 'sample-nonce', last_seen_at: ago(seen), logged_out_at: null, unsent, created_at: ago(800) });
+  dev('dev_sample1', 1, 4, 0); dev('dev_sample2', 2, 20, 3); dev('dev_sample3', 3, 190, 0); dev('dev_sample4', null, 60, 0);
+  const view = require('../../api/_routes/live/view');
+  const slots = view.load({ tournament: { data: t } }).slots;
+  const onBoard = (n) => slots.filter((s) => (s.boards || []).map(Number).indexOf(n) >= 0);
+  const row = (s, state, device, board) => liveDb.matches.push({ tournament_id: 'live-sample', pos: s.pos, state, device_id: device, board, played_on_board: board, paper: false, retired_side: null, started_at: ago(300), ended_at: null, summary: {}, changed_by_organiser: false });
+  row(onBoard(2)[0], 'playing', 'dev_sample2', 2);
+  row(onBoard(1)[0], 'waiting', 'dev_sample1', 1);
+}
+if (process.env.MOCK_LIVE === '1') seedLiveSample();
 async function vercelCall(handler, req, url, res) {
   const body = req.method === 'POST' ? await readBody(req) : undefined;
   const r = { method: req.method, url: req.url, headers: Object.assign({ host: req.headers.host }, req.headers), query: Object.fromEntries(url.searchParams), body, socket: req.socket };
@@ -38,6 +74,7 @@ http.createServer(async (req, res) => {
   if (url.pathname === '/api/admin/organizers' && process.env.MOCK_ADMIN === '1') return send(200, { organizers: [{ id: 'u1', name: 'Test organiser', email: 'test@example.com', role: 'admin', tier: 'pro', verified: true, eventCount: Object.keys(db).length }, { id: 'u2', name: 'Other organiser', email: 'other@example.com', role: 'organizer', tier: 'basic', verified: true, eventCount: 0 }] });
   if (await mockPlayers.handle(req, url, send, readBody, db)) return;
   if (url.pathname.startsWith('/api/score/')) return vercelCall(scoreRouter, req, url, res);
+  if (url.pathname.startsWith('/api/live/')) return vercelCall(liveRouter, req, url, res);
   if (url.pathname === '/api/tournaments') return send(200, Object.keys(db).map((id) => ({ id, data: db[id].data, updated_at: db[id].updated_at })));
   const m = /^\/api\/tournaments\/([^/]+)$/.exec(url.pathname);
   if (m) {

@@ -20,7 +20,12 @@
 .score-cell.by-official::after{content:"";position:absolute;right:2px;top:2px;width:5px;height:5px;border-radius:50%;background:var(--blue)}
 .fo-btn{padding:3px 9px;font-size:11px}
 .fo-msg{white-space:pre-wrap;font-family:inherit;font-size:13px;background:#f3f5f7;border:1px solid var(--line);border-radius:8px;padding:10px;margin:0 0 6px}
-@media print{#floorOfficials{display:none !important}}
+@media print{#floorOfficials,#liveBoards{display:none !important}}
+.lb-wrap{overflow-x:auto}
+.lb-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.lb-table th{text-align:left;font-size:11px;color:var(--muted);font-weight:700;padding:4px 10px 6px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+.lb-table td{padding:8px 10px 8px 0;border-top:1px solid var(--line);vertical-align:top}
+.lb-pass{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;font-weight:700}
 @media print{.offline-box,.offline-ready,.waiting-mark{display:none !important}}
 body{margin:0;background:var(--bg);font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
 button{font-family:inherit}
@@ -5318,6 +5323,7 @@ function renderPage(){
   if(isSampleOpen()) html = sampleBannerHTML() + html;
   html = adminEditBannerHTML() + html;
   area.innerHTML = html;
+  liveSyncPolling();   // the Boards panel's 10 s refresh runs only while its card is on screen (live-ui.js)
   if(locked) applyFinalizedLock(area);
   renderExpandedPreview();
   if(currentStage===5) requestAnimationFrame(scaleManageCharts);
@@ -8306,7 +8312,7 @@ function koSetBoard(bracketKey, ri, mi, text){
   if(n > 0 && n <= 9999) m.board = n; else delete m.board;
   persist(); render();
 }
-function stage5(){ return offlineStage5HTML() + stage5Body() + boardGroupsHTML() + floorOfficialsHTML() + finalizeCardHTML(); }
+function stage5(){ return offlineStage5HTML() + stage5Body() + boardGroupsHTML() + floorOfficialsHTML() + liveBoardsHTML() + finalizeCardHTML(); }
 /* ---------- Board groups (docs/superpowers/specs/2026-11-02-board-groups-and-official-positions-design.md) ----------
    A drawn bracket (main, and the Plate on its own) split into equal sections, each played on one board down to its
    board champion. The draw is untouched; boardgroups.js writes each section's board on its matches, which then reach
