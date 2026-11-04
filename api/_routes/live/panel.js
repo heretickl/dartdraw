@@ -14,22 +14,49 @@
 //     op 'takeover' { id, answer } answer a waiting take-over request: 'allow' (the match moves to the asking device) or 'deny'.
 //                                 404 not_found · 409 takeover_answered (somebody answered first) · 409 match_over (the match ended:
 //                                 the request is void) · 409 takeover_stale (the match moved meanwhile: void). Logged as decided_by 'org:<id>'.
-//   The ops of later tasks (close event, knockout board suggestions, the paper switch) are added to OPS below.
-//   { login: {username, password} | null, devices: [{ id, board, lastSeenAt, unsent, loggedOut }],
-//     boards: [{ n, group, ko, playing: {pos, state, info, a, b} | null, waiting, devices: [ids], lentTo?, lentFrom? }],
-//     lends: [{ id, from, to, startedAt }], takeovers: [{ id, pos, info, fromDevice, fromBoard, toDevice, toBoard, requestedAt }], playingCount, now }
+//   GET  ?t=<event id>&blockers=1 -> { blockers }: what stands in the way of Close event (below). Writes nothing and ends no lend.
+//   GET  ?t=<event id>&history=<pos> -> one match's history (below). Writes nothing. 404 not_found when the event has no such match.
+//     op 'restore' { pos, turnId } the turn is put back as the latest version of its chain: a NEW turn row is appended (copy of that
+//                                 version; supersedes = the chain's latest counting turn; device 'organiser'), the match's picture is
+//                                 rewritten. 404 not_found (no such turn in that match) · 409 match_confirmed (the match is over: a result
+//                                 changes by normal result entry) · 409 turn_not_restorable (the turn is ignored, or already the latest).
+//     op 'dispute' { pos, on }    flags / clears "disputed" on a match that has a live row (404 not_found otherwise).
+//     op 'close' { force? }       Close event (spec 7.6). Blockers: a signed-in device with turns not sent, a match a device holds that is
+//                                 checked in / playing / awaiting confirmation. With blockers and no force: 409 close_blocked { blockers },
+//                                 nothing changed. Else the event is marked closed (live_logins.closed_at), every device is logged out
+//                                 (as New password does) and the answer is { ok, closedAt, forced, blockers } (forced: it closed over
+//                                 blockers). A closed event: no new sign-in (410 link_ended 'closed'); enable / newPassword / lend /
+//                                 logout / close answer 409 event_closed. Finalising does NOT close (spec 7.6: devices stay in).
+//   The ops of later tasks (knockout board suggestions, the paper switch) are added to OPS below.
+//   { login: {username, password} | null, closedAt: iso | null, devices: [{ id, board, lastSeenAt, unsent, loggedOut }],
+//     boards: [{ n, group, ko, playing: {pos, state, info, a, b, disputed} | null, waiting, devices: [ids], lentTo?, lentFrom? }],
+//     lends: [{ id, from, to, startedAt }], takeovers: [{ id, pos, info, fromDevice, fromBoard, toDevice, toBoard, requestedAt }],
+//     matches: [{ pos, info, a, b, state, disputed }], playingCount, now }
+// matches: the matches that have a history worth opening (in progress, over, or disputed), in the event's order.
+// blockers: [{ device: 'Device N', deviceNo: N|null, board, unsent, matches: [{ pos, info }] }], one per device, in the devices' order.
+// history: { pos, info, a, b, state, disputed, summary, turns: [{ id, leg, side, player, entered, supersedes, ignored, ignoredReason,
+//   device: 'Device N' | 'Organiser', deviceNo, byOrganiser?, at, left, current }], takeovers: [{ answer, decidedBy: 'organiser' | 'official' | 'system' | null,
+//   requestedAt, decidedAt, from, to, fromNo, toNo }] } (every turn, ignored ones too, oldest first; left: the x01 score left after the turn,
+//   null for Cricket and ignored turns; current: the latest version of its chain). Device ids never leave the server in these.
 // group: the labels of the round robin groups and pods played on the board, joined by ", " ('' when none); ko: knockout matches are on
 // it. takeovers: the waiting requests, oldest first (live.openTakeovers: the match is still held by fromDevice, toDevice is signed in);
 // info is the match as the paper numbers it (info.matchNo), the device ids are opaque. playingCount: matches a device holds that are checked in, playing or awaiting confirmation (the Manual switch is refused while it is not 0).
 // The password hash never leaves the server; the login's password is shown here, to the signed-in organiser only.
+const crypto = require('crypto');
 const { requireAuth } = require('../../_lib/auth');
 const { sendError, bodyObject, methodNotAllowed, live } = require('./common');
-const { boardCountOf, load, waitingOn, entryOf } = require('./view');
+const { boardCountOf, load, waitingOn, entryOf, startForOf } = require('./view');
 const takeoverRoute = require('./takeover');
+const turnRoute = require('./turn');
+const { chainHeadOf, annotateTurns } = require('../../_lib/live-summary');
 const LiveSettings = require('../../../live-settings');
 const LiveBoards = require('../../../live-boards');
 
 const ACTIVE = ['checkedIn', 'playing', 'awaitingConfirm'];
+const OVER = ['confirmed', 'retired', 'voided'];
+const CLOSED_REFUSES = ['enable', 'newPassword', 'lend', 'logout', 'close'];   // ops that answer 409 event_closed once the event is closed
+const POS_OK = (v) => typeof v === 'string' && v.length > 0 && v.length <= 200;
+const NOT_FOUND = { code: 'not_found', error: 'Not found.' };
 const isFinalized = (data) => !!(data && typeof data === 'object' && data.finalized);
 const asBoard = (v) => (typeof v === 'number' ? v : (typeof v === 'string' && /^\d{1,4}$/.test(v.trim()) ? Number(v) : NaN));
 
@@ -38,11 +65,13 @@ async function panelOf(organizer, ev) {
   const t = ev.id;
   const login = await live.show(organizer, t);
   const now = Date.now();
-  if (!login) return { login: null, devices: [], boards: [], lends: [], takeovers: [], playingCount: 0, now };
+  if (!login) return { login: null, closedAt: null, devices: [], boards: [], lends: [], takeovers: [], matches: [], playingCount: 0, now };
   const ctx = load({ tournament: ev });
   const rows = await live.liveRows(t);
   await live.endIdleLends(t, ev, { ctx, rows });
-  const [devices, lends] = await Promise.all([live.panelDevices(t), live.activeLends(t)]);
+  const [devices, lends, closedAt, disputedList] = await Promise.all([live.panelDevices(t), live.activeLends(t), live.closedAt(t), live.disputedPositions(t)]);
+  const disputed = {};
+  disputedList.forEach((p) => { disputed[p] = true; });
   const takeovers = (await live.openTakeovers(t, { rows, devices })).map((p) => {
     const s = ctx.slotsByPos[p.pos];
     return Object.assign({}, p, { info: s ? ctx.e.plain(ctx.e.matchInfo(ctx.t, s)) : null });
@@ -63,7 +92,7 @@ async function panelOf(organizer, ev) {
     const board = row.board != null ? row.board : ((s.boards || [])[0] != null ? Number(s.boards[0]) : null);
     if (board == null || playingBy[board]) return;
     const ei = (id) => entryOf(ctx.byId, id).name;
-    playingBy[board] = { pos: s.pos, state, info: ctx.e.plain(ctx.e.matchInfo(ctx.t, s)), a: ei(s.a), b: ei(s.b) };
+    playingBy[board] = { pos: s.pos, state, info: ctx.e.plain(ctx.e.matchInfo(ctx.t, s)), a: ei(s.a), b: ei(s.b), disputed: !!disputed[s.pos] };
   });
   rows.forEach((r) => { if (!seen[r.pos] && LiveBoards.heldBy(r) && ACTIVE.indexOf(r.state) >= 0) playingCount++; });   // a match the event no longer shows still counts
   const n = boardCountOf(ev.data), boards = [];
@@ -84,7 +113,79 @@ async function panelOf(organizer, ev) {
     if (inn) b.lentFrom = inn.from;
     boards.push(b);
   }
-  return { login, devices, boards, lends, takeovers, playingCount, now };
+  /* the matches worth a history: in progress, over, or flagged (a claimed match that has not started has nothing to show) */
+  const matches = [];
+  ctx.slots.forEach((s) => {
+    const row = rowBy[s.pos];
+    if (!row) return;
+    const state = LiveBoards.stateOf(s, row, false);
+    if (ACTIVE.indexOf(state) < 0 && OVER.indexOf(state) < 0 && !disputed[s.pos]) return;
+    matches.push({ pos: s.pos, info: ctx.e.plain(ctx.e.matchInfo(ctx.t, s)), a: entryOf(ctx.byId, s.a).name, b: entryOf(ctx.byId, s.b).name, state, disputed: !!disputed[s.pos] });
+  });
+  return { login, closedAt, devices, boards, lends, takeovers, matches, playingCount, now };
+}
+
+/* "Device N": the device's place in the event's list of devices (the same number the panel's own list and the Boards card use). */
+function deviceLabels(devices) {
+  const no = {};
+  devices.forEach((d, i) => { no[d.id] = i + 1; });
+  return (id) => (id === 'organiser' ? { device: 'Organiser', deviceNo: null, byOrganiser: true } : (no[id] ? { device: 'Device ' + no[id], deviceNo: no[id] } : { device: 'Device ?', deviceNo: null }));
+}
+
+/* What stands in the way of Close event: every signed-in device with turns it has not sent, and every match a device holds that is
+   checked in, playing or awaiting confirmation (a device that was logged out still holds a match it was playing). One entry per
+   device, in the devices' order: [{ device: 'Device N', deviceNo, board, unsent, matches: [{ pos, info }] }]. Reads only. */
+async function blockersOf(ev) {
+  const t = ev.id;
+  const ctx = load({ tournament: ev });
+  const [rows, devices] = await Promise.all([live.liveRows(t), live.panelDevices(t)]);
+  const label = deviceLabels(devices);
+  const out = {}, order = [];
+  const entry = (id) => {
+    if (!out[id]) {
+      const d = devices.find((x) => x.id === id);
+      out[id] = Object.assign(label(id), { board: d ? d.board : null, unsent: 0, matches: [] });
+      order.push(id);
+    }
+    return out[id];
+  };
+  devices.forEach((d) => { if (!d.loggedOut && d.unsent > 0) entry(d.id).unsent = d.unsent; });
+  rows.forEach((r) => {
+    const holder = LiveBoards.heldBy(r);
+    if (!holder || ACTIVE.indexOf(r.state) < 0) return;
+    const s = ctx.slotsByPos[r.pos];
+    if (s && LiveBoards.slotDone(s)) return;   // the event already holds its result
+    entry(holder).matches.push({ pos: r.pos, info: s ? ctx.e.plain(ctx.e.matchInfo(ctx.t, s)) : null });
+  });
+  const place = (id) => { const i = devices.findIndex((x) => x.id === id); return i < 0 ? 1e9 : i; };
+  return order.sort((a, b) => place(a) - place(b)).map((id) => out[id]);
+}
+
+/* One match's history, or null when the event has no such match. */
+async function historyOf(ev, pos) {
+  const t = ev.id;
+  const ctx = load({ tournament: ev });
+  const slot = ctx.slotsByPos[pos] || null;
+  const [row, turns, devices, tks, disputedList] = await Promise.all([live.liveRow(t, pos), live.allTurns(t, pos), live.panelDevices(t), live.matchTakeovers(t, pos), live.disputedPositions(t)]);
+  if (!slot && !row && !turns.length) return null;
+  const label = deviceLabels(devices);
+  let startFor = () => null;
+  try { startFor = startForOf(ctx, pos); } catch (e) { /* no scores left, the turns still show */ }
+  const shownTurns = annotateTurns(turns, startFor).map((x) => Object.assign({
+    id: x.id, leg: x.leg, side: x.side, player: x.player, entered: x.entered, supersedes: x.supersedes,
+    ignored: x.ignored, ignoredReason: x.ignoredReason
+  }, label(x.deviceId), { at: x.createdAt, left: x.left, current: x.current }));
+  const who = (kind) => (typeof kind === 'string' && kind.indexOf('org:') === 0 ? 'organiser' : typeof kind === 'string' && kind.indexOf('off:') === 0 ? 'official' : kind === 'system' ? 'system' : null);
+  const log = tks.map((k) => ({
+    answer: k.answer, decidedBy: who(k.decided_by), requestedAt: k.requestedAt, decidedAt: k.decidedAt,
+    from: label(k.from_device).device, fromNo: label(k.from_device).deviceNo, to: label(k.to_device).device, toNo: label(k.to_device).deviceNo
+  }));
+  return {
+    pos, info: slot ? ctx.e.plain(ctx.e.matchInfo(ctx.t, slot)) : null,
+    a: slot ? entryOf(ctx.byId, slot.a).name : '', b: slot ? entryOf(ctx.byId, slot.b).name : '',
+    state: slot ? LiveBoards.stateOf(slot, row, false) : (row ? row.state : 'waiting'),
+    disputed: disputedList.indexOf(pos) >= 0, summary: row ? row.summary : {}, turns: shownTurns, takeovers: log
+  };
 }
 
 /* The ops that change something. Each gets (organizer, ev, body, res) and returns true when it has sent its own refusal. */
@@ -117,6 +218,37 @@ const OPS = {
     if (b.answer !== 'allow' && b.answer !== 'deny') { res.status(400).json({ code: 'invalid_op', error: 'Unknown action.' }); return true; }
     const out = await takeoverRoute.decide(ev, b.id, b.answer, 'org:' + organizer.id);
     if (!out.ok) { res.status(out.status).json(out.body); return true; }
+  },
+  async restore(organizer, ev, b, res) {
+    if (!POS_OK(b.pos) || typeof b.turnId !== 'string' || !b.turnId || b.turnId.length > 100) { res.status(404).json(NOT_FOUND); return true; }
+    const turns = await live.allTurns(ev.id, b.pos);
+    const chosen = turns.find((x) => x.id === b.turnId);
+    if (!chosen) { res.status(404).json(NOT_FOUND); return true; }
+    const row = await live.matchFull(ev.id, b.pos), slot = load({ tournament: ev }).slotsByPos[b.pos] || null;
+    if (OVER.indexOf(slot ? LiveBoards.stateOf(slot, row, false) : (row ? row.state : '')) >= 0 || (row && OVER.indexOf(row.state) >= 0)) {
+      res.status(409).json({ code: 'match_confirmed', error: 'This match is already confirmed. A result is changed by entering it again.' }); return true;
+    }
+    const head = chainHeadOf(turns, chosen.id);
+    if (chosen.ignored || !head || head.id === chosen.id) { res.status(409).json({ code: 'turn_not_restorable', error: 'That version cannot be restored.' }); return true; }
+    const id = 'org_' + crypto.randomBytes(9).toString('base64url').replace(/[^A-Za-z0-9]/g, 'x');
+    await live.insertTurn(ev.id, { id, pos: b.pos, leg: chosen.leg, side: chosen.side, player: chosen.player, entered: chosen.entered, deviceId: 'organiser', supersedes: head.id, ignored: false, ignoredReason: null });
+    await turnRoute.rewriteSummary({ tournament: ev }, row, { pos: b.pos, side: chosen.side, supersedes: head.id }, undefined);
+  },
+  async dispute(organizer, ev, b, res) {
+    if (!POS_OK(b.pos)) { res.status(404).json(NOT_FOUND); return true; }
+    if (typeof b.on !== 'boolean') { res.status(400).json({ code: 'invalid_op', error: 'Unknown action.' }); return true; }
+    if (!(await live.setDisputed(ev.id, b.pos, b.on))) { res.status(404).json(NOT_FOUND); return true; }
+  },
+  async close(organizer, ev, b, res) {
+    const blockers = await blockersOf(ev);
+    if (blockers.length && b.force !== true) {
+      res.status(409).json({ code: 'close_blocked', error: 'Some devices still hold turns or matches that are not in yet.', blockers }); return true;
+    }
+    const closedAt = await live.closeLogin(ev.id);   // first, so nobody signs in between the log-outs and the mark
+    if (!closedAt) { res.status(409).json({ code: 'event_closed', error: 'This event is closed.' }); return true; }
+    await live.logoutAllDevices(ev.id);
+    res.status(200).json({ ok: true, closedAt, forced: blockers.length > 0, blockers });
+    return true;
   }
 };
 
@@ -129,6 +261,13 @@ module.exports = async (req, res) => {
       if (!t || typeof t !== 'string') { res.status(400).json({ code: 'missing_id', error: 'Missing id.' }); return; }
       const ev = await live.ownEvent(organizer, t);
       if (!LiveSettings.isLive(ev.data)) { res.status(403).json({ code: 'live_off', error: 'Live scoring is not switched on for this event.' }); return; }
+      if (req.query.blockers === '1') { res.status(200).json({ blockers: await blockersOf(ev) }); return; }
+      if (req.query.history !== undefined) {
+        const pos = req.query.history;
+        const h = POS_OK(pos) ? await historyOf(ev, pos) : null;
+        if (!h) { res.status(404).json(NOT_FOUND); return; }
+        res.status(200).json(h); return;
+      }
       if (req.query.brief === '1') { res.status(200).json({ takeovers: (await live.openTakeovers(t)).length, now: Date.now() }); return; }
       res.status(200).json(await panelOf(organizer, ev));
       return;
@@ -141,6 +280,7 @@ module.exports = async (req, res) => {
     if (isFinalized(ev.data)) { res.status(403).json({ code: 'finalized', error: 'This event is finalized. Only an Admin can change it.', finalized: true }); return; }
     if (!LiveSettings.isLive(ev.data)) { res.status(403).json({ code: 'live_off', error: 'Live scoring is not switched on for this event.' }); return; }
     if (b.op !== 'enable' && !(await live.show(organizer, b.t))) { res.status(404).json({ code: 'not_found', error: 'Not found.' }); return; }   // nothing to change before Live scoring is turned on
+    if (CLOSED_REFUSES.indexOf(b.op) >= 0 && await live.closedAt(b.t)) { res.status(409).json({ code: 'event_closed', error: 'This event is closed.' }); return; }
     if (await OPS[b.op](organizer, ev, b, res)) return;   // true: the op sent a refusal
     res.status(200).json(await panelOf(organizer, ev));
   } catch (e) { sendError(res, e); }

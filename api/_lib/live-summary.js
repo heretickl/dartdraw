@@ -73,4 +73,58 @@ function summarize(turns, startFor, latest, next, prevThrower) {
   return { legs, remaining, thrower };
 }
 
-module.exports = { cleanEntered, effectiveTurns, summarize, ENTERED_MAX_CHARS };
+/* The chains of corrections among a match's turns (ALL of them, oldest first: { id, leg, side, entered, supersedes, ignored }).
+   Only turns that are not ignored take part: an ignored turn is kept but never counts, so it is no link in a chain. A turn whose
+   `supersedes` names no counting turn starts its own chain. Returns the pieces annotateTurns and chainHeadOf need:
+   idx: id -> place among the counting turns; replaced: id -> true for a turn another counting turn names;
+   root: id -> place of the first turn of its chain (a cycle, which no device produces, stops at the turn that closes it). */
+function chainsOf(turns) {
+  const counted = turns.filter((t) => !t.ignored);
+  const idx = {}, replaced = {}, root = {};
+  counted.forEach((t, i) => { idx[t.id] = i; });
+  counted.forEach((t) => { if (t.supersedes && idx[t.supersedes] !== undefined) replaced[t.supersedes] = true; });
+  counted.forEach((t) => {
+    let cur = t, steps = 0;
+    while (cur.supersedes && idx[cur.supersedes] !== undefined && steps++ < counted.length) cur = counted[idx[cur.supersedes]];
+    root[t.id] = idx[cur.id];
+  });
+  return { counted, idx, replaced, root };
+}
+
+/* The latest counting turn of the chain the turn `id` belongs to (the one that counts now), or null when `id` is not a counting
+   turn of the list. */
+function chainHeadOf(turns, id) {
+  const c = chainsOf(turns);
+  if (c.idx[id] === undefined) return null;
+  let head = null;
+  c.counted.forEach((t) => { if (c.root[t.id] === c.root[id] && !c.replaced[t.id]) head = t; });
+  return head || c.counted[c.idx[id]];
+}
+
+/* For the match history: every turn of the match (oldest first, ignored ones included) with `current` (the latest version of its
+   chain: the turn that counts now) and `left` (the x01 score the thrower's side has left after that turn, in that turn's leg,
+   worked out with the rules of `summarize`: a bust takes nothing off, Cricket has none; null for an ignored turn, for Cricket or
+   when the leg's start score is unknown). A correction takes its chain's place in the leg, not the place of the time it was keyed:
+   the turns after it show the score they now really leave. An OLDER version shows what the side would have had left with that
+   version in the chain's place. Pure; returns new objects. */
+function annotateTurns(turns, startFor) {
+  const c = chainsOf(turns);
+  const x01 = (t) => !!t.entered && t.entered.game !== 'cricket';
+  const takes = (t) => (!t.entered || t.entered.bust ? 0 : Number(t.entered.score) || 0);
+  const counting = c.counted.filter((t) => !c.replaced[t.id]);
+  const leftOf = (t) => {
+    if (t.ignored || !x01(t)) return null;
+    const start = startFor(t.leg);
+    if (typeof start !== 'number') return null;
+    const side = t.side === 'b' ? 'b' : 'a', mine = c.root[t.id];
+    let left = start;
+    counting
+      .filter((u) => u.leg === t.leg && (u.side === 'b' ? 'b' : 'a') === side && x01(u) && c.root[u.id] < mine)
+      .sort((p, q) => (c.root[p.id] - c.root[q.id]) || (c.idx[p.id] - c.idx[q.id]))
+      .forEach((u) => { left = Math.max(0, left - takes(u)); });
+    return Math.max(0, left - takes(t));
+  };
+  return turns.map((t) => Object.assign({}, t, { current: !t.ignored && !c.replaced[t.id], left: leftOf(t) }));
+}
+
+module.exports = { cleanEntered, effectiveTurns, summarize, chainsOf, chainHeadOf, annotateTurns, ENTERED_MAX_CHARS };

@@ -428,8 +428,10 @@ function liveNamesChecklistHTML(){
    either stops being true. The take-over inbox sits above the boards: each waiting request from a tablet, with Allow / Deny (op
    'takeover'). While another step is open the Stage 5 tab in the sidebar still shows how many requests wait (a small number):
    a light poll (/api/live/panel?brief=1, every 20 s, only while the page is visible and the event is Live and step 5 is NOT on
-   screen; one timer, stopped by the same checks). Later additions: match history and Close event (blocks between the boards and
-   the devices), the knockout board suggestions and the paper switch (their own blocks), each with its own op on the same route. */
+   screen; one timer, stopped by the same checks). Match history (spec 7.5; a block under the boards, a History button on a board's
+   playing match; a modal per match with every turn and correction, Restore, the Disputed flag and the take-over log) and Close event
+   (spec 7.6; the last block: a modal that first lists what stands in the way, then closes). A closed event shows a "Closed" note and
+   keeps only the history. The knockout board suggestions and the paper switch come later, each with its own op on the same route. */
 var liveState = { id: null, data: null, loading: false, error: '', shown: false };   // shown: the password is on screen
 var LIVE_PANEL_API = '/api/live/panel';
 var liveTimer = null;
@@ -543,12 +545,14 @@ if(typeof document !== 'undefined' && typeof document.addEventListener === 'func
   });
 }
 
-/* One call that changes something; the answer is the whole panel again. Returns it, or null after saying what went wrong. */
-async function liveCall(body){
+/* One call that changes something; the answer is the whole panel again. Returns it, or null after saying what went wrong (in a
+   box of its own, or, when onError is given, by calling onError(text): the history window says it inside itself). */
+async function liveCall(body, onError){
   if(needsConnection()) return null;
   var id = state.id, r = null, b = {};
   try{ r = await apiFetch(LIVE_PANEL_API, { method: 'POST', body: JSON.stringify(Object.assign({ t: id }, body)) }); b = await r.json().catch(function(){ return {}; }); }catch(e){ r = null; }
   if(!r || !r.ok){
+    if(onError){ onError(ddApiError(b, T('lb.err.request'))); loadLive(true); return null; }
     openModal({ title: T('lb.title'), body: escapeHtml(ddApiError(b, T('lb.err.request'))), confirmLabel: T('m.ok'), confirmClass: 'primary', onConfirm: function(){}, help: false });
     loadLive(true);   // what the refusal was about may be out of date here
     return null;
@@ -629,7 +633,9 @@ function liveBoardRowHTML(b, d){
   if(b.playing){
     var p = b.playing, no = p.info && p.info.matchNo != null && p.info.matchNo !== '' ? T('lb.match', { n: escText(p.info.matchNo) }) : '';
     var st = p.state === 'awaitingConfirm' ? T('lb.st.awaitingConfirm') : p.state === 'checkedIn' ? T('lb.st.checkedIn') : '';
-    play = '<b>' + escText(p.a) + '</b> v <b>' + escText(p.b) + '</b>' + ((no || st) ? '<div class="hint" style="margin:0">' + [no, st].filter(Boolean).join(' · ') + '</div>' : '');
+    play = '<b>' + escText(p.a) + '</b> v <b>' + escText(p.b) + '</b>' + ((no || st) ? '<div class="hint" style="margin:0">' + [no, st].filter(Boolean).join(' · ') + '</div>' : '') +
+      (p.disputed ? '<div style="margin:2px 0 0">' + liveDisputedBadge() + '</div>' : '') +
+      '<div style="margin:3px 0 0"><button class="btn ghost fo-btn" onclick="liveHistoryOpen(\'' + escJs(p.pos) + '\')">' + T('lb.history.btn') + '</button></div>';
   }
   var devs = b.devices.length ? b.devices.map(function(id){
     var dv = byId[id];
@@ -639,10 +645,10 @@ function liveBoardRowHTML(b, d){
   var lendIn = d.lends.filter(function(l){ return l.to === b.n; });
   var lendTxt = (lendOut ? '<div class="hint" style="margin:2px 0 0">' + T('lb.lentTo', { n: lendOut.to }) + '</div>' : '') +
     lendIn.map(function(l){ return '<div class="hint" style="margin:2px 0 0">' + T('lb.lentFrom', { n: l.from }) + '</div>'; }).join('');
-  var btns = (b.devices.length && !lendOut && !b.playing ? '<button class="btn ghost fo-btn" onclick="liveLendModal(' + b.n + ')">' + T('lb.lendTo') + '</button> ' : '') +
+  var btns = d.closedAt ? '' : ((b.devices.length && !lendOut && !b.playing ? '<button class="btn ghost fo-btn" onclick="liveLendModal(' + b.n + ')">' + T('lb.lendTo') + '</button> ' : '') +
     d.lends.filter(function(l){ return l.from === b.n || l.to === b.n; }).map(function(l){
       return '<button class="btn ghost fo-btn" onclick="liveEndLend(\'' + escJs(l.id) + '\')">' + T('lb.endLend') + '</button>';
-    }).join(' ');
+    }).join(' '));
   return '<tr><td><b>' + b.n + '</b></td><td>' + (group || '<span class="hint" style="margin:0">—</span>') + '</td><td>' + play + '</td><td>' + b.waiting + '</td><td>' + devs + lendTxt + '</td><td>' + btns + '</td></tr>';
 }
 /* The take-over inbox: a tablet asks for a match another tablet is scoring. "Board 5 tablet wants to take over Match 12 (Board 3)". Nothing
@@ -682,13 +688,14 @@ function liveBoardsHTML(){
   if(liveState.error && !d) return html + '<p class="hint">' + T('lb.err.load') + ' <a href="javascript:void(0)" onclick="loadLive(true)">' + T('fo.retry') + '</a></p></div>';
   if(!d) return html + '<p class="hint">' + T('fo.loading') + '</p></div>';
   if(!d.login) return html + '<button class="btn primary" onclick="liveEnable()">' + T('lb.enable') + '</button><p class="hint">' + T('lb.enableHint') + '</p></div>';
-  var active = d.devices.filter(function(x){ return !x.loggedOut; });
-  html += liveLoginHTML(d);
-  html += liveInboxHTML(d);
+  var active = d.devices.filter(function(x){ return !x.loggedOut; }), closed = !!d.closedAt;
+  if(closed) html += liveClosedNoteHTML(d);
+  else html += liveLoginHTML(d) + liveInboxHTML(d);
   html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.boards') + '</b>' +
     '<div class="lb-wrap"><table class="lb-table"><thead><tr><th>' + T('lb.col.board') + '</th><th>' + T('lb.col.group') + '</th><th>' + T('lb.col.playing') + '</th><th>' + T('lb.col.waiting') + '</th><th>' + T('lb.col.devices') + '</th><th></th></tr></thead><tbody>' +
     d.boards.map(function(b){ return liveBoardRowHTML(b, d); }).join('') + '</tbody></table></div></div>';
-  /* later tasks: match history and Close event go here */
+  html += liveHistoryBlockHTML(d);
+  if(closed) return html + '</div>';
   html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.devices') + '</b>';
   if(!active.length) html += '<p class="hint">' + T('lb.none') + '</p>';
   else html += active.map(function(dv){
@@ -697,5 +704,242 @@ function liveBoardsHTML(){
       (dv.board != null ? T('lb.boardN', { n: dv.board }) : '<span class="hint" style="margin:0">' + T('lb.noBoardYet') + '</span>') + ' ' + liveDeviceLine(dv, d.now) + '</span>' +
       '<button class="btn ghost fo-btn" style="color:var(--red)" onclick="liveLogoutModal(\'' + escJs(dv.id) + '\')">' + T('lb.logout') + '</button></div>';
   }).join('');
-  return html + '</div></div>';
+  html += '</div>';
+  html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.close.title') + '</b><div class="hint" style="margin:4px 0 6px">' + T('lb.close.hint') + '</div>' +
+    '<button class="btn ghost fo-btn" style="color:var(--red)" onclick="liveCloseModal()">' + T('lb.close.btn') + '</button></div>';
+  return html + '</div>';
 }
+
+/* ---------- blockers: what stands in the way of Close event, and of a tidy Finalise (spec 7.6) ---------- */
+/* Resolves to the list [{ device, deviceNo, board, unsent, matches: [{ pos, info }] }] (empty: nothing in the way), or null when it
+   could not be found out (no signal, not set up, any refusal). Reads only. */
+function liveFetchBlockers(id){
+  return apiFetch(LIVE_PANEL_API + '?t=' + encodeURIComponent(id) + '&blockers=1').then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(b){ return r.ok && b && Array.isArray(b.blockers) ? b.blockers : null; });
+  }).catch(function(){ return null; });
+}
+/* "Board 4 tablet: Match 18 not confirmed, 3 turns not sent" (as markup: the parts are escaped). */
+function liveBlockerLine(b){
+  var who = b.board != null ? T('lb.tk.tablet', { b: b.board }) : T('lb.deviceN', { n: b.deviceNo || '?' });
+  var parts = [];
+  (b.matches || []).forEach(function(m){
+    var no = m.info && m.info.matchNo != null && m.info.matchNo !== '' ? m.info.matchNo : null;
+    parts.push(no != null ? T('lb.bl.match', { match: T('lb.match', { n: escText(no) }) }) : T('lb.bl.aMatch'));
+  });
+  if(b.unsent > 0) parts.push(T('lb.unsent', { n: b.unsent }));
+  return '<span style="font-weight:700">' + escText(who) + '</span>: ' + parts.join(', ');
+}
+function liveBlockersHTML(list){
+  return '<ul class="lb-blockers" style="margin:8px 0 10px 18px;padding:0">' + list.map(function(b){ return '<li style="margin:3px 0">' + liveBlockerLine(b) + '</li>'; }).join('') + '</ul>';
+}
+/* The warning in the Finalise confirm (app.html finalizeResults): the same list, and what finalising does and does not do. */
+function liveFinalizeWarnHTML(list){
+  return '<div class="confirm-box" style="margin:10px 0 0;text-align:left"><b>' + T('fin.liveWarnTitle') + '</b>' + liveBlockersHTML(list) +
+    '<div class="hint" style="margin:0">' + T('fin.liveWarnHint') + '</div></div>';
+}
+
+/* ---------- Close event ---------- */
+function liveClosedNoteHTML(d){
+  var when = d.closedAt ? new Date(d.closedAt) : null;
+  var txt = when && !isNaN(when) ? when.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
+  return '<div class="confirm-box finalized-note" style="margin:8px 0"><b>' + T('lb.closed.at', { when: escText(txt) }) + '</b> ' + T('lb.closed.note') + '</div>';
+}
+/* The modal looks first (nothing is written), then offers: no blockers, a plain confirm; blockers, the list and a clearly worded
+   "Close anyway" (the main button stays off). If the look fails nothing can be closed from here. */
+function liveCloseModal(){
+  if(!state || !state.id) return;
+  var id = state.id;
+  openModal({ title: T('lb.close.title'), help: false, bodyHTML: '<div id="liveCloseBody"><p>' + T('lb.close.checking') + '</p></div>',
+    confirmLabel: T('lb.close.confirm'), confirmClass: 'danger', secondaryLabel: T('lb.close.anyway'), secondaryClass: 'danger',
+    onConfirm: function(){ liveCloseDo(false); }, onSecondary: function(){ liveCloseDo(true); } });
+  var ok = document.getElementById('modalConfirmBtn'), any = document.getElementById('modalSecondaryBtn');
+  if(ok) ok.disabled = true;
+  if(any) any.style.display = 'none';
+  liveFetchBlockers(id).then(function(list){
+    var el = document.getElementById('liveCloseBody');
+    if(!el || !state || state.id !== id) return;   // the window was closed meanwhile
+    if(list === null){ el.innerHTML = '<p>' + T('lb.close.checkFailed') + '</p>'; return; }
+    if(list.length){ el.innerHTML = '<p>' + T('lb.close.blocked') + '</p>' + liveBlockersHTML(list); if(any) any.style.display = ''; return; }
+    el.innerHTML = '<p>' + T('lb.close.clear') + '</p>';
+    if(ok) ok.disabled = false;
+  });
+}
+/* force: close although devices still hold something (the server lists it again and refuses when force is not given). */
+async function liveCloseDo(force){
+  if(needsConnection() || !state) return;
+  var id = state.id, r = null, b = {};
+  try{ r = await apiFetch(LIVE_PANEL_API, { method: 'POST', body: JSON.stringify({ t: id, op: 'close', force: !!force }) }); b = await r.json().catch(function(){ return {}; }); }catch(e){ r = null; }
+  if(!state || state.id !== id) return;
+  if(r && r.status === 409 && b && b.code === 'close_blocked'){ liveCloseModal(); return; }   // a device started something meanwhile: look again
+  if(!r || !r.ok) openModal({ title: T('lb.close.title'), body: escapeHtml(ddApiError(b, T('lb.err.request'))), confirmLabel: T('m.ok'), confirmClass: 'primary', onConfirm: function(){}, help: false });
+  loadLive(true);
+}
+
+/* ---------- match history (spec 7.5) ---------- */
+var liveHist = { pos: null, data: null, error: '', msg: '', last: '' };   // the open window: the match, what the server said, a message to show inside it
+var liveHistTimer = null;
+function liveDisputedBadge(){
+  return '<span style="display:inline-block;background:var(--red);color:#fff;border-radius:8px;padding:1px 8px;font-size:11px;font-weight:700">' + T('lb.disputed') + '</span>';
+}
+/* A window that only shows something: no Confirm button, and Cancel reads "Done". */
+function liveModalDone(label){
+  var ok = document.getElementById('modalConfirmBtn');
+  if(ok) ok.style.display = 'none';
+  var box = document.getElementById('modalBox'), first = box && box.querySelector ? box.querySelector('.buttonrow .btn') : null;
+  if(first && first !== ok) first.textContent = label;
+}
+/* The "Match history" block: one button, which lists the matches that have a history to open. */
+function liveHistoryBlockHTML(d){
+  return '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.history') + '</b>' +
+    '<div class="hint" style="margin:4px 0 6px">' + T('lb.history.hint') + '</div>' +
+    '<button class="btn ghost fo-btn" onclick="liveHistoryPick()">' + T('lb.history.open') + '</button></div>';
+}
+function liveHistoryPick(){
+  var list = (liveState.data && liveState.data.matches) || [];
+  var live = ['checkedIn', 'playing', 'awaitingConfirm'];
+  var sorted = list.filter(function(m){ return live.indexOf(m.state) >= 0; }).concat(list.filter(function(m){ return live.indexOf(m.state) < 0; }));
+  var body = !sorted.length ? '<p>' + T('lb.hist.pickNone') + '</p>' : '<div style="max-height:60vh;overflow:auto">' + sorted.map(function(m){
+    var no = m.info && m.info.matchNo != null && m.info.matchNo !== '' ? T('lb.match', { n: escText(m.info.matchNo) }) : '';
+    return '<div class="fo-row" style="padding:7px 0;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="flex:1;min-width:200px"><b>' +
+      escText(m.a) + '</b> v <b>' + escText(m.b) + '</b><div class="hint" style="margin:0">' + [no, escText(TC('lb.st.', m.state))].filter(Boolean).join(' · ') + '</div>' +
+      (m.disputed ? '<div style="margin:2px 0 0">' + liveDisputedBadge() + '</div>' : '') + '</span>' +
+      '<button class="btn ghost fo-btn" onclick="liveHistoryOpen(\'' + escJs(m.pos) + '\')">' + T('lb.history.btn') + '</button></div>';
+  }).join('') + '</div>';
+  openModal({ title: T('lb.history'), help: false, bodyHTML: body, confirmLabel: T('lb.hist.done'), confirmClass: 'primary', onConfirm: function(){} });
+  liveModalDone(T('lb.hist.done'));
+}
+function liveHistoryOpen(pos){
+  if(!state || !state.id) return;
+  liveHist = { pos: pos, data: null, error: '', msg: '', last: '' };
+  openModal({ title: T('lb.hist.title'), help: false, bodyHTML: '<div id="liveHistBody" style="max-height:64vh;overflow:auto">' + liveHistBodyHTML() + '</div>',
+    confirmLabel: T('lb.hist.done'), confirmClass: 'primary', onConfirm: function(){} });
+  liveModalDone(T('lb.hist.done'));
+  liveHistFetch();
+  if(!liveHistTimer && typeof setInterval === 'function') liveHistTimer = setInterval(liveHistTick, 10000);   // turns keep arriving while it is open
+}
+function liveHistTick(){
+  if(!document.getElementById('liveHistBody') || !liveHist.pos){ clearInterval(liveHistTimer); liveHistTimer = null; return; }
+  if(document.hidden || netOffline) return;
+  liveHistFetch();
+}
+function liveHistFetch(){
+  var pos = liveHist.pos, id = state && state.id;
+  if(!pos || !id) return Promise.resolve();
+  return apiFetch(LIVE_PANEL_API + '?t=' + encodeURIComponent(id) + '&history=' + encodeURIComponent(pos)).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(b){
+      if(liveHist.pos !== pos || !state || state.id !== id) return;
+      if(r.ok){ var key = JSON.stringify(b); if(key === liveHist.last && !liveHist.error) return; liveHist.last = key; liveHist.data = b; liveHist.error = ''; }
+      else if(!liveHist.data) liveHist.error = 'load';
+      liveHistDraw();
+    });
+  }).catch(function(){ if(liveHist.pos === pos && !liveHist.data){ liveHist.error = 'load'; liveHistDraw(); } });
+}
+function liveHistDraw(){
+  var el = document.getElementById('liveHistBody');
+  if(!el) return;
+  var top = el.scrollTop;
+  el.innerHTML = liveHistBodyHTML();
+  el.scrollTop = top;
+}
+/* Groups the turns into rows: a chain of corrections is ONE row (its versions oldest first), an ignored turn its own greyed row. */
+function liveHistRows(turns){
+  var byId = {}, at = {}, kids = {}, placed = {}, rows = [];
+  turns.forEach(function(t, i){ byId[t.id] = t; at[t.id] = i; });
+  var counting = function(id){ return !!byId[id] && !byId[id].ignored; };
+  turns.forEach(function(t){ if(!t.ignored && t.supersedes && counting(t.supersedes)) (kids[t.supersedes] = kids[t.supersedes] || []).push(t); });
+  var chainFrom = function(t){
+    var chain = [], todo = [t];
+    while(todo.length){ var x = todo.shift(); if(placed[x.id]) continue; placed[x.id] = true; chain.push(x); (kids[x.id] || []).forEach(function(k){ todo.push(k); }); }
+    return chain.sort(function(p, q){ return at[p.id] - at[q.id]; });
+  };
+  turns.forEach(function(t){
+    if(placed[t.id]) return;
+    if(t.ignored){ placed[t.id] = true; rows.push({ ignored: t, leg: t.leg }); return; }
+    if(t.supersedes && counting(t.supersedes)) return;   // placed with the turn it corrects
+    rows.push({ chain: chainFrom(t), leg: t.leg });
+  });
+  turns.forEach(function(t){ if(!placed[t.id]){ rows.push({ chain: chainFrom(t), leg: t.leg }); } });   // a loop of corrections no device makes: still shown
+  return rows;
+}
+function liveHistScore(t){
+  var e = t.entered || {};
+  if(e.game === 'cricket') return T('lb.hist.marks', { n: e.marks != null ? e.marks : 0 }) + ', ' + T('lb.hist.points', { n: e.score != null ? e.score : 0 });
+  return e.bust ? T('lb.hist.bust') : String(e.score != null ? e.score : 0);
+}
+function liveHistWho(t){ return t.byOrganiser ? T('lb.hist.organiser') : T('lb.deviceN', { n: t.deviceNo || '?' }); }
+function liveHistClock(iso){
+  var d = iso ? new Date(iso) : null;
+  return d && !isNaN(d) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+}
+/* "10:02:11 · Device 2 · 441 left" */
+function liveHistMeta(t){
+  var parts = [liveHistClock(t.at), liveHistWho(t)];
+  if(t.left != null) parts.push(T('lb.hist.left', { n: t.left }));
+  return escText(parts.filter(Boolean).join(' · '));
+}
+function liveHistBodyHTML(){
+  var h = liveHist.data;
+  if(liveHist.error && !h) return '<p>' + T('lb.hist.err') + ' <a href="javascript:void(0)" onclick="liveHist.error=\'\';liveHistDraw();liveHistFetch()">' + T('fo.retry') + '</a></p>';
+  if(!h) return '<p class="hint">' + T('fo.loading') + '</p>';
+  var over = ['confirmed', 'retired', 'voided'].indexOf(h.state) >= 0;
+  var no = h.info && h.info.matchNo != null && h.info.matchNo !== '' ? T('lb.match', { n: escText(h.info.matchNo) }) : '';
+  var sm = h.summary && h.summary.legs && h.summary.legs.length === 2 ? T('lb.hist.legs', { a: h.summary.legs[0], b: h.summary.legs[1] }) : '';
+  var html = '<div style="margin-bottom:8px"><b>' + escText(h.a) + '</b> v <b>' + escText(h.b) + '</b>' +
+    '<div class="hint" style="margin:0">' + [no, escText(TC('lb.st.', h.state)), sm].filter(Boolean).join(' · ') + '</div>' +
+    (h.disputed ? '<div style="margin:3px 0 0">' + liveDisputedBadge() + '</div>' : '') + '</div>' +
+    '<div class="buttonrow" style="margin:0 0 4px"><button class="btn ghost fo-btn" onclick="liveHistDispute(' + (h.disputed ? 'false' : 'true') + ')">' + T(h.disputed ? 'lb.hist.clearDisputed' : 'lb.hist.markDisputed') + '</button></div>' +
+    '<div class="hint" style="margin:0 0 8px">' + T('lb.hist.disputedHint') + '</div>' +
+    (liveHist.msg ? '<div style="color:var(--red);font-size:12px;margin:0 0 8px">' + escText(liveHist.msg) + '</div>' : '');
+  if(!h.turns.length) html += '<p class="hint">' + T('lb.hist.noTurns') + '</p>';
+  else {
+    html += '<div class="hint" style="margin:0 0 6px">' + T(over ? 'lb.hist.overHint' : 'lb.hist.restoreHint') + '</div>';
+    var rows = liveHistRows(h.turns), legs = [];
+    rows.forEach(function(r){ if(legs.indexOf(r.leg) < 0) legs.push(r.leg); });
+    legs.sort(function(p, q){ return p - q; });
+    legs.forEach(function(leg){
+      html += '<div style="font-weight:800;font-size:12px;margin:10px 0 2px;border-bottom:1px solid var(--line)">' + T('lb.hist.leg', { n: leg }) + '</div>';
+      rows.filter(function(r){ return r.leg === leg; }).forEach(function(r){ html += liveHistRowHTML(r, h, over); });
+    });
+  }
+  var tks = h.takeovers || [];
+  if(tks.length){
+    html += '<div style="font-weight:800;font-size:12px;margin:14px 0 2px;border-bottom:1px solid var(--line)">' + T('lb.hist.tkTitle') + '</div>' + tks.map(function(k){
+      var ask = T('lb.hist.tk', { to: escText(T('lb.deviceN', { n: k.toNo || '?' })), from: escText(T('lb.deviceN', { n: k.fromNo || '?' })), time: escText(liveHistClock(k.requestedAt)) });
+      var done = k.answer ? T('lb.hist.tk.done', { answer: T('lb.hist.tk.' + k.answer), by: k.decidedBy ? T('lb.hist.by.' + k.decidedBy) : '', time: escText(liveHistClock(k.decidedAt)) }) : T('lb.hist.tk.waiting');
+      return '<div style="margin:4px 0;font-size:12px">' + ask + ' ' + done + '</div>';
+    }).join('');
+  }
+  return html;
+}
+function liveHistRowHTML(r, h, over){
+  var name = function(t){ return escText(t.player || (t.side === 'b' ? h.b : h.a)); };
+  if(r.ignored){
+    var t = r.ignored;
+    return '<div style="margin:5px 0;opacity:.55"><b>' + name(t) + '</b> ' + escText(liveHistScore(t)) + ' <span class="hint" style="margin:0">' + liveHistMeta(t) + ' · ' +
+      T('lb.hist.notCounted', { why: escText(TC('lb.hist.why.', t.ignoredReason || '')) }) + '</span></div>';
+  }
+  var chain = r.chain;
+  if(chain.length === 1){
+    return '<div style="margin:5px 0"><b>' + name(chain[0]) + '</b> ' + escText(liveHistScore(chain[0])) + ' <span class="hint" style="margin:0">' + liveHistMeta(chain[0]) + '</span></div>';
+  }
+  var arrow = chain.map(function(t){ return escText(liveHistScore(t)) + (t.current ? ' ' + T('lb.hist.now') : ''); }).join(' → ');
+  return '<div style="margin:6px 0"><b>' + name(chain[0]) + '</b> ' + arrow +
+    chain.map(function(t){
+      return '<div style="margin:2px 0 0 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>' + escText(liveHistScore(t)) + (t.current ? ' ' + T('lb.hist.now') : '') +
+        ' <span class="hint" style="margin:0">' + liveHistMeta(t) + '</span></span>' +
+        (!t.current && !over ? '<button class="btn ghost fo-btn" onclick="liveHistRestore(\'' + escJs(t.id) + '\')">' + T('lb.hist.restore') + '</button>' : '') + '</div>';
+    }).join('') + '</div>';
+}
+/* Restore and the Disputed flag: the answer is the panel again; the window shows the new state (or the reason, inside itself). */
+var liveHistBusy = false;
+function liveHistAct(body){
+  if(liveHistBusy || !liveHist.pos) return;
+  liveHistBusy = true; liveHist.msg = '';
+  var pos = liveHist.pos;
+  liveCall(Object.assign({ pos: pos }, body), function(text){ if(liveHist.pos === pos){ liveHist.msg = text; liveHistDraw(); } }).then(function(){
+    liveHistBusy = false;
+    if(liveHist.pos === pos){ liveHist.last = ''; liveHistFetch(); }
+  }, function(){ liveHistBusy = false; });
+}
+function liveHistRestore(turnId){ liveHistAct({ op: 'restore', turnId: turnId }); }
+function liveHistDispute(on){ liveHistAct({ op: 'dispute', on: !!on }); }

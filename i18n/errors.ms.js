@@ -36,6 +36,10 @@ var DD_ERR_MS = {
   'err.match_over': "Perlawanan ini sudah tamat.",
   'err.takeover_stale': "Perlawanan itu telah berpindah, jadi permintaan dibatalkan.",
   'err.takeover_answered': "Permintaan itu sudah dijawab.",
+  'err.match_confirmed': "Perlawanan ini sudah disahkan. Keputusan diubah dengan memasukkannya semula.",
+  'err.turn_not_restorable': "Versi itu tidak boleh dipulihkan.",
+  'err.event_closed': "Acara ini sudah ditutup.",
+  'err.close_blocked': "Sesetengah peranti masih memegang giliran atau perlawanan yang belum masuk.",
   /* every endpoint */
   'err.method_not_allowed': 'Kaedah tidak dibenarkan',
   'err.not_found': 'Tidak dijumpai.',

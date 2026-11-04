@@ -181,6 +181,35 @@ async function logoutAllDevices(tournamentId) {
     await sql`UPDATE live_lends SET ended_at = now() WHERE tournament_id = ${tournamentId} AND ended_at IS NULL`;
   });
 }
+/* When the organiser closed the event (Close event), an ISO time, or null (open, or no login yet). */
+async function closedAt(tournamentId) {
+  return q(async () => {
+    const rows = await sql`SELECT closed_at FROM live_logins WHERE tournament_id = ${tournamentId}`;
+    return rows.length ? toIso(rows[0].closed_at) : null;
+  });
+}
+/* Marks the event closed, once: the ISO time, or null when it was closed already. The caller logs the devices out
+   (logoutAllDevices) right after; nobody can sign in again (deviceLogin). */
+async function closeLogin(tournamentId) {
+  return q(async () => {
+    const rows = await sql`UPDATE live_logins SET closed_at = now() WHERE tournament_id = ${tournamentId} AND closed_at IS NULL RETURNING closed_at`;
+    return rows.length ? toIso(rows[0].closed_at) : null;
+  });
+}
+/* The matches the organiser flagged as disputed: the list of their pos. */
+async function disputedPositions(tournamentId) {
+  return q(async () => {
+    const rows = await sql`SELECT pos FROM live_matches WHERE tournament_id = ${tournamentId} AND disputed = true`;
+    return rows.map((r) => r.pos);
+  });
+}
+/* Sets or clears the flag. false = the match has no live row. */
+async function setDisputed(tournamentId, pos, on) {
+  return q(async () => {
+    const rows = await sql`UPDATE live_matches SET disputed = ${!!on} WHERE tournament_id = ${tournamentId} AND pos = ${pos} RETURNING pos`;
+    return rows.length > 0;
+  });
+}
 /* The lends running now, with their ids: [{ id, from, to, startedAt }]. */
 async function activeLends(tournamentId) {
   return q(async () => {
@@ -244,8 +273,8 @@ const tournamentView = (data) => {
   return { name: c.tournamentName || '', eventName: c.eventName || '' };
 };
 
-/* Signs a device in. Throws LiveError: login_required, rate_limited, bad_login, link_ended (finalized: a NEW sign-in to a
-   finalized event is refused; devices already signed in stay, see sessionFor), live_off. Returns
+/* Signs a device in. Throws LiveError: login_required, rate_limited, bad_login, link_ended (reason 'closed': the organiser closed
+   the event; reason 'finalized': a NEW sign-in to a finalized event is refused; devices already signed in stay, see sessionFor), live_off. Returns
    { token, device: { id }, tournament: { name, eventName } }. Throttling: see IP_LIMIT above. */
 async function deviceLogin(username, password, ip) {
   if (typeof username !== 'string' || typeof password !== 'string' || !username.trim() || !password.trim()) throw new LiveError('login_required');
@@ -255,7 +284,7 @@ async function deviceLogin(username, password, ip) {
     const pairKey = 'live-login:' + user + ':' + ip, ipKey = 'live-login-ip:' + ip;
     if (await throttle.isBlocked(pairKey, PAIR_LIMIT, WINDOW_MS) || await throttle.isBlocked(ipKey, IP_LIMIT, IP_WINDOW_MS)) throw new LiveError('rate_limited');
     const rows = await sql`
-      SELECT l.tournament_id, l.password_hash, l.session_nonce, t.data AS t_data
+      SELECT l.tournament_id, l.password_hash, l.session_nonce, l.closed_at, t.data AS t_data
       FROM live_logins l JOIN tournaments t ON t.id = l.tournament_id WHERE l.username = ${user}`;
     const row = rows[0] || null;
     // an unknown username costs the same bcrypt work and the same database calls as a known one with a wrong password
@@ -267,6 +296,7 @@ async function deviceLogin(username, password, ip) {
     }
     await throttle.clear(pairKey);
     // the password is right: now say what is wrong with the event (never before, so a guesser learns nothing)
+    if (row.closed_at) throw new LiveError('link_ended', 'closed');   // Close event: the scoring is over, nobody signs in again
     if (isFinalized(row.t_data)) throw new LiveError('link_ended', 'finalized');
     if (!LiveSettings.isLive(row.t_data)) throw new LiveError('live_off');
     const id = newDeviceId();
@@ -417,6 +447,17 @@ async function matchTurns(tournamentId, pos) {
     return rows.map((r) => ({ id: r.id, leg: Number(r.leg), side: r.side, player: r.player == null ? null : r.player, entered: r.entered, supersedes: r.supersedes || null }));
   });
 }
+/* EVERY turn of a match, ignored ones too, oldest first (the organiser's match history). raw device id: the route turns it into
+   "Device N". [{ id, leg, side, player, entered, deviceId, supersedes, ignored, ignoredReason, createdAt }] */
+async function allTurns(tournamentId, pos) {
+  return q(async () => {
+    const rows = await sql`SELECT id, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason, created_at FROM live_turns WHERE tournament_id = ${tournamentId} AND pos = ${pos} ORDER BY created_at, id`;
+    return rows.map((r) => ({
+      id: r.id, leg: Number(r.leg), side: r.side, player: r.player == null ? null : r.player, entered: r.entered, deviceId: r.device_id,
+      supersedes: r.supersedes || null, ignored: !!r.ignored, ignoredReason: r.ignored_reason || null, createdAt: toIso(r.created_at)
+    }));
+  });
+}
 /* The public one-line picture of a match, rewritten after every accepted turn. */
 async function setSummary(tournamentId, pos, summary) {
   return q(async () => { await sql`UPDATE live_matches SET summary = ${JSON.stringify(summary)}::jsonb WHERE tournament_id = ${tournamentId} AND pos = ${pos}`; });
@@ -539,6 +580,14 @@ async function allowTakeover(tournamentId, id, decidedBy) {
     return rows.length ? rows[0].answer : null;
   });
 }
+/* Every take-over request for one match, answered or not, oldest first (the match history's log):
+   [{ id, from_device, to_device, answer, decided_by, requestedAt, decidedAt }] (answer and decided_by are null while waiting). */
+async function matchTakeovers(tournamentId, pos) {
+  return q(async () => {
+    const rows = await sql`SELECT id, from_device, to_device, answer, decided_by, created_at, decided_at FROM live_takeovers WHERE tournament_id = ${tournamentId} AND pos = ${pos} ORDER BY created_at, id`;
+    return rows.map((r) => ({ id: r.id, from_device: r.from_device, to_device: r.to_device, answer: r.answer || null, decided_by: r.decided_by || null, requestedAt: toIso(r.created_at), decidedAt: toIso(r.decided_at) }));
+  });
+}
 /* The requests that still mean something: waiting, the match still held by the device the request names, the asking device still
    signed in. [{ id, pos, fromDevice, toDevice, fromBoard, toBoard, requestedAt }] oldest first. pre: { rows, devices } when the
    caller has them already (liveRows, panelDevices). */
@@ -564,9 +613,9 @@ async function openTakeovers(tournamentId, pre) {
 module.exports = {
   LiveError, PASSWORD_LENGTH, PASSWORD_ALPHABET,
   enable, show, newPassword: newPasswordFor,
-  panelDevices, logoutDevice, logoutAllDevices, activeLends, addLend, endLend, endIdleLends,
+  panelDevices, logoutDevice, logoutAllDevices, activeLends, addLend, endLend, endIdleLends, closedAt, closeLogin, disputedPositions, setDisputed,
   deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent,
   liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch,
-  matchFull, insertTurn, turnById, matchTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser,
-  requestTakeover, takeoverById, answerTakeover, allowTakeover, openTakeovers
+  matchFull, insertTurn, turnById, matchTurns, allTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser,
+  requestTakeover, takeoverById, answerTakeover, allowTakeover, openTakeovers, matchTakeovers
 };

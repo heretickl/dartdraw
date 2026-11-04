@@ -51,6 +51,17 @@ function seedLiveSample() {
   const row = (s, state, device, board) => liveDb.matches.push({ tournament_id: 'live-sample', pos: s.pos, state, device_id: device, board, played_on_board: board, paper: false, retired_side: null, started_at: ago(300), ended_at: null, summary: {}, changed_by_organiser: false });
   row(onBoard(2)[0], 'playing', 'dev_sample2', 2);
   row(onBoard(1)[0], 'waiting', 'dev_sample1', 1);
+  /* turns for the history window: the playing match has a corrected turn (60, then 45, then 54), a turn sent by the tablet that no longer
+     holds it (kept, not counted) and a take-over request log; a finished match on board 3 (confirmed) shows no Restore */
+  const turn = (id, pos, leg, side, score, device, at, extra) => liveDb.turns.push(Object.assign({ id, tournament_id: 'live-sample', pos, leg, side, player: null, entered: { mode: 'total', game: 'x01', score, darts: 3, bust: false }, device_id: device, supersedes: null, ignored: false, ignored_reason: null, created_at: ago(at) }, extra || {}));
+  const live2 = onBoard(2)[0].pos, done3 = onBoard(3)[1].pos;
+  turn('s1', live2, 1, 'a', 60, 'dev_sample2', 280); turn('s2', live2, 1, 'b', 45, 'dev_sample2', 270);
+  turn('s3', live2, 1, 'a', 45, 'dev_sample2', 262, { supersedes: 's1' }); turn('s4', live2, 1, 'a', 54, 'dev_sample2', 250, { supersedes: 's3' });
+  turn('s5', live2, 1, 'b', 100, 'dev_sample2', 240); turn('s6', live2, 1, 'a', 26, 'dev_sample2', 230);
+  turn('s7', live2, 1, 'b', 180, 'dev_sample3', 100, { ignored: true, ignored_reason: 'not_holder' });
+  liveDb.takeovers.push({ id: 'tko_old', tournament_id: 'live-sample', pos: live2, from_device: 'dev_sample2', to_device: 'dev_sample1', decided_by: 'org:u1', answer: 'deny', created_at: ago(200), decided_at: ago(190) });
+  row(onBoard(3)[1], 'confirmed', 'dev_sample3', 3);
+  turn('d1', done3, 1, 'a', 100, 'dev_sample3', 500); turn('d2', done3, 1, 'b', 60, 'dev_sample3', 490);
   liveDb.takeovers.push({ id: 'tko_sample1', tournament_id: 'live-sample', pos: onBoard(2)[0].pos, from_device: 'dev_sample2', to_device: 'dev_sample3', decided_by: null, answer: null, created_at: ago(40), decided_at: null });
 }
 if (process.env.MOCK_LIVE === '1') seedLiveSample();

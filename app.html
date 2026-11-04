@@ -4221,16 +4221,31 @@ async function reloadServerCopy(id){
   try{ await openTournament(id); }catch(e){}
   if(state && state.id===id){ currentStage = stage; render(); }
 }
+let finalizeChecking = false;   // a Live event's Finalise is looking for devices that still hold something (below)
 function finalizeResults(){
   if(isSampleOpen()){ sampleBlockModal('finalize it'); return; }
-  if(!state || isLocked(state) || finalizing || !eventComplete(state)) return;
+  if(!state || isLocked(state) || finalizing || finalizeChecking || !eventComplete(state)) return;
   const t = state;
-  openModal({
-    title:T('fin.askTitle'),
-    body:T('fin.askText'),
-    confirmLabel:T('fin.acceptLabel'), confirmClass:'primary',
-    onConfirm: ()=> runFinalize(t)
-  });
+  /* extra: the Live scoring warning (live-ui.js liveFinalizeWarnHTML), '' for a Manual event, nothing in the way or any trouble finding out */
+  const ask = (extra)=>{
+    finalizeChecking = false;
+    if(state!==t || isLocked(t) || finalizing) return;
+    const cfg = {
+      title:T('fin.askTitle'),
+      confirmLabel:T('fin.acceptLabel'), confirmClass:'primary',
+      onConfirm: ()=> runFinalize(t)
+    };
+    if(extra) cfg.bodyHTML = '<p>'+T('fin.askText')+'</p>'+extra; else cfg.body = T('fin.askText');
+    openModal(cfg);
+  };
+  /* Live event: list the devices that still hold unsent turns or a match not confirmed. It only warns (finalising never logs devices out, spec 7.6); a slow or failed look asks as before. */
+  if(t.id && typeof LiveSettings!=='undefined' && LiveSettings.isLive(t) && typeof liveFetchBlockers==='function'){
+    finalizeChecking = true;
+    const slow = new Promise(res=> setTimeout(()=> res(null), 4000));
+    Promise.race([liveFetchBlockers(t.id), slow]).then(list=> ask(list && list.length ? liveFinalizeWarnHTML(list) : ''), ()=> ask(''));
+    return;
+  }
+  ask('');
 }
 /* Finalizing is "check, then close": (1) make sure the server has our latest save and that it is still the copy we are
    looking at, still complete and not already finalized; (2) only then PUT finalized with the stamp we checked. Any doubt

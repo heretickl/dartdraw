@@ -31,6 +31,18 @@ function gameFor(data, t, s) {
   const st = stageOf(t, s);
   return { game: Object.assign({}, LiveSettings.gameOf(data, st.key, st.ri), { orderRule }) };
 }
+/* The x01 start score of each leg of a match: startFor(leg) is 501 ... or null for Cricket / an unknown match. A mixed game plays
+   its pattern in turn, leg by leg. (The match's public summary and the organiser's match history both read it.) */
+function startForOf(ctx, pos) {
+  const s = ctx.slotsByPos[pos];
+  if (!s) return () => null;
+  const g = gameFor(ctx.data, ctx.t, s).game.game;
+  return (leg) => {
+    const one = typeof g === 'string' ? g : (g && Array.isArray(g.pattern) && g.pattern.length ? g.pattern[(leg - 1) % g.pattern.length] : null);
+    const n = one && one !== 'cricket' ? parseInt(one, 10) : NaN;
+    return Number.isInteger(n) ? n : null;
+  };
+}
 /* An entry as a scorer needs it: the display name and the players' names. */
 function entryOf(byId, id) {
   const en = byId[id];
@@ -160,4 +172,4 @@ function buildList(found, rows, lends, takeovers) {
   return mineList.concat(lentList, elseList, doneList);
 }
 
-module.exports = { boardCountOf, buildList, load, matchView, placeFor, heldPlace, busyEntries, stageOf, gameFor, isWaiting, waitingOn, entryOf, MAX_BOARDS };
+module.exports = { boardCountOf, buildList, load, matchView, placeFor, heldPlace, busyEntries, stageOf, gameFor, startForOf, isWaiting, waitingOn, entryOf, MAX_BOARDS };

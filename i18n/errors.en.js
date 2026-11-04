@@ -41,6 +41,10 @@ var DD_ERR_EN = {
   'err.match_over': "This match is over.",
   'err.takeover_stale': "That match has moved on, so the request was cancelled.",
   'err.takeover_answered': "That request has already been answered.",
+  'err.match_confirmed': "This match is already confirmed. A result is changed by entering it again.",
+  'err.turn_not_restorable': "That version cannot be restored.",
+  'err.event_closed': "This event is closed.",
+  'err.close_blocked': "Some devices still hold turns or matches that are not in yet.",
   /* every endpoint */
   'err.method_not_allowed': 'Method not allowed',
   'err.not_found': 'Not found.',

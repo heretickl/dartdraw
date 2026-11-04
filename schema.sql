@@ -96,8 +96,10 @@ CREATE TABLE live_logins (
   password_hash  text NOT NULL,
   password_shown text NOT NULL,
   session_nonce  text NOT NULL,
+  closed_at      timestamptz,
   created_at     timestamptz NOT NULL DEFAULT now()
 );
+-- closed_at: set by Close event. A closed event takes no new sign-in, and its password, lends and log-outs can no longer be changed.
 -- usernames are unique across the whole table (a device signs in with the username alone). session_nonce: New password changes it,
 -- which logs every device of the event out (a device session carries the nonce it signed in with).
 CREATE UNIQUE INDEX idx_live_logins_username ON live_logins (username);
@@ -134,8 +136,10 @@ CREATE TABLE live_matches (
   ended_at             timestamptz,
   summary              jsonb NOT NULL DEFAULT '{}'::jsonb,
   changed_by_organiser boolean NOT NULL DEFAULT false,
+  disputed             boolean NOT NULL DEFAULT false,
   PRIMARY KEY (tournament_id, pos)
 );
+-- disputed: a flag the organiser sets from the match history when a result is questioned; only the Boards panel reads it.
 
 -- live_turns: every turn a device keyed. APPEND-ONLY: the code never runs UPDATE or DELETE on this table. A correction is a new
 -- row whose supersedes names the turn it replaces. id is made by the device and doubles as the idempotency key, so a turn sent

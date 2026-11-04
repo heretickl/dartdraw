@@ -3,9 +3,9 @@
 // statements their code issues.
 //
 //   const db = createFakeLiveDb({ tournaments });   // tournaments: { id: { data, updated_at, created_by } } (shared ok)
-//   db.logins: [{ tournament_id, username, password_hash, password_shown, session_nonce, created_at }]
+//   db.logins: [{ tournament_id, username, password_hash, password_shown, session_nonce, closed_at, created_at }]
 //   db.devices: [{ id, tournament_id, board, session_nonce, last_seen_at, logged_out_at, unsent, created_at }]
-//   db.matches: [{ tournament_id, pos, state, device_id, board, played_on_board, paper, retired_side, started_at, ended_at, summary, changed_by_organiser }]
+//   db.matches: [{ tournament_id, pos, state, device_id, board, played_on_board, paper, retired_side, started_at, ended_at, summary, changed_by_organiser, disputed }]
 //   db.turns: [{ id, tournament_id, pos, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason, created_at }]
 //   db.lends: [{ id, tournament_id, from_board, to_board, started_at, ended_at }]
 //   db.takeovers: [{ id, tournament_id, pos, from_device, to_device, decided_by, answer, created_at, decided_at }]
@@ -44,7 +44,7 @@ function createFakeLiveDb(opts) {
       const [tid, username, hash, shown, nonce] = vals;
       if (db.logins.some((l) => l.tournament_id === tid)) return [];
       if (db.logins.some((l) => l.username === username)) throw dup();
-      db.logins.push({ tournament_id: tid, username, password_hash: hash, password_shown: shown, session_nonce: nonce, created_at: iso() });
+      db.logins.push({ tournament_id: tid, username, password_hash: hash, password_shown: shown, session_nonce: nonce, closed_at: null, created_at: iso() });
       return [{ username, password_shown: shown }];
     }
     if (text.startsWith('UPDATE live_logins SET password_hash = ?, password_shown = ?, session_nonce = ? WHERE tournament_id = ? RETURNING username, password_shown')) {
@@ -52,10 +52,16 @@ function createFakeLiveDb(opts) {
       Object.assign(l, { password_hash: vals[0], password_shown: vals[1], session_nonce: vals[2] });
       return [{ username: l.username, password_shown: l.password_shown }];
     }
-    if (text.startsWith('SELECT l.tournament_id, l.password_hash, l.session_nonce, t.data AS t_data FROM live_logins l JOIN tournaments t ON t.id = l.tournament_id WHERE l.username = ?')) {
+    if (text.startsWith('SELECT l.tournament_id, l.password_hash, l.session_nonce, l.closed_at, t.data AS t_data FROM live_logins l JOIN tournaments t ON t.id = l.tournament_id WHERE l.username = ?')) {
       const l = db.logins.find((x) => x.username === vals[0]); if (!l) return [];
       const t = tOf(l.tournament_id); if (!t) return [];
-      return [{ tournament_id: l.tournament_id, password_hash: l.password_hash, session_nonce: l.session_nonce, t_data: copy(t.data) }];
+      return [{ tournament_id: l.tournament_id, password_hash: l.password_hash, session_nonce: l.session_nonce, closed_at: l.closed_at || null, t_data: copy(t.data) }];
+    }
+    // Close event (api/_lib/live.js: closedAt, closeLogin)
+    if (text === 'SELECT closed_at FROM live_logins WHERE tournament_id = ?') return db.logins.filter((l) => l.tournament_id === vals[0]).map((l) => ({ closed_at: l.closed_at || null }));
+    if (text === 'UPDATE live_logins SET closed_at = now() WHERE tournament_id = ? AND closed_at IS NULL RETURNING closed_at') {
+      const l = db.logins.find((x) => x.tournament_id === vals[0] && !x.closed_at); if (!l) return [];
+      l.closed_at = iso(); return [{ closed_at: l.closed_at }];
     }
     // live_devices
     if (text.startsWith('INSERT INTO live_devices (id, tournament_id, session_nonce, last_seen_at) VALUES (?, ?, ?, now())')) {
@@ -96,7 +102,7 @@ function createFakeLiveDb(opts) {
     if (text === "INSERT INTO live_matches (tournament_id, pos, state, device_id, board, played_on_board) VALUES (?, ?, 'waiting', ?, ?, ?) ON CONFLICT (tournament_id, pos) DO NOTHING RETURNING pos") {
       const [tid, pos, did, board, playedOn] = vals;
       if (db.matches.some((m) => m.tournament_id === tid && m.pos === pos)) return [];
-      db.matches.push({ tournament_id: tid, pos, state: 'waiting', device_id: did, board, played_on_board: playedOn, paper: false, retired_side: null, started_at: null, ended_at: null, summary: {}, changed_by_organiser: false });
+      db.matches.push({ tournament_id: tid, pos, state: 'waiting', device_id: did, board, played_on_board: playedOn, paper: false, retired_side: null, started_at: null, ended_at: null, summary: {}, changed_by_organiser: false, disputed: false });
       return [{ pos }];
     }
     if (text === "UPDATE live_matches SET device_id = ?, board = ?, played_on_board = ? WHERE tournament_id = ? AND pos = ? AND device_id IS NULL AND paper = false AND state NOT IN ('confirmed', 'retired', 'voided') RETURNING pos") {
@@ -153,6 +159,19 @@ function createFakeLiveDb(opts) {
       m.state = 'retired'; m.retired_side = vals[0]; m.ended_at = iso(); return [{ pos: m.pos }];
     }
     if (text === 'UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ? AND pos = ?') { const m = mOf(vals[0], vals[1]); if (m) m.changed_by_organiser = true; return []; }
+    // the match history (api/_lib/live.js: allTurns, matchTakeovers, disputedPositions, setDisputed)
+    if (text === 'SELECT id, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason, created_at FROM live_turns WHERE tournament_id = ? AND pos = ? ORDER BY created_at, id') {
+      return db.turns.filter((x) => x.tournament_id === vals[0] && x.pos === vals[1])
+        .sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
+        .map((x) => ({ id: x.id, leg: x.leg, side: x.side, player: x.player, entered: copy(x.entered), device_id: x.device_id, supersedes: x.supersedes, ignored: x.ignored, ignored_reason: x.ignored_reason, created_at: x.created_at }));
+    }
+    if (text === 'SELECT id, from_device, to_device, answer, decided_by, created_at, decided_at FROM live_takeovers WHERE tournament_id = ? AND pos = ? ORDER BY created_at, id') {
+      return db.takeovers.filter((x) => x.tournament_id === vals[0] && x.pos === vals[1]).slice()
+        .sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
+        .map((x) => ({ id: x.id, from_device: x.from_device, to_device: x.to_device, answer: x.answer, decided_by: x.decided_by, created_at: x.created_at, decided_at: x.decided_at }));
+    }
+    if (text === 'SELECT pos FROM live_matches WHERE tournament_id = ? AND disputed = true') return db.matches.filter((m) => m.tournament_id === vals[0] && m.disputed).map((m) => ({ pos: m.pos }));
+    if (text === 'UPDATE live_matches SET disputed = ? WHERE tournament_id = ? AND pos = ? RETURNING pos') { const m = mOf(vals[1], vals[2]); if (!m) return []; m.disputed = vals[0]; return [{ pos: m.pos }]; }
     // the organiser's Boards panel (api/_lib/live.js: panelDevices, logoutDevice, logoutAllDevices, lends; route panel)
     if (text === 'SELECT id, board, last_seen_at, unsent, logged_out_at FROM live_devices WHERE tournament_id = ? ORDER BY created_at, id') {
       return db.devices.filter((d) => d.tournament_id === vals[0]).slice()

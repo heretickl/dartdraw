@@ -11,7 +11,7 @@
 // live_turns is append-only: a correction is a new turn whose `supersedes` names the one it replaces. Turns kept as ignored are
 // never counted in the match's summary.
 const { sendError, bodyObject, methodNotAllowed, requireSession, refuse, live } = require('./common');
-const { load, gameFor } = require('./view');
+const { load, startForOf } = require('./view');
 const { cleanEntered, summarize } = require('../../_lib/live-summary');
 
 const ID = /^[A-Za-z0-9_.:-]{1,100}$/;
@@ -58,16 +58,7 @@ async function rewriteSummary(found, row, turn, next) {
   const turns = await live.matchTurns(found.tournament.id, turn.pos);
   let startFor = () => null;
   try {
-    const ctx = load(found);
-    const s = ctx.slotsByPos[turn.pos];
-    if (s) {
-      const g = gameFor(ctx.data, ctx.t, s).game.game;
-      startFor = (leg) => {
-        const one = typeof g === 'string' ? g : (g && Array.isArray(g.pattern) && g.pattern.length ? g.pattern[(leg - 1) % g.pattern.length] : null);
-        const n = one && one !== 'cricket' ? parseInt(one, 10) : NaN;
-        return Number.isInteger(n) ? n : null;
-      };
-    }
+    startFor = startForOf(load(found), turn.pos);
   } catch (e) { /* the picture still has the legs and the thrower */ }
   const prev = row && row.summary ? row.summary : {};
   const picture = summarize(turns, startFor, { side: turn.side, supersedes: turn.supersedes }, next, prev.thrower);
@@ -100,3 +91,4 @@ module.exports = async (req, res) => {
 };
 
 module.exports.parseTurn = parseTurn;
+module.exports.rewriteSummary = rewriteSummary;   // the organiser's Restore (panel op) rewrites the picture the same way
