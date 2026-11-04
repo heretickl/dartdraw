@@ -34,8 +34,10 @@ function podsFormatFieldsHTML(){
       '<div class="field"><label>'+T('pods.count')+'</label><input id="f_podcount" type="number" min="2" max="'+PODS_MAX+'" value="'+(p || '')+'" oninput="podsPreviewSettings()"></div>'+
     '</div>'+
     '<div class="grid2"><div class="field"><label>'+T('pods.bestOfGroups')+'</label><input id="f_podlegs" type="number" min="1" step="2" value="'+(parseInt(f.podLegs) || parseInt(f.bestOfLegs) || 5)+'"></div><div></div></div>'+
+    gameFieldsHTML('pod')+
     '<div class="recommend" id="podsSummary">'+podsSummaryHTML(n, p)+'</div>'+
-    (advanced ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, T('pods.finalsLegs')) : '');
+    (advanced ? knockoutLegsFieldsHTML('main', f.knockoutLegs.main, T('pods.finalsLegs')) : '')+
+    gameFieldsHTML('finals');
 }
 function podsPreviewSettings(){
   var el = document.getElementById('f_podcount'), box = document.getElementById('podsSummary');

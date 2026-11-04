@@ -781,6 +781,7 @@ var DD_MS_FILES = ["i18n/render.ms.js", "i18n/app.ms.js", "i18n/print.ms.js", "i
 <script src="pods-ui.js"></script>
 <script src="admin-ui.js"></script>
 <script src="players-ui.js"></script>
+<script src="live-ui.js"></script>
 <script src="qr.js"></script>
 <script src="boardplan.js"></script>
 <script src="boardplan-ui.js"></script>
@@ -4454,7 +4455,7 @@ function goStage(n){
 }
 function goStageNow(n){
   playersPage.open = false;
-  if(n!==2){ teamSegDraft = null; stage2Entry = null; }   // leaving Format & branding without Save drops unsaved segment edits
+  if(n!==2){ teamSegDraft = null; liveDraftDrop(); stage2Entry = null; }   // leaving Format & branding without Save drops unsaved segment edits
   currentStage = n;
   render();
 }
@@ -4964,7 +4965,7 @@ function loadTournamentRow(id, row, fromPhone){
     /* Teams: an older event's foursome / rubber setup becomes segments (once; the old fields are kept as they are).
        Before the backfill below, which tells it whether the event predates the stored team format. */
     migrateTeamSegments(state);
-    teamSegDraft = null;   // a fresh copy of the event: no unsaved segment edits carry over
+    teamSegDraft = null; liveDraftDrop();   // a fresh copy of the event: no unsaved segment or Live scoring edits carry over
     if(state.format.qualifiersPerGroup===undefined){
       state.format.qualifiersPerGroup = 2; state.format.advanceMode = 'seeded'; state.format.losersPool = false;
       state.format.orgSplit = false;
@@ -5285,7 +5286,7 @@ function render(){
   finally{ renderStaleBanner(); renderCompactBar(); try{ renderStageHelp(); }catch(e){} }
 }
 function renderPage(){
-  if(currentStage!==2 || popoutMode) teamSegDraft = null;   // the segment draft lives only while step 2 is on screen
+  if(currentStage!==2 || popoutMode){ teamSegDraft = null; liveDraftDrop(); }   // the segment and Live scoring drafts live only while step 2 is on screen
   document.body.classList.toggle('finalized', isLocked(state));
   document.body.classList.toggle('admin-mode', adminViewActive());
   if(popoutMode){ renderPopoutManage(); return; }
@@ -5306,8 +5307,8 @@ function renderPage(){
   if(currentStage>=3 && state.format.saved) html += formatSummaryCard();
   if(currentStage===1) html += stage1();
   else if(currentStage===2) html += stage2();
-  else if(currentStage===3) html += stage3();
-  else if(currentStage===4) html += stage4();
+  else if(currentStage===3) html += liveNamesChecklistHTML() + stage3();
+  else if(currentStage===4) html += liveNamesChecklistHTML() + stage4();
   else if(currentStage===5) html += stage5();
   else if(currentStage===6) html += stage6();
   else if(currentStage===7) html += stage7();
@@ -5529,7 +5530,7 @@ function eventSummaryCard(){
    Scheduling is left out of this seed (stays expanded by default) since
    its "expanded" content is already just a compact one-line summary —
    collapsing it would hide even that without saving any real space. */
-let formSectionCollapsed = { format:true, branding:true, rules:true };
+let formSectionCollapsed = { format:true, branding:true, rules:true, live:true };
 function toggleFormSection(key){
   formSectionCollapsed[key] = !formSectionCollapsed[key];
   render();
@@ -5585,9 +5586,10 @@ let stage2Entry = null;
 function stage2Changed(){
   if(!stage2Entry || !state || stage2Entry.id!==state.id) return false;
   if(state.format.formatType!==stage2Entry.formatType) return true;
+  if(liveDraftChanged()) return true;   // a Live scoring setting changed (live-ui.js)
   const d = teamSegDraft;
   if(!d || d.id!==state.id || !isTeamsEvent(state)) return false;
-  const tbKey = (tb)=> JSON.stringify([tb.type, tb.startingScore, tb.legs, !!tb.inKnockout, teamRrTieBreakerForced(state) ? true : !!tb.inRoundRobin]);
+  const tbKey = (tb)=> JSON.stringify([tb.type, tb.startingScore, tb.legs, tb.game, tb.inOut, !!tb.inKnockout, teamRrTieBreakerForced(state) ? true : !!tb.inRoundRobin]);
   return JSON.stringify(d.segments.map(cleanSegment))!==JSON.stringify(teamSegmentsOf(state)) || tbKey(cleanTieBreaker(d.tieBreaker))!==tbKey(teamTieBreakerDef(state));
 }
 function stage2(){
@@ -5635,6 +5637,7 @@ function stage2(){
       '<div class="form-section" style="margin-top:20px"><div class="form-section-title">'+T('s2.rrStage')+'</div>'+
         '<div class="field"><label>'+T('s2.maxPerGroup')+'</label><select id="f_maxgroup">'+ maxOptions +'</select></div>'+
         recommendGroupsSummaryHTML(rec, n)+
+        gameFieldsHTML('rr')+
       '</div>'+
       '<div class="form-section"><div class="form-section-title">'+T('s2.koStage')+'</div>'+
         '<div class="grid2">'+
@@ -5645,6 +5648,7 @@ function stage2(){
           '</select></div>'+
         '</div>'+
         koLegsHTML('main', T('s2.koLegs'))+
+        gameFieldsHTML('knockout.main')+
       '</div>'+
       (advanced ?
         '<div class="form-section"><div class="form-section-title">'+T('s2.plate')+helpQHTML('faq-plate', T('s2.plateHelp'))+'</div>'+
@@ -5652,6 +5656,7 @@ function stage2(){
           '<div class="field" style="margin-top:8px;max-width:340px"><label>'+T('s2.plateQ')+' <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">'+T('s2.plateQOpt')+'</span></label><input id="f_platequalifiers" type="number" min="1" placeholder="'+T('s2.plateQPh')+'" value="'+escText(f.plateQualifiersPerGroup||'')+'"></div>'+
           '<div class="hint" style="margin-bottom:6px">'+T('s2.plateHint')+'</div>'+
           koLegsHTML('plate', T('s2.plateLegs'))+
+          gameFieldsHTML('knockout.plate')+
         '</div>'
         : '')+
       teamSectionHTML;
@@ -5668,7 +5673,7 @@ function stage2(){
         recommendGroupsSummaryHTML(rec, n)
         : '<div class="recommend">'+(n>=2 ? T('s2.nearest', {size: escText(bracket.size), entries: escText(n), n: escText(bracket.byes)}) : T('s2.noEntriesYet'))+'</div>'
       )+
-      (f.formatType==='knockout' ? koLegsHTML('main', T('s2.koLegs')) : '')+
+      (f.formatType==='knockout' ? koLegsHTML('main', T('s2.koLegs'))+gameFieldsHTML('knockout.main') : gameFieldsHTML('rr'))+
       teamSectionHTML;
   }
   const brandingSectionHTML =
@@ -5711,6 +5716,7 @@ function stage2(){
       schedulingSummaryHTML())+
     collapsibleSectionHTML('branding', T('s2.secBranding'), '', brandingSectionHTML)+
     collapsibleSectionHTML('rules', T('s2.secRules'), '', rulesSectionHTML)+
+    liveSettingsSectionHTML()+
     '<div class="buttonrow">'+
       '<button class="btn secondary" onclick="goStage(1)">'+T('m.back')+'</button>'+
       '<button class="btn primary" onclick="saveStage2()">'+T('s2.save')+'</button>'+
@@ -5995,6 +6001,7 @@ function segmentRowHTML(seg, key, idx, count){
     '<span class="team-seg-num">'+(isTb?T('seg.tbName'):(idx+1))+'</span>'+
     '<select style="width:auto" aria-label="'+T('seg.typeLabel', {name})+'" onchange="setTeamSegmentField('+arg+',\'type\',this.value)">'+segmentTypeOptionsHTML(seg.type)+'</select>'+
     '<select style="width:auto" aria-label="'+T('seg.startLabel', {name})+'" onchange="setTeamSegmentField('+arg+',\'startingScore\',this.value)">'+segmentStartOptionsHTML(seg.startingScore)+'</select>'+
+    liveSegmentFieldsHTML(seg, isTb ? 'tb' : idx, name)+
     '<span style="font-size:11px;color:var(--muted)">'+T('seg.bestOf')+'</span>'+
     '<input type="number" style="width:64px" min="1" max="99" step="2" value="'+legs+'" aria-label="'+T('seg.legsLabel', {name})+'" oninput="setTeamSegmentField('+arg+',\'legs\',this.value)">'+
     '<span style="font-size:11px;color:var(--muted)">'+T('seg.legs')+'</span>'+
@@ -6319,6 +6326,7 @@ function saveStage2(){
   }
   if(f.formatType==='podknockout') podsReadFormat(f);
   applyTeamSegmentsDraft();   // Teams: the segment edits are applied now, with the other fields
+  applyLiveSettings(readLiveSettingsFromForm());   // Live scoring (live-ui.js): null when the section was never drawn, and only what changed is written
   // Org-split, level of play, anticipated start time only exist in Advanced mode.
   const orgSplitEl = document.getElementById('f_orgsplit');
   if(orgSplitEl) f.orgSplit = orgSplitEl.checked;

@@ -8,7 +8,7 @@
    untouched, and the landing site, Help and sign-in pages are outside the scope.
    VERSION: bump it when SHELL changes (a file added or removed). Network first already serves new files after a deploy;
    the bump only clears the old caches. SHELL must list every <script src> of app.html, render.css and DD_MS_FILES. */
-var VERSION = '2026-11-05.1';
+var VERSION = '2026-11-05.2';
 var CACHE = 'dd-app-' + VERSION;
 var SHELL = [
   '/app',
@@ -17,7 +17,7 @@ var SHELL = [
   '/i18n/app.en.js', '/i18n/print.en.js', '/i18n/errors.en.js',
   '/i18n/render.ms.js', '/i18n/app.ms.js', '/i18n/print.ms.js', '/i18n/errors.ms.js',
   '/i18n/app-i18n.js',
-  '/bracket-print.js', '/tournament-sanitize.js', '/offline.js', '/pods.js', '/pods-ui.js', '/admin-ui.js', '/players-ui.js',
+  '/bracket-print.js', '/tournament-sanitize.js', '/offline.js', '/pods.js', '/pods-ui.js', '/admin-ui.js', '/players-ui.js', '/live-ui.js',
   '/qr.js', '/boardplan.js', '/boardplan-ui.js', '/boardgroups.js',
   /* the floor officials' page (registered with scope /score/): /score/<token> is answered with score.html */
   '/score.html', '/score.js', '/i18n/score.en.js', '/i18n/score.ms.js'
