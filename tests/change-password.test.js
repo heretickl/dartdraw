@@ -333,7 +333,9 @@ test('no new deployable function: the handler lives under api/_routes and only t
       if (e.isDirectory()) walk(path.join(dir, e.name), p); else if (e.name.endsWith('.js')) deployed.push(p);
     }
   })(path.join(__dirname, '..', 'api'), '');
-  assert.ok(deployed.length <= 8, deployed.join(', '));
+  /* the routers: admin (3), auth, live (Live scoring, one router for all its actions), players, score, tournaments (2) */
+  assert.ok(deployed.includes('live/[action].js'), 'the live router is the one function Live scoring adds');
+  assert.ok(deployed.length <= 9, deployed.join(', '));
   assert.ok(!deployed.some((p) => /change-password/.test(p)), 'change-password must not be its own function');
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'api', '_routes', 'auth', 'change-password.js')));
 });

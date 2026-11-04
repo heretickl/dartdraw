@@ -32,7 +32,10 @@ const holes = (v) => [...new Set(forms(v).join(' ').match(/\{\w+\}/g) || [])].so
 const SAME = new Set(['autoName.trio', 'm.ok', 'sheet.marker', 'list.sep', 'fmt.roundrobin', 'seg.numbered', 'ko.cl.score', 'ko.cl.scoreWo', 'ko.cl.line', 'dur.line', 'dur.rr', 'org.pro',
   'saved.line', 'cw.sub', 'sum.edit', 'sum.format', 'sum.logo', 'cc.board', 'boards.list', 'tooMany.withHint', 'sheet.tbItem', 'paper.fitItem', 'nw.rr', 'jump.rr',
   's2.rr', 's2.secFormat', 'pods.countOf', 'bp.board', 'br.bracket', 's1.basic' /* no: Asas */, 'pods.boardsLabel', 's3.boardsLabel', 'dur.rr',
-  'bg.plate', 'bg.sheetBoard' /* Plate and BOARD stay English (glossary) */]);
+  'bg.plate', 'bg.sheetBoard' /* Plate and BOARD stay English (glossary) */,
+  /* Live scoring: darts words and acronyms said as they are in Malaysian darts (glossary section 3: leg, checkout, bull) */
+  'live.manual', 'live.game.cricket', 'live.inOut.DIDO', 'live.inOut.SIDO', 'live.bull', 'live.seg.x01',
+  'lb.hist.leg', 'lb.hist.bust', 'lb.stats.checkout', 'lb.stats.mpr']);
 SAME.delete('s1.basic');
 
 // ---------- the tables ----------
