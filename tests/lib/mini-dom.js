@@ -89,6 +89,12 @@ class Element extends Node {
   querySelectorAll(sel) { const cxs = parseSel(sel), out = []; walk(this, (e) => { if (e !== this && cxs.some((cx) => matchComplex(e, cx))) out.push(e); }); return out; }
   querySelector(sel) { return this.querySelectorAll(sel)[0] || null; }
   get outerText() { return this.textContent; }
+  // innerHTML: parsed with parse() below and moved in (pages that render HTML strings); style: a plain object
+  set innerHTML(html) {
+    this.childNodes.forEach((c) => { c.parentNode = null; }); this.childNodes = [];
+    parse(String(html)).childNodes.slice().forEach((c) => { walk({ childNodes: [c] }, (e) => { e.ownerDocument = this.ownerDocument; }); this.appendChild(c); });
+  }
+  get style() { return this._style || (this._style = {}); }
 }
 function walk(n, fn) { n.childNodes.forEach((c) => { if (c.nodeType === 1) { fn(c); walk(c, fn); } }); }
 
