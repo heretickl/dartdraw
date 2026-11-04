@@ -137,6 +137,13 @@ function createFakeLiveDb(opts) {
         .sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
         .map((x) => ({ id: x.id, leg: x.leg, side: x.side, player: x.player, entered: copy(x.entered), supersedes: x.supersedes }));
     }
+    // the organiser's Event stats (api/_lib/live.js: eventTurns)
+    if (text === "SELECT t.id, t.pos, t.leg, t.side, t.player, t.entered, t.supersedes FROM live_turns t JOIN live_matches m ON m.tournament_id = t.tournament_id AND m.pos = t.pos WHERE t.tournament_id = ? AND t.ignored = false AND m.state IN ('confirmed', 'retired') ORDER BY t.pos, t.created_at, t.id") {
+      const over = (x) => db.matches.some((m) => m.tournament_id === x.tournament_id && m.pos === x.pos && ['confirmed', 'retired'].indexOf(m.state) >= 0);
+      return db.turns.filter((x) => x.tournament_id === vals[0] && !x.ignored && over(x))
+        .sort((x, y) => (x.pos < y.pos ? -1 : x.pos > y.pos ? 1 : x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
+        .map((x) => ({ id: x.id, pos: x.pos, leg: x.leg, side: x.side, player: x.player, entered: copy(x.entered), supersedes: x.supersedes }));
+    }
     const mOf = (tid, pos) => db.matches.find((x) => x.tournament_id === tid && x.pos === pos);
     if (text === 'UPDATE live_matches SET summary = ?::jsonb WHERE tournament_id = ? AND pos = ?') { const m = mOf(vals[1], vals[2]); if (m) m.summary = JSON.parse(vals[0]); return []; }
     if (text === 'UPDATE live_devices SET unsent = ?, last_seen_at = now() WHERE id = ? AND tournament_id = ?') {

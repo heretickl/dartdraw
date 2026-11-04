@@ -484,6 +484,14 @@ async function matchTurns(tournamentId, pos) {
     return rows.map((r) => ({ id: r.id, leg: Number(r.leg), side: r.side, player: r.player == null ? null : r.player, entered: r.entered, supersedes: r.supersedes || null }));
   });
 }
+/* The turns that count (not ignored) of every match of the event that is confirmed or retired, grouped match by match (oldest first within
+   a match): [{ id, pos, leg, side, player, entered, supersedes }]. The organiser's Event stats read it; nothing is written. */
+async function eventTurns(tournamentId) {
+  return q(async () => {
+    const rows = await sql`SELECT t.id, t.pos, t.leg, t.side, t.player, t.entered, t.supersedes FROM live_turns t JOIN live_matches m ON m.tournament_id = t.tournament_id AND m.pos = t.pos WHERE t.tournament_id = ${tournamentId} AND t.ignored = false AND m.state IN ('confirmed', 'retired') ORDER BY t.pos, t.created_at, t.id`;
+    return rows.map((r) => ({ id: r.id, pos: r.pos, leg: Number(r.leg), side: r.side, player: r.player == null ? null : r.player, entered: r.entered, supersedes: r.supersedes || null }));
+  });
+}
 /* EVERY turn of a match, ignored ones too, oldest first (the organiser's match history). raw device id: the route turns it into
    "Device N". [{ id, leg, side, player, entered, deviceId, supersedes, ignored, ignoredReason, createdAt }] */
 async function allTurns(tournamentId, pos) {
@@ -665,6 +673,6 @@ module.exports = {
   panelDevices, logoutDevice, logoutAllDevices, activeLends, addLend, endLend, endIdleLends, closedAt, closeLogin, disputedPositions, setDisputed, boardIdleSince, setPaperOn, setPaperOff,
   deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent,
   liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch,
-  matchFull, insertTurn, turnById, matchTurns, allTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser, markOrganiserResults,
+  matchFull, insertTurn, turnById, matchTurns, eventTurns, allTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser, markOrganiserResults,
   requestTakeover, takeoverById, answerTakeover, allowTakeover, openTakeovers, matchTakeovers
 };

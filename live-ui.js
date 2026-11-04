@@ -437,7 +437,7 @@ function liveNamesChecklistHTML(){
    organiser can change; Confirm round writes the chosen boards into the event itself (the same m.board the Board box of a knockout
    match edits) with the normal persist() and render(). Nothing is written before that. "Scored on paper" (spec 10.5, D16): a switch
    in the result windows (livePaperRowHTML), op 'paper' on the same route. */
-var liveState = { id: null, data: null, loading: false, error: '', shown: false };   // shown: the password is on screen
+var liveState = { id: null, data: null, loading: false, error: '', shown: false, at: 0 };   // shown: the password is on screen; at: when data arrived (ms)
 var LIVE_PANEL_API = '/api/live/panel';
 var liveTimer = null;
 var liveBadge = { id: null, n: 0, busy: false, offId: null };   // waiting take-over requests of the open event (the Stage 5 tab's number)
@@ -460,9 +460,10 @@ function loadLive(force){
     if(liveState.id !== id) return;
     liveState.loading = false;
     if(x.r.ok){
-      liveState.data = x.b; liveState.error = '';
+      liveState.data = x.b; liveState.error = ''; liveState.at = Date.now();
       liveBadgeSet(id, (x.b && x.b.takeovers || []).length);   // on step 5 this card's own poll keeps the tab's number current
       liveRedraw();   // every poll: "seen 20 s ago" and the red late flag come from the clock, so a quiet device must age on screen (the card is small and the redraw is only the card)
+      liveMarkRetired();   // the charts are not part of the card: "Retired · walkover" goes on them when the list changes (idempotent)
     } else { liveState.error = (x.b && x.b.code) || 'request_failed'; liveRedraw(); }
   }).catch(function(){ if(liveState.id === id){ liveState.loading = false; liveState.error = 'offline'; liveRedraw(); } });
 }
@@ -564,7 +565,7 @@ async function liveCall(body, onError){
     loadLive(true);   // what the refusal was about may be out of date here
     return null;
   }
-  if(state && state.id === id){ liveState.id = id; liveState.data = b; liveState.error = ''; liveBadgeSet(id, (b && b.takeovers || []).length); liveRedraw(); }
+  if(state && state.id === id){ liveState.id = id; liveState.data = b; liveState.error = ''; liveState.at = Date.now(); liveBadgeSet(id, (b && b.takeovers || []).length); liveRedraw(); liveMarkRetired(); }
   return b;
 }
 /* Allow or deny a waiting take-over request (the answer is final: the first answer, from here or from a floor official, wins). */
@@ -1159,3 +1160,149 @@ function liveHistAct(body){
 }
 function liveHistRestore(turnId){ liveHistAct({ op: 'restore', turnId: turnId }); }
 function liveHistDispute(on){ liveHistAct({ op: 'dispute', on: !!on }); }
+
+/* ---------- retired matches (spec 10.4) ---------- */
+/* A device recorded a side retiring in the match: the result is today's walkover for the opponent (the `wo` flag stays), and the
+   organiser's score boxes say "Retired · walkover" for THAT match instead of the plain walkover tag. A label only. The positions come
+   from the Boards card's data (liveState.data.retired: the panel answer, polled on step 5); step 6 asks once (liveRetiredEnsure).
+   Round robin: the retiring player's other unplayed group matches are walkover losses too and keep the plain tag (only the match a
+   device recorded the retirement in is listed). The labels are put on the page after it is drawn (liveMarkRetired), so the drawing
+   code shared with the public viewer (render.js) stays as it is. Never on a printed sheet, never on a Manual event. */
+function liveRetiredList(){
+  var d = liveState.data;
+  return liveBoardsOn() && liveState.id === state.id && d && Array.isArray(d.retired) ? d.retired : [];
+}
+/* Step 6 has no card of its own that fetches: ask once (again when what it holds is old). The answer is marked on the page by loadLive. */
+function liveRetiredEnsure(){
+  if(!liveBoardsOn() || typeof apiFetch !== 'function') return;
+  loadLive(liveState.id === state.id && !!liveState.data && !liveState.loading && Date.now() - (liveState.at || 0) > 30000);
+}
+function liveSetRetiredTag(span, on, wo){
+  /* the longer label may wrap onto two lines beside the score (in a score cell the score itself must not break: its half-cell is a flex row) */
+  var hf = span.parentElement && span.parentElement.classList && span.parentElement.classList.contains('hf') ? span.parentElement : null;
+  if(on){
+    span.textContent = T('lb.retiredWo'); span.setAttribute('data-ret', '1');
+    span.style.whiteSpace = 'normal'; span.style.lineHeight = '1.05'; span.style.textAlign = 'left';
+    if(hf) hf.style.whiteSpace = 'nowrap';
+  } else if(span.getAttribute('data-ret')){
+    span.textContent = wo; span.removeAttribute('data-ret');
+    span.style.whiteSpace = ''; span.style.lineHeight = ''; span.style.textAlign = '';
+    if(hf) hf.style.whiteSpace = '';
+  }
+}
+/* A knockout box has no room for the longer words beside the name (the name would be squeezed out): the box's own "WO" is hidden and the
+   label is a small line along the box's bottom edge instead. (Inside the box the text reads the right way round on both halves of the chart.) */
+function liveSetRetiredBox(span, on){
+  var box = span.parentElement;
+  if(!box) return;
+  var ov = null;
+  Array.prototype.forEach.call(box.children, function(c){ if(c.classList && c.classList.contains('live-ret')) ov = c; });
+  if(on){
+    span.setAttribute('data-ret', '1'); span.style.display = 'none';
+    if(!ov){
+      ov = document.createElement('div'); ov.className = 'live-ret';
+      ov.style.cssText = 'position:absolute;left:0;right:0;bottom:1px;text-align:center;font-size:8px;line-height:1;font-weight:700;color:var(--muted);white-space:nowrap;pointer-events:none';
+      box.style.position = 'relative'; box.appendChild(ov);
+    }
+    ov.textContent = T('lb.retiredWo');
+  } else if(span.getAttribute('data-ret')){
+    span.removeAttribute('data-ret'); span.style.display = '';
+    if(ov && ov.parentNode) ov.parentNode.removeChild(ov);
+  }
+}
+function liveMarkRetired(){
+  if(typeof document === 'undefined' || !document.querySelectorAll || !state || !liveBoardsOn()) return;
+  var want = {}, tags = {}, wo = ddRT('r.wo');
+  liveRetiredList().forEach(function(r){
+    if(!r || typeof r.pos !== 'string') return;
+    want[r.pos] = true;
+    var m = /^ko:([^:]+):(\d+):(\d+)$/.exec(r.pos);
+    if(!m) return;
+    try{
+      var br = bracketByKey(state, m[1]);
+      if(br && br.rounds && br.rounds[+m[2]] && br.rounds[+m[2]][+m[3]]) tags[koMatchTag(br, state, +m[2], +m[3])] = true;
+    }catch(e){}
+  });
+  var each = function(list, fn){ Array.prototype.forEach.call(list, fn); };
+  /* round robin score cells (chartSheetHTML gives a Live event's screen cells data-live-pos) */
+  each(document.querySelectorAll('[data-live-pos]'), function(c){
+    var on = !!want[c.getAttribute('data-live-pos')];
+    each(c.querySelectorAll('.wo-tag'), function(s){ liveSetRetiredTag(s, on, wo); });
+  });
+  /* knockout charts: the WO of a match's box sits inside the group that holds the match's tag pill ("2-1") and no other tag */
+  each(document.querySelectorAll('.mko-tag'), function(tag){
+    var on = !!tags[tag.textContent], g = tag;
+    while(g.parentElement && g.parentElement.querySelectorAll('.mko-tag').length === 1) g = g.parentElement;
+    each(g.querySelectorAll('span'), function(s){
+      if(s.getAttribute('data-ret') || (!s.children.length && s.textContent === wo)) liveSetRetiredBox(s, on);
+    });
+  });
+}
+
+/* ---------- Event stats (spec 11): step 6, organiser only ---------- */
+/* High checkouts, 180s, 3-dart average and MPR leaders of the matches scored live (GET panel?t=&stats=1, which writes nothing). Collapsed
+   until opened, loaded when opened, read-only (also on a finalised event). Not part of any print. Matches entered by hand have no turns. */
+var liveStats = { id: null, data: null, loading: false, error: '', open: false };
+function liveStatsLoad(){
+  if(!liveBoardsOn() || liveStats.loading) return;
+  if(liveStats.id !== state.id){ liveStats.data = null; liveStats.error = ''; liveStats.open = false; }
+  liveStats.id = state.id; liveStats.loading = true; liveStats.error = '';
+  var id = state.id;
+  apiFetch(LIVE_PANEL_API + '?t=' + encodeURIComponent(id) + '&stats=1').then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(b){ return { r: r, b: b }; });
+  }).then(function(x){
+    if(liveStats.id !== id) return;
+    liveStats.loading = false;
+    if(x.r.ok && x.b && x.b.stats){ liveStats.data = x.b.stats; liveStats.error = ''; }
+    else liveStats.error = (x.b && x.b.code) || 'request_failed';
+    liveStatsRedraw();
+  }).catch(function(){ if(liveStats.id === id){ liveStats.loading = false; liveStats.error = 'offline'; liveStatsRedraw(); } });
+  liveStatsRedraw();
+}
+function liveStatsRedraw(){
+  if(!state || currentStage !== 6 || typeof document === 'undefined' || !document.getElementById) return;
+  var el = document.getElementById('liveStats');
+  if(el && liveBoardsOn() && liveStats.id === state.id) el.outerHTML = liveStatsCardHTML();
+}
+function liveStatsToggle(){
+  if(!liveBoardsOn()) return;
+  if(liveStats.id !== state.id){ liveStats.id = state.id; liveStats.data = null; liveStats.error = ''; liveStats.loading = false; }
+  liveStats.open = !liveStats.open;
+  if(liveStats.open && !liveStats.data && !liveStats.loading) liveStatsLoad(); else liveStatsRedraw();
+}
+function liveStatsList(title, head, rows){
+  var h = '<div style="margin:12px 0 0"><b>' + title + '</b>';
+  if(!rows.length) return h + '<p class="hint" style="margin:4px 0 0">' + T('lb.stats.none') + '</p></div>';
+  return h + '<div class="lb-wrap"><table class="lb-table"><thead><tr>' + head.map(function(x){ return '<th>' + x + '</th>'; }).join('') + '</tr></thead><tbody>' +
+    rows.map(function(r){ return '<tr>' + r.map(function(c){ return '<td>' + c + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div></div>';
+}
+function liveStatsBodyHTML(){
+  var s = liveStats.data;
+  if(liveStats.error && !s) return '<p class="hint">' + T('lb.stats.err') + ' <a href="javascript:void(0)" onclick="liveStatsLoad()">' + T('fo.retry') + '</a></p>';
+  if(!s) return '<p class="hint">' + T('fo.loading') + '</p>';
+  var P = T('lb.stats.player');
+  var n180 = (s.oneEighties || []).map(function(x){ return [escapeHtml(String(x.player)), escText(x.count)]; });
+  var co = (s.highCheckouts || []).map(function(x){
+    var no = x.info && x.info.matchNo != null && x.info.matchNo !== '' ? T('lb.match', { n: escText(x.info.matchNo) }) : '';
+    return [escapeHtml(String(x.player)), escText(x.value), no];
+  });
+  var av = (s.avgLeaders || []).map(function(x){ return [escapeHtml(String(x.player)), escText(Number(x.avg).toFixed(2)), escText(x.darts)]; });
+  var mp = (s.mprLeaders || []).map(function(x){ return [escapeHtml(String(x.player)), escText(Number(x.mpr).toFixed(2)), escText(x.rounds)]; });
+  return '<p class="hint" style="margin:6px 0 4px">' + T('lb.stats.note') + '</p>' +
+    '<div class="buttonrow" style="margin:6px 0 0"><button type="button" class="btn ghost fo-btn" onclick="liveStatsLoad()"' + (liveStats.loading ? ' disabled' : '') + '>' + T('lb.stats.refresh') + '</button>' +
+      (liveStats.loading ? '<span class="hint" style="margin:0 0 0 8px;align-self:center">' + T('fo.loading') + '</span>' : '') + '</div>' +
+    (liveStats.error ? '<p class="hint" style="color:var(--red)">' + T('lb.stats.err') + '</p>' : '') +
+    liveStatsList(T('lb.stats.h180'), [P, T('lb.stats.count')], n180) +
+    liveStatsList(T('lb.stats.hCheckout'), [P, T('lb.stats.checkout'), T('lb.stats.matchCol')], co) +
+    liveStatsList(T('lb.stats.hAvg'), [P, T('lb.stats.avg'), T('lb.stats.darts')], av) +
+    liveStatsList(T('lb.stats.hMpr'), [P, T('lb.stats.mpr'), T('lb.stats.rounds')], mp) +
+    '<p class="hint" style="margin:10px 0 0">' + T('lb.stats.mins') + '</p>';
+}
+/* The card on step 6 ('' unless this is a saved Live event that is not the sample; finalised events keep it, it only reads). */
+function liveStatsCardHTML(){
+  if(!liveBoardsOn()) return '';
+  var open = liveStats.id === state.id && liveStats.open;
+  return '<div class="card" id="liveStats"><div class="form-section-header" onclick="liveStatsToggle()"><div class="form-section-title"><h3 style="margin:0;font-size:15px">' + T('lb.stats.title') + '</h3></div>' +
+    '<span class="form-section-toggle' + (open ? '' : ' collapsed') + '">▾</span></div>' +
+    (open ? liveStatsBodyHTML() : '') + '</div>';
+}

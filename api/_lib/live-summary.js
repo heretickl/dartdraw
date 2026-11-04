@@ -93,6 +93,45 @@ function x01Totals(turns, startFor) {
   return any ? tot : null;
 }
 
+/* The organiser's Event stats (spec 11): per player (the `player` string a device sent on the turn), over the counting turns of the matches
+   given. matches: [{ pos, info, turns, startFor }]: turns = the non-ignored turns of one match, oldest first (a turn another counting turn
+   corrects is replaced by the correction: effectiveTurns); startFor(leg) as in x01Totals (may be missing: the turn's own game decides).
+   Returns { oneEighties: [{ player, count }], highCheckouts: [{ player, value, pos, info }], avgLeaders: [{ player, avg, darts }],
+   mprLeaders: [{ player, mpr, rounds }] }, each sorted best first, ties by name, at most STATS_TOP rows.
+   180s: x01 turns that scored 180. High checkout: a player's largest finishing x01 turn (it scored what was left). Average: 3 * points /
+   darts over x01 legs only (as x01Totals: a Cricket leg never takes part; a bust scores 0 and counts its darts), 2 decimals, from
+   AVG_MIN_DARTS darts. MPR: Cricket marks per round (marks / Cricket turns that carry marks), 2 decimals, from MPR_MIN_ROUNDS rounds. */
+const STATS_TOP = 5, AVG_MIN_DARTS = 9, MPR_MIN_ROUNDS = 3;
+function eventStats(matches) {
+  const by = new Map();   // player -> { n180, best: {value,pos,info}|null, s, d, marks, rounds }
+  const of = (name) => { let p = by.get(name); if (!p) { p = { n180: 0, best: null, s: 0, d: 0, marks: 0, rounds: 0 }; by.set(name, p); } return p; };
+  (matches || []).forEach((m) => {
+    effectiveTurns(Array.isArray(m && m.turns) ? m.turns : []).forEach((t) => {
+      const e = t.entered;
+      if (!e || typeof t.player !== 'string' || !t.player.trim()) return;
+      if (e.game === 'x01') {
+        const p = of(t.player), score = e.bust ? 0 : (Number(e.score) || 0);
+        if (score === 180) p.n180 += 1;
+        if (e.finish && !e.bust && (!p.best || score > p.best.value || (score === p.best.value && String(m.pos) < String(p.best.pos)))) p.best = { value: score, pos: m.pos, info: m.info == null ? null : m.info };
+        if (typeof m.startFor !== 'function' || typeof m.startFor(t.leg) === 'number') { p.s += score; p.d += Number(e.darts) || 0; }
+      } else if (e.game === 'cricket' && typeof e.marks === 'number') {
+        const p = of(t.player);
+        p.marks += e.marks; p.rounds += 1;
+      }
+    });
+  });
+  const rows = Array.from(by.entries()).map(([player, p]) => Object.assign({ player }, p));
+  const name = (a, b) => (a.player.toLowerCase() < b.player.toLowerCase() ? -1 : a.player.toLowerCase() > b.player.toLowerCase() ? 1 : (a.player < b.player ? -1 : a.player > b.player ? 1 : 0));
+  const top = (list, key) => list.sort((a, b) => (b[key] - a[key]) || name(a, b)).slice(0, STATS_TOP);
+  const two = (x) => Math.round(x * 100) / 100;
+  return {
+    oneEighties: top(rows.filter((r) => r.n180 > 0).map((r) => ({ player: r.player, count: r.n180 })), 'count'),
+    highCheckouts: top(rows.filter((r) => r.best).map((r) => ({ player: r.player, value: r.best.value, pos: r.best.pos, info: r.best.info })), 'value'),
+    avgLeaders: top(rows.filter((r) => r.d >= AVG_MIN_DARTS).map((r) => ({ player: r.player, avg: two(3 * r.s / r.d), darts: r.d })), 'avg'),
+    mprLeaders: top(rows.filter((r) => r.rounds >= MPR_MIN_ROUNDS).map((r) => ({ player: r.player, mpr: two(r.marks / r.rounds), rounds: r.rounds })), 'mpr')
+  };
+}
+
 /* The chains of corrections among a match's turns (ALL of them, oldest first: { id, leg, side, entered, supersedes, ignored }).
    Only turns that are not ignored take part: an ignored turn is kept but never counts, so it is no link in a chain. A turn whose
    `supersedes` names no counting turn starts its own chain. Returns the pieces annotateTurns and chainHeadOf need:
@@ -147,4 +186,4 @@ function annotateTurns(turns, startFor) {
   return turns.map((t) => Object.assign({}, t, { current: !t.ignored && !c.replaced[t.id], left: leftOf(t) }));
 }
 
-module.exports = { cleanEntered, effectiveTurns, x01Totals, summarize, chainsOf, chainHeadOf, annotateTurns, ENTERED_MAX_CHARS };
+module.exports = { cleanEntered, effectiveTurns, x01Totals, eventStats, summarize, chainsOf, chainHeadOf, annotateTurns, ENTERED_MAX_CHARS };

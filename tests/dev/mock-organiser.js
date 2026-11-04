@@ -63,6 +63,47 @@ function seedLiveSample() {
   row(onBoard(3)[1], 'confirmed', 'dev_sample3', 3);
   turn('d1', done3, 1, 'a', 100, 'dev_sample3', 500); turn('d2', done3, 1, 'b', 60, 'dev_sample3', 490);
   liveDb.takeovers.push({ id: 'tko_sample1', tournament_id: 'live-sample', pos: onBoard(2)[0].pos, from_device: 'dev_sample2', to_device: 'dev_sample3', decided_by: null, answer: null, created_at: ago(40), decided_at: null });
+  /* Event stats (step 6): the finished match on board 3 gets named players, a 180, a finishing turn and Cricket marks; and a match on board 1
+     was retired in (side a): its result is the walkover, and so are the retiring player's other group matches (those keep the plain "WO"). */
+  const ctx = view.load({ tournament: { data: t } }), nm = (id) => ctx.byId[id].name, d3 = ctx.slotsByPos[done3];
+  liveDb.turns.forEach((x) => { if (x.pos === done3) x.player = x.side === 'a' ? nm(d3.a) : nm(d3.b); });
+  const x01 = (score, extra) => Object.assign({ mode: 'total', game: 'x01', score, darts: 3, bust: false }, extra || {});
+  const crk = (marks) => ({ mode: 'total', game: 'cricket', score: 0, darts: 3, bust: false, marks });
+  turn('d3', done3, 1, 'a', 180, 'dev_sample3', 480, { player: nm(d3.a), entered: x01(180) });
+  turn('d4', done3, 1, 'b', 140, 'dev_sample3', 470, { player: nm(d3.b), entered: x01(140) });
+  turn('d5', done3, 1, 'a', 141, 'dev_sample3', 460, { player: nm(d3.a), entered: x01(141, { finish: 3 }) });
+  turn('d6', done3, 1, 'b', 100, 'dev_sample3', 450, { player: nm(d3.b), entered: x01(100) });
+  [['c1', 'a', 5], ['c2', 'b', 3], ['c3', 'a', 4], ['c4', 'b', 6], ['c5', 'a', 6], ['c6', 'b', 3]].forEach(([id, side, marks], i) => turn(id, done3, 2, side, 0, 'dev_sample3', 440 - i, { player: side === 'a' ? nm(d3.a) : nm(d3.b), entered: crk(marks) }));
+  const e = require('../../api/_lib/engine').engine(), tt = e.inside(JSON.parse(JSON.stringify(t))), ret = onBoard(1)[1];
+  e.applyResult(tt, ret.pos, 'noShow', { side: 'a' }, { by: 'dev', at: Date.now() });
+  db['live-sample'].data = e.plain(tt);
+  row(ret, 'retired', 'dev_sample4', 1);
+  liveDb.matches[liveDb.matches.length - 1].retired_side = 'a'; liveDb.matches[liveDb.matches.length - 1].ended_at = ago(100);
+  turn('r1', ret.pos, 1, 'a', 45, 'dev_sample4', 200, { player: nm(ret.a) }); turn('r2', ret.pos, 1, 'b', 180, 'dev_sample4', 190, { player: nm(ret.b), entered: x01(180) });
+}
+/* --live-sample also seeds live-retired-ko, a Live knockout in which the first round's match 1 was retired in (side b: the walkover for the
+   first player) and the quarterfinal that follows was played normally, to see "Retired · walkover" in the bracket (step 5 and step 6) and the Event stats. */
+function seedLiveRetiredKo() {
+  const { buildStates } = require('../lib/app-states');
+  const e = require('../../api/_lib/engine').engine();
+  const src = buildStates().find((s) => s.id === 'Singles/knockout/drawn').data;
+  const t = e.inside(JSON.parse(JSON.stringify(src)));
+  t.id = 'live-retired-ko'; t.eventCreation.tournamentName = 'Live retired knockout'; t.eventCreation.boards = 2; t.format.scoring = { mode: 'live' };
+  e.applyResult(t, 'ko:knockout:0:1', 'noShow', { side: 'b' }, { by: 'dev', at: Date.now() });
+  e.applyResult(t, 'ko:knockout:1:0', 'score', { la: 3, lb: 2 }, { by: 'o', at: Date.now() });
+  e.rebuildDerived(t);
+  const plain = e.plain(t);
+  db['live-retired-ko'] = { data: plain, updated_at: new Date().toISOString(), created_by: 'u1' };
+  const ago = (s) => new Date(Date.now() - s * 1000).toISOString();
+  liveDb.logins.push({ tournament_id: 'live-retired-ko', username: 'ev-retko', password_hash: require('bcryptjs').hashSync('RETKO2345ABCDEFG', 4), password_shown: 'RETKO2345ABCDEFG', session_nonce: 'retko-nonce', created_at: ago(900) });
+  liveDb.devices.push({ id: 'dev_retko1', tournament_id: 'live-retired-ko', board: 1, session_nonce: 'retko-nonce', last_seen_at: ago(5), logged_out_at: null, unsent: 0, created_at: ago(800) });
+  const m = (pos, state, side) => liveDb.matches.push({ tournament_id: 'live-retired-ko', pos, state, device_id: 'dev_retko1', board: 1, played_on_board: 1, paper: false, retired_side: side, started_at: ago(900), ended_at: ago(300), summary: {}, changed_by_organiser: false, disputed: false });
+  m('ko:knockout:0:1', 'retired', 'b'); m('ko:knockout:1:0', 'confirmed', null);
+  const nm = (mi, side) => { const x = plain.knockout.rounds[1][0]; const id = side === 'a' ? x.aEntryId : x.bEntryId; return (plain.entriesList.find((y) => y.id === id) || {}).name; };
+  let n = 0;
+  const turn = (pos, side, player, entered) => liveDb.turns.push({ id: 'rk' + (++n), tournament_id: 'live-retired-ko', pos, leg: 1, side, player, entered: Object.assign({ mode: 'total', game: 'x01', darts: 3, bust: false }, entered), device_id: 'dev_retko1', supersedes: null, ignored: false, ignored_reason: null, created_at: ago(800 - n) });
+  turn('ko:knockout:1:0', 'a', nm(1, 'a'), { score: 180 }); turn('ko:knockout:1:0', 'b', nm(1, 'b'), { score: 85 });
+  turn('ko:knockout:1:0', 'a', nm(1, 'a'), { score: 60, darts: 2, finish: 2 });
 }
 /* --live-sample also seeds a Live KNOCKOUT event (live-ko-sample, login ev-kosample / KOSAMPLE2345ABCD, 4 boards): round 1 has three matches ready
    with no board (feeders on boards 1 and 2 were played, two matches have no played feeder), a tablet is playing a match on board 3 (to see the
@@ -102,7 +143,7 @@ function seedLiveLateSample() {
   const row = (pos, state, device, board, ended) => liveDb.matches.push({ tournament_id: 'live-late-sample', pos, state, device_id: device, board, played_on_board: board, paper: false, retired_side: null, started_at: ago(900), ended_at: ended ? ago(ended) : null, summary: {}, changed_by_organiser: false, disputed: false });
   row('ko:knockout:0:1', 'confirmed', null, 1, 600); row('ko:knockout:0:5', 'confirmed', null, 1, 300); row('ko:knockout:1:0', 'playing', 'dev_late2', 2, 0);
 }
-if (process.env.MOCK_LIVE === '1') { seedLiveSample(); seedLiveKoSample().catch((err) => console.error('live-ko-sample not seeded', err)); seedLiveLateSample(); }
+if (process.env.MOCK_LIVE === '1') { seedLiveSample(); seedLiveKoSample().catch((err) => console.error('live-ko-sample not seeded', err)); seedLiveLateSample(); seedLiveRetiredKo(); }
 async function vercelCall(handler, req, url, res) {
   const body = req.method === 'POST' ? await readBody(req) : undefined;
   const r = { method: req.method, url: req.url, headers: Object.assign({ host: req.headers.host }, req.headers), query: Object.fromEntries(url.searchParams), body, socket: req.socket };

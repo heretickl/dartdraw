@@ -15,6 +15,11 @@
 //                                 404 not_found · 409 takeover_answered (somebody answered first) · 409 match_over (the match ended:
 //                                 the request is void) · 409 takeover_stale (the match moved meanwhile: void). Logged as decided_by 'org:<id>'.
 //   GET  ?t=<event id>&blockers=1 -> { blockers }: what stands in the way of Close event (below). Writes nothing and ends no lend.
+//   GET  ?t=<event id>&stats=1    -> { stats: { oneEighties: [{ player, count }], highCheckouts: [{ player, value, pos, info }],
+//                                    avgLeaders: [{ player, avg, darts }], mprLeaders: [{ player, mpr, rounds }] } }: the organiser's Event stats
+//                                    (spec 11), from the counting turns of the matches confirmed or retired, per `player` name; each list best
+//                                    first, ties by name, 5 rows at most (live-summary.js eventStats has the rules). Writes nothing; works
+//                                    on a finalised event.
 //   GET  ?t=<event id>&history=<pos> -> one match's history (below). Writes nothing. 404 not_found when the event has no such match.
 //     op 'restore' { pos, turnId } the turn is put back as the latest version of its chain: a NEW turn row is appended (copy of that
 //                                 version; supersedes = the chain's latest counting turn; device 'organiser'), the match's picture is
@@ -37,8 +42,10 @@
 //   { login: {username, password} | null, closedAt: iso | null, devices: [{ id, board, lastSeenAt, unsent, loggedOut }],
 //     boards: [{ n, group, ko, playing: {pos, state, info, a, b, disputed} | null, held, idleSince, waiting, devices: [ids], lentTo?, lentFrom? }],
 //     lends: [{ id, from, to, startedAt }], takeovers: [{ id, pos, info, fromDevice, fromBoard, toDevice, toBoard, requestedAt }],
-//     matches: [{ pos, info, a, b, state, disputed }], playingCount, now }
+//     matches: [{ pos, info, a, b, state, disputed }], retired: [{ pos, side: 'a'|'b' }], playingCount, now }
 // matches: the matches that have a history worth opening (in progress, over, or disputed), in the event's order.
+// retired: the matches whose live row is 'retired' (a device recorded a side retiring; the opponent's walkover stands in the result):
+// the organiser's score boxes say "Retired · walkover" for these instead of the plain walkover tag. A label only.
 // blockers: [{ device: 'Device N', deviceNo: N|null, board, unsent, matches: [{ pos, info }] }], one per device, in the devices' order.
 // history: { pos, info, a, b, state, board, disputed, summary, turns: [{ id, leg, side, player, entered, supersedes, ignored, ignoredReason,
 //   device: 'Device N' | 'Organiser', deviceNo, byOrganiser?, at, left, current }], takeovers: [{ answer, decidedBy: 'organiser' | 'official' | 'system' | null,
@@ -58,7 +65,7 @@ const { boardCountOf, load, waitingOn, entryOf, startForOf } = require('./view')
 const { switchPaper } = require('./paperSwitch');
 const takeoverRoute = require('./takeover');
 const turnRoute = require('./turn');
-const { chainHeadOf, annotateTurns } = require('../../_lib/live-summary');
+const { chainHeadOf, annotateTurns, eventStats } = require('../../_lib/live-summary');
 const LiveSettings = require('../../../live-settings');
 const LiveBoards = require('../../../live-boards');
 
@@ -75,7 +82,7 @@ async function panelOf(organizer, ev) {
   const t = ev.id;
   const login = await live.show(organizer, t);
   const now = Date.now();
-  if (!login) return { login: null, closedAt: null, devices: [], boards: [], lends: [], takeovers: [], matches: [], playingCount: 0, now };
+  if (!login) return { login: null, closedAt: null, devices: [], boards: [], lends: [], takeovers: [], matches: [], retired: [], playingCount: 0, now };
   const ctx = load({ tournament: ev });
   const rows = await live.liveRows(t);
   if (!isFinalized(ev.data)) await live.endIdleLends(t, ev, { ctx, rows });   // a finalised event is only read: this ends lends (a write)
@@ -134,7 +141,26 @@ async function panelOf(organizer, ev) {
     if (ACTIVE.indexOf(state) < 0 && OVER.indexOf(state) < 0 && !disputed[s.pos]) return;
     matches.push({ pos: s.pos, info: ctx.e.plain(ctx.e.matchInfo(ctx.t, s)), a: entryOf(ctx.byId, s.a).name, b: entryOf(ctx.byId, s.b).name, state, disputed: !!disputed[s.pos] });
   });
-  return { login, closedAt, devices, boards, lends, takeovers, matches, playingCount, now };
+  /* the matches a side retired in (spec 10.4: the opponent got a walkover): the organiser's boxes label those "Retired" (a label only) */
+  const retired = rows.filter((r) => r.state === 'retired' && (r.retired_side === 'a' || r.retired_side === 'b')).map((r) => ({ pos: r.pos, side: r.retired_side }));
+  return { login, closedAt, devices, boards, lends, takeovers, matches, retired, playingCount, now };
+}
+
+/* The Event stats (spec 11): high checkouts, 180s, 3-dart average and MPR leaders from the counting turns of the matches a device
+   confirmed or retired in. Reads only. */
+async function statsOf(ev) {
+  const ctx = load({ tournament: ev });
+  const turns = await live.eventTurns(ev.id);
+  const byPos = new Map();
+  turns.forEach((x) => { if (!byPos.has(x.pos)) byPos.set(x.pos, []); byPos.get(x.pos).push(x); });
+  const matches = [];
+  byPos.forEach((list, pos) => {
+    let startFor;
+    try { startFor = startForOf(ctx, pos); } catch (e) { startFor = undefined; }   // as the confirm route: no scores left, the turn's own game decides
+    const slot = ctx.slotsByPos[pos];
+    matches.push({ pos, info: slot ? ctx.e.plain(ctx.e.matchInfo(ctx.t, slot)) : null, turns: list, startFor });
+  });
+  return eventStats(matches);
 }
 
 /* "Device N": the device's place in the event's list of devices (the same number the panel's own list and the Boards card use). */
@@ -281,6 +307,7 @@ module.exports = async (req, res) => {
       const ev = await live.ownEvent(organizer, t);
       if (!LiveSettings.isLive(ev.data)) { res.status(403).json({ code: 'live_off', error: 'Live scoring is not switched on for this event.' }); return; }
       if (req.query.blockers === '1') { res.status(200).json({ blockers: await blockersOf(ev) }); return; }
+      if (req.query.stats === '1') { res.status(200).json({ stats: await statsOf(ev) }); return; }
       if (req.query.history !== undefined) {
         const pos = req.query.history;
         const h = POS_OK(pos) ? await historyOf(ev, pos) : null;

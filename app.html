@@ -5367,6 +5367,7 @@ function renderPage(){
   html = adminEditBannerHTML() + html;
   area.innerHTML = html;
   liveSyncPolling();   // the Boards panel's 10 s refresh runs only while its card is on screen (live-ui.js)
+  liveMarkRetired();   // a Live event's boxes of a match a side retired in say "Retired · walkover" (live-ui.js)
   if(locked) applyFinalizedLock(area);
   renderExpandedPreview();
   if(currentStage===5) requestAnimationFrame(scaleManageCharts);
@@ -7315,7 +7316,8 @@ function chartSheetHTML(g, forPrint){
         /* Split by a line across the middle: the points this row took above, the score below (blank to write in). */
         const mark = forPrint ? '' : matchMarkHTML('rr:'+g.id+':'+scoreKey(rowEnt.id, colEnt.id));   // waiting to be sent (offline scoring)
         const byTitle = (!forPrint && sc && enteredByText(sc)) ? ' title="'+escText(enteredByText(sc))+'"' : '';
-        rows += '<div class="cell score-cell split '+cls+lockedCls+(byTitle ? ' by-official' : '')+'"'+editAttr+byTitle+'>'+mark+'<span class="hf">'+top+'</span><span class="hf opp">'+bottom+'</span></div>';
+        const livePos = (!forPrint && sc && sc.wo && liveBoardsOn()) ? ' data-live-pos="'+escText('rr:'+g.id+':'+scoreKey(rowEnt.id, colEnt.id))+'"' : '';   // a Live event's walkover cell: live-ui.js may label it "Retired"
+        rows += '<div class="cell score-cell split '+cls+lockedCls+(byTitle ? ' by-official' : '')+'"'+editAttr+byTitle+livePos+'>'+mark+'<span class="hf">'+top+'</span><span class="hf opp">'+bottom+'</span></div>';
       }
     });
     const st = posById[rowEnt.id];
@@ -8629,6 +8631,16 @@ function goToFinalizeCard(){
   });
 }
 function stage6(){
+  /* A Live event also gets its Event stats card (organiser only, collapsed, read-only; live-ui.js) just above the Back / Continue buttons,
+     and asks once which matches were retired in (their boxes say "Retired · walkover"). Any other event draws exactly what it always did. */
+  const html = stage6Body();
+  if(!liveBoardsOn()) return html;
+  liveRetiredEnsure();
+  const stats = liveStatsCardHTML();
+  const at = html.lastIndexOf('<div class="print-controls">');
+  return at<0 ? html+stats : html.slice(0, at)+stats+html.slice(at);
+}
+function stage6Body(){
   if(state.format.formatType==='podknockout') return podsStage6();
   if(state.format.formatType==='knockout') return stage6Knockout();
   const confirmed = state.groups.filter(g=>g.confirmed);
