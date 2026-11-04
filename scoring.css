@@ -284,6 +284,12 @@
 .dds.wide .wr .crow{max-height:none}
 .dds.wide .wl .last3{flex:1 1 auto;display:flex;flex-direction:column}
 .dds.wide .wl .last3 .row{flex:1 1 auto;height:auto}
+/* six rows (owner 2026-11-04) fit the 720px-high wide screen: shorter header and rows that may shrink */
+.dds.wide .wl .last3.six{padding:10px 8px 6px}
+.dds.wide .wl .last3.six .ttl{font-size:24px;padding-bottom:6px}
+.dds.wide .wl .last3.six .hd{height:36px;font-size:22px}
+.dds.wide .wl .last3.six .row{min-height:0;font-size:30px;line-height:1}
+.dds.wide .wl .last3.six .row span:nth-child(2){font-size:26px}
 .dds.wide.g-cricket .wl .dds-cards{flex:1 1 auto;height:auto}
 .dds.wide.g-cricket .wl .card{height:100%}
 .dds.wide.g-cricket .wl .card .sc{font-size:150px}.dds.wide.g-cricket .wl .card .nm{font-size:44px}

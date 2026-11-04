@@ -296,6 +296,12 @@
 .dds.wide .wr .crow{max-height:none}
 .dds.wide .wl .last3{flex:1 1 auto;display:flex;flex-direction:column}
 .dds.wide .wl .last3 .row{flex:1 1 auto;height:auto}
+/* six rows (owner 2026-11-04) fit the 720px-high wide screen: shorter header and rows that may shrink */
+.dds.wide .wl .last3.six{padding:10px 8px 6px}
+.dds.wide .wl .last3.six .ttl{font-size:24px;padding-bottom:6px}
+.dds.wide .wl .last3.six .hd{height:36px;font-size:22px}
+.dds.wide .wl .last3.six .row{min-height:0;font-size:30px;line-height:1}
+.dds.wide .wl .last3.six .row span:nth-child(2){font-size:26px}
 .dds.wide.g-cricket .wl .dds-cards{flex:1 1 auto;height:auto}
 .dds.wide.g-cricket .wl .card{height:100%}
 .dds.wide.g-cricket .wl .card .sc{font-size:150px}.dds.wide.g-cricket .wl .card .nm{font-size:44px}
@@ -387,6 +393,7 @@ var DD_CASUAL_EN = {
   /* the shared scoring screens */
   legs: 'LEGS',
   lastScores: 'LAST 3 SCORES',
+  lastScores6: 'LAST 6 SCORES',
   leaves: 'leaves',
   bust: 'NO SCORE',
   undo: 'UNDO',
@@ -1233,9 +1240,11 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
           points: { a: b.points.a, b: b.points.b }
         };
       }
-      var last3 = rowsOf(leg).slice(-3).reverse().map(function (r) {
+      // the newest first; a wide screen shows 6 of them (owner 2026-11-04), a phone 3
+      var last6 = rowsOf(leg).slice(-6).reverse().map(function (r) {
         return { n: r.turn, a: r.a ? r.a.scored : null, b: r.b ? r.b.scored : null };
       });
+      var last3 = last6.slice(0, 3);
       var legs = [];
       s.legs.forEach(function (l, i) {
         if (!l.winner) return;
@@ -1248,7 +1257,7 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
       return {
         ask: a, leg: n.leg !== undefined ? n.leg : null, game: leg ? leg.game : null, bestOf: M.normalizeFormat(format).bestOf,
         toWin: M.legsToWin(M.normalizeFormat(format)), legsWon: { a: s.legsWon.a, b: s.legsWon.b }, throwing: throwing, sides: sides,
-        last3: last3, cricket: cricket,
+        last3: last3, last6: last6, cricket: cricket,
         hint: hints && throwing && leg && leg.game === 'x01' ? M.checkoutHint(sides[throwing].left) : null,
         pending: pending ? { score: pending.score, choices: pending.choices.slice() } : null, askBust: askBust,
         bull: a === 'bull' ? { leg: n.leg, side: n.side } : null,
@@ -1359,13 +1368,15 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
 
   /* ---------- x01, turn total ---------- */
 
-  function last3(v, o) {
-    var rows = v.last3.map(function (r, i) {
+  // six rows on a wide screen in turn total, where the left column has the room (owner 2026-11-04); three elsewhere
+  function last3(v, o, six) {
+    var list = six && v.last6 ? v.last6 : v.last3, size = six && v.last6 ? 6 : 3;
+    var rows = list.map(function (r, i) {
       return '<div class="row' + (i === 0 ? ' new' : '') + '"><span>' + (r.a === null ? '' : r.a) + '</span><span>' + r.n + '</span><span>'
         + (r.b === null ? '' : r.b) + '</span></div>';
     }).join('');
-    for (var k = v.last3.length; k < 3; k++) rows += '<div class="row blank"><span></span><span></span><span></span></div>';   // the panel keeps its size
-    return '<section class="last3"><div class="ttl">' + esc(o.words.lastScores) + '</div>'
+    for (var k = list.length; k < size; k++) rows += '<div class="row blank"><span></span><span></span><span></span></div>';   // the panel keeps its size
+    return '<section class="last3' + (size === 6 ? ' six' : '') + '"><div class="ttl">' + esc(size === 6 ? o.words.lastScores6 || o.words.lastScores : o.words.lastScores) + '</div>'
       + '<div class="hd"><span>' + esc(up(v.sides.a.name)) + '</span><span>#</span><span>' + esc(up(v.sides.b.name)) + '</span></div>'
       + rows + '</section>';
   }
@@ -1661,7 +1672,7 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
     } else if (v.ask === 'turn') {
       // [left, right]: stacked on a phone; side by side on a wide screen (owner 2026-11-04), scores left, keys right
       var parts = v.game === 'cricket' ? cricketParts(v, o).reverse()
-        : (o.mode || 'total') === 'darts' ? x01DartsParts(v, o) : [last3(v, o), totalPad(v, o)];
+        : (o.mode || 'total') === 'darts' ? x01DartsParts(v, o) : [last3(v, o, !!o.wide), totalPad(v, o)];
       wide = !!o.wide;
       var top = cards(v, o) + modeSwitch(v, o);
       body = wide ? '<div class="wl">' + top + parts[0] + '</div><div class="wr">' + parts[1] + '</div>'

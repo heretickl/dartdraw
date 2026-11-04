@@ -81,13 +81,15 @@
 
   /* ---------- x01, turn total ---------- */
 
-  function last3(v, o) {
-    var rows = v.last3.map(function (r, i) {
+  // six rows on a wide screen in turn total, where the left column has the room (owner 2026-11-04); three elsewhere
+  function last3(v, o, six) {
+    var list = six && v.last6 ? v.last6 : v.last3, size = six && v.last6 ? 6 : 3;
+    var rows = list.map(function (r, i) {
       return '<div class="row' + (i === 0 ? ' new' : '') + '"><span>' + (r.a === null ? '' : r.a) + '</span><span>' + r.n + '</span><span>'
         + (r.b === null ? '' : r.b) + '</span></div>';
     }).join('');
-    for (var k = v.last3.length; k < 3; k++) rows += '<div class="row blank"><span></span><span></span><span></span></div>';   // the panel keeps its size
-    return '<section class="last3"><div class="ttl">' + esc(o.words.lastScores) + '</div>'
+    for (var k = list.length; k < size; k++) rows += '<div class="row blank"><span></span><span></span><span></span></div>';   // the panel keeps its size
+    return '<section class="last3' + (size === 6 ? ' six' : '') + '"><div class="ttl">' + esc(size === 6 ? o.words.lastScores6 || o.words.lastScores : o.words.lastScores) + '</div>'
       + '<div class="hd"><span>' + esc(up(v.sides.a.name)) + '</span><span>#</span><span>' + esc(up(v.sides.b.name)) + '</span></div>'
       + rows + '</section>';
   }
@@ -383,7 +385,7 @@
     } else if (v.ask === 'turn') {
       // [left, right]: stacked on a phone; side by side on a wide screen (owner 2026-11-04), scores left, keys right
       var parts = v.game === 'cricket' ? cricketParts(v, o).reverse()
-        : (o.mode || 'total') === 'darts' ? x01DartsParts(v, o) : [last3(v, o), totalPad(v, o)];
+        : (o.mode || 'total') === 'darts' ? x01DartsParts(v, o) : [last3(v, o, !!o.wide), totalPad(v, o)];
       wide = !!o.wide;
       var top = cards(v, o) + modeSwitch(v, o);
       body = wide ? '<div class="wl">' + top + parts[0] + '</div><div class="wr">' + parts[1] + '</div>'

@@ -38,6 +38,7 @@ var DD_CASUAL_EN = {
   /* the shared scoring screens */
   legs: 'LEGS',
   lastScores: 'LAST 3 SCORES',
+  lastScores6: 'LAST 6 SCORES',
   leaves: 'leaves',
   bust: 'NO SCORE',
   undo: 'UNDO',

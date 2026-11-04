@@ -20,7 +20,7 @@ function withPage(w, h, fn) {
   try { fn(); } finally { global.document = saved.document; global.window = saved.window; }
 }
 
-test('wide, turn total: scores and last 3 on the left; hint, quick scores, typed score and keypad on the right', () => {
+test('wide, turn total: scores and last 6 on the left; hint, quick scores, typed score and keypad on the right', () => {
   const m = match('501'); m.bull('a');
   const d = dom(m, { wide: true });
   assert.ok(d.querySelector('.dds').classList.contains('wide'));
@@ -28,6 +28,37 @@ test('wide, turn total: scores and last 3 on the left; hint, quick scores, typed
   assert.ok(has(l, '.dds-cards') && has(l, '.last3'));
   assert.ok(has(r, '.quick') && has(r, '.entry') && has(r, '.pad'));
   assert.ok(!has(l, '.pad') && !has(r, '.dds-cards'));
+});
+
+// last 6 scores on a wide screen in turn total (owner 2026-11-04); 3 on a phone and in dart by dart
+test('model: last6 holds the newest 6 turns, newest first, and last3 is its first 3', () => {
+  const m = match('501'); m.bull('a');
+  [26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26].forEach((s) => m.total(s));
+  assert.deepEqual(m.view().last6.map((r) => r.n), [7, 6, 5, 4, 3, 2]);
+  assert.deepEqual(m.view().last3, m.view().last6.slice(0, 3));
+});
+
+test('wide, turn total: LAST 6 SCORES with 6 rows, blanks filling the rest, the newest highlighted', () => {
+  const m = match('501'); m.bull('a');
+  [60, 45, 100].forEach((s) => m.total(s));
+  const s = dom(m, { wide: true }).querySelector('.wl .last3');
+  assert.ok(s.classList.contains('six'));
+  assert.equal(s.querySelector('.ttl').textContent.trim(), 'LAST 6 SCORES');
+  assert.equal(s.querySelectorAll('.row').length, 6);
+  assert.equal(s.querySelectorAll('.row.blank').length, 4);
+  assert.ok(s.querySelectorAll('.row')[0].classList.contains('new'));
+});
+
+test('phone and dart by dart keep LAST 3 SCORES; wide cricket has no score table', () => {
+  const m = match('501'); m.bull('a');
+  const p = dom(m, {}).querySelector('.last3');
+  assert.equal(p.querySelectorAll('.row').length, 3);
+  assert.ok(!p.classList.contains('six'));
+  const e = dom(m, { wide: true, mode: 'darts', cur: [], mult: 1 }).querySelector('.last3');
+  assert.equal(e.querySelectorAll('.row').length, 3);
+  assert.equal(e.querySelector('.ttl').textContent.trim(), 'LAST 3 SCORES');
+  const c = match('cricket'); c.bull('a');
+  assert.equal(dom(c, { wide: true }).querySelector('.last3'), null);
 });
 
 test('wide, dart by dart: scores, last 3 and this turn on the left; multipliers, numbers and ENTER bar on the right', () => {

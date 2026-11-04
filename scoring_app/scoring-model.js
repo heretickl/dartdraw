@@ -191,9 +191,11 @@
           points: { a: b.points.a, b: b.points.b }
         };
       }
-      var last3 = rowsOf(leg).slice(-3).reverse().map(function (r) {
+      // the newest first; a wide screen shows 6 of them (owner 2026-11-04), a phone 3
+      var last6 = rowsOf(leg).slice(-6).reverse().map(function (r) {
         return { n: r.turn, a: r.a ? r.a.scored : null, b: r.b ? r.b.scored : null };
       });
+      var last3 = last6.slice(0, 3);
       var legs = [];
       s.legs.forEach(function (l, i) {
         if (!l.winner) return;
@@ -206,7 +208,7 @@
       return {
         ask: a, leg: n.leg !== undefined ? n.leg : null, game: leg ? leg.game : null, bestOf: M.normalizeFormat(format).bestOf,
         toWin: M.legsToWin(M.normalizeFormat(format)), legsWon: { a: s.legsWon.a, b: s.legsWon.b }, throwing: throwing, sides: sides,
-        last3: last3, cricket: cricket,
+        last3: last3, last6: last6, cricket: cricket,
         hint: hints && throwing && leg && leg.game === 'x01' ? M.checkoutHint(sides[throwing].left) : null,
         pending: pending ? { score: pending.score, choices: pending.choices.slice() } : null, askBust: askBust,
         bull: a === 'bull' ? { leg: n.leg, side: n.side } : null,
