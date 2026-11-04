@@ -415,3 +415,52 @@ button.back{border:0;background:none;padding:0;min-height:44px;cursor:pointer}
 .lvtcol li{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 8px;padding:6px 0;border-top:1px solid var(--line)}
 .lvtcol li b{font-family:var(--display);font-size:20px;font-weight:700;min-width:1.6em}
 @media (min-width:700px){.lvsides{grid-template-columns:1fr 1fr}}
+
+/* Venue TV of a Live event (body.tv.tvlive): always dark, one card per board, sized from the screen so up to 8 boards fit without
+   scrolling (--cols/--rows come from the page; a card's type follows the smaller of its width and height). A Manual event's TV
+   page never gets the tvlive class. */
+body.tvlive{color-scheme:dark;--bg:#070c13;--paper:#0f1823;--paper2:#152131;--ink:#f3f7fb;--muted:#8a97a8;--line:rgba(255,255,255,.09);--line-strong:rgba(255,255,255,.25);--blue:#2b8cff;--blue-tint:rgba(43,140,255,.16);--gold:#f4b43a;--green:#2ed17f;--red:#ff7a82;--live:#e0222f}
+body.tvlive header{padding:8px 20px}
+body.tvlive header .headrow,body.tvlive .hdr-tools,body.tvlive #hSub,body.tvlive #hLegs,body.tvlive #hProgress,body.tvlive #hVenue,body.tvlive footer,body.tvlive .langbar{display:none}
+body.tvlive header .wrap{max-width:none;display:flex;align-items:center;gap:6px 22px;flex-wrap:wrap}
+body.tvlive header h1{margin:0;font-size:30px;flex:1 1 auto;min-width:0}
+body.tvlive header .over{font-size:15px}
+body.tvlive .status{margin:0;font-size:15px;flex:0 0 auto}
+body.tvlive main{padding:8px 12px}
+body.tvlive main .wrap{max-width:none}
+body.tvlive .tvpage{position:fixed;bottom:8px;left:0;right:0;margin:0;z-index:2;font-size:16px;text-align:center;color:#8fa1b6;pointer-events:none}
+.tvgrid{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:10px;height:calc(100vh - 92px);
+  --cw:calc(100vw / var(--cols));--ch:calc((100vh - 92px) / var(--rows))}
+.tvb{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:calc(var(--ch) * .035) calc(var(--cw) * .025);border-radius:14px;background:var(--paper);border:1px solid var(--line)}
+.tvb.on{border-color:rgba(224,34,47,.55)}
+.tvb h2{margin:0 0 calc(var(--ch) * .01);font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);line-height:1.1;font-size:min(calc(var(--cw) * .032), calc(var(--ch) * .095))}
+.tvm{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center}
+.tvmh{display:grid;grid-template-columns:auto 1fr 2.6em 1.4em;align-items:center;gap:0 .8em;font-size:min(calc(var(--cw) * .02), calc(var(--ch) * .085));line-height:1.2}
+.tvmh .live-pill.sm{font-size:1em;padding:.12em .7em}
+.tvmh .live-pill.sm i{width:.5em;height:.5em}
+.tvctx{color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tvcol{font-family:var(--display);font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:right;font-size:.8em}
+.tvs{display:flex;align-items:center;gap:.4em;font-size:min(calc(var(--cw) * .05), calc(var(--ch) * .17));line-height:1.1;padding:.06em 0}
+.tvs+.tvs{border-top:1px solid var(--line)}
+.tvs.thr{box-shadow:inset .08em 0 0 var(--live);background:linear-gradient(90deg,rgba(224,34,47,.12),transparent 55%)}
+.tvs .lvdot{width:.34em;height:.34em;margin-left:.2em}
+.tvn{flex:1 1 auto;min-width:0;font-weight:600;overflow-wrap:anywhere}
+.tvs.thr .tvn{font-weight:700}
+.tvr,.tvl{font-family:var(--display);font-weight:700;text-align:right;line-height:1;font-size:1.3em}
+.tvr{min-width:2.6em;font-size:1.3em}
+.tvl{min-width:1.4em;color:var(--muted)}
+.tvidle{flex:1 1 auto;display:flex;align-items:center;color:var(--muted);font-size:min(calc(var(--cw) * .03), calc(var(--ch) * .1));font-weight:600}
+.tvnext{margin-top:calc(var(--ch) * .02);padding-top:calc(var(--ch) * .02);border-top:1px solid var(--line);font-size:min(calc(var(--cw) * .028), calc(var(--ch) * .085));line-height:1.15;overflow-wrap:anywhere}
+.tvnext b{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;color:var(--blue)}
+.tvnext.free b{color:var(--green)}
+@media (max-width:700px){
+  body.tvlive header h1{font-size:22px}
+  .tvgrid{display:block;height:auto;--cw:100vw;--ch:62vw}
+  .tvb{margin-bottom:10px;padding:12px 14px}
+  .tvb h2{font-size:18px;margin-bottom:6px}
+  .tvmh{font-size:12px}
+  .tvs{font-size:22px}
+  .tvidle{font-size:16px;padding:10px 0}
+  .tvnext{font-size:16px;margin-top:8px;padding-top:8px}
+}
+@media (prefers-reduced-motion:reduce){body.tvlive .live-pill i{animation:none}}

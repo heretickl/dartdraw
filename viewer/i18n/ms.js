@@ -185,6 +185,7 @@ var DD_VIEWER_MS = {
   'lv.confirming': 'Mengesahkan keputusan', 'lv.title': 'Perlawanan langsung',
   'lv.legs': 'Leg', 'lv.left': 'Baki', 'lv.leftN': 'baki {n}', 'lv.leg': 'Leg {n}',
   'lv.avg': 'Purata 3 dart: {avg}', 'lv.last': 'Balingan terakhir', 'lv.noTurns': 'Belum ada balingan.', 'lv.hint': 'Checkout: {route}',
+  'tv.free': 'Kosong', 'tv.idle': 'Tiada perlawanan', 'tv.playingOn': 'Dimainkan di Board {p}', 'tv.lentFrom': 'Perlawanan Board {b}', 'tv.none': 'Belum ada board untuk dipaparkan.',
   'lv.ended': 'Perlawanan ini tidak sedang dimarkahkan secara langsung. Apabila tamat, keputusannya dipaparkan pada tab Kumpulan atau Bracket.',
 
   /* home page */

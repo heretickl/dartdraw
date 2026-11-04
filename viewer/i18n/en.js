@@ -187,6 +187,7 @@ var DD_VIEWER_EN = {
   'lv.confirming': 'Confirming result', 'lv.title': 'Live match',
   'lv.legs': 'Legs', 'lv.left': 'Left', 'lv.leftN': '{n} left', 'lv.leg': 'Leg {n}',
   'lv.avg': '3-dart average: {avg}', 'lv.last': 'Last turns', 'lv.noTurns': 'No turns yet.', 'lv.hint': 'Checkout: {route}',
+  'tv.free': 'Free', 'tv.idle': 'No match in play', 'tv.playingOn': 'Playing on Board {p}', 'tv.lentFrom': 'Board {b} match', 'tv.none': 'No boards to show yet.',
   'lv.ended': 'This match is not being scored live right now. When it finishes, its result shows on the Groups or Bracket tab.',
 
   /* home page (home.js) */

@@ -386,6 +386,7 @@ function currentRoute(tabs){
   if(lm){ var lpos; try{ lpos = decodeURIComponent(lm[1]); }catch(e){ lpos = lm[1]; } return {name:'lv', pos:lpos}; }
   var sub = /^(groups|bracket)\/(.+)$/.exec(h);
   if(sub && tabs.indexOf(sub[1])!==-1){ var sel; try{ sel = decodeURIComponent(sub[2]); }catch(e){ sel = sub[2]; } return {name:sub[1], sel:sel, tv:false}; }
+  if(tv && h==='boards' && tabs.indexOf('boards')===-1 && tvLiveOn()) return {name:'boards', tv:true};   // a Live event's venue TV page: its Boards page needs no Boards tab
   var name = tabs.indexOf(h)!==-1 ? h : defaultTab(tabs);
   return {name:name, tv:(tv && name==='boards' && h==='boards')};   // TV mode only when the address itself names the Boards tab
 }
@@ -693,17 +694,17 @@ function boardCardHTML(b, entries){
   return html+'</section>';
 }
 var TV_PER_PAGE = 6, tvPage = 0, tvTimer = null;
-function boardsTabHTML(tv){
+function boardsTabHTML(tv, pageNo){   // pageNo: the TV page to draw (a Live event's rotation picks it); by default the rotation's own
   var bp = state.boardPlan;
   var nums = Object.keys((bp && bp.boards) || {}).sort(function(a, b){ return a - b; });
   if(!nums.length) return '<section class="card"><p class="empty">'+T('ev.bd.none')+'</p></section>';
-  var pages = 1, list = nums;
+  var pages = 1, list = nums, page = 0;
   if(tv){
     pages = Math.max(1, Math.ceil(nums.length / TV_PER_PAGE));
-    var page = tvPage % pages;
+    page = (pageNo === undefined ? tvPage : pageNo) % pages;
     list = nums.slice(page * TV_PER_PAGE, (page + 1) * TV_PER_PAGE);
   }
-  var head = tv && pages > 1 ? '<p class="note tvpage">'+escapeHtml(T('ev.bd.page', {p:(tvPage % pages) + 1, n:pages}))+'</p>' : '';
+  var head = tv && pages > 1 ? '<p class="note tvpage">'+escapeHtml(T('ev.bd.page', {p:page + 1, n:pages}))+'</p>' : '';
   return head+'<div class="bgrid">'+list.map(function(b){ return boardCardHTML(b, bp.boards[b]); }).join('')+'</div>';
 }
 /* The player's next not-done match on any board: { board, ahead, e }, or null. */
@@ -1108,6 +1109,7 @@ function lvRegen(node){
   if(k === 'board') return liveBoardHTML(pos);
   if(k === 'row') return lvRowHTML(pos, node.getAttribute('data-lvctx') === '1');
   if(k === 'chip') return lvChipHTML(pos, node.getAttribute('data-lvme'));
+  if(k === 'tv') return tvLiveBodyHTML(pos);
   var lk = k === 'card' ? liveLookup(pos) : null;
   return lk && lk.kind === 'ko' ? rsMatchHTML(lk.b, lk.ri, lk.mi) : '';
 }
@@ -1155,6 +1157,105 @@ async function liveTick(){
   if(!liveWanted()) return;
   await livePoll();
   liveSync();
+}
+
+/* ---------- Venue TV for a Live event (#/boards?tv=1 on the event's address) ----------
+   One large card per board the event uses: the match being played on it (both sides, legs, remaining scores, the thrower), and
+   under it the Next match (names only) or "Free". It is the first page of the TV rotation; the pages a Manual event's TV shows
+   (the Group Boards plan) follow it unchanged. It keeps itself current with the same timers as the rest of the page: the 12 s
+   rotation, the 10 s live poll (only the live nodes are redrawn) and the 20 s full refresh. Nothing here adds data: the
+   numbers are the live pictures every other screen already shows, so the stats and hints switches have nothing to gate (no
+   averages, no checkout routes). A Manual event never reaches any of this. */
+var TV_LIVE_PER_PAGE = 8;
+function tvLiveOn(){ return !!(state && state.scoring && state.scoring.live === true); }
+function tvPairPending(m){ return !!(m && m.aEntryId && m.bEntryId && !(m.winnerId || m.void || m.wo || m.bye) && !koLive(m)); }
+/* The Next match of each board, as { board number: "A v B" }; a board with nothing left has no key. Where it comes from:
+   - Group Boards: the board plan (the board's first match not done and not live, in plan order);
+   - round robin: the group's first unscored pair, in the group's own match order, that is not live (a group on several boards
+     hands its next pairs out in order, to the boards with nothing live first);
+   - knockout: the first match on that board (the match's own board) with both entrants, no result and not live, in round order.
+   A board already named by an earlier source keeps that one (the group stage is played before the knockout). */
+function tvNextByBoard(){
+  var next = {}, put = function(b, text){ if(b !== null && text && !next[b]) next[b] = text; };
+  var bp = state.boardPlan;
+  Object.keys((bp && bp.boards) || {}).forEach(function(b){
+    for(var i = 0; i < bp.boards[b].length; i++){
+      var e = bp.boards[b][i], m = bpMatchOfEntry(e);
+      if(e.status === 'done' || !m || koLive(m)) continue;
+      put(lvInt(b), bpMatchText(e)); break;
+    }
+  });
+  (state.groups || []).forEach(function(g){
+    var boards = tvGroupBoards(g);
+    if(!boards.length) return;
+    var busy = {};
+    Object.keys(g.live || {}).forEach(function(k){ var l = grpLive(g, k); if(l){ var bb = lvInt(l.board); busy[bb !== null ? bb : lvInt(l.playedOn)] = true; } });
+    var order = boards.filter(function(b){ return !busy[b]; }).concat(boards.filter(function(b){ return busy[b]; }));
+    var pending = groupMatches(g).filter(function(p){ return !getScore(g, p[0], p[1]) && !grpLive(g, scoreKey(p[0], p[1])); });
+    order.forEach(function(b, i){ if(pending[i]) put(b, T('ev.match.v', {a:entryName(pending[i][0]), b:entryName(pending[i][1])})); });
+  });
+  lvBrackets(state).forEach(function(pr){ pr[1].rounds.forEach(function(round){ (Array.isArray(round) ? round : []).forEach(function(m){
+    if(tvPairPending(m)) put(lvInt(m.board), T('ev.match.v', {a:entryName(m.aEntryId), b:entryName(m.bEntryId)}));
+  }); }); });
+  return next;
+}
+function tvGroupBoards(g){
+  var seen = {}, out = [];
+  (g.boards || []).forEach(function(x){ var b = lvInt(x); if(b !== null && b > 0 && !seen[b]){ seen[b] = true; out.push(b); } });
+  return out.sort(function(a, b){ return a - b; });
+}
+/* Every board the event uses, in number order: [{ b, here (the live match played on it), away (a live match of this board played
+   on another one), next }]. A match lent to another board shows on the board it is played on (marked as lent) and as a note on
+   its own. A board the event names nowhere but a match is being played on shows too. */
+function tvBoardCards(){
+  var live = liveList().map(function(x){ var lk = liveLookup(x.pos); return lk ? {pos:x.pos, l:x.live, own:lvInt(x.live.board), on:lvInt(x.live.playedOn)} : null; }).filter(Boolean);
+  live.forEach(function(x){ if(x.on === null) x.on = x.own; if(x.own === null) x.own = x.on; });
+  var nums = {}, add = function(b){ if(b !== null && b > 0) nums[b] = true; };
+  var bp = state.boardPlan;
+  Object.keys((bp && bp.boards) || {}).forEach(function(b){ add(lvInt(b)); });
+  (state.groups || []).forEach(function(g){ tvGroupBoards(g).forEach(add); });
+  lvBrackets(state).forEach(function(pr){ pr[1].rounds.forEach(function(round){ (Array.isArray(round) ? round : []).forEach(function(m){ if(m) add(lvInt(m.board)); }); }); });
+  live.forEach(function(x){ add(x.own); add(x.on); });
+  var next = tvNextByBoard();
+  return Object.keys(nums).map(Number).sort(function(a, b){ return a - b; }).map(function(b){
+    return {b:b,
+      here: live.find(function(x){ return x.on === b; }) || null,
+      away: live.find(function(x){ return x.own === b && x.on !== b; }) || null,
+      next: next[b] || ''};
+  });
+}
+/* The live match of a card (its own node: a poll redraws just this). A match lent here says whose board it belongs to. */
+function tvLiveBodyHTML(pos){
+  var lk = liveLookup(pos);
+  if(!lk) return '';
+  var l = lk.live, ctx = lvContext(lk), own = lvInt(l.board), on = lvInt(l.playedOn);
+  var lent = own !== null && on !== null && own !== on ? T('tv.lentFrom', {b:own}) : '';
+  var rows = [['a', lk.aId], ['b', lk.bId]].map(function(p){
+    var s = lvSide(l, p[0]);
+    return '<div class="tvs' + (s.thr ? ' thr' : '') + '">' + lvDotHTML(s.thr) + '<span class="tvn">' + escapeHtml(p[1] ? entryName(p[1]) : T('ev.slot.tbd')) + '</span>' +
+      '<span class="tvr">' + (s.rem !== null ? '<span class="sr">' + escapeHtml(T('lv.left')) + ' </span>' + s.rem : '') + '</span>' +
+      '<span class="tvl"><span class="sr">' + escapeHtml(T('lv.legs')) + ' </span>' + s.legs + '</span></div>';
+  }).join('');
+  return '<div class="tvm"' + lvAttrs(pos, 'tv', l) + '><div class="tvmh">' + lvPillHTML(l) +
+    '<span class="tvctx">' + escapeHtml([ctx, lent].filter(Boolean).join(' · ')) + '</span>' +
+    '<span class="tvcol" aria-hidden="true">' + (lvRem(l) !== null ? escapeHtml(T('lv.left')) : '') + '</span><span class="tvcol" aria-hidden="true">' + escapeHtml(T('lv.legs')) + '</span></div>' + rows + '</div>';
+}
+function tvCardHTML(c){
+  var body = c.here ? tvLiveBodyHTML(c.here.pos) : '';
+  if(!body) body = '<div class="tvidle">' + escapeHtml(c.away && c.away.on !== null ? T('tv.playingOn', {p:c.away.on}) : T('tv.idle')) + '</div>';
+  return '<section class="tvb' + (c.here ? ' on' : '') + '"><h2>' + escapeHtml(T('ev.board', {b:c.b})) + '</h2>' + body +
+    (c.next ? '<div class="tvnext"><b>' + escapeHtml(T('ev.bd.next')) + '</b> <span>' + escapeHtml(c.next) + '</span></div>' : '<div class="tvnext free"><b>' + escapeHtml(T('tv.free')) + '</b></div>') + '</section>';
+}
+/* The page the rotation is on: the live Boards pages (8 boards to a page, auto-fitted to the screen), then the plan pages. */
+function tvLivePageHTML(){
+  var cards = tvBoardCards(), live = Math.ceil(cards.length / TV_LIVE_PER_PAGE);
+  var bp = state.boardPlan, plan = Math.ceil(Object.keys((bp && bp.boards) || {}).length / TV_PER_PAGE);
+  if(!(live + plan)) return '<section class="card"><p class="empty">' + escapeHtml(T('tv.none')) + '</p></section>';
+  var p = tvPage % (live + plan);
+  if(p >= live) return boardsTabHTML(true, p - live);
+  var list = cards.slice(p * TV_LIVE_PER_PAGE, (p + 1) * TV_LIVE_PER_PAGE), cols = list.length <= 2 ? 1 : 2;
+  return (live > 1 ? '<p class="note tvpage">' + escapeHtml(T('ev.bd.page', {p:p + 1, n:live})) + '</p>' : '') +
+    '<div class="tvgrid" style="--cols:' + cols + ';--rows:' + Math.ceil(list.length / cols) + '">' + list.map(tvCardHTML).join('') + '</div>';
 }
 
 function progressText(){
@@ -1303,7 +1404,7 @@ function render(){
   else if(r.name==='p') body = playerPageHTML(r.id, {back:true});
   else if(r.name==='lv') body = liveBoardHTML(r.pos);
   else if(r.name==='groups') body = groupsTabHTML(r.sel);
-  else if(r.name==='boards') body = boardsTabHTML(!!r.tv);
+  else if(r.name==='boards') body = r.tv && tvLiveOn() ? tvLivePageHTML() : boardsTabHTML(!!r.tv);
   else if(r.name==='bracket'){
     applyBracketSel(r);
     if((state.pods||[]).length) body += podsBracketTabHTML();
@@ -1320,6 +1421,7 @@ function render(){
     return '<a href="#/'+t+'"'+(t===activeTab ? ' class="on" aria-current="page"' : '')+'>'+escapeHtml(n ? T('ev.tab.count', {label:tabLabel(t), n:n}) : tabLabel(t))+'</a>';
   }).join('');
   document.body.classList.toggle('tv', !!r.tv);
+  document.body.classList.toggle('tvlive', !!r.tv && tvLiveOn());   // a Live event's TV is always dark and fits one screen (a Manual event's page never gets the class)
   setStartCard(!!r.tv);
   el('nav').hidden = !!r.tv; el('finderWrap').hidden = !!r.tv || !state.entriesList.length;
   if(typeof setInterval === 'function'){
