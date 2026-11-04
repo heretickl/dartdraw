@@ -548,6 +548,18 @@ async function setRetired(tournamentId, pos, deviceId, side) {
 async function markChangedByOrganiser(tournamentId, pos) {
   return q(async () => { await sql`UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ${tournamentId} AND pos = ${pos}`; });
 }
+/* The organiser's whole-event save changed these results (D18): every live row for them records it (a device's next call answers
+   409 changed_by_organiser). Only called after a SAVED change on a Live event; it never fails the save: a missing table (a Manual
+   event, or before the live SQL was run) is ignored silently and any other trouble is only logged. No live row, nothing happens. */
+async function markOrganiserResults(tournamentId, positions) {
+  const list = Array.isArray(positions) ? positions.filter((p) => typeof p === 'string').slice(0, 5000) : [];
+  if (!list.length) return;
+  try {
+    await sql`UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ${tournamentId} AND pos = ANY(${list}::text[]) AND state NOT IN ('retired', 'voided')`;
+  } catch (e) {
+    if (!(e && e.code === '42P01')) console.error('markOrganiserResults failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
+  }
+}
 
 /* ---------- take-over requests (spec 7.4; routes takeover, panel, score/takeover) ---------- */
 
@@ -653,6 +665,6 @@ module.exports = {
   panelDevices, logoutDevice, logoutAllDevices, activeLends, addLend, endLend, endIdleLends, closedAt, closeLogin, disputedPositions, setDisputed, boardIdleSince, setPaperOn, setPaperOff,
   deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent,
   liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch,
-  matchFull, insertTurn, turnById, matchTurns, allTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser,
+  matchFull, insertTurn, turnById, matchTurns, allTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser, markOrganiserResults,
   requestTakeover, takeoverById, answerTakeover, allowTakeover, openTakeovers, matchTakeovers
 };

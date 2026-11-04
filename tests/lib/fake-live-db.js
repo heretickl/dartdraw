@@ -159,6 +159,11 @@ function createFakeLiveDb(opts) {
       m.state = 'retired'; m.retired_side = vals[0]; m.ended_at = iso(); return [{ pos: m.pos }];
     }
     if (text === 'UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ? AND pos = ?') { const m = mOf(vals[0], vals[1]); if (m) m.changed_by_organiser = true; return []; }
+    // the organiser's save changed results (api/_lib/live.js: markOrganiserResults)
+    if (text === "UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ? AND pos = ANY(?::text[]) AND state NOT IN ('retired', 'voided')") {
+      db.matches.forEach((m) => { if (m.tournament_id === vals[0] && vals[1].indexOf(m.pos) >= 0 && ['retired', 'voided'].indexOf(m.state) < 0) m.changed_by_organiser = true; });
+      return [];
+    }
     // the match history (api/_lib/live.js: allTurns, matchTakeovers, disputedPositions, setDisputed)
     if (text === 'SELECT id, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason, created_at FROM live_turns WHERE tournament_id = ? AND pos = ? ORDER BY created_at, id') {
       return db.turns.filter((x) => x.tournament_id === vals[0] && x.pos === vals[1])

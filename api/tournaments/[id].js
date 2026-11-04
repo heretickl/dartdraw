@@ -3,6 +3,7 @@ const { requireAuth } = require('../_lib/auth');
 const { checkEntryLimit } = require('../_lib/tiers');
 const { sanitizeTournamentData, isRouteId } = require('../../tournament-sanitize');
 const { engine } = require('../_lib/engine');
+const LiveSettings = require('../../live-settings');
 
 // GET /api/tournaments/:id     -> { id, data, updated_at }
 // PUT /api/tournaments/:id     -> body { data, expectedUpdatedAt }, upserts.
@@ -39,6 +40,8 @@ const { engine } = require('../_lib/engine');
 //   (an older copy of the app) or with another settingsRev it is a 409 as before. Every result that differs from the
 //   stored one is stamped as the organiser's (by 'o', at, rv). The success body also carries settingsRev, and data
 //   when the stored copy is not exactly what was sent (merged).
+// Live scoring (D18): on a Live event (format.scoring.mode 'live'), after a SAVED change of results the live_matches rows of the changed
+//   results get changed_by_organiser = true (api/_lib/live.js markOrganiserResults; best effort, it never fails the save).
 const FINALIZED_BODY = { code: 'finalized', error: 'This event is finalized. Only an Admin can change it.', finalized: true };
 
 function isFinalized(data) {
@@ -177,7 +180,7 @@ module.exports = async (req, res) => {
          answering "changed elsewhere" for a change that was only someone else's result. */
       const e = engine();
       const sent = JSON.stringify(data), dirtyList = Array.isArray(dirty) ? dirty.filter((p) => typeof p === 'string').slice(0, 5000) : null;
-      let base = existing, baseIso = existingIso, merged = false, updated = [];
+      let base = existing, baseIso = existingIso, merged = false, updated = [], changedPos = [];
       for (let attempt = 0; attempt < 4; attempt++) {
         const inc = e.inside(JSON.parse(sent)), sto = e.inside(base.data), now = Date.now();
         const stale = attempt > 0 || expectedIso !== baseIso;
@@ -194,6 +197,7 @@ module.exports = async (req, res) => {
         }
         inc.settingsRev = (Number(sto.settingsRev) || 0) + (e.settingsView(inc) !== e.settingsView(sto) ? 1 : 0);
         data = e.plain(inc);
+        changedPos = e.plain(e.changedSlots(sto, inc));   // the results this save changed (the organiser's own: a stale save keeps every other as stored)
         // Conditional on the stamp just read (to the millisecond, the precision of the JS value), so a save or a
         // finalize that lands between the read and this write is not overwritten.
         updated = isAdmin
@@ -224,6 +228,12 @@ module.exports = async (req, res) => {
           return;
         }
         base = current; baseIso = new Date(current.updated_at).toISOString();
+      }
+      /* Live events (D18): a result the organiser's save changed stands over any tablet holding that match; the live rows say so and a
+         device's next call answers 409 changed_by_organiser. Never fails the save (markOrganiserResults swallows its own trouble). */
+      if (changedPos.length && LiveSettings.isLive(data)) {
+        try { await require('../_lib/live').markOrganiserResults(id, changedPos); }
+        catch (err) { console.error('markOrganiserResults failed: ' + (err && err.message ? err.message : err)); }
       }
       res.status(200).json(Object.assign({}, updated[0], savedFinalized, { settingsRev: data.settingsRev || 0 }, merged ? { data } : {}));
     } catch (e) {

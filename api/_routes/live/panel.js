@@ -40,10 +40,11 @@
 //     matches: [{ pos, info, a, b, state, disputed }], playingCount, now }
 // matches: the matches that have a history worth opening (in progress, over, or disputed), in the event's order.
 // blockers: [{ device: 'Device N', deviceNo: N|null, board, unsent, matches: [{ pos, info }] }], one per device, in the devices' order.
-// history: { pos, info, a, b, state, disputed, summary, turns: [{ id, leg, side, player, entered, supersedes, ignored, ignoredReason,
+// history: { pos, info, a, b, state, board, disputed, summary, turns: [{ id, leg, side, player, entered, supersedes, ignored, ignoredReason,
 //   device: 'Device N' | 'Organiser', deviceNo, byOrganiser?, at, left, current }], takeovers: [{ answer, decidedBy: 'organiser' | 'official' | 'system' | null,
 //   requestedAt, decidedAt, from, to, fromNo, toNo }] } (every turn, ignored ones too, oldest first; left: the x01 score left after the turn,
-//   null for Cricket and ignored turns; current: the latest version of its chain). Device ids never leave the server in these.
+//   null for Cricket and ignored turns; current: the latest version of its chain). board: the board the match is on (where it is played, else the
+//   one it was claimed on), null when it has no live row. Device ids never leave the server in these.
 // held: a device holds a match on the board (started or not; with playing it says the board is not free for the knockout board suggestions).
 // idleSince: ms of the latest end of a match played on the board, null when none ended yet (read only: the suggestions are made in the browser).
 // group: the labels of the round robin groups and pods played on the board, joined by ", " ('' when none); ko: knockout matches are on
@@ -195,6 +196,7 @@ async function historyOf(ev, pos) {
     pos, info: slot ? ctx.e.plain(ctx.e.matchInfo(ctx.t, slot)) : null,
     a: slot ? entryOf(ctx.byId, slot.a).name : '', b: slot ? entryOf(ctx.byId, slot.b).name : '',
     state: slot ? LiveBoards.stateOf(slot, row, false) : (row ? row.state : 'waiting'),
+    board: row ? (row.played_on_board != null ? row.played_on_board : (row.board != null ? row.board : null)) : null,
     disputed: disputedList.indexOf(pos) >= 0, summary: row ? row.summary : {}, turns: shownTurns, takeovers: log
   };
 }

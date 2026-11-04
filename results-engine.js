@@ -476,4 +476,49 @@ function changedSlots(base, cur){
   var old = {}; if(base) resultSlots(base).forEach(function(s){ old[s.pos] = s.get(); });
   return resultSlots(cur).filter(function(s){ return bareResult(s.get()) !== bareResult(old[s.pos] || null); }).map(function(s){ return s.pos; });
 }
-if (typeof module !== 'undefined' && module.exports) module.exports = { resultSlots: resultSlots, settingsView: settingsView, applyResult: applyResult, rebuildDerived: rebuildDerived };
+/* ---------- Late corrections (Live events; spec 10.3, D9) ----------
+   The match the winner of knockout match `pos` goes to, and the first one that is really played: a bye (made by a "neither
+   showed" sibling) passes its winner straight on, so the walk goes on past it. Inside a Group Boards group, the last round's
+   winner goes to the Finals match that group feeds (aFromPod / bFromPod). Returns { pos, m } or null (the last round has no next
+   match, or the Finals do not exist yet). Reads t only. */
+function lateNextOf(t, pos){
+  var s = slotByPos(t, pos);
+  if(!s || s.kind !== 'ko') return null;
+  var key = s.bracketKey, rounds = s.bracket.rounds, ri = s.ri, mi = s.mi, pod = s.pod;
+  for(var guard = 0; guard < 64; guard++){
+    var m = null;
+    if(ri < rounds.length - 1){ ri++; mi = mi >> 1; m = rounds[ri] && rounds[ri][mi]; }
+    else if(pod){
+      var fin = t.knockout;
+      if(!fin || !fin.podFinals || !Array.isArray(fin.rounds) || !Array.isArray(fin.rounds[0])) return null;
+      var f = -1;
+      fin.rounds[0].forEach(function(x, i){ if(x && (x.aFromPod === pod.id || x.bFromPod === pod.id)) f = i; });
+      if(f < 0) return null;
+      key = 'knockout'; rounds = fin.rounds; ri = 0; mi = f; pod = null; m = rounds[0][f];
+    } else return null;
+    if(!m) return null;
+    if(!m.bye) return { pos: 'ko:' + key + ':' + ri + ':' + mi, m: m };
+  }
+  return null;
+}
+/* Would changing the winner of knockout match `pos` to `newWinnerId` (null: clearing it) reach a later match that has already
+   started? null when it would not: the match has no winner yet, the winner stays the same (a legs-only change), the next match
+   that depends on it has not started, or there is none. Otherwise { pos: the next match, state: 'done' (it has a winner, a bye or
+   is void) | 'playing' (a device has it: liveStates[nextPos] is checkedIn, playing or awaitingConfirm; or a leg result is
+   entered), names: [a, b] }. liveStates: optional { pos: the match's live state }, supplied by the caller (this is pure). */
+var LATE_PLAYING_STATES = ['checkedIn', 'playing', 'awaitingConfirm'];
+function lateCorrectionBlock(t, pos, newWinnerId, liveStates){
+  var s = slotByPos(t, pos);
+  if(!s || s.kind !== 'ko') return null;
+  var cur = s.m.winnerId || null;
+  if(!cur || (newWinnerId || null) === cur) return null;
+  var nx = lateNextOf(t, pos);
+  if(!nx) return null;
+  var m = nx.m, st = liveStates && typeof liveStates === 'object' ? liveStates[nx.pos] : null;
+  var done = !!(m.winnerId || m.bye || m.void);
+  var playing = !done && (m.aLegs != null || m.bLegs != null || LATE_PLAYING_STATES.indexOf(st) >= 0);
+  if(!done && !playing) return null;
+  var name = function(id){ var e = id ? (t.entriesList || []).find(function(x){ return x && x.id === id; }) : null; return e ? e.name : ''; };
+  return { pos: nx.pos, state: done ? 'done' : 'playing', names: [name(m.aEntryId), name(m.bEntryId)] };
+}
+if (typeof module !== 'undefined' && module.exports) module.exports = { resultSlots: resultSlots, settingsView: settingsView, applyResult: applyResult, rebuildDerived: rebuildDerived, lateCorrectionBlock: lateCorrectionBlock, lateNextOf: lateNextOf };

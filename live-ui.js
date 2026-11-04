@@ -797,14 +797,99 @@ function livePaperRowHTML(pos){
   return '<div class="live-paper" id="livePaper" data-pos="' + escText(pos) + '" style="display:none;margin:10px 0 0"></div>';
 }
 function livePaperLoad(pos){
+  if(!state || !state.id || !liveBoardsOn() || isLocked(state) || typeof document === 'undefined' || !document.getElementById('livePaper')) return;
+  liveMatchLookup(pos).then(function(b){
+    var el = document.getElementById('livePaper');
+    if(b && el && el.getAttribute('data-pos') === pos) livePaperDraw(b.state === 'paper', '', false);
+  });
+}
+/* The one lookup of a match's live picture (the match history call: GET panel?t=&history=<pos>, which writes nothing). Resolves to
+   { state, board, info, a, b, ... } or null when it could not be found out (no signal, not set up, any refusal): a caller then acts as if
+   it knew nothing. Used by the paper switch above and by the two result rules below. */
+function liveMatchLookup(pos){
   var id = state && state.id;
-  if(!id || !liveBoardsOn() || isLocked(state) || typeof document === 'undefined' || !document.getElementById('livePaper')) return;
-  apiFetch(LIVE_PANEL_API + '?t=' + encodeURIComponent(id) + '&history=' + encodeURIComponent(pos)).then(function(r){
-    return r.json().catch(function(){ return {}; }).then(function(b){
-      var el = document.getElementById('livePaper');
-      if(r.ok && el && el.getAttribute('data-pos') === pos) livePaperDraw(b.state === 'paper', '', false);
-    });
-  }).catch(function(){});
+  if(!id) return Promise.resolve(null);
+  return apiFetch(LIVE_PANEL_API + '?t=' + encodeURIComponent(id) + '&history=' + encodeURIComponent(pos)).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(b){ return r.ok && b ? b : null; });
+  }).catch(function(){ return null; });
+}
+function liveWithin(p, ms){
+  return new Promise(function(resolve){
+    var done = false, tm = setTimeout(function(){ if(!done){ done = true; resolve(null); } }, ms);
+    p.then(function(v){ if(!done){ done = true; clearTimeout(tm); resolve(v); } });
+  });
+}
+
+/* ---------- the organiser enters a result: a tablet may hold the match (D18), a later match may be under way (D9) ---------- */
+/* Live events only (a Manual event never gets either box, and neither does a finalised or offline one). Both rules look first and ask
+   in a box; if the look fails nothing is asked (the server still marks the live rows, so a tablet's next call is refused). A tablet
+   holds a match from its check-in until the match is over. */
+var LIVE_HELD_STATES = ['checkedIn', 'playing', 'awaitingConfirm'];
+var liveGuardSeq = 0;
+function liveGuardOn(){ return liveBoardsOn() && !isLocked(state) && !netOffline; }
+function liveModalOpen(){ var b = document.getElementById('modalBackdrop'); return !!b && b.classList.contains('show'); }
+/* What openModal does with the value its Save handler returns, for a handler that was run later (after a look). */
+function liveSettleModal(r){
+  if(r && r.error){
+    var el = document.getElementById('modalErr'), ok = document.getElementById('modalConfirmBtn');
+    if(el){ el.textContent = r.error; el.style.display = 'block'; }
+    if(ok) ok.disabled = false;
+    return;
+  }
+  if(r && r.keepOpen) return;
+  closeModal();
+}
+/* Before an entered result is saved: if a tablet holds one of these matches (positions), ask first. commit() is the save, run at once
+   when nothing is held; the answer is what openModal's handler expects ({keepOpen} while the look is on). Cancel keeps the result as it was.
+   bare: not called from a result window's Save (a no-show picked from a list, "neither showed"): no window to keep waiting in or to settle. */
+function liveHeldGuard(positions, commit, bare){
+  if(!positions.length || !liveGuardOn()) return commit();
+  var seq = ++liveGuardSeq, id = state.id, ok = bare ? null : document.getElementById('modalConfirmBtn');
+  if(ok) ok.disabled = true;
+  Promise.all(positions.map(function(p){ return liveWithin(liveMatchLookup(p), 4000); })).then(function(list){
+    if(seq !== liveGuardSeq || !state || state.id !== id || (!bare && !liveModalOpen())) return;   // the window was closed (or another opened) meanwhile
+    var held = null;
+    list.forEach(function(b){ if(!held && b && LIVE_HELD_STATES.indexOf(b.state) >= 0) held = b; });
+    if(!held){ if(bare) commit(); else liveSettleModal(commit()); return; }
+    var no = held.info && held.info.matchNo != null && held.info.matchNo !== '' ? T('lb.match', { n: escText(held.info.matchNo) }) : T('lb.ovr.thisMatch');
+    openModal({ title: T('lb.ovr.title'), help: false, confirmLabel: T('lb.ovr.enter'), confirmClass: 'danger',
+      bodyHTML: '<p>' + (held.board != null ? T('lb.ovr.text', { match: no, b: escText(held.board) }) : T('lb.ovr.textNb', { match: no })) + '</p>',
+      onConfirm: function(){ if(isLocked(state)) return { error: T('fin.onlyAdmin') }; return commit(); } });
+  });
+  return { keepOpen: true };
+}
+/* Before a knockout result is changed: if that changes the winner of a match that already has one, and the match the winner went to has
+   started (lateCorrectionBlock, results-engine.js), nothing is saved; a box says to deal with that match first. 'Done' is known from the
+   event itself; 'being played on a tablet' needs a look (liveMatchLookup of the next match). commit() is the original save. */
+function liveLateGuard(bracketKey, ri, mi, newWinnerId, commit){
+  if(!liveGuardOn()) return commit();
+  var pos = 'ko:' + bracketKey + ':' + ri + ':' + mi, bracket = bracketByKey(state, bracketKey), m = bracket && bracket.rounds[ri] && bracket.rounds[ri][mi];
+  if(!m || !m.winnerId || (newWinnerId || null) === m.winnerId) return commit();
+  var now = lateCorrectionBlock(state, pos, newWinnerId, null);
+  if(now){ liveLateModal(bracketKey, ri, mi, now); return { keepOpen: true }; }
+  var nx = lateNextOf(state, pos);
+  if(!nx) return commit();
+  var seq = ++liveGuardSeq, id = state.id, ok = document.getElementById('modalConfirmBtn');
+  if(ok) ok.disabled = true;
+  liveWithin(liveMatchLookup(nx.pos), 4000).then(function(b){
+    if(seq !== liveGuardSeq || !state || state.id !== id || !liveModalOpen()) return;
+    var states = {}; if(b && b.state) states[nx.pos] = b.state;
+    var block = lateCorrectionBlock(state, pos, newWinnerId, states);
+    if(block){ liveLateModal(bracketKey, ri, mi, block); return; }
+    liveSettleModal(commit());
+  });
+  return { keepOpen: true };
+}
+/* "Ali has already started Match 2-1": who advanced from the match being changed, and the next match's number. */
+function liveLateModal(bracketKey, ri, mi, block){
+  var m = bracketByKey(state, bracketKey).rounds[ri][mi], mm = /^ko:(.+):(\d+):(\d+)$/.exec(block.pos), nb = mm ? bracketByKey(state, mm[1]) : null;
+  var tag = nb ? koMatchTag(nb, state, parseInt(mm[2], 10), parseInt(mm[3], 10)) : '';
+  var who = escapeHtml(bracketEntryName(state, m.winnerId) || '');
+  openModal({ title: T('lb.late.title'), help: false, confirmLabel: T('m.ok'), confirmClass: 'primary',
+    bodyHTML: '<p>' + T(block.state === 'done' ? 'lb.late.done' : 'lb.late.playing', { name: who, match: T('lb.match', { n: escText(tag) }) }) + '</p>',
+    onConfirm: function(){} });
+  var cancel = document.querySelector('#modalBox .buttonrow .btn.secondary');
+  if(cancel) cancel.style.display = 'none';   // one button: OK
 }
 /* ask: the match is held by a tablet and the server wants a yes before taking it off. */
 function livePaperDraw(on, msg, ask){

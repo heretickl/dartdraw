@@ -2248,6 +2248,15 @@ function koChangeWithConfirm(bracketKey, ri, mi, applyTo, settle, verb){
   if(isLocked(state)) return { error:T('fin.onlyAdmin') };
   const bracket = bracketByKey(state, bracketKey);
   if(!bracket || !bracket.rounds[ri] || !bracket.rounds[ri][mi]) return { error:T('ko.gone') };
+  /* Live event: a change of winner on a decided match is refused while the match the winner went to has started (lateCorrectionBlock);
+     a Manual event goes straight on (liveLateGuard). The change is tried on a copy of the match to learn the new winner. */
+  const probe = Object.assign({}, bracket.rounds[ri][mi]); applyTo(probe);
+  return liveLateGuard(bracketKey, ri, mi, probe.winnerId || null, ()=> koChangeWithConfirmNow(bracketKey, ri, mi, applyTo, settle, verb));
+}
+function koChangeWithConfirmNow(bracketKey, ri, mi, applyTo, settle, verb){
+  if(isLocked(state)) return { error:T('fin.onlyAdmin') };
+  const bracket = bracketByKey(state, bracketKey);
+  if(!bracket || !bracket.rounds[ri] || !bracket.rounds[ri][mi]) return { error:T('ko.gone') };
   const pod = podByKey(state, bracketKey);
   const commit = ()=>{
     if(isLocked(state)) return { error:T('fin.onlyAdmin') };
@@ -2275,6 +2284,13 @@ function koClearResult(bracketKey, roundIdx, matchIdx){
   return koChangeWithConfirm(bracketKey, roundIdx, matchIdx,
     (x)=>{ x.aLegs = null; x.bLegs = null; x.winnerId = null; x.wo = false; delete x.void; },
     propagateByes, 'clear');
+}
+/* Live event: a tablet may hold this match that has no result yet. The organiser's result takes it over (D18), so ask first (liveHeldGuard). A
+   match that already has a result is not held; a Manual event is never asked. */
+function koHeldGuard(bracketKey, ri, mi, commit, bare){
+  const m = bracketByKey(state, bracketKey).rounds[ri][mi];
+  if(m.winnerId || m.void || m.bye) return commit();
+  return liveHeldGuard(['ko:'+bracketKey+':'+ri+':'+mi], commit, bare);
 }
 function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
   if(isLocked(state)){ finalizedBlockModal('changed'); return; }
@@ -2317,7 +2333,7 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
         const pick = document.getElementById('koWin').value;
         if(pick!=='a' && pick!=='b') return { error:T('ko.pick.err') };
         const winOnly = (x)=>{ x.aLegs = null; x.bLegs = null; x.winnerId = pick==='a' ? x.aEntryId : x.bEntryId; x.wo = false; delete x.void; };
-        return koChangeWithConfirm(bracketKey, roundIdx, matchIdx, winOnly, settle, 'change');
+        return koHeldGuard(bracketKey, roundIdx, matchIdx, ()=> koChangeWithConfirm(bracketKey, roundIdx, matchIdx, winOnly, settle, 'change'));
       }
       if(teams){
         const bad = teamResultError(state, va, vb, 'ko', teamStoredResult(m.aLegs, m.bLegs));
@@ -2330,7 +2346,7 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
       }
       const winnerIsA = la>lb;
       const applyTo = (x)=>{ x.aLegs = la; x.bLegs = lb; x.winnerId = winnerIsA ? x.aEntryId : x.bEntryId; x.wo = false; delete x.void; };
-      return koChangeWithConfirm(bracketKey, roundIdx, matchIdx, applyTo, settle, 'change');
+      return koHeldGuard(bracketKey, roundIdx, matchIdx, ()=> koChangeWithConfirm(bracketKey, roundIdx, matchIdx, applyTo, settle, 'change'));
     }
   });
   if(!m.wo) setTimeout(scorePickSync, 0);   // a saved result shows as its button, lit (a walkover's legs were not played: none)
@@ -2415,14 +2431,17 @@ function markKnockoutNoShow(bracketKey, roundIdx, matchIdx, side){
   const loserId = side==='a' ? m.aEntryId : m.bEntryId;
   const winnerId = side==='a' ? m.bEntryId : m.aEntryId;
   const apply = ()=>{ m.aLegs = side==='a' ? 0 : majority; m.bLegs = side==='a' ? majority : 0; m.winnerId = winnerId; m.wo = true; };
-  const podHit = podByKey(state, bracketKey);
-  if(podHit){
-    const res = podsApplyResult(state, podHit, apply);
-    if(!res.ok){ openModal({title:T('ko.cantChange'), body: res.message, confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{}}); return; }
-  } else { apply(); propagateByes(bracket.rounds); }
-  const ent = state.entriesList.find(e=>e.id===loserId);
-  if(ent) ent.noShow = true;
-  persist(); render();
+  koHeldGuard(bracketKey, roundIdx, matchIdx, ()=>{
+    if(isLocked(state) || m.winnerId || m.bye || m.void) return;   // changed while the question was asked
+    const podHit = podByKey(state, bracketKey);
+    if(podHit){
+      const res = podsApplyResult(state, podHit, apply);
+      if(!res.ok){ openModal({title:T('ko.cantChange'), body: res.message, confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{}}); return; }
+    } else { apply(); propagateByes(bracket.rounds); }
+    const ent = state.entriesList.find(e=>e.id===loserId);
+    if(ent) ent.noShow = true;
+    persist(); render();
+  }, true);
 }
 /* "Neither showed": nobody advances. The next opponent gets a bye (see settleVoids); a group whose final is void has
    no winner and leaves a dead Finals slot. Both players are flagged no-show, as a single no-show flags one. */
@@ -2434,13 +2453,16 @@ function markKnockoutVoid(bracketKey, roundIdx, matchIdx){
   if(!m || !m.aEntryId || !m.bEntryId || m.winnerId || m.bye || m.void) return;
   const ids = [m.aEntryId, m.bEntryId];
   const apply = ()=>{ m.void = true; m.aLegs = null; m.bLegs = null; m.winnerId = null; m.wo = false; delete m.called; delete m.calledAt; delete m.calledPair; };
-  const podHit = podByKey(state, bracketKey);
-  if(podHit){
-    const res = podsApplyResult(state, podHit, apply);
-    if(!res.ok){ openModal({title:T('ko.cantChange'), body: res.message, confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{}}); return; }
-  } else { apply(); propagateByes(bracket.rounds); settleVoids(bracket.rounds, true); }
-  ids.forEach(id=>{ const ent = state.entriesList.find(e=>e.id===id); if(ent) ent.noShow = true; });
-  persist(); render();
+  koHeldGuard(bracketKey, roundIdx, matchIdx, ()=>{
+    if(isLocked(state) || m.winnerId || m.bye || m.void) return;   // changed while the question was asked
+    const podHit = podByKey(state, bracketKey);
+    if(podHit){
+      const res = podsApplyResult(state, podHit, apply);
+      if(!res.ok){ openModal({title:T('ko.cantChange'), body: res.message, confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{}}); return; }
+    } else { apply(); propagateByes(bracket.rounds); settleVoids(bracket.rounds, true); }
+    ids.forEach(id=>{ const ent = state.entriesList.find(e=>e.id===id); if(ent) ent.noShow = true; });
+    persist(); render();
+  }, true);
 }
 /* Undoes "neither showed": the match goes back to being played. The no-show flags stay, as they do after any no-show correction. */
 function reverseKnockoutVoid(bracketKey, roundIdx, matchIdx){
@@ -2462,8 +2484,8 @@ function openKoNoShowPicker(bracketKey, roundIdx, matchIdx){
   const aName = bracketEntryName(state, m.aEntryId), bName = bracketEntryName(state, m.bEntryId);
   const majority = koWalkoverLegs(state, bracketKey, bracket.rounds.length, roundIdx);
   const rows =
-    '<div class="picker-row" onclick="markKnockoutNoShow(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+',\'a\');closeModal();">'+escapeHtml(aName)+'</div>'+
-    '<div class="picker-row" onclick="markKnockoutNoShow(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+',\'b\');closeModal();">'+escapeHtml(bName)+'</div>'+
+    '<div class="picker-row" onclick="closeModal();markKnockoutNoShow(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+',\'a\');">'+escapeHtml(aName)+'</div>'+
+    '<div class="picker-row" onclick="closeModal();markKnockoutNoShow(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+',\'b\');">'+escapeHtml(bName)+'</div>'+
     '<div class="picker-row" onclick="closeModal();markKnockoutVoid(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+');">'+T('noshow.neither')+'</div>';
   openModal({
     title:T('noshow.koTitle'),
@@ -7136,16 +7158,21 @@ function markGroupNoShow(groupId, entryId){
   const g = state.groups.find(x=>x.id===groupId);
   const ent = state.entriesList.find(e=>e.id===entryId);
   if(!g || !ent) return;
-  ent.noShow = true;
-  const majority = majorityLegs();
-  groupMatches(g).forEach(([a,b])=>{
-    if(a!==entryId && b!==entryId) return;
-    if(getScore(g,a,b)) return; // don't overwrite a real result already entered
-    const opp = a===entryId ? b : a;
-    setScore(g, entryId, opp, 0, majority);
-    g.scores[scoreKey(entryId,opp)].wo = true;
-  });
-  persist(); render();
+  /* Live event: a tablet may hold one of the matches this fills in (liveHeldGuard asks first; a Manual event runs straight on). */
+  const open = groupMatches(g).filter(([a,b])=> (a===entryId || b===entryId) && !getScore(g,a,b)).map(([a,b])=> 'rr:'+g.id+':'+scoreKey(a,b));
+  liveHeldGuard(open, ()=>{
+    if(isLocked(state)) return;
+    ent.noShow = true;
+    const majority = majorityLegs();
+    groupMatches(g).forEach(([a,b])=>{
+      if(a!==entryId && b!==entryId) return;
+      if(getScore(g,a,b)) return; // don't overwrite a real result already entered
+      const opp = a===entryId ? b : a;
+      setScore(g, entryId, opp, 0, majority);
+      g.scores[scoreKey(entryId,opp)].wo = true;
+    });
+    persist(); render();
+  }, true);
 }
 function undoGroupNoShow(groupId, entryId){
   if(isLocked(state)){ finalizedBlockModal('changed'); return; }
@@ -7172,7 +7199,7 @@ function openNoShowPicker(groupId){
     const ent = state.entriesList.find(e=>e.id===id);
     if(!ent) return '';
     if(ent.noShow) return '<div class="picker-row"><span>'+escapeHtml(ent.name)+'</span><span class="occ">'+T('noshow.marked')+(undoBlocked ? '' : ' — <a href="javascript:void(0)" onclick="closeModal();undoGroupNoShow(\''+escJs(g.id)+'\',\''+escJs(ent.id)+'\');">'+T('noshow.undo')+'</a>')+'</span></div>';
-    return '<div class="picker-row" onclick="markGroupNoShow(\''+escJs(g.id)+'\',\''+escJs(ent.id)+'\');closeModal();">'+escapeHtml(ent.name)+'</div>';
+    return '<div class="picker-row" onclick="closeModal();markGroupNoShow(\''+escJs(g.id)+'\',\''+escJs(ent.id)+'\');">'+escapeHtml(ent.name)+'</div>';
   }).join('');
   openModal({
     title:T('noshow.groupTitle', {g: escText(g.label)}),
@@ -7582,9 +7609,7 @@ function promptScore(groupId, aId, bId, aName, bName){
       if(winner!==majority || loser>=majority){
         return { error: T('rr.score.err.invalid', {n: bestOf, m: majority, m1: majority-1}) };
       }
-      setScore(g, aId, bId, va, vb);
-      persist();
-      render();
+      return liveHeldGuard(sc ? [] : ['rr:'+groupId+':'+scoreKey(aId, bId)], ()=>{ setScore(g, aId, bId, va, vb); persist(); render(); });
     }
   });
   if(!(sc && sc.wo)) setTimeout(scorePickSync, 0);   // a saved result shows as its button, lit (a walkover's legs were not played: none)
@@ -7612,9 +7637,7 @@ function promptScoreTeams(g, aId, bId, aName, bName){
       const va = document.getElementById('scA').value, vb = document.getElementById('scB').value;
       const bad = teamResultError(state, va, vb, 'rr', sc ? teamStoredResult(firstIsA ? sc.legs1 : sc.legs2, firstIsA ? sc.legs2 : sc.legs1) : null);   // the raw stored values, not the boxes' 0s
       if(bad) return { error: bad };
-      setScore(g, aId, bId, parseInt(va), parseInt(vb));
-      persist();
-      render();
+      return liveHeldGuard(sc ? [] : ['rr:'+g.id+':'+scoreKey(aId, bId)], ()=>{ setScore(g, aId, bId, parseInt(va), parseInt(vb)); persist(); render(); });
     }
   });
   livePaperLoad('rr:'+g.id+':'+scoreKey(aId, bId));

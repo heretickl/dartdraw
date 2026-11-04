@@ -55,6 +55,10 @@ function engine() {
     rebuildDerived: (t) => run('rebuildDerived')(t),
     mergeResults: (stored, incoming, dirty, now) => run('mergeResults')(stored, incoming, dirty, now),
     stampOrganiserResults: (prev, next, now) => run('stampOrganiserResults')(prev, next, now),
+    /* The positions whose result differs between two copies (what the organiser's save changed). */
+    changedSlots: (base, cur) => run('changedSlots')(base, cur),
+    /* Would changing a knockout winner reach a match that has started? (results-engine.js lateCorrectionBlock) */
+    lateCorrectionBlock: (t, pos, newWinnerId, liveStates) => run('lateCorrectionBlock')(t, pos, newWinnerId, liveStates),
     /* Winners moving on again in every bracket, after results were merged match by match. */
     propagateAll: (t) => run('(function(t){ (t.pods||[]).forEach(function(p){ if(p.bracket && p.bracket.rounds) podsPropagate(p.bracket.rounds); }); if(t.knockout && t.knockout.podFinals && typeof syncFinalsFromPods==="function") syncFinalsFromPods(t); ["knockout","knockoutLosers"].forEach(function(k){ if(t[k] && t[k].rounds) propagateByes(t[k].rounds); }); })')(t),
     legsFor: (t, slot) => run('(function(t, s){ return s.kind==="rr" ? (parseInt(t.format.bestOfLegs)||5) : legsForKnockoutRound(t, s.bracketKey, s.bracket.rounds.length, s.ri); })')(t, slot),
