@@ -9,7 +9,7 @@
 //   401 no_session · 403 live_off · 410 link_ended · 503 live_not_set_up
 // The claim is one compare-and-set (api/_lib/live.js claimMatch): of any number of simultaneous callers exactly one wins.
 const { sendError, bodyObject, methodNotAllowed, requireSession, live } = require('./common');
-const { boardCountOf, load, matchView, placeFor, busyEntries } = require('./view');
+const { boardCountOf, load, matchView, placeFor, heldPlace, busyEntries } = require('./view');
 const LiveBoards = require('../../../live-boards');
 
 const refuse = (res, status, code, error) => res.status(status).json({ ok: false, code, error });
@@ -33,7 +33,7 @@ async function claim(found, res, pos) {
   if (!s || !s.a || !s.b || (s.kind === 'ko' && s.m && s.m.bye)) { refuse(res, 404, 'missing', 'This match is not in the event.'); return; }
   const [rows, lends] = await Promise.all([live.liveRows(id), live.liveLends(id)]);
   const row = rows.find((r) => r.pos === pos) || null;
-  const place = placeFor(s, myBoard, lends);
+  const place = heldPlace(row, me, myBoard) || placeFor(s, myBoard, lends);   // a match this device already holds never depends on a lend
   if (!place) { refuse(res, 403, 'not_your_board', 'This match is not on your board.'); return; }
   if (row && row.paper) { refuse(res, 409, 'paper', 'This match is scored on paper.'); return; }
   if (LiveBoards.slotDone(s)) { refuse(res, 409, 'done', 'This match is already finished.'); return; }

@@ -46,6 +46,14 @@ function placeFor(s, myBoard, lends) {
   const lend = lends.find((l) => l.from === myBoard && boards.indexOf(l.to) >= 0);
   return lend ? { forBoard: lend.to, playedOn: myBoard } : null;
 }
+/* Where a match this device HOLDS is played, from the match's own row, never from a lend: a lend ends by itself when the lent board has
+   no waiting matches, which is right after its last match is claimed, and the device must not lose its match mid-play. Null when the
+   device does not hold it. */
+function heldPlace(row, me, myBoard) {
+  if (!row || LiveBoards.heldBy(row) !== me) return null;
+  const board = row.board != null ? row.board : myBoard, playedOn = row.played_on_board != null ? row.played_on_board : board;
+  return playedOn !== board ? { forBoard: board, playedOn } : { own: true, board };
+}
 /* Entries playing right now (a match whose live row says 'playing') on any board. */
 function busyEntries(slotsByPos, rows) {
   const busy = {};
@@ -101,10 +109,12 @@ function buildList(found, rows, lends) {
     if (s.kind === 'ko' && s.m && s.m.bye) return;             // a bye is not played
     const row = rowBy[s.pos] || null;
     if (row && row.paper) return;                              // scored on paper: on no device (D16)
-    const place = placeFor(s, myBoard, lends);
+    const mine = heldPlace(row, me, myBoard);                  // a match this device holds stays on its list, lend or no lend
+    const place = mine || placeFor(s, myBoard, lends);
     if (!place) return;                                        // not on this board: a knockout match with no board is on none (D7)
     if (LiveBoards.slotDone(s)) { if (place.own) doneList.push(matchView(ctx, s, row, place, me, busy)); return; }
     if (!s.open) return;                                       // waiting for its players, or its group has not started
+    if (mine) { mineList.push(matchView(ctx, s, row, place, me, busy)); return; }
     if (place.forBoard) {
       if (LiveBoards.heldBy(row)) return;                      // a lent board lists only what is still waiting
       lentList.push(matchView(ctx, s, row, place, me, busy));
@@ -113,4 +123,4 @@ function buildList(found, rows, lends) {
   return mineList.concat(lentList, doneList);
 }
 
-module.exports = { boardCountOf, buildList, load, matchView, placeFor, busyEntries, stageOf, gameFor, MAX_BOARDS };
+module.exports = { boardCountOf, buildList, load, matchView, placeFor, heldPlace, busyEntries, stageOf, gameFor, MAX_BOARDS };
