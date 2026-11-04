@@ -52,7 +52,7 @@ time format): changing English to dd/mm/yyyy needs the owner's approval, so only
 Malaysian darts players and organisers say these in English, even in BM. Write them in lower case inside BM sentences,
 no italics, no plural ("5 leg", "2 bye"):
 
-**leg, set, bye, seed, walkover (WO), bullseye/bull, oche, double, treble, checkout, 501/301/701/1001, round robin, Plate, H2H, TB, bracket, board** (owner decision 2026-10-23 for **bracket** and **board**; the feature name **Group Boards** also stays English)
+**leg, set, bye, seed, walkover (WO), bullseye/bull, oche, double, treble, checkout, bust, 501/301/701/1001, round robin, Plate, H2H, TB, bracket, board** (owner decision 2026-10-23 for **bracket** and **board**; the feature name **Group Boards** also stays English)
 
 - Give a short BM gloss on first use in Help only: *seed* "(seed ialah peserta pilihan)", *bracket* "bracket (carta kalah mati)"
   on its first running-text mention in every Help article, viewer Help question and public page, *pencatat skor* "(marker)", *borang barisan* "(lineup sheet)", head-to-head after *keputusan perlawanan sesama

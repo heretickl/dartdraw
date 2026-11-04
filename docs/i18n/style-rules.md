@@ -21,7 +21,7 @@ every BM text: the public pages, both Help pages, and later the apps and the pri
    seasons, no surnames.
 10. **No invented abbreviations** (S/Akhir, SA, drp). Fix the layout, or use a standard form (*Bil.*, *cth.*, *P16*).
 11. **Dates and times from Intl ms-MY** in the UI (dd/mm/yyyy, 7:10 PTG); DBP prose style (*7.10 malam*) in Help.
-12. **Darts loanwords** (leg, bye, seed, walkover, round robin, Plate, oche, bracket, board) stay lower-case English, with
+12. **Darts loanwords** (leg, bye, seed, walkover, round robin, Plate, oche, bust, bracket, board) stay lower-case English, with
     no plural, and are glossed once in Help.
 13. **Never leave a joined string half translated:** every piece of a " · " subtitle needs a key, including title-case
     variants ("Best of 5 Legs").
