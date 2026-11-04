@@ -435,13 +435,6 @@ var liveTimer = null;
 function liveBoardsOn(){
   return !!state && !state.isSample && !isLocked(state) && !!state.id && !!state.eventCreation && !!state.eventCreation.saved && LiveSettings.isLive(state);
 }
-/* The same answer with the clock left out: a poll that changed nothing does not redraw. */
-function liveSame(a, b){
-  if(!a || !b) return false;
-  var x = liveCopy(a), y = liveCopy(b);
-  delete x.now; delete y.now;
-  return JSON.stringify(x) === JSON.stringify(y);
-}
 function loadLive(force){
   if(!liveBoardsOn()) return;
   if(!force && liveState.id === state.id && (liveState.data || liveState.loading || liveState.error)) return;
@@ -452,9 +445,8 @@ function loadLive(force){
     if(liveState.id !== id) return;
     liveState.loading = false;
     if(x.r.ok){
-      var changed = !liveSame(liveState.data, x.b) || !!liveState.error;
       liveState.data = x.b; liveState.error = '';
-      if(changed) liveRedraw();
+      liveRedraw();   // every poll: "seen 20 s ago" and the red late flag come from the clock, so a quiet device must age on screen (the card is small and the redraw is only the card)
     } else { liveState.error = (x.b && x.b.code) || 'request_failed'; liveRedraw(); }
   }).catch(function(){ if(liveState.id === id){ liveState.loading = false; liveState.error = 'offline'; liveRedraw(); } });
 }
@@ -578,7 +570,7 @@ function liveBoardRowHTML(b, d){
   var lendIn = d.lends.filter(function(l){ return l.to === b.n; });
   var lendTxt = (lendOut ? '<div class="hint" style="margin:2px 0 0">' + T('lb.lentTo', { n: lendOut.to }) + '</div>' : '') +
     lendIn.map(function(l){ return '<div class="hint" style="margin:2px 0 0">' + T('lb.lentFrom', { n: l.from }) + '</div>'; }).join('');
-  var btns = (b.devices.length && !lendOut ? '<button class="btn ghost fo-btn" onclick="liveLendModal(' + b.n + ')">' + T('lb.lendTo') + '</button> ' : '') +
+  var btns = (b.devices.length && !lendOut && !b.playing ? '<button class="btn ghost fo-btn" onclick="liveLendModal(' + b.n + ')">' + T('lb.lendTo') + '</button> ' : '') +
     d.lends.filter(function(l){ return l.from === b.n || l.to === b.n; }).map(function(l){
       return '<button class="btn ghost fo-btn" onclick="liveEndLend(\'' + escJs(l.id) + '\')">' + T('lb.endLend') + '</button>';
     }).join(' ');
