@@ -21,6 +21,11 @@ var DD_ERR_MS = {
   'err.missing': "Perlawanan ini tiada lagi dalam acara.",
   'err.not_your_board': "Perlawanan ini tiada lagi di board anda.",
   'err.busy': "Acara sedang sibuk. Mencuba lagi.",
+  /* live scoring (api/live/*) */
+  'err.live_not_set_up': "Skor langsung belum disediakan.",
+  'err.login_required': "Masukkan nama pengguna dan kata laluan.",
+  'err.bad_login': "Nama pengguna atau kata laluan itu tidak betul.",
+  'err.live_off': "Skor langsung tidak dihidupkan untuk acara ini.",
   /* every endpoint */
   'err.method_not_allowed': 'Kaedah tidak dibenarkan',
   'err.not_found': 'Tidak dijumpai.',

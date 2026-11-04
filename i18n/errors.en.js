@@ -26,6 +26,11 @@ var DD_ERR_EN = {
   'err.missing': "This match is no longer in the event.",
   'err.not_your_board': "This match is not on your boards any more.",
   'err.busy': "The event is busy. Trying again.",
+  /* live scoring (api/live/*) */
+  'err.live_not_set_up': "Live scoring is not set up yet.",
+  'err.login_required': "Enter the username and password.",
+  'err.bad_login': "That username or password is not right.",
+  'err.live_off': "Live scoring is not switched on for this event.",
   /* every endpoint */
   'err.method_not_allowed': 'Method not allowed',
   'err.not_found': 'Not found.',

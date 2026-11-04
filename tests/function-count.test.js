@@ -9,7 +9,7 @@ const path = require('path');
 // file name was tried first and Vercel only matched one path segment with it, so multi-segment admin paths returned the platform's 404). This test keeps
 // new files from silently pushing a deployment over the limit.
 const API = path.join(__dirname, '..', 'api');
-const MAX_FUNCTIONS = 8;   // headroom under the plan limit of 12
+const MAX_FUNCTIONS = 9;   // headroom under the plan limit of 12 (9 since api/live/[action].js)
 
 function deployedFunctions(dir, rel) {
   let out = [];

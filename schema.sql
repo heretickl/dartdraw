@@ -95,8 +95,12 @@ CREATE TABLE live_logins (
   username       text NOT NULL,
   password_hash  text NOT NULL,
   password_shown text NOT NULL,
+  session_nonce  text NOT NULL,
   created_at     timestamptz NOT NULL DEFAULT now()
 );
+-- usernames are unique across the whole table (a device signs in with the username alone). session_nonce: New password changes it,
+-- which logs every device of the event out (a device session carries the nonce it signed in with).
+CREATE UNIQUE INDEX idx_live_logins_username ON live_logins (username);
 
 -- live_devices: one row per tablet/phone signed in to an event. session_nonce changes on every sign-in, so an old session stops
 -- working. logged_out_at is set when the organiser or the finalise step ends the device. unsent: how many turns the device says
