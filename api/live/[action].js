@@ -14,6 +14,11 @@
 //   /api/live/panel   the organiser's Boards panel (organiser session, not a device): login, devices, boards, lend, log out, take-over answers
 //
 // The action is read from req.url. Anything else answers 404 { code: 'not_found', error: 'Not found.' }.
+//
+// CORS (api/_lib/cors.js): the DEVICE routes (every action but panel) answer a browser on an allowed other origin (the scoring app) and its
+// OPTIONS preflight (204; a disallowed origin's preflight: 403 origin_not_allowed). panel (organiser cookie) gets none: same-origin only.
+const { handleDeviceCors } = require('../_lib/cors');
+
 const ROUTES = {
   login: () => require('../_routes/live/login'),
   boards: () => require('../_routes/live/boards'),
@@ -43,5 +48,6 @@ module.exports = async (req, res) => {
   }
   if (!req.query) req.query = {};
   if (req.query.action === action) delete req.query.action;
+  if (action !== 'panel' && handleDeviceCors(req, res)) return;
   return ROUTES[action]()(req, res);
 };

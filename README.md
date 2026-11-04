@@ -339,6 +339,7 @@ Environment variables (see `.env.example`):
 | `RESEND_API_KEY` | Resend API key (needed for `resend`). |
 | `MAIL_FROM` | Sender address on a domain verified in Resend (needed for `resend`). |
 | `VIEWER_URL` | Address of the public results site. |
+| `LIVE_ALLOWED_ORIGINS` | Comma-separated web addresses (exact origins, no trailing slash) allowed to call the tablet routes `/api/live/*` from a browser, for a scoring app served from another address. Default `https://dartdraw-scoring.vercel.app`. Outside production, `http://localhost:<port>` and `http://127.0.0.1:<port>` are allowed too. The organiser's own routes never get this. |
 
 Without a domain the Admin can still sign in (step 2 needs no email), but
 sign-up, email verification and Forgot password are unavailable. The Admin tab

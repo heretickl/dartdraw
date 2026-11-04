@@ -27,6 +27,7 @@ var DD_ERR_MS = {
   'err.too_many_devices': "Terlalu banyak peranti didaftar masuk untuk acara ini. Minta penganjur supaya satu peranti dilog keluar.",
   'err.bad_login': "Nama pengguna atau kata laluan itu tidak betul.",
   'err.live_off': "Skor langsung tidak dihidupkan untuk acara ini.",
+  'err.origin_not_allowed': "Alamat ini tidak dibenarkan.",
   'err.no_board': "Pilih board dahulu.",
   'err.lend_invalid_board': "Board itu bukan sebahagian daripada acara ini.",
   'err.lend_same_board': "Sesebuah board tidak boleh dipinjamkan kepada dirinya sendiri.",

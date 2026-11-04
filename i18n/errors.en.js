@@ -32,6 +32,7 @@ var DD_ERR_EN = {
   'err.too_many_devices': "Too many devices are signed in for this event. Ask the organiser to log one out.",
   'err.bad_login': "That username or password is not right.",
   'err.live_off': "Live scoring is not switched on for this event.",
+  'err.origin_not_allowed': "This address is not allowed.",
   'err.no_board': "Pick a board first.",
   'err.lend_invalid_board': "That board is not part of this event.",
   'err.lend_same_board': "A board cannot lend to itself.",
