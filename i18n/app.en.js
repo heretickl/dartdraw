@@ -1431,6 +1431,7 @@ var DD_APP_EN = {
   /* Boards panel: match history, disputed, Close event (live-ui.js) */
   'lb.history': "Match history",
   'lb.history.hint': "Open a match to see every turn and correction, put an earlier version back, or mark the match as disputed.",
+  'lb.history.hintRo': "Open a match to see every turn and correction.",
   'lb.history.open': "Open a match…",
   'lb.history.btn': "History",
   'lb.hist.pickNone': "No match has been scored on a device yet.",
@@ -1468,6 +1469,8 @@ var DD_APP_EN = {
   'lb.hist.by.official': "by a floor official",
   'lb.hist.by.system': "automatically",
   'lb.disputed': "Disputed",
+  'lb.finalized.note': "This event is finalised, so nothing here can be changed any more. Devices stay signed in until you close the event.",
+  'lb.hist.finalHint': "This event is finalised, so the history can only be read.",
   'lb.st.waiting': "waiting",
   'lb.st.called': "called",
   'lb.st.playing': "playing",

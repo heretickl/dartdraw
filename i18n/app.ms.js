@@ -1426,6 +1426,7 @@ var DD_APP_MS = {
   /* Panel Board: sejarah perlawanan, dipertikaikan, Tutup acara (live-ui.js) */
   'lb.history': "Sejarah perlawanan",
   'lb.history.hint': "Buka sesuatu perlawanan untuk melihat setiap giliran dan pembetulan, memulihkan versi terdahulu, atau menandakannya sebagai dipertikaikan.",
+  'lb.history.hintRo': "Buka sesuatu perlawanan untuk melihat setiap giliran dan pembetulan.",
   'lb.history.open': "Buka perlawanan…",
   'lb.history.btn': "Sejarah",
   'lb.hist.pickNone': "Belum ada perlawanan yang dicatat pada peranti.",
@@ -1463,6 +1464,8 @@ var DD_APP_MS = {
   'lb.hist.by.official': "oleh pegawai lantai",
   'lb.hist.by.system': "secara automatik",
   'lb.disputed': "Dipertikaikan",
+  'lb.finalized.note': "Acara ini telah dimuktamadkan, jadi tiada apa-apa di sini boleh diubah lagi. Peranti kekal log masuk sehingga anda menutup acara.",
+  'lb.hist.finalHint': "Acara ini telah dimuktamadkan, jadi sejarah hanya boleh dibaca.",
   'lb.st.waiting': "menunggu",
   'lb.st.called': "dipanggil",
   'lb.st.playing': "sedang dimainkan",

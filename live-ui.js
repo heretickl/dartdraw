@@ -439,9 +439,11 @@ var liveBadge = { id: null, n: 0, busy: false, offId: null };   // waiting take-
 var liveBriefTimer = null, LIVE_BRIEF_MS = 20000;
 var liveAnswering = {};   // take-over requests being answered right now (a double tap answers once)
 
-/* The card is for a saved, Live, unfinalized event that is not the sample. */
+/* The card is for a saved, Live event that is not the sample. A FINALISED event keeps it in a reduced "closing" mode (spec 7.6: finalising
+   does not log devices out, so the organiser must still be able to close the event): the devices (read only), Close event and the
+   history (read only). Nothing else on it can be changed after finalising (the server answers 403 finalized to every other op). */
 function liveBoardsOn(){
-  return !!state && !state.isSample && !isLocked(state) && !!state.id && !!state.eventCreation && !!state.eventCreation.saved && LiveSettings.isLive(state);
+  return !!state && !state.isSample && !!state.id && !!state.eventCreation && !!state.eventCreation.saved && LiveSettings.isLive(state);
 }
 function loadLive(force){
   if(!liveBoardsOn()) return;
@@ -490,7 +492,7 @@ function liveSyncPolling(){
 }
 
 /* ---------- the Stage 5 tab's number (waiting take-over requests) ---------- */
-function liveBadgeCount(){ return liveBoardsOn() && liveBadge.id === state.id ? liveBadge.n : 0; }
+function liveBadgeCount(){ return liveBoardsOn() && !isLocked(state) && liveBadge.id === state.id ? liveBadge.n : 0; }
 function liveBadgeSet(id, n){
   liveBadge.id = id; liveBadge.n = n > 0 ? n : 0;
   liveBadgeRender();
@@ -520,7 +522,7 @@ function liveBadgeRender(){
 /* The light poll runs only for an open, saved, Live, unfinalized event, on a step other than 5 (step 5's card has its own poll), while
    the page is visible and the Live tables exist. */
 function liveBriefWants(){
-  return liveBoardsOn() && currentStage !== 5 && !popoutMode && typeof document !== 'undefined' && !document.hidden && liveBadge.offId !== state.id;
+  return liveBoardsOn() && !isLocked(state) && currentStage !== 5 && !popoutMode && typeof document !== 'undefined' && !document.hidden && liveBadge.offId !== state.id;
 }
 function liveBriefStop(){ if(liveBriefTimer){ clearInterval(liveBriefTimer); liveBriefTimer = null; } }
 function liveBriefTick(){
@@ -687,11 +689,14 @@ function liveBoardsHTML(){
   if(liveState.error === 'live_not_set_up') return html + '<p class="hint">' + T('lb.notSetUp') + '</p></div>';
   if(liveState.error && !d) return html + '<p class="hint">' + T('lb.err.load') + ' <a href="javascript:void(0)" onclick="loadLive(true)">' + T('fo.retry') + '</a></p></div>';
   if(!d) return html + '<p class="hint">' + T('fo.loading') + '</p></div>';
+  var fin = isLocked(state);
+  if(!d.login && fin) return '';   // finalised before Live scoring was ever turned on: nothing to close
   if(!d.login) return html + '<button class="btn primary" onclick="liveEnable()">' + T('lb.enable') + '</button><p class="hint">' + T('lb.enableHint') + '</p></div>';
   var active = d.devices.filter(function(x){ return !x.loggedOut; }), closed = !!d.closedAt;
   if(closed) html += liveClosedNoteHTML(d);
+  else if(fin) html += '<div class="confirm-box finalized-note" style="margin:8px 0">' + T('lb.finalized.note') + '</div>';
   else html += liveLoginHTML(d) + liveInboxHTML(d);
-  html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.boards') + '</b>' +
+  if(!fin) html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.boards') + '</b>' +
     '<div class="lb-wrap"><table class="lb-table"><thead><tr><th>' + T('lb.col.board') + '</th><th>' + T('lb.col.group') + '</th><th>' + T('lb.col.playing') + '</th><th>' + T('lb.col.waiting') + '</th><th>' + T('lb.col.devices') + '</th><th></th></tr></thead><tbody>' +
     d.boards.map(function(b){ return liveBoardRowHTML(b, d); }).join('') + '</tbody></table></div></div>';
   html += liveHistoryBlockHTML(d);
@@ -702,7 +707,7 @@ function liveBoardsHTML(){
     var i = d.devices.indexOf(dv);
     return '<div class="fo-row" style="padding:6px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="flex:1;min-width:200px"><b>' + escapeHtml(T('lb.deviceN', { n: i + 1 })) + '</b> · ' +
       (dv.board != null ? T('lb.boardN', { n: dv.board }) : '<span class="hint" style="margin:0">' + T('lb.noBoardYet') + '</span>') + ' ' + liveDeviceLine(dv, d.now) + '</span>' +
-      '<button class="btn ghost fo-btn" style="color:var(--red)" onclick="liveLogoutModal(\'' + escJs(dv.id) + '\')">' + T('lb.logout') + '</button></div>';
+      (fin ? '' : '<button class="btn ghost fo-btn" style="color:var(--red)" onclick="liveLogoutModal(\'' + escJs(dv.id) + '\')">' + T('lb.logout') + '</button>') + '</div>';
   }).join('');
   html += '</div>';
   html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.close.title') + '</b><div class="hint" style="margin:4px 0 6px">' + T('lb.close.hint') + '</div>' +
@@ -791,7 +796,7 @@ function liveModalDone(label){
 /* The "Match history" block: one button, which lists the matches that have a history to open. */
 function liveHistoryBlockHTML(d){
   return '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.history') + '</b>' +
-    '<div class="hint" style="margin:4px 0 6px">' + T('lb.history.hint') + '</div>' +
+    '<div class="hint" style="margin:4px 0 6px">' + T(isLocked(state) ? 'lb.history.hintRo' : 'lb.history.hint') + '</div>' +
     '<button class="btn ghost fo-btn" onclick="liveHistoryPick()">' + T('lb.history.open') + '</button></div>';
 }
 function liveHistoryPick(){
@@ -881,24 +886,24 @@ function liveHistBodyHTML(){
   var h = liveHist.data;
   if(liveHist.error && !h) return '<p>' + T('lb.hist.err') + ' <a href="javascript:void(0)" onclick="liveHist.error=\'\';liveHistDraw();liveHistFetch()">' + T('fo.retry') + '</a></p>';
   if(!h) return '<p class="hint">' + T('fo.loading') + '</p>';
-  var over = ['confirmed', 'retired', 'voided'].indexOf(h.state) >= 0;
+  var over = ['confirmed', 'retired', 'voided'].indexOf(h.state) >= 0, fin = isLocked(state), ro = over || fin;   // fin: the event is finalised, the history is only read
   var no = h.info && h.info.matchNo != null && h.info.matchNo !== '' ? T('lb.match', { n: escText(h.info.matchNo) }) : '';
   var sm = h.summary && h.summary.legs && h.summary.legs.length === 2 ? T('lb.hist.legs', { a: h.summary.legs[0], b: h.summary.legs[1] }) : '';
   var html = '<div style="margin-bottom:8px"><b>' + escText(h.a) + '</b> v <b>' + escText(h.b) + '</b>' +
     '<div class="hint" style="margin:0">' + [no, escText(TC('lb.st.', h.state)), sm].filter(Boolean).join(' · ') + '</div>' +
     (h.disputed ? '<div style="margin:3px 0 0">' + liveDisputedBadge() + '</div>' : '') + '</div>' +
-    '<div class="buttonrow" style="margin:0 0 4px"><button class="btn ghost fo-btn" onclick="liveHistDispute(' + (h.disputed ? 'false' : 'true') + ')">' + T(h.disputed ? 'lb.hist.clearDisputed' : 'lb.hist.markDisputed') + '</button></div>' +
-    '<div class="hint" style="margin:0 0 8px">' + T('lb.hist.disputedHint') + '</div>' +
+    (fin ? '' : '<div class="buttonrow" style="margin:0 0 4px"><button class="btn ghost fo-btn" onclick="liveHistDispute(' + (h.disputed ? 'false' : 'true') + ')">' + T(h.disputed ? 'lb.hist.clearDisputed' : 'lb.hist.markDisputed') + '</button></div>' +
+      '<div class="hint" style="margin:0 0 8px">' + T('lb.hist.disputedHint') + '</div>') +
     (liveHist.msg ? '<div style="color:var(--red);font-size:12px;margin:0 0 8px">' + escText(liveHist.msg) + '</div>' : '');
   if(!h.turns.length) html += '<p class="hint">' + T('lb.hist.noTurns') + '</p>';
   else {
-    html += '<div class="hint" style="margin:0 0 6px">' + T(over ? 'lb.hist.overHint' : 'lb.hist.restoreHint') + '</div>';
+    html += '<div class="hint" style="margin:0 0 6px">' + T(fin ? 'lb.hist.finalHint' : over ? 'lb.hist.overHint' : 'lb.hist.restoreHint') + '</div>';
     var rows = liveHistRows(h.turns), legs = [];
     rows.forEach(function(r){ if(legs.indexOf(r.leg) < 0) legs.push(r.leg); });
     legs.sort(function(p, q){ return p - q; });
     legs.forEach(function(leg){
       html += '<div style="font-weight:800;font-size:12px;margin:10px 0 2px;border-bottom:1px solid var(--line)">' + T('lb.hist.leg', { n: leg }) + '</div>';
-      rows.filter(function(r){ return r.leg === leg; }).forEach(function(r){ html += liveHistRowHTML(r, h, over); });
+      rows.filter(function(r){ return r.leg === leg; }).forEach(function(r){ html += liveHistRowHTML(r, h, ro); });
     });
   }
   var tks = h.takeovers || [];
@@ -933,7 +938,7 @@ function liveHistRowHTML(r, h, over){
 /* Restore and the Disputed flag: the answer is the panel again; the window shows the new state (or the reason, inside itself). */
 var liveHistBusy = false;
 function liveHistAct(body){
-  if(liveHistBusy || !liveHist.pos) return;
+  if(liveHistBusy || !liveHist.pos || isLocked(state)) return;
   liveHistBusy = true; liveHist.msg = '';
   var pos = liveHist.pos;
   liveCall(Object.assign({ pos: pos }, body), function(text){ if(liveHist.pos === pos){ liveHist.msg = text; liveHistDraw(); } }).then(function(){

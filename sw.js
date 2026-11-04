@@ -8,7 +8,7 @@
    untouched, and the landing site, Help and sign-in pages are outside the scope.
    VERSION: bump it when SHELL changes (a file added or removed). Network first already serves new files after a deploy;
    the bump only clears the old caches. SHELL must list every <script src> of app.html, render.css and DD_MS_FILES. */
-var VERSION = '2026-11-05.5';
+var VERSION = '2026-11-05.6';
 var CACHE = 'dd-app-' + VERSION;
 var SHELL = [
   '/app',

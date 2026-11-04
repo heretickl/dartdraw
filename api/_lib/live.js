@@ -308,7 +308,7 @@ const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(12).toString('hex'), BCRYP
 
 /* The device and event behind a session's claims, looked up again on every request. Checked in this order:
      null                          no valid session (never signed in, a New password, a device that is not there): 401 no_session
-     { refused: 'closed' }         the device was logged out (Close event): 410 link_ended
+     { refused: 'closed' }         the device was logged out, or the event was closed (Close event): 410 link_ended
      { refused: 'live_off' }       the event is no longer Live: 403 live_off
      { device, tournament, finalized: true }   the event is finalized: the device stays signed in (spec 7.6), but only a route
                                    that opts in (requireSession allowFinalized) may use it; every other route answers 410 link_ended
@@ -317,13 +317,13 @@ async function sessionFor(claims) {
   if (!claims) return null;
   return q(async () => {
     const rows = await sql`
-      SELECT d.id, d.tournament_id, d.board, d.session_nonce, d.logged_out_at, d.unsent, l.session_nonce AS login_nonce, t.data AS t_data, t.updated_at AS t_updated_at
+      SELECT d.id, d.tournament_id, d.board, d.session_nonce, d.logged_out_at, d.unsent, l.session_nonce AS login_nonce, l.closed_at, t.data AS t_data, t.updated_at AS t_updated_at
       FROM live_devices d JOIN tournaments t ON t.id = d.tournament_id LEFT JOIN live_logins l ON l.tournament_id = d.tournament_id
       WHERE d.id = ${claims.did}`;
     const r = rows[0];
     if (!r || r.tournament_id !== claims.tid || !r.login_nonce) return null;
     if (!sameText(r.session_nonce, claims.nonce) || !sameText(r.login_nonce, claims.nonce)) return null;
-    if (r.logged_out_at) return { refused: 'closed' };
+    if (r.logged_out_at || r.closed_at) return { refused: 'closed' };   // logged out, or the event was closed (a device that signed in while it was being closed)
     if (!LiveSettings.isLive(r.t_data)) return { refused: 'live_off' };
     await sql`UPDATE live_devices SET last_seen_at = now() WHERE id = ${r.id}`;
     const out = {

@@ -4242,7 +4242,7 @@ function finalizeResults(){
   if(t.id && typeof LiveSettings!=='undefined' && LiveSettings.isLive(t) && typeof liveFetchBlockers==='function'){
     finalizeChecking = true;
     const slow = new Promise(res=> setTimeout(()=> res(null), 4000));
-    Promise.race([liveFetchBlockers(t.id), slow]).then(list=> ask(list && list.length ? liveFinalizeWarnHTML(list) : ''), ()=> ask(''));
+    Promise.race([liveFetchBlockers(t.id), slow]).then(list=> ask(list && list.length ? liveFinalizeWarnHTML(list) : ''), ()=> ask('')).catch(()=> ask(''));   // whatever goes wrong, the confirm still opens and finalizeChecking is cleared
     return;
   }
   ask('');

@@ -70,12 +70,12 @@ function createFakeLiveDb(opts) {
       db.devices.push({ id, tournament_id: tid, board: null, session_nonce: nonce, last_seen_at: iso(), logged_out_at: null, unsent: 0, created_at: iso() });
       return [];
     }
-    if (text.startsWith('SELECT d.id, d.tournament_id, d.board, d.session_nonce, d.logged_out_at, d.unsent, l.session_nonce AS login_nonce, t.data AS t_data, t.updated_at AS t_updated_at FROM live_devices d JOIN tournaments t ON t.id = d.tournament_id LEFT JOIN live_logins l ON l.tournament_id = d.tournament_id WHERE d.id = ?')) {
+    if (text.startsWith('SELECT d.id, d.tournament_id, d.board, d.session_nonce, d.logged_out_at, d.unsent, l.session_nonce AS login_nonce, l.closed_at, t.data AS t_data, t.updated_at AS t_updated_at FROM live_devices d JOIN tournaments t ON t.id = d.tournament_id LEFT JOIN live_logins l ON l.tournament_id = d.tournament_id WHERE d.id = ?')) {
       const d = db.devices.find((x) => x.id === vals[0]); if (!d) return [];
       const t = tOf(d.tournament_id); if (!t) return [];
       const l = db.logins.find((x) => x.tournament_id === d.tournament_id);
       return [{ id: d.id, tournament_id: d.tournament_id, board: d.board, session_nonce: d.session_nonce, logged_out_at: d.logged_out_at, unsent: d.unsent,
-        login_nonce: l ? l.session_nonce : null, t_data: copy(t.data), t_updated_at: t.updated_at }];
+        login_nonce: l ? l.session_nonce : null, closed_at: l ? l.closed_at || null : null, t_data: copy(t.data), t_updated_at: t.updated_at }];
     }
     if (text === 'UPDATE live_devices SET last_seen_at = now() WHERE id = ?') { const d = db.devices.find((x) => x.id === vals[0]); if (d) d.last_seen_at = iso(); return []; }
     // live_matches / live_lends / board holders (api/_lib/live.js: the device's boards and matches)

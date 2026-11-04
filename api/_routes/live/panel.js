@@ -27,6 +27,8 @@
 //                                 (as New password does) and the answer is { ok, closedAt, forced, blockers } (forced: it closed over
 //                                 blockers). A closed event: no new sign-in (410 link_ended 'closed'); enable / newPassword / lend /
 //                                 logout / close answer 409 event_closed. Finalising does NOT close (spec 7.6: devices stay in).
+//   A FINALISED event (spec 7.6: finalising does not log devices out) can still be read (GET, history and blockers included, none of them writes:
+//   the idle-lend clean-up is skipped) and CLOSED (op 'close'); every other op answers 403 finalized.
 //   The ops of later tasks (knockout board suggestions, the paper switch) are added to OPS below.
 //   { login: {username, password} | null, closedAt: iso | null, devices: [{ id, board, lastSeenAt, unsent, loggedOut }],
 //     boards: [{ n, group, ko, playing: {pos, state, info, a, b, disputed} | null, waiting, devices: [ids], lentTo?, lentFrom? }],
@@ -68,7 +70,7 @@ async function panelOf(organizer, ev) {
   if (!login) return { login: null, closedAt: null, devices: [], boards: [], lends: [], takeovers: [], matches: [], playingCount: 0, now };
   const ctx = load({ tournament: ev });
   const rows = await live.liveRows(t);
-  await live.endIdleLends(t, ev, { ctx, rows });
+  if (!isFinalized(ev.data)) await live.endIdleLends(t, ev, { ctx, rows });   // a finalised event is only read: this ends lends (a write)
   const [devices, lends, closedAt, disputedList] = await Promise.all([live.panelDevices(t), live.activeLends(t), live.closedAt(t), live.disputedPositions(t)]);
   const disputed = {};
   disputedList.forEach((p) => { disputed[p] = true; });
@@ -277,7 +279,7 @@ module.exports = async (req, res) => {
     if (!b.t || typeof b.t !== 'string') { res.status(400).json({ code: 'missing_id', error: 'Missing id.' }); return; }
     if (typeof b.op !== 'string' || !Object.prototype.hasOwnProperty.call(OPS, b.op)) { res.status(400).json({ code: 'invalid_op', error: 'Unknown action.' }); return; }
     const ev = await live.ownEvent(organizer, b.t);
-    if (isFinalized(ev.data)) { res.status(403).json({ code: 'finalized', error: 'This event is finalized. Only an Admin can change it.', finalized: true }); return; }
+    if (isFinalized(ev.data) && b.op !== 'close') { res.status(403).json({ code: 'finalized', error: 'This event is finalized. Only an Admin can change it.', finalized: true }); return; }
     if (!LiveSettings.isLive(ev.data)) { res.status(403).json({ code: 'live_off', error: 'Live scoring is not switched on for this event.' }); return; }
     if (b.op !== 'enable' && !(await live.show(organizer, b.t))) { res.status(404).json({ code: 'not_found', error: 'Not found.' }); return; }   // nothing to change before Live scoring is turned on
     if (CLOSED_REFUSES.indexOf(b.op) >= 0 && await live.closedAt(b.t)) { res.status(409).json({ code: 'event_closed', error: 'This event is closed.' }); return; }
