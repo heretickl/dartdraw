@@ -647,7 +647,7 @@ async function answerTakeover(tournamentId, id, answer, decidedBy) {
 /* Allow, in ONE statement (each sql call is its own transaction, so the answer and the move happen together or not at all): the
    waiting request is locked (FOR UPDATE), the match goes to the asking device as a compare-and-set on the CURRENT holder (the match
    still in progress, not on paper, not changed by the organiser, the asking device still signed in; the only other change is
-   played_on_board: the asking device's board when it differs from the match's own, else it stays), and the request's answer becomes 'allow' when the match moved, else 'void' (it had moved on or ended). Returns
+   played_on_board: always the asking device's board, so a match that goes back to its own board after a take-over no longer names the board it was lent to), and the request's answer becomes 'allow' when the match moved, else 'void' (it had moved on or ended). Returns
    the final answer ('allow' | 'void'), or null when the request was answered already (or is not there). */
 async function allowTakeover(tournamentId, id, decidedBy) {
   return q(async () => {
@@ -656,7 +656,7 @@ async function allowTakeover(tournamentId, id, decidedBy) {
         SELECT id, pos, from_device, to_device FROM live_takeovers WHERE tournament_id = ${tournamentId} AND id = ${id} AND answer IS NULL FOR UPDATE
       ), mv AS (
         UPDATE live_matches m SET device_id = tk.to_device,
-          played_on_board = COALESCE((SELECT d2.board FROM live_devices d2 WHERE d2.id = tk.to_device AND d2.tournament_id = ${tournamentId} AND d2.board IS NOT NULL AND d2.board IS DISTINCT FROM m.board), m.played_on_board)
+          played_on_board = COALESCE((SELECT d2.board FROM live_devices d2 WHERE d2.id = tk.to_device AND d2.tournament_id = ${tournamentId} AND d2.board IS NOT NULL), m.played_on_board)
         FROM tk
         WHERE m.tournament_id = ${tournamentId} AND m.pos = tk.pos AND m.device_id = tk.from_device AND m.paper = false AND m.changed_by_organiser = false
           AND m.state IN ('checkedIn', 'playing', 'awaitingConfirm')
