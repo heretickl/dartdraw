@@ -20,12 +20,8 @@ module.exports = async (req, res) => {
     const row = await live.matchFull(id, pos);
     if (!row || row.device_id !== me || row.paper) { refuse(res, 409, 'not_your_match', 'This match is not on this device any more.'); return; }
     if (row.changed_by_organiser) { refuse(res, 409, 'changed_by_organiser', 'The organiser entered this result.'); return; }
-    if (row.state === 'retired' && row.retired_side === side) {
-      // sent again after a lost answer: it is saved
-      res.status(200).json({ ok: true, slot: slotAnswer(found, found.tournament.data, pos, row, 'retired') }); return;
-    }
-    if (row.state === 'confirmed' || row.state === 'retired' || row.state === 'voided') { refuse(res, 409, 'match_over', 'This match is over.'); return; }
-    const out = await applyForDevice(found, pos, 'noShow', { side });
+    if (row.state === 'confirmed' || row.state === 'voided' || (row.state === 'retired' && row.retired_side !== side)) { refuse(res, 409, 'match_over', 'This match is over.'); return; }
+    const out = await applyForDevice(found, pos, 'noShow', { side }, { settled: row.state === 'retired' });
     if (out.refused) { sendRefused(res, out.refused); return; }
     if (out.organiser) {
       await live.markChangedByOrganiser(id, pos);
@@ -33,6 +29,6 @@ module.exports = async (req, res) => {
     }
     if (out.fail) { refuse(res, out.fail[0], out.fail[1], out.fail[2]); return; }
     await live.setRetired(id, pos, me, side);
-    res.status(200).json({ ok: true, slot: slotAnswer(found, out.data, pos, row, 'retired') });
+    res.status(200).json(Object.assign({ ok: true }, out.duplicate ? { duplicate: true } : {}, { slot: slotAnswer(found, out.data, pos, row, 'retired') }));
   } catch (e) { sendError(res, e); }
 };

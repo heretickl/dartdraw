@@ -22,12 +22,14 @@ function alreadyApplied(e, t, slot, op, args) {
   return !!after && bare(after.get()) === before;
 }
 
-/* Applies op to pos. Returns one of
+/* Applies op to pos (opts.settled: the live row is already confirmed / retired, so nothing is ever applied: the answer is only
+   "already written, exactly this" or a refusal). Returns one of
      { ok: true, data, duplicate? }            written (data: the event as stored) or already written by this device
      { refused: 'finalized' }                  the event was finalized meanwhile
      { organiser: true }                       the organiser's result is there: it stands (D18)
      { fail: [status, code, text] }            anything else, nothing was changed */
-async function applyForDevice(found, pos, op, args) {
+async function applyForDevice(found, pos, op, args, opts) {
+  const settled = !!(opts && opts.settled);   // the live row says the match is over: a resend may only be recognised, never applied
   const e = engine();
   let ev = found.tournament;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -39,6 +41,7 @@ async function applyForDevice(found, pos, op, args) {
     const t = e.inside(ev.data), now = Date.now();
     const slot = e.resultSlots(t).find((s) => s.pos === pos);
     if (!slot || !slot.a || !slot.b || (slot.kind === 'ko' && slot.m && slot.m.bye)) return { fail: [409, 'missing', 'This match is no longer in the event.'] };
+    if (settled && !LiveBoards.slotDone(slot)) return { organiser: true };   // the result is gone (the organiser cleared it): the device must not put it back
     if (LiveBoards.slotDone(slot)) {
       const cur = slot.get();
       if (alreadyApplied(e, t, slot, op, args)) return { ok: true, data: ev.data, duplicate: true };
