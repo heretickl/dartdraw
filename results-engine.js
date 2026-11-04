@@ -11,8 +11,8 @@
    own type, starting score and best-of legs. The organiser records ONE plain result per match: the total legs each
    team won across all its segments. That total goes into the same legs fields every other match uses, so standings,
    brackets, the public page and finalizing need nothing special. Data:
-     format.teamSegments   = [{type:'singles'|'doubles'|'trios'|'foursome', startingScore, legs}]   (1 to 8 of them)
-     format.teamTieBreaker = {type, startingScore, legs, inRoundRobin, inKnockout}
+     format.teamSegments   = [{type:'singles'|'doubles'|'trios'|'foursome', startingScore, legs, game?, inOut?}]   (1 to 8 of them)
+     format.teamTieBreaker = {type, startingScore, legs, game?, inOut?, inRoundRobin, inKnockout}
    The tie-breaker is one more segment, chosen per stage: inRoundRobin for round robin matches, inKnockout for knockout
    matches (the Plate pool, Group Boards groups and finals included). In a stage that uses it, a level total cannot be
    saved: the tie-breaker is played and its legs counted. In a stage without it, a level total is a draw in a round
@@ -41,8 +41,14 @@ function segmentTypeKey(v){ v = v==='triples' ? 'trios' : v; return TEAM_SEGMENT
 function segmentTypeLabel(v){ return T('seg.type.'+segmentTypeKey(v)); }
 function segmentLegs(s){ const n = parseInt(s && s.legs); return n>=1 ? Math.min(n, 99) : 3; }
 function segmentStart(s){ const n = parseInt(s && s.startingScore); return n>=1 ? Math.min(n, 10000) : 501; }
-/* A clean copy of one segment (never the stored object), whatever the stored data holds. */
-function cleanSegment(s){ return { type: segmentTypeKey(s && s.type), startingScore: segmentStart(s), legs: segmentLegs(s) }; }
+/* A clean copy of one segment (never the stored object), whatever the stored data holds. A segment that holds a game
+   ('x01' or 'cricket') or an in/out ('DIDO' or 'SIDO') keeps it (live-settings.js); one that does not is left without. */
+function cleanSegment(s){
+  const out = { type: segmentTypeKey(s && s.type), startingScore: segmentStart(s), legs: segmentLegs(s) };
+  if(s && (s.game==='x01' || s.game==='cricket')) out.game = s.game;
+  if(s && (s.inOut==='DIDO' || s.inOut==='SIDO')) out.inOut = s.inOut;
+  return out;
+}
 function teamSegmentsOf(t){
   const list = (t && t.format && Array.isArray(t.format.teamSegments)) ? t.format.teamSegments.filter(isPlainObj) : [];
   return (list.length ? list : defaultTeamSegments()).map(cleanSegment);

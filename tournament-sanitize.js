@@ -14,7 +14,9 @@
    - the well-known number fields (entries, boards, best-of legs, group sizes, seeds, qualifiers, the knockout legs) that hold
      a string which is not a number are replaced by a sane default. Real numbers and numeric strings are left alone.
    - the start time and break times must look like a time (HH:MM), otherwise they are emptied.
-   - the Teams segments (format.teamSegments, format.teamTieBreaker) keep only a known type and whole numbers (cleanTeamSegments).
+   - the Teams segments (format.teamSegments, format.teamTieBreaker) keep only a known type and whole numbers, plus a game
+     (x01 or cricket) and an in/out (DIDO or SIDO) when they hold one (cleanTeamSegments).
+   - the Live scoring settings (format.scoring, format.games) keep only known keys with known values (cleanLiveSettings).
    - the print settings of the knockout bracket sheets and the printed knockout lineup sheets keep only known values (cleanPrinting). */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -63,11 +65,14 @@
   function cleanSegment(s) {
     var type = s.type === 'triples' ? 'trios' : s.type;
     var start = parseInt(s.startingScore, 10), legs = parseInt(s.legs, 10);
-    return {
+    var out = {
       type: SEGMENT_TYPES.indexOf(type) !== -1 ? type : 'singles',
       startingScore: start >= 1 ? Math.min(start, 10000) : 501,
       legs: legs >= 1 ? Math.min(legs, 99) : 3
     };
+    if (s.game === 'x01' || s.game === 'cricket') out.game = s.game;
+    if (s.inOut === 'DIDO' || s.inOut === 'SIDO') out.inOut = s.inOut;
+    return out;
   }
   function cleanTeamSegments(f) {
     if ('teamSegments' in f) {
@@ -83,6 +88,71 @@
         tb.inKnockout = legacy ? raw.enabled === true : raw.inKnockout === true;
         f.teamTieBreaker = tb;
       } else delete f.teamTieBreaker;
+    }
+  }
+
+  // Live scoring (live-settings.js reads these with the same rules). format.scoring = { mode: 'manual' | 'live', markerCheckIn,
+  // checkoutHints, officialsApprove, publicStats (true / false), orderRule: 'everyLeg' | 'carryOver' }. format.games = { rr, pod,
+  // finals, knockout: { main, plate } }, each { game, inOut, bull, decider } (+ byRound: [partial | null] on a knockout bracket).
+  // Only known keys with known values are kept (a bad value is removed, which reads as the default); nothing is filled in,
+  // and an object left empty is removed, so an event without Live scoring stays as it was. At most 12 rounds in byRound.
+  var SINGLE_GAMES = ['301', '501', '701', '1001', 'cricket'];
+  function singleGame(v) { if (typeof v === 'number') v = String(v); return typeof v === 'string' && SINGLE_GAMES.indexOf(v) !== -1 ? v : null; }
+  function cleanGameValue(v) {
+    var one = singleGame(v);
+    if (one) return one;
+    if (!isPlain(v) || !Array.isArray(v.pattern) || v.pattern.length < 2 || v.pattern.length > 8) return null;
+    var list = [], x01 = null;
+    for (var i = 0; i < v.pattern.length; i++) {
+      var g = singleGame(v.pattern[i]);
+      if (!g) return null;
+      if (g !== 'cricket') { if (x01 !== null && x01 !== g) return null; x01 = g; }
+      list.push(g);
+    }
+    return { pattern: list };
+  }
+  function cleanGameKeys(raw) {
+    var out = {};
+    if (!isPlain(raw)) return out;
+    var g = cleanGameValue(raw.game);
+    if (g !== null) out.game = g;
+    if (raw.inOut === 'DIDO' || raw.inOut === 'SIDO') out.inOut = raw.inOut;
+    if (raw.bull === 'coin' || raw.bull === 'first') out.bull = raw.bull;
+    if (raw.decider === 'alternate' || raw.decider === 'bull' || raw.decider === 'choice') out.decider = raw.decider;
+    return out;
+  }
+  function isEmpty(o) { return Object.keys(o).length === 0; }
+  function cleanLiveSettings(f) {
+    if ('scoring' in f) {
+      var raw = f.scoring, sc = {};
+      if (isPlain(raw)) {
+        if (raw.mode === 'manual' || raw.mode === 'live') sc.mode = raw.mode;
+        ['markerCheckIn', 'checkoutHints', 'officialsApprove', 'publicStats'].forEach(function (k) { if (typeof raw[k] === 'boolean') sc[k] = raw[k]; });
+        if (raw.orderRule === 'everyLeg' || raw.orderRule === 'carryOver') sc.orderRule = raw.orderRule;
+      }
+      if (isEmpty(sc)) delete f.scoring; else f.scoring = sc;
+    }
+    if ('games' in f) {
+      var g = f.games, out = {};
+      if (isPlain(g)) {
+        ['rr', 'pod', 'finals'].forEach(function (k) { var c = cleanGameKeys(g[k]); if (!isEmpty(c)) out[k] = c; });
+        if (isPlain(g.knockout)) {
+          var ko = {};
+          ['main', 'plate'].forEach(function (k) {
+            var raw = g.knockout[k];
+            if (!isPlain(raw)) return;
+            var c = cleanGameKeys(raw);
+            if (Array.isArray(raw.byRound)) {
+              var rounds = raw.byRound.slice(0, 12).map(function (r) { var rc = cleanGameKeys(r); return isEmpty(rc) ? null : rc; });
+              while (rounds.length && rounds[rounds.length - 1] === null) rounds.pop();
+              if (rounds.length) c.byRound = rounds;
+            }
+            if (!isEmpty(c)) ko[k] = c;
+          });
+          if (!isEmpty(ko)) out.knockout = ko;
+        }
+      }
+      if (isEmpty(out)) delete f.games; else f.games = out;
     }
   }
 
@@ -149,6 +219,7 @@
       if (isPlain(f.knockoutLegs)) { fixNumbers(f.knockoutLegs.main, KO_LEG_NUMBERS); fixNumbers(f.knockoutLegs.plate, KO_LEG_NUMBERS); }
       if (Array.isArray(f.mixedRubbers)) f.mixedRubbers.forEach(function (r) { fixNumbers(r, [['startingScore', 501], ['legs', 3]]); });
       cleanTeamSegments(f);
+      cleanLiveSettings(f);
       if (isPlain(f.breaks)) Object.keys(f.breaks).forEach(function (k) { fixNumbers(f.breaks[k], [['minutes', 30]]); fixTime(f.breaks[k], 'time'); });
       fixTime(f, 'anticipatedStartTime');
     }

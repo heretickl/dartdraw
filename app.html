@@ -762,6 +762,7 @@ svg.kb-conn{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;
 <div id="printSheets"></div>
 
 <script src="render.js"></script>
+<script src="live-settings.js"></script>
 <script src="results-engine.js"></script>
 <script src="i18n/app.en.js"></script>
 <script src="i18n/print.en.js"></script>
@@ -875,6 +876,9 @@ function blankTournament(){
     eventCreation: { tournamentName:'', eventName:'', eventType:'Open', competitionUnit:'Singles', date:'', entries:0, boards:4, advancedMode:false, saved:false },
     format: {
       formatType:'roundrobin', bestOfLegs:5, maxPerGroup:4, logo:null, sponsors:[], footerText:'', saved:false,
+      /* Live scoring (live-settings.js): Manual unless the organiser switches it on. The per-stage game settings (format.games)
+         are not created until a game is chosen; a missing value reads as 501 SIDO. */
+      scoring: { mode:'manual' },
       /* Pure knockout only (formatType:'knockout'). Off by default — no
          seeds, no manual order; the bracket is a fresh random draw each
          time it's generated (see regenerateKnockoutBracket()). When the

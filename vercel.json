@@ -1,8 +1,8 @@
 {
   "regions": ["sin1"],
   "functions": {
-    "api/score/[action].js": { "includeFiles": "{app.html,render.js,results-engine.js,offline.js,i18n/app.en.js,i18n/print.en.js,i18n/errors.en.js,i18n/app-i18n.js,bracket-print.js,tournament-sanitize.js,pods.js,pods-ui.js,admin-ui.js,players-ui.js,qr.js,boardplan.js,boardplan-ui.js,boardgroups.js}" },
-    "api/tournaments/[id].js": { "includeFiles": "{app.html,render.js,results-engine.js,offline.js,i18n/app.en.js,i18n/print.en.js,i18n/errors.en.js,i18n/app-i18n.js,bracket-print.js,tournament-sanitize.js,pods.js,pods-ui.js,admin-ui.js,players-ui.js,qr.js,boardplan.js,boardplan-ui.js,boardgroups.js}" }
+    "api/score/[action].js": { "includeFiles": "{app.html,render.js,results-engine.js,offline.js,i18n/app.en.js,i18n/print.en.js,i18n/errors.en.js,i18n/app-i18n.js,bracket-print.js,tournament-sanitize.js,pods.js,pods-ui.js,admin-ui.js,players-ui.js,qr.js,boardplan.js,boardplan-ui.js,boardgroups.js,live-settings.js}" },
+    "api/tournaments/[id].js": { "includeFiles": "{app.html,render.js,results-engine.js,offline.js,i18n/app.en.js,i18n/print.en.js,i18n/errors.en.js,i18n/app-i18n.js,bracket-print.js,tournament-sanitize.js,pods.js,pods-ui.js,admin-ui.js,players-ui.js,qr.js,boardplan.js,boardplan-ui.js,boardgroups.js,live-settings.js}" }
   },
   "redirects": [
     { "source": "/viewer/:path*", "destination": "/", "permanent": false }
