@@ -597,7 +597,11 @@ function computeStandings(g){
     table[id].avg = avgOK && sum.d>0 ? Math.round(300*sum.s/sum.d)/100 : null;   // 2 decimals; the rule compares these rounded figures
   });
   let avgSkipped = false; // the average rule was reached but the group is not eligible: the tie note says so
-  const order = (state && state.tieBreakOrder) || ['Legs won','Leg difference','Head-to-head result','Organiser decision / playoff'];
+  /* The 3-dart average rule counts only on a Live event: a rule left in the order after the event went back to Manual is ignored (no
+     "Average not used" note). Live = the organiser app's LiveSettings.isLive(state), or the public viewer's state.scoring.live. */
+  const avgLive = !!state && ((state.scoring && state.scoring.live===true) || (typeof LiveSettings!=='undefined' && LiveSettings.isLive(state)));
+  const order0 = (state && state.tieBreakOrder) || ['Legs won','Leg difference','Head-to-head result','Organiser decision / playoff'];
+  const order = avgLive ? order0 : order0.filter(rule=> rule!==DD_AVG_RULE);
   /* Ranking: points first, then ties on points are resolved per cluster.
      - Two level: the usual rules in order (head-to-head, then overall leg
        difference, then overall legs won).

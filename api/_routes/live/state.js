@@ -4,7 +4,7 @@
 //                         Re-checked here: 409 player_busy when either entrant is playing ANOTHER match.
 //   to 'awaitingConfirm'  the match is won on the device (from playing).
 //   200 { ok, slot }      (a state the match is in already answers 200 too; a starter sent is stored)
-//   400 invalid · 409 not_your_match · 409 match_paper · 409 wrong_state · 409 match_over · 409 changed_by_organiser · 409 player_busy · 409 missing
+//   400 invalid · 409 not_your_match · 409 match_paper · 409 wrong_state · 409 match_over · 409 changed_by_organiser (the organiser's result; a device's own confirmed result answers match_over) · 409 player_busy · 409 missing
 //   410 link_ended (finalized events are refused) · 401 no_session · 403 live_off · 503 live_not_set_up
 const { sendError, bodyObject, methodNotAllowed, requireSession, refuse, refusePaper, live } = require('./common');
 const { load, matchView, heldPlace, busyEntries } = require('./view');
@@ -29,13 +29,16 @@ module.exports = async (req, res) => {
     const place = heldPlace(row, me, found.device.board) || { own: true, board: row.board != null ? row.board : found.device.board };
     const answer = (state) => res.status(200).json({ ok: true, slot: matchView(ctx, s, Object.assign({}, row, { state }), place, me, {}) });
     if (LiveBoards.slotDone(s)) {
-      // the organiser's result is in the event already (D18): it stands
+      // the result's `by` says whose it is (as apply.js reads it): 'o' or missing = the organiser's, it stands (D18); a device's result is this
+      // match's own confirm (its row update failed): the match is over, nothing is flagged
+      const cur = s.get ? s.get() : null;
+      if (cur && cur.by && cur.by !== 'o') { refuse(res, 409, 'match_over', 'This match is over.'); return; }
       await live.markChangedByOrganiser(id, pos);
       refuse(res, 409, 'changed_by_organiser', 'The organiser entered this result.'); return;
     }
     const patch = JSON.stringify(b.starter ? { starter: b.starter } : {});
     if (to === 'playing') {
-      if (row.state === 'playing') { if (b.starter) await live.setPlaying(id, pos, me, patch); answer('playing'); return; }   // already playing (the starter may still be new)
+      if (row.state === 'playing') { if (b.starter) await live.setStarter(id, pos, me, patch); answer('playing'); return; }   // already playing (the starter may still be new): stored, the state and started_at stay
       const others = (await live.liveRows(id)).filter((r) => r.pos !== pos);
       const busy = busyEntries(ctx.slotsByPos, others);
       if (busy[s.a] || busy[s.b]) { refuse(res, 409, 'player_busy', 'A player in this match is playing another match.'); return; }

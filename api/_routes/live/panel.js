@@ -85,7 +85,9 @@ async function panelOf(organizer, ev) {
   if (!login) return { login: null, closedAt: null, devices: [], boards: [], lends: [], takeovers: [], matches: [], retired: [], playingCount: 0, now };
   const ctx = load({ tournament: ev });
   const rows = await live.liveRows(t);
-  if (!isFinalized(ev.data)) await live.endIdleLends(t, ev, { ctx, rows });   // a finalised event is only read: this ends lends (a write)
+  if (!isFinalized(ev.data)) {   // a finalised event is only read: this ends lends (a write). A failure must not take the whole card down (it runs on every poll)
+    try { await live.endIdleLends(t, ev, { ctx, rows }); } catch (err) { console.error('live endIdleLends failed: ' + (err && err.message ? err.message : err)); }
+  }
   const [devices, lends, closedAt, disputedList] = await Promise.all([live.panelDevices(t), live.activeLends(t), live.closedAt(t), live.disputedPositions(t)]);
   const disputed = {};
   disputedList.forEach((p) => { disputed[p] = true; });

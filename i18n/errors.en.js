@@ -29,6 +29,7 @@ var DD_ERR_EN = {
   /* live scoring (api/live/*) */
   'err.live_not_set_up': "Live scoring is not set up yet.",
   'err.login_required': "Enter the username and password.",
+  'err.too_many_devices': "Too many devices are signed in for this event. Ask the organiser to log one out.",
   'err.bad_login': "That username or password is not right.",
   'err.live_off': "Live scoring is not switched on for this event.",
   'err.no_board': "Pick a board first.",

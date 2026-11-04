@@ -5367,6 +5367,7 @@ function render(){
 }
 function renderPage(){
   if(currentStage!==2 || popoutMode){ teamSegDraft = null; liveDraftDrop(); }   // the segment and Live scoring drafts live only while step 2 is on screen
+  if(currentStage!==5 || popoutMode) liveLeaveCard();   // the Live scoring password is hidden again once the Boards card is left
   document.body.classList.toggle('finalized', isLocked(state));
   document.body.classList.toggle('admin-mode', adminViewActive());
   if(popoutMode){ renderPopoutManage(); return; }

@@ -24,6 +24,7 @@ var DD_ERR_MS = {
   /* live scoring (api/live/*) */
   'err.live_not_set_up': "Skor langsung belum disediakan.",
   'err.login_required': "Masukkan nama pengguna dan kata laluan.",
+  'err.too_many_devices': "Terlalu banyak peranti didaftar masuk untuk acara ini. Minta penganjur melog keluar satu.",
   'err.bad_login': "Nama pengguna atau kata laluan itu tidak betul.",
   'err.live_off': "Skor langsung tidak dihidupkan untuk acara ini.",
   'err.no_board': "Pilih board dahulu.",

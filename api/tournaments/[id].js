@@ -180,7 +180,7 @@ module.exports = async (req, res) => {
          answering "changed elsewhere" for a change that was only someone else's result. */
       const e = engine();
       const sent = JSON.stringify(data), dirtyList = Array.isArray(dirty) ? dirty.filter((p) => typeof p === 'string').slice(0, 5000) : null;
-      let base = existing, baseIso = existingIso, merged = false, updated = [], changedPos = [];
+      let base = existing, baseIso = existingIso, merged = false, updated = [], changedPos = [], clearedPos = [];
       for (let attempt = 0; attempt < 4; attempt++) {
         const inc = e.inside(JSON.parse(sent)), sto = e.inside(base.data), now = Date.now();
         const stale = attempt > 0 || expectedIso !== baseIso;
@@ -197,7 +197,20 @@ module.exports = async (req, res) => {
         }
         inc.settingsRev = (Number(sto.settingsRev) || 0) + (e.settingsView(inc) !== e.settingsView(sto) ? 1 : 0);
         data = e.plain(inc);
-        changedPos = e.plain(e.changedResultSlots(sto, inc));   // the results this save changed (the organiser's own: a stale save keeps every other as stored; a call/uncall is not a result)
+        /* Live events only (a Manual event runs nothing here): the results this save changed (the organiser's own: a stale save keeps every other
+           as stored; a call/uncall is not a result), told apart: changedPos still hold a (changed) result, clearedPos hold none any more (the
+           organiser cleared them). Isolated: trouble here is logged and never fails the save. */
+        changedPos = []; clearedPos = [];
+        if (LiveSettings.isLive(data)) {
+          try {
+            const changed = e.plain(e.changedResultSlots(sto, inc));
+            if (changed.length) {
+              const none = {};
+              e.resultSlots(inc).forEach((s) => { if (e.resultOnlyKey(s) === 'null') none[s.pos] = true; });
+              changed.forEach((p) => { (none[p] ? clearedPos : changedPos).push(p); });
+            }
+          } catch (err) { changedPos = []; clearedPos = []; console.error('changed results of a live save failed: ' + (err && err.message ? err.message : err)); }
+        }
         // Conditional on the stamp just read (to the millisecond, the precision of the JS value), so a save or a
         // finalize that lands between the read and this write is not overwritten.
         updated = isAdmin
@@ -231,9 +244,17 @@ module.exports = async (req, res) => {
       }
       /* Live events (D18): a result the organiser's save changed stands over any tablet holding that match; the live rows say so and a
          device's next call answers 409 changed_by_organiser. Never fails the save (markOrganiserResults swallows its own trouble). */
-      if (changedPos.length && LiveSettings.isLive(data)) {
-        try { await require('../_lib/live').markOrganiserResults(id, changedPos); }
-        catch (err) { console.error('markOrganiserResults failed: ' + (err && err.message ? err.message : err)); }
+      if ((changedPos.length || clearedPos.length) && LiveSettings.isLive(data)) {
+        const liveLib = require('../_lib/live');
+        /* a result the save CLEARED on a match a device had finished: the match goes back to waiting, nobody holds it (it can be picked again) */
+        if (clearedPos.length) {
+          try { await liveLib.releaseClearedResults(id, clearedPos); }
+          catch (err) { console.error('releaseClearedResults failed: ' + (err && err.message ? err.message : err)); }
+        }
+        if (changedPos.length) {
+          try { await liveLib.markOrganiserResults(id, changedPos); }
+          catch (err) { console.error('markOrganiserResults failed: ' + (err && err.message ? err.message : err)); }
+        }
       }
       res.status(200).json(Object.assign({}, updated[0], savedFinalized, { settingsRev: data.settingsRev || 0 }, merged ? { data } : {}));
     } catch (e) {

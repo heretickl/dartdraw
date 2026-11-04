@@ -1,10 +1,10 @@
 // /api/live/takeover: a device asks to take a match over from the device that is scoring it (spec 7.4, decision D4, the scoring spec
 // 8.2 "the device dies mid-match"). With X-Live-Session (a device of the event; a finalized event is refused as everywhere else):
 //   POST { pos }       the device asks for a match another device holds and has started (checked in, playing, awaiting confirmation)
-//                      200 { ok, id, state: 'pending' }
+//                      200 { ok, id, state: 'pending' } (also when THIS device's own request is the one waiting: its id again)
 //                      400 invalid · 404 missing · 409 not_takeoverable (the device holds it itself, nobody holds it, it has not started: a
 //                      match in 'waiting' state is picked, not taken over) · 409 match_over · 409 takeover_pending (a request for this match
-//                      is waiting already: one per match)
+//                      is waiting already, and it is another device's: one per match)
 //   GET  ?id=<id>      the asking device polls its own request: 200 { ok, state: 'pending' | 'allowed' | 'denied' | 'void' }
 //                      404 not_found (not a request of this device)
 //   401 no_session · 403 live_off · 410 link_ended · 503 live_not_set_up
@@ -34,7 +34,11 @@ async function request(req, res) {
   const held = LiveBoards.heldBy(row);
   if (!held || held === me || row.changed_by_organiser || ['checkedIn', 'playing', 'awaitingConfirm'].indexOf(row.state) < 0) { refuse(res, 409, 'not_takeoverable', 'This match cannot be taken over.'); return; }
   const made = await live.requestTakeover(id, pos, held, me);
-  if (!made) { refuse(res, 409, 'takeover_pending', 'A request to take over this match is waiting already.'); return; }
+  if (!made) {
+    // this device's own request is the one waiting (it lost its id): hand the id back instead of refusing
+    const mine = (await live.matchTakeovers(id, pos)).filter((k) => k.answer == null && k.to_device === me)[0];
+    if (mine) { res.status(200).json({ ok: true, id: mine.id, state: 'pending' }); return; }
+    refuse(res, 409, 'takeover_pending', 'A request to take over this match is waiting already.'); return; }
   res.status(200).json({ ok: true, id: made, state: 'pending' });
 }
 

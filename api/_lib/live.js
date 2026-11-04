@@ -43,6 +43,7 @@ const USERNAME_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 const USERNAME_MAX = 40;
 const PASSWORD_MAX = 100;
 const SESSION_DAYS = 7;
+const MAX_DEVICES = 64;                // devices of one event signed in at the same time (a logged-out device does not count)
 /* Sign-in throttling counts WRONG passwords only; a correct sign-in never counts, so a venue's tablets (one shared public
    address, one shared username) can all sign in as often as they like. 5 wrong in a minute for one address+username block that
    pair until the minute is over; 20 wrong in 10 minutes from one address (any usernames, known or not) block that address until
@@ -310,7 +311,7 @@ const tournamentView = (data) => {
   return { name: c.tournamentName || '', eventName: c.eventName || '' };
 };
 
-/* Signs a device in. Throws LiveError: login_required, rate_limited, bad_login, link_ended (reason 'closed': the organiser closed
+/* Signs a device in. Throws LiveError: login_required, rate_limited, bad_login, too_many_devices (64 devices are signed in already), link_ended (reason 'closed': the organiser closed
    the event; reason 'finalized': a NEW sign-in to a finalized event is refused; devices already signed in stay, see sessionFor), live_off. Returns
    { token, device: { id }, tournament: { name, eventName } }. Throttling: see IP_LIMIT above. */
 async function deviceLogin(username, password, ip) {
@@ -337,7 +338,13 @@ async function deviceLogin(username, password, ip) {
     if (isFinalized(row.t_data)) throw new LiveError('link_ended', 'finalized');
     if (!LiveSettings.isLive(row.t_data)) throw new LiveError('live_off');
     const id = newDeviceId();
-    await sql`INSERT INTO live_devices (id, tournament_id, session_nonce, last_seen_at) VALUES (${id}, ${row.tournament_id}, ${row.session_nonce}, now())`;
+    // at most MAX_DEVICES devices of an event signed in at once (a logged-out one does not count): the check and the insert are one statement
+    const made = await sql`
+      INSERT INTO live_devices (id, tournament_id, session_nonce, last_seen_at)
+      SELECT ${id}, ${row.tournament_id}, ${row.session_nonce}, now()
+      WHERE (SELECT count(*) FROM live_devices WHERE tournament_id = ${row.tournament_id} AND logged_out_at IS NULL) < ${MAX_DEVICES}
+      RETURNING id`;
+    if (!made.length) throw new LiveError('too_many_devices');
     return { token: signSession({ id, tournamentId: row.tournament_id, nonce: row.session_nonce }), device: { id }, tournament: tournamentView(row.t_data) };
   });
 }
@@ -522,6 +529,16 @@ async function setPlaying(tournamentId, pos, deviceId, starterPatch) {
     return rows.length > 0;
   });
 }
+/* A starter sent for a match that is already 'playing' (held by the caller, not changed by the organiser): stored in the summary only. */
+async function setStarter(tournamentId, pos, deviceId, starterPatch) {
+  return q(async () => {
+    const rows = await sql`
+      UPDATE live_matches SET summary = summary || ${starterPatch}::jsonb
+      WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND device_id = ${deviceId} AND changed_by_organiser = false AND state = 'playing'
+      RETURNING pos`;
+    return rows.length > 0;
+  });
+}
 /* playing -> awaitingConfirm (the match is won on the device). */
 async function setAwaitingConfirm(tournamentId, pos, deviceId) {
   return q(async () => {
@@ -566,6 +583,19 @@ async function markOrganiserResults(tournamentId, positions) {
     await sql`UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ${tournamentId} AND pos = ANY(${list}::text[]) AND paper = false AND state NOT IN ('retired', 'voided')`;
   } catch (e) {
     if (!(e && e.code === '42P01')) console.error('markOrganiserResults failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
+  }
+}
+
+/* The organiser CLEARED these results on a Live event (D18): a match a device had finished (confirmed / retired) is open again, so
+   it goes back to the start: waiting, nobody holds it, not flagged (it can be picked, or typed by hand, again). The turns stay
+   (live_turns is append-only). Never fails the save (same rule as markOrganiserResults). Paper matches are left alone. */
+async function releaseClearedResults(tournamentId, positions) {
+  const list = Array.isArray(positions) ? positions.filter((p) => typeof p === 'string').slice(0, 5000) : [];
+  if (!list.length) return;
+  try {
+    await sql`UPDATE live_matches SET state = 'waiting', device_id = NULL, changed_by_organiser = false, ended_at = NULL WHERE tournament_id = ${tournamentId} AND pos = ANY(${list}::text[]) AND paper = false AND state IN ('confirmed', 'retired')`;
+  } catch (e) {
+    if (!(e && e.code === '42P01')) console.error('releaseClearedResults failed: ' + (e && e.code ? '[' + e.code + '] ' : '') + (e && e.message ? e.message : e));
   }
 }
 
@@ -616,8 +646,8 @@ async function answerTakeover(tournamentId, id, answer, decidedBy) {
 }
 /* Allow, in ONE statement (each sql call is its own transaction, so the answer and the move happen together or not at all): the
    waiting request is locked (FOR UPDATE), the match goes to the asking device as a compare-and-set on the CURRENT holder (the match
-   still in progress, not on paper, not changed by the organiser, the asking device still signed in; nothing else about the
-   match changes), and the request's answer becomes 'allow' when the match moved, else 'void' (it had moved on or ended). Returns
+   still in progress, not on paper, not changed by the organiser, the asking device still signed in; the only other change is
+   played_on_board: the asking device's board when it differs from the match's own, else it stays), and the request's answer becomes 'allow' when the match moved, else 'void' (it had moved on or ended). Returns
    the final answer ('allow' | 'void'), or null when the request was answered already (or is not there). */
 async function allowTakeover(tournamentId, id, decidedBy) {
   return q(async () => {
@@ -625,7 +655,9 @@ async function allowTakeover(tournamentId, id, decidedBy) {
       WITH tk AS (
         SELECT id, pos, from_device, to_device FROM live_takeovers WHERE tournament_id = ${tournamentId} AND id = ${id} AND answer IS NULL FOR UPDATE
       ), mv AS (
-        UPDATE live_matches m SET device_id = tk.to_device FROM tk
+        UPDATE live_matches m SET device_id = tk.to_device,
+          played_on_board = COALESCE((SELECT d2.board FROM live_devices d2 WHERE d2.id = tk.to_device AND d2.tournament_id = ${tournamentId} AND d2.board IS NOT NULL AND d2.board IS DISTINCT FROM m.board), m.played_on_board)
+        FROM tk
         WHERE m.tournament_id = ${tournamentId} AND m.pos = tk.pos AND m.device_id = tk.from_device AND m.paper = false AND m.changed_by_organiser = false
           AND m.state IN ('checkedIn', 'playing', 'awaitingConfirm')
           AND EXISTS (SELECT 1 FROM live_devices d WHERE d.id = tk.to_device AND d.tournament_id = ${tournamentId} AND d.logged_out_at IS NULL)
@@ -673,6 +705,6 @@ module.exports = {
   panelDevices, logoutDevice, logoutAllDevices, activeLends, addLend, endLend, endIdleLends, closedAt, closeLogin, disputedPositions, setDisputed, boardIdleSince, setPaperOn, setPaperOff,
   deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent,
   liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch,
-  matchFull, insertTurn, turnById, matchTurns, eventTurns, allTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser, markOrganiserResults,
+  matchFull, insertTurn, turnById, matchTurns, eventTurns, allTurns, setSummary, setUnsent, setPlaying, setStarter, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser, markOrganiserResults, releaseClearedResults,
   requestTakeover, takeoverById, answerTakeover, allowTakeover, openTakeovers, matchTakeovers
 };

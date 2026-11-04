@@ -453,7 +453,7 @@ function liveBoardsOn(){
 function loadLive(force){
   if(!liveBoardsOn()) return;
   if(!force && liveState.id === state.id && (liveState.data || liveState.loading || liveState.error)) return;
-  if(liveState.id !== state.id){ liveState.data = null; liveState.error = ''; liveState.shown = false; }
+  if(liveState.id !== state.id){ liveState.data = null; liveState.error = ''; liveState.shown = false; liveKoPick = {}; }   // another event: its password stays hidden, and the boards picked in the knockout boxes are not carried over
   liveState.id = state.id; liveState.loading = true;
   var id = state.id;
   apiFetch(LIVE_PANEL_API + '?t=' + encodeURIComponent(id)).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(b){ return { r: r, b: b }; }); }).then(function(x){
@@ -575,6 +575,8 @@ function liveTakeover(id, answer){
   liveCall({ op: 'takeover', id: id, answer: answer }).then(function(){ delete liveAnswering[id]; }, function(){ delete liveAnswering[id]; });
 }
 function liveEnable(){ liveCall({ op: 'enable' }); }
+/* Leaving step 5 (the Boards card): the password goes back to hidden (called by renderPage). */
+function liveLeaveCard(){ liveState.shown = false; }
 function liveTogglePassword(){ liveState.shown = !liveState.shown; liveRedraw(); }
 function liveCopyLogin(){
   var lg = liveState.data && liveState.data.login;

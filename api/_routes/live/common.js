@@ -11,6 +11,7 @@ const ERRORS = {
   no_login: [404, { code: 'not_found', error: 'Not found.' }],
   login_required: [400, { code: 'login_required', error: 'Enter the username and password.' }],
   bad_login: [401, { code: 'bad_login', error: 'That username or password is not right.' }],
+  too_many_devices: [409, { code: 'too_many_devices', error: 'Too many devices are signed in for this event. Ask the organiser to log one out.' }],
   rate_limited: [429, { code: 'rate_limited', error: 'Too many attempts. Try again later.' }],
   live_off: [403, { code: 'live_off', error: 'Live scoring is not switched on for this event.' }],
   finalized: [403, { code: 'finalized', error: 'This event is finalized. Only an Admin can change it.', finalized: true }]
