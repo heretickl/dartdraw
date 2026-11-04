@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030507">
+<title>DartDraw · Casual play</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="scoring.css">
+<link rel="stylesheet" href="casual.css">
+</head>
+<body>
+<main id="app"></main>
+<script src="i18n/casual.en.js"></script>
+<script src="match-engine.js"></script>
+<script src="scoring-model.js"></script>
+<script src="scoring-screens.js"></script>
+<script src="casual.js"></script>
+<script>
+  (function () {
+    var storage = null;
+    try { storage = window.localStorage; storage.getItem('dd-casual-v1'); }
+    catch (e) { storage = { getItem: function () { return null; }, setItem: function () {}, removeItem: function () {} }; }
+    var app = document.getElementById('app');
+    DDCasual.start(app, { storage: storage, words: DD_CASUAL_EN });
+    window.addEventListener('resize', function () { DDScreens.fit(app.querySelector('.dds')); });
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () {});
+  })();
+</script>
+</body>
+</html>

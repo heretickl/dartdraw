@@ -5,7 +5,8 @@
     "api/tournaments/[id].js": { "includeFiles": "{app.html,render.js,results-engine.js,offline.js,i18n/app.en.js,i18n/print.en.js,i18n/errors.en.js,i18n/app-i18n.js,bracket-print.js,tournament-sanitize.js,pods.js,pods-ui.js,admin-ui.js,players-ui.js,qr.js,boardplan.js,boardplan-ui.js,boardgroups.js}" }
   },
   "redirects": [
-    { "source": "/viewer/:path*", "destination": "/", "permanent": false }
+    { "source": "/viewer/:path*", "destination": "/", "permanent": false },
+    { "source": "/scoring_app/:path*", "destination": "/", "permanent": false }
   ],
   "rewrites": [
     { "source": "/app", "destination": "/app.html" },

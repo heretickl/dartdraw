@@ -1,0 +1,1910 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030507">
+<!-- Built by scripts/build-casual-single.js from scoring_app/. Do not edit: edit scoring_app/ and rebuild. -->
+<title>DartDraw · Casual play</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* The scoring screens (scoring-screens.js), as approved in docs/design/screens-yours/. Drawn at 660px wide; mount()
+   scales .dds to the phone with zoom. Barlow Semi Condensed for names, scores, keys, headings and buttons; Manrope for
+   secondary lines. Side a blue, side b gold. */
+.dds{--a:#22b0ff;--a2:#0e8ff0;--b:#ffc61a;--b2:#d99a00;--red:#ff2433;--green:#3df08a;--ink:#f5f8fb;--mut:#cfd8e1;
+  --bar:'Barlow Semi Condensed',sans-serif;--man:Manrope,'Segoe UI',sans-serif;
+  position:relative;width:660px;min-height:982px;margin:0 auto;padding:0 22px 20px;box-sizing:border-box;color:var(--ink);font-family:var(--man);
+  background:radial-gradient(120% 60% at 50% 35%,rgba(30,45,60,.22),transparent 70%),linear-gradient(rgba(120,170,220,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(120,170,220,.035) 1px,transparent 1px),linear-gradient(180deg,#05080b,#030507);
+  background-size:auto,28px 28px,28px 28px,auto;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none}
+.dds *{box-sizing:border-box}
+.dds button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation}
+.dds button[disabled]{cursor:default}
+.dds b{font-weight:inherit}
+
+/* header */
+.dds-hd{display:grid;grid-template-columns:90px 1fr 140px;align-items:center;height:120px}
+.dds-hd .ic{color:#fff;width:56px;height:56px;display:flex;align-items:center;justify-content:center}
+.dds-hd .ttl{text-align:center;line-height:1.1}
+.dds-hd .t1{font:700 34px var(--bar);letter-spacing:.01em}
+.dds-hd .t2{font:500 20px var(--man);color:#8fd8ff;letter-spacing:.06em;margin-top:2px}
+.dds-hd .t3{font:500 17px var(--man);color:#e9eef3;margin-top:4px;white-space:nowrap}
+.dds-hd .rt{display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.dds-hd .pill{font:700 20px var(--bar);padding:7px 16px;border-radius:99px;background:linear-gradient(180deg,#ff2e3c,#e3101e);box-shadow:0 0 16px rgba(255,36,51,.55);white-space:nowrap}
+
+/* score cards and legs */
+.dds-cards{display:grid;grid-template-columns:1fr 104px 1fr;gap:12px;align-items:center;height:166px}
+.dds .card{position:relative;height:148px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:.72;transition:opacity .15s}
+.dds .card.on{opacity:1}
+.dds .card.side-a{border:2px solid #28b4ff;background:linear-gradient(180deg,#07111c,#04080d);box-shadow:-9px 9px 0 0 var(--a2),inset 0 0 22px rgba(30,150,255,.28),0 0 26px rgba(20,160,255,.45)}
+.dds .card.side-b{border:2px solid #ffc81f;background:linear-gradient(180deg,#110e05,#070604);box-shadow:9px 9px 0 0 var(--b2),inset 0 0 22px rgba(255,190,20,.22),0 0 26px rgba(255,190,20,.4)}
+.dds .card.on.side-a{box-shadow:-9px 9px 0 0 var(--a2),inset 0 0 22px rgba(30,150,255,.35),0 0 34px rgba(20,160,255,.85)}
+.dds .card.on.side-b{box-shadow:9px 9px 0 0 var(--b2),inset 0 0 22px rgba(255,190,20,.3),0 0 34px rgba(255,190,20,.8)}
+.dds .card .nm{font:700 41px/1 var(--bar);max-width:94%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dds .card .sc{font:700 88px/1 var(--bar);background:linear-gradient(180deg,#fff 40%,#cfd6de);-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:4px}
+.dds .legs{display:flex;flex-direction:column;align-items:center;gap:6px}
+.dds .legs .lb{font:500 21px var(--man)}
+.dds .legs .ls{font:700 50px/1 var(--bar)}
+.dds .legs .la{color:#9fe0ff}.dds .legs .lb2{color:#e8f5ff}
+.dds .legs .dots{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;max-width:104px}
+.dds .dot{width:19px;height:19px;border-radius:50%;background:#6c747e}
+.dds .dot.side-a{background:var(--a);box-shadow:0 0 8px var(--a)}.dds .dot.side-b{background:var(--b);box-shadow:0 0 8px var(--b)}
+
+/* panels */
+.dds .panel,.dds .last3{border-radius:18px;border:1.5px solid rgba(110,180,255,.2);border-top-color:rgba(90,180,255,.5);background:linear-gradient(180deg,rgba(22,40,62,.75),rgba(10,18,28,.7) 40%,rgba(8,14,22,.6));box-shadow:inset 0 1px 0 rgba(140,200,255,.18)}
+.dds .last3{margin-top:16px;padding:14px 8px 8px}
+.dds .last3 .ttl{font:600 28px var(--bar);text-align:center;padding-bottom:10px;background:linear-gradient(90deg,transparent,#2a9cff 35%,#7fd4ff 50%,#2a9cff 65%,transparent) bottom/260px 3px no-repeat}
+.dds .last3 .hd,.dds .last3 .row{display:grid;grid-template-columns:1fr 84px 1fr;text-align:center;align-items:center}
+.dds .last3 .hd{font:600 26px var(--bar);height:52px}
+.dds .last3 .row{font:700 37px var(--bar);height:52px;border-top:1px solid rgba(255,255,255,.07)}
+.dds .last3 .row span:nth-child(2){font:600 35px var(--bar);color:#dfe6ee;border-left:1px solid rgba(255,255,255,.1);border-right:1px solid rgba(255,255,255,.1);height:100%;display:flex;align-items:center;justify-content:center}
+.dds .last3 .row.new{border-radius:14px;border-top-color:transparent}
+.dds.throw-a .last3 .row.new{background:linear-gradient(90deg,#1c8dff 0%,rgba(28,141,255,.35) 22%,rgba(28,141,255,.08) 55%,rgba(28,141,255,.05))}
+.dds.throw-b .last3 .row.new{background:linear-gradient(270deg,#e0a800 0%,rgba(255,198,26,.35) 22%,rgba(255,198,26,.08) 55%,rgba(255,198,26,.05))}
+
+/* dart by dart with the last 3 scores on screen (owner 2026-11-04): the table and THIS TURN are drawn tighter */
+.dds.compact .last3{margin-top:10px;padding:8px 8px 4px}
+.dds.compact .last3 .ttl{font-size:22px;padding-bottom:6px;background-size:200px 2px}
+.dds.compact .last3 .hd{height:34px;font-size:21px}
+.dds.compact .last3 .row{height:38px;font-size:30px}
+.dds.compact .last3 .row span:nth-child(2){font-size:26px}
+.dds.compact .turnp{margin-top:10px;padding:8px 18px 12px}
+.dds.compact .turnp .ttl{display:none}
+.dds.compact .turnp .line{margin:4px 0 8px;font-size:23px;display:grid;grid-template-columns:1fr auto 1fr;gap:10px}
+.dds.compact .turnp .scored{text-align:center;color:#fff}
+.dds.compact .turnp .after{text-align:right}
+.dds.compact .slot{height:66px}.dds.compact .slot b{font-size:34px}.dds.compact .slot span{font-size:16px}
+.dds.compact .mults{margin-top:10px}
+.dds.compact .grid{margin-top:9px;grid-auto-rows:minmax(44px,72px)}
+.dds.compact .grid .k{min-height:44px}
+.dds.compact .dbar{margin-top:12px;height:68px}
+.dds.compact .turnp .hint{margin-top:8px;padding:2px 18px;font-size:22px}
+.dds.compact .slot{height:60px}
+
+/* the score being typed (option C), in the thrower's colour */
+.dds .entry{margin-top:12px;height:62px;border-radius:18px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 20px}
+.dds .entry.side-a{border:2.5px solid #22b4ff;background:rgba(8,18,30,.85);box-shadow:0 0 18px rgba(34,176,255,.55),inset 0 0 16px rgba(34,176,255,.18)}
+.dds .entry.side-b{border:2.5px solid #ffc61a;background:rgba(26,20,4,.85);box-shadow:0 0 18px rgba(255,190,20,.5),inset 0 0 16px rgba(255,190,20,.16)}
+.dds .entry .who{font:600 22px var(--bar);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dds .entry.side-a .who{color:#7fd0ff}.dds .entry.side-b .who{color:#ffd86a}
+.dds .entry .val{font:700 50px/1 var(--bar);min-width:90px;text-align:center}
+.dds .entry .lv{font:500 19px var(--man);color:#cfd8e1;text-align:right;white-space:nowrap}
+.dds .entry .lv b{font:700 28px var(--bar);color:#fff;margin-left:4px}
+.dds .pad .go{display:flex;align-items:center;justify-content:center;gap:10px;font-size:36px}
+
+/* checkout hint (gear: Checkout hints) */
+.dds .hint{margin:12px auto 0;width:max-content;padding:6px 22px;border-radius:99px;border:2px solid rgba(61,240,138,.6);background:rgba(15,90,44,.45);color:#4dff8f;font:700 26px var(--bar);letter-spacing:.02em}
+.dds .undorow{display:flex;justify-content:center;margin-top:22px}
+.dds .undob{height:62px;padding:0 30px;border-radius:16px;display:flex;align-items:center;gap:10px;font:700 26px var(--bar)}
+
+/* quick scores and keypad */
+.dds .quick{margin-top:12px;display:flex;flex-direction:column;gap:10px;align-items:center}
+.dds .quick div{display:flex;gap:12px;justify-content:center}
+.dds .q{font:700 30px/1 var(--bar);width:108px;height:44px;border-radius:99px;border:2.5px solid rgba(235,240,245,.7);background:#0a0e13}
+.dds .q.gold{color:var(--b);border:3px solid var(--b);background:rgba(255,198,26,.1);box-shadow:0 0 16px rgba(255,198,26,.6),inset 0 0 8px rgba(255,198,26,.25)}
+.dds .pad{margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr) 124px;gap:8px 13px}
+.dds .k,.dds .key{height:56px;border-radius:12px;background:linear-gradient(180deg,#19212b,#10161d);border:1px solid rgba(255,255,255,.06);font:700 44px/1 var(--bar);display:flex;align-items:center;justify-content:center}
+.dds .k.undo{flex-direction:column;gap:2px;font:600 20px/1 var(--bar)}
+.dds .k.bust{font-size:25px;line-height:1.05;text-align:center;color:#ff4250;text-shadow:0 0 12px rgba(255,36,51,.8);background:linear-gradient(180deg,#2e1219,#1f0c11)}
+.dds .k.zero{grid-column:1 / span 2;height:62px}
+.dds .go,.dds .red{border-radius:16px;background:linear-gradient(180deg,#ff2e3c,#e3101e);box-shadow:0 0 22px rgba(255,36,51,.7);font:700 40px/1 var(--bar)}
+.dds .pad .go{grid-column:3 / span 2;height:62px}
+.dds .go[disabled]{opacity:.45;box-shadow:none}
+
+/* pop-ups: over the faded screen, in the colour of the side they are about */
+.dds .veil{position:absolute;inset:0;background:rgba(2,4,8,.6);backdrop-filter:blur(3px) brightness(.6);-webkit-backdrop-filter:blur(3px) brightness(.6);z-index:5}
+.dds .pop{position:absolute;left:44px;right:44px;top:170px;z-index:6;border-radius:24px;padding:28px 30px 30px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.dds .pop.side-a{border:3px solid #22b4ff;background:linear-gradient(180deg,rgba(8,22,36,.96),rgba(4,10,18,.98));box-shadow:0 0 0 1px rgba(34,180,255,.4),0 0 26px rgba(34,176,255,.8),0 0 60px rgba(34,176,255,.3),inset 0 0 26px rgba(34,176,255,.22)}
+.dds .pop.side-b{border:3px solid #ffc61a;background:linear-gradient(180deg,rgba(30,24,6,.96),rgba(12,9,3,.98));box-shadow:0 0 0 1px rgba(255,198,26,.4),0 0 26px rgba(255,190,20,.75),0 0 60px rgba(255,190,20,.3),inset 0 0 26px rgba(255,190,20,.2)}
+.dds .pop h2{font:700 40px/1.1 var(--bar);margin:6px 0 0}
+.dds .pop p{font:500 20px/1.4 var(--man);color:#e3e9ef;margin:0}
+.dds .pop .pill{font:700 24px var(--bar);padding:6px 60px;border-radius:99px}
+.dds .pop .pill.won{color:#4dff8f;background:#0f5a2c;box-shadow:0 0 12px rgba(61,240,138,.35)}
+.dds .pop .pill.gold{color:#1a1400;background:linear-gradient(180deg,#ffd43a,#f0b400)}
+.dds .pop .who{font:700 76px/1 var(--bar);margin-top:8px}
+.dds .pop .sub{font:500 20px var(--man);letter-spacing:.14em;color:#cfd8e1}
+.dds .pop .big{font:700 92px/1 var(--bar);margin:6px 0 4px}
+.dds .pop .fds{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%;margin-top:6px}
+.dds .fd{height:128px;border-radius:18px;border:1.5px solid rgba(255,255,255,.18);background:rgba(14,20,28,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.dds .fd b{font:700 46px/1 var(--bar)}.dds .fd span{font:500 20px var(--man)}
+.dds .fd.off{opacity:.55}.dds .fd.off b{color:#8a96a3}
+.dds .pop.side-a .fd:not(.off){border:3px solid #5fd0ff;background:linear-gradient(180deg,#2196ff,#0a5ad0);box-shadow:0 0 22px rgba(30,150,255,.75)}
+.dds .pop.side-b .fd:not(.off){border:3px solid #ffe27a;background:linear-gradient(180deg,#ffd23a,#e3a600);box-shadow:0 0 22px rgba(255,190,20,.7);color:#1a1400}
+.dds .ghost{margin-top:22px;padding:14px 40px;border-radius:99px;border:2.5px solid rgba(235,240,245,.7);font:700 28px var(--bar)}
+.dds .two{display:grid;grid-template-columns:1fr 1.25fr;gap:16px;width:100%;margin-top:14px}
+.dds .two button{height:68px;border-radius:18px;font:700 28px var(--bar)}
+.dds .dk{border:2px solid rgba(255,255,255,.45)!important;background:rgba(14,20,28,.75)!important}
+.dds .blue{border:2.5px solid #5fd0ff!important;background:linear-gradient(180deg,#2196ff,#0a5ad0)!important;box-shadow:0 0 22px rgba(30,150,255,.7)}
+.dds .goldb{border:2.5px solid #ffe27a!important;background:linear-gradient(180deg,#ffd23a,#e3a600)!important;box-shadow:0 0 22px rgba(255,190,20,.7);color:#1a1400!important}
+
+/* dart by dart (x01) */
+.dds .turnp{margin-top:16px;padding:14px 22px 20px}
+.dds .turnp .ttl{font:500 28px var(--man);text-align:center;padding-bottom:12px;background:linear-gradient(90deg,transparent,#2a9cff 35%,#7fd4ff 50%,#2a9cff 65%,transparent) bottom/260px 3px no-repeat}
+.dds .turnp .line{display:flex;justify-content:space-between;margin:20px 0 12px;font:700 25px var(--bar)}
+.dds.throw-a .turnp .who{color:var(--a)}.dds.throw-b .turnp .who{color:var(--b)}
+.dds .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%}
+.dds .slot{height:88px;border-radius:16px;border:1.5px solid rgba(255,255,255,.22);background:rgba(8,12,18,.6);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.dds .slot span{font:500 19px var(--man);color:#cfd8e1}.dds .slot b{font:700 40px/1.1 var(--bar)}
+.dds .slot.now{border:3px solid #22b4ff;background:rgba(34,150,255,.1);box-shadow:0 0 16px rgba(34,176,255,.5)}.dds .slot.now span{color:#7fd0ff}
+.dds.throw-b .slot.now{border-color:#ffc61a;background:rgba(255,198,26,.1);box-shadow:0 0 16px rgba(255,190,20,.5)}.dds.throw-b .slot.now span{color:#ffd86a}
+.dds.throw-b .dbar .shown{border-color:#ffc61a;box-shadow:0 0 16px rgba(255,190,20,.4)}
+.dds .mults{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);padding:5px;border-radius:99px;border:1.5px solid rgba(255,255,255,.2);background:rgba(8,12,18,.6)}
+.dds .mults button{height:36px;border-radius:99px;font:700 21px var(--bar)}
+.dds .mults button.on{background:linear-gradient(180deg,#2196ff,#0a5ad0);box-shadow:0 0 14px rgba(30,150,255,.7)}
+.dds .grid{margin-top:11px;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.dds .grid .k{height:50px;font-size:32px}.dds .grid .k.sm{font-size:25px}.dds .grid .k.bust{font-size:19px}
+.dds .dbar{margin-top:16px;display:grid;grid-template-columns:140px 1fr 166px;gap:14px;height:76px}
+.dds .dbar .undo{border-radius:18px;display:flex;align-items:center;justify-content:center;gap:8px;font:700 28px var(--bar)}
+.dds .dbar .shown{border-radius:18px;border:2.5px solid #22b4ff;background:rgba(8,18,30,.8);box-shadow:0 0 16px rgba(34,176,255,.4);display:flex;align-items:center;justify-content:center;font:700 38px var(--bar)}
+.dds .dbar .enter{display:flex;align-items:center;justify-content:center;gap:10px;font-size:34px}
+.dds .enter[disabled]{opacity:.45;box-shadow:none}
+
+/* cricket */
+.dds .cricket{margin-top:14px;padding:12px 6px 16px}
+.dds .chd{display:grid;grid-template-columns:186px 1fr 186px;text-align:center;font:600 22px var(--bar);padding-bottom:8px}
+.dds .crow{display:grid;grid-template-columns:186px 54px 90px 54px 186px;gap:0 8px;justify-content:center;align-items:center;margin:0 0 9px}
+.dds .crow>div{height:53px;border-radius:12px;background:rgba(4,8,12,.65);border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;gap:12px;position:relative}
+.dds .mk{width:32px;height:32px;border-radius:50%;border:2.5px solid #e8eef5;display:flex;align-items:center;justify-content:center}
+.dds .ma .mk.on{border-color:var(--a);box-shadow:0 0 10px var(--a)}
+.dds .mb .mk.on{border-color:var(--b);box-shadow:0 0 10px var(--b)}
+.dds .mk.on::after{content:"\00d7";font:700 38px/1 var(--man);margin-top:-4px}
+.dds .ma .mk.on::after{color:var(--a)}.dds .mb .mk.on::after{color:var(--b)}
+.dds .closed::before{content:"";position:absolute;left:12px;right:12px;top:50%;height:4px;margin-top:-2px;border-radius:2px}
+.dds .ma.closed::before{background:var(--a);box-shadow:0 0 8px var(--a)}.dds .mb.closed::before{background:var(--b);box-shadow:0 0 8px var(--b)}
+.dds .crow .dt,.dds .crow .num{height:53px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#19212b,#10161d);border:1.5px solid rgba(255,255,255,.12);font:700 27px var(--bar)}
+.dds .crow .num{border:2px solid rgba(255,255,255,.4);font-size:36px}
+.dds .crow .dt.none{opacity:.25;color:transparent}
+.dds .crow.dead .dt,.dds .crow.dead .num{opacity:.3;filter:blur(1.5px)}
+.dds .cricket .miss{display:flex;margin:4px auto 0;width:212px;height:52px;font-size:28px}
+
+/* bulls, Choice */
+.dds .bullp{margin-top:10px;display:flex;gap:22px;padding:10px;align-items:center}
+.dds .bullp .tg{width:135px;height:146px;border-radius:12px;background:#080b0f;display:flex;align-items:center;justify-content:center;flex:none}
+.dds .bullp h3{font:700 38px var(--bar);margin:0}.dds .bullp h4{font:700 34px var(--bar);margin:4px 0}
+.dds .bullp p{font:500 20px var(--man);margin:0}
+.dds .closest{font:700 42px var(--bar);margin:32px 0 16px}
+.dds .bbtns{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.dds .bb{height:142px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px solid rgba(255,255,255,.3)!important;background:rgba(14,20,28,.75)!important}
+.dds .bb b{font:700 39px var(--bar);max-width:95%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dds .bb span{font:500 23px var(--man)}
+.dds .bb.side-a:active{border:3px solid #5fd0ff!important;background:linear-gradient(180deg,#2196ff,#0a5ad0)!important;box-shadow:0 0 28px rgba(30,150,255,.85)}
+.dds .bb.side-b:active{border:3px solid #ffe27a!important;background:linear-gradient(180deg,#ffd23a,#e3a600)!important;color:#1a1400}
+.dds .again{font:500 20px var(--man);color:#cfd8e1;text-align:center;margin-top:28px}
+.dds .decp{display:flex;justify-content:space-between;align-items:center;margin:4px 0 16px}
+.dds .decp .pill{display:inline-block;font:700 24px var(--bar);padding:4px 18px;border-radius:99px;color:#1a1400;background:linear-gradient(180deg,#ffd43a,#f0b400)}
+.dds .decp h2{font:700 50px var(--bar);margin:10px 0 0}
+.dds .lbox{width:145px;height:103px;justify-content:center;border-radius:14px;border:2px solid rgba(255,255,255,.45);background:rgba(14,20,28,.75)}
+.dds .lbox .ls{font-size:52px}
+.dds .decp h2.huge{font:700 84px/1 var(--bar);margin:6px 0 0}
+.dds .steps{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.dds .step{display:flex;align-items:center;gap:14px;min-height:50px;padding:6px 10px;border-radius:12px;border:1.5px solid rgba(255,255,255,.14);background:linear-gradient(180deg,rgba(30,40,52,.55),rgba(14,20,28,.55));font:500 22px var(--man)}
+.dds .step i{flex:none;width:30px;height:30px;border-radius:50%;background:#1fb854;display:flex;align-items:center;justify-content:center;font:700 18px var(--man);font-style:normal}
+.dds .step b{font:700 23px var(--bar)}
+.dds .big2 button{height:240px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 14px}
+.dds .big2 svg{color:#3cc6ff}.dds .big2 .blue svg{color:#bfe8ff}.dds .big2 .goldb svg{color:#3a2a00}
+.dds .big2 b{font:700 52px/1.05 var(--bar);white-space:normal;max-width:220px}.dds .big2 span{font:500 19px/1.3 var(--man)}
+.dds .games2{margin-top:16px}
+.dds .games2 button{height:74px;border-radius:16px;font:700 40px var(--bar)}
+.dds .pop.confirm .big{font-size:120px}
+.dds .pop.confirm .sub{letter-spacing:.08em}
+
+/* a leg's turns and changing one */
+.dds .turnsp .tabs{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 14px}
+.dds .turnsp .tabs button{padding:8px 18px;border-radius:99px;border:2px solid rgba(255,255,255,.3);font:700 22px var(--bar)}
+.dds .turnsp .tabs button.on{border-color:#ffc61a;color:#1a1400;background:linear-gradient(180deg,#ffd43a,#f0b400)}
+.dds .turnsp h2{font:700 42px var(--bar);margin:0}
+.dds .turnsp .subl{font:500 20px var(--man);color:#cfd8e1;margin:6px 0 16px}
+.dds .tbl{padding:12px 8px}
+.dds .thd,.dds .trow{display:grid;grid-template-columns:70px 1fr 1fr 1fr 1fr;align-items:center;text-align:center}
+.dds .thd{grid-template-columns:70px 2fr 2fr;font:600 24px var(--bar);height:44px}
+.dds .tsub{display:grid;grid-template-columns:70px 1fr 1fr 1fr 1fr;text-align:center;font:500 17px var(--man);color:#aab4bf;padding-bottom:6px}
+.dds .thd .side-a{color:var(--a)}.dds .thd .side-b{color:var(--b)}
+.dds .trow{height:84px;border-top:1px solid rgba(255,255,255,.08);font:600 30px var(--bar)}
+.dds .trow .c.sc{margin:0 8px;height:62px;border-radius:12px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.04);font:700 34px var(--bar)}
+.dds .tbl.cr .trow .c.sc{font-size:22px}
+.dds .trow .lf{color:#cfd8e1}.dds .trow .dash{color:#5d6773}
+.dds .wide{width:100%;height:76px;border-radius:18px;font:700 28px var(--bar);margin-top:20px}
+.dds .pop.edit{top:110px}
+.dds .eyebrow{font:500 20px var(--man);letter-spacing:.06em}
+.dds .pop.side-a .eyebrow{color:#7fd0ff}.dds .pop.side-b .eyebrow{color:#ffd86a}
+.dds .pop .val{width:300px;height:90px;border-radius:18px;border:2.5px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font:700 68px var(--bar)}
+.dds .pop .note{font-size:18px;color:#cfd8e1}
+.dds .pop .err{font:600 20px var(--man);color:#ff6b75}
+.dds .epad{display:grid;grid-template-columns:repeat(3,150px);gap:10px 25px}
+.dds .epad .k{height:62px;font-size:38px}.dds .epad .k.bust{font-size:25px}
+.dds .ekeys{display:flex;flex-direction:column;gap:6px;width:360px}
+.dds .erow{display:grid;grid-template-columns:70px 1fr 70px;gap:10px}
+.dds .erow .key{height:42px;font-size:24px}.dds .ekeys .miss{height:44px;font-size:24px}
+.dds .key.none{opacity:.3}
+
+/* settings */
+.dds .seg{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-top:10px}
+.dds .seg button{height:64px;border-radius:16px;border:2px solid rgba(255,255,255,.3);font:700 26px var(--bar)}
+.dds .seg button.on{border:2.5px solid #5fd0ff;background:linear-gradient(180deg,#2196ff,#0a5ad0)}
+.dds .optrow{display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:14px;font:700 26px var(--bar)}
+.dds .tog{min-width:96px;height:52px;border-radius:99px;border:2px solid rgba(255,255,255,.35)!important;font:700 24px var(--bar)}
+.dds .tog.on{background:#0f5a2c!important;color:#4dff8f;border-color:#3df08a!important}
+
+/* the end of the match */
+.dds-hd .pill.over{color:#4dff8f;background:#0f5a2c;box-shadow:0 0 12px rgba(61,240,138,.35)}
+.dds .sum .top{display:grid;grid-template-columns:1fr 104px 1fr;gap:12px;align-items:center}
+.dds .sc2{border-radius:18px;padding:12px 17px;display:flex;flex-direction:column;gap:2px;min-height:170px;justify-content:center}
+.dds .sc2.side-a{border:3px solid #22b4ff;background:linear-gradient(180deg,rgba(14,40,70,.55),rgba(6,16,30,.65));box-shadow:0 0 22px rgba(34,176,255,.8),inset 0 0 20px rgba(34,176,255,.25)}
+.dds .sc2.side-b{border:3px solid #ffc61a;background:linear-gradient(180deg,rgba(70,55,8,.45),rgba(25,19,2,.6));box-shadow:0 0 22px rgba(255,190,20,.75),inset 0 0 20px rgba(255,190,20,.2)}
+.dds .sc2 .lbl{font:700 24px var(--bar)}.dds .sc2.win .lbl{color:var(--green)}.dds .sc2.run.side-b .lbl{color:var(--b)}.dds .sc2.run.side-a .lbl{color:var(--a)}
+.dds .sc2 .nm{font:700 45px/1.1 var(--bar);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dds .sc2 p{font:500 19px var(--man);margin:0}
+.dds .sum .lbox{width:104px;height:132px}.dds .sum .ls.side-a{color:var(--a)}.dds .sum .ls.side-b{color:var(--b)}
+.dds .ltab{margin-top:16px;padding:12px 18px}
+.dds .ltab h3{font:700 34px var(--bar);margin:0 0 6px}
+.dds .lhd,.dds .lrow{display:grid;grid-template-columns:60px 1.3fr 1fr 1.6fr 70px;align-items:center}
+.dds .lhd{font:500 20px var(--man)}.dds .lhd span:nth-child(3),.dds .lhd span:nth-child(4),.dds .lrow span:nth-child(3),.dds .lrow span:nth-child(4){text-align:center}
+.dds .lhd span:last-child,.dds .lrow span:last-child{text-align:right}
+.dds .lrow{font:600 26px var(--bar);height:52px;border-top:1px solid rgba(255,255,255,.08)}
+.dds .lrow span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dds .sum .btns{display:grid;grid-template-columns:200px 1fr;gap:18px;margin-top:16px}
+.dds .sum .btns button{height:76px;border-radius:20px;font:700 32px var(--bar)}
+.dds .sum .btns .main{font-size:36px}
+
+/* Filling a tall phone: fit() stretches .dds to the screen's height; the screen is a column and the part you tap takes
+   the extra room (the keypad, the dart grid, the cricket rows), never more than about half again its drawn size. */
+.dds{display:flex;flex-direction:column}
+.dds>*{flex:none}
+.dds .pad{flex:1 1 auto;grid-auto-rows:minmax(56px,84px);align-content:start}
+.dds .pad .k,.dds .pad .go{height:auto;min-height:56px}
+.dds .grid{flex:1 1 auto;grid-auto-rows:minmax(50px,76px);align-content:start}
+.dds .grid .k{height:auto;min-height:50px}
+.dds .cricket{flex:1 1 auto;display:flex;flex-direction:column}
+.dds .crow{flex:1 1 auto;max-height:80px;align-items:stretch}
+.dds .crow>div,.dds .crow .dt,.dds .crow .num{height:auto;min-height:53px}
+.dds .cricket .miss{flex:none}
+.dds .dbar{flex:none}
+.dds .sum{flex:1 1 auto;display:flex;flex-direction:column}
+.dds .sum .btns{margin-top:auto;padding-top:16px}
+</style>
+<style>
+/* Casual play: the page and the setup screen (CSetup). The scoring screens' look is scoring.css. */
+html,body{margin:0;background:#030507;min-height:100%;overflow-x:hidden}
+body{overscroll-behavior:none}
+#app{min-height:100vh}
+.dds.cs{display:flex;flex-direction:column;min-height:982px}
+.cs .dds-hd{grid-template-columns:90px 1fr 90px}
+.cs h3{font:700 30px var(--bar);margin:22px 8px 12px}
+.cs .nm{display:flex;align-items:center;height:76px;border-radius:16px;margin:0 8px 16px;padding:0 24px}
+.cs .nm.side-a{border:3px solid #22b4ff;background:linear-gradient(180deg,rgba(14,40,70,.55),rgba(6,16,30,.65));box-shadow:0 0 0 1px rgba(34,180,255,.4),0 0 20px rgba(34,176,255,.75),inset 0 0 18px rgba(34,176,255,.22)}
+.cs .nm.side-b{border:3px solid #ffc61a;background:linear-gradient(180deg,rgba(70,55,8,.45),rgba(25,19,2,.6));box-shadow:0 0 0 1px rgba(255,198,26,.4),0 0 20px rgba(255,190,20,.7),inset 0 0 18px rgba(255,190,20,.2)}
+.cs .nm input{flex:1;min-width:0;background:none;border:0;outline:0;color:#fff;font:700 36px var(--bar);caret-color:#fff}
+.cs .nm input::placeholder{color:rgba(255,255,255,.35)}
+.cs .nm span{font:500 17px var(--man);margin-left:12px}
+.cs .nm.side-a span{color:#9fe0ff}.cs .nm.side-b span{color:#ffe08a}
+.cs .games,.cs .bests{display:grid;gap:15px;margin:0 8px}
+.cs .games{grid-template-columns:repeat(3,1fr)}
+.cs .bests{grid-template-columns:repeat(5,1fr)}
+.cs .opt{border-radius:16px;border:2px solid rgba(255,255,255,.3);background:rgba(14,20,28,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.cs .games .opt{height:102px}.cs .bests .opt{height:82px}
+.cs .opt b{font:700 36px/1 var(--bar)}.cs .bests .opt b{font-size:40px}
+.cs .opt span{font:500 17px var(--man);color:#cfd8e1}
+.cs .opt.on{border:2px solid #4fc0ff;background:linear-gradient(180deg,#1f8dff,#0a5fd6);box-shadow:0 0 22px rgba(30,140,255,.7)}
+.cs .opt.on span{color:#e6f3ff}
+.cs .first{font:500 20px var(--man);color:#cfd8e1;margin:20px 8px 0}
+.cs .cserr{font:600 20px var(--man);color:#ff6b75;margin:14px 8px 0;min-height:24px}
+.cs .nextb{font:500 20px var(--man);color:#cfd8e1;text-align:center;margin:auto 8px 14px}
+.cs .go{height:78px;margin:0 8px 2px;font-size:40px;border-radius:18px}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+/* Every word of casual play, in English (docs/superpowers/specs/2026-11-03-casual-play-design.md). Bahasa Malaysia comes
+   later as casual.ms.js with the same keys. {name} style fields are filled in by DDScreens.fmt. */
+var DD_CASUAL_EN = {
+  /* the page and the setup screen */
+  pageTitle: 'DartDraw · Casual play',
+  appName: 'DARTDRAW',
+  casualPlay: 'CASUAL PLAY',
+  players: 'PLAYERS',
+  player1: 'PLAYER 1',
+  player2: 'PLAYER 2',
+  namePlaceholder: 'Type a name',
+  game: 'GAME',
+  setup501: '501',
+  setup501Sub: 'Double out',
+  setupCricket: 'CRICKET',
+  setupCricketSub: '20 to Bull',
+  setupChoice: 'CHOICE',
+  setupChoiceSub: '501 and Cricket',
+  bestOf: 'BEST OF',
+  leg1: 'LEG',
+  legsN: 'LEGS',
+  firstTo: 'First to {n} legs wins.',
+  firstTo1: 'One leg wins.',
+  nextBull: 'Next: a bull throw to see who starts.',
+  startGame: 'START GAME',
+  err_name_same: 'The two names must be different.',
+  line3x01: 'BEST OF {n} LEGS • 501 • DOUBLE OUT',
+  line3cricket: 'BEST OF {n} LEGS • CRICKET',
+  line3choice: 'BEST OF {n} LEGS • 501 / CRICKET',
+  line3x01one: '1 LEG • 501 • DOUBLE OUT',
+  line3cricketone: '1 LEG • CRICKET',
+  line3choiceone: '1 LEG • 501 / CRICKET',
+  newGame: 'NEW GAME',
+  rematch: 'REMATCH',
+
+  /* the shared scoring screens */
+  legs: 'LEGS',
+  lastScores: 'LAST 3 SCORES',
+  leaves: 'leaves',
+  bust: 'NO SCORE',
+  undo: 'UNDO',
+  single: 'SINGLE',
+  double: 'DOUBLE',
+  treble: 'TREBLE',
+  miss: 'MISS',
+  bull: 'BULL',
+  enter: 'ENTER',
+  thisTurn: 'THIS TURN',
+  toThrow: '{name} TO THROW',
+  leftAfter: 'LEFT AFTER:',
+  scoredSoFar: 'SCORED {n}',
+  dartN: 'DART {n}',
+  darts: 'DARTS',
+  legWon: 'LEG {n} WON',
+  checkedOut: 'CHECKED OUT',
+  whichDart: 'WHICH DART FINISHED IT?',
+  dart1: '1st',
+  dart2: '2nd',
+  dart3: '3rd',
+  dartWord: 'DART',
+  notPossible: 'Not possible',
+  notCheckout: 'NOT A CHECKOUT • UNDO',
+  bustTitle: 'NO SCORE?',
+  bustText: '{name} has {left} left. {score} would be a bust.',
+  bustYes: 'NO SCORE',
+  cancel: 'CANCEL',
+  change: 'CHANGE',
+  back: 'Back',
+  settings: 'Settings',
+
+  /* the opening bull */
+  bullOne: 'One dart each',
+  closestStarts: 'Closest to the bull starts leg 1.',
+  startsLeg: 'Starts Leg {n}',
+  throwAgain: 'Too close to call? Throw again.',
+
+  /* deciding leg */
+  decidingLeg: 'DECIDING LEG',
+  bullForLeg: 'BULL FOR LEG {n}',
+  bullThrow: 'BULL THROW',
+  throwsFirst: '{name} throws first',
+  lostOpening: 'Lost the opening bull.',
+  whoClosest: 'WHO WAS CLOSEST?',
+  chooses: 'Chooses',
+  choiceWord: 'CHOICE',
+  choiceStep1: '{name} lost the opening bull and threw first.',
+  choiceStep2: 'Closest to the bull:',
+  choiceStep3: '{name} chooses: start the leg or pick the game.',
+  illStart: 'I’ll start the leg',
+  illPick: 'I’ll pick the game',
+  illStartSub: '{name} throws first. {other} picks 501 or Cricket.',
+  illPickSub: '{other} throws first.',
+  game501: '501',
+  gameCricket: 'CRICKET',
+  legScore: 'LEG {n} • LEGS {a} - {b}',
+  startsFirst: '{name} THROWS FIRST',
+  startLeg: 'START LEG {n}',
+  choseLine: '{starter} starts. {picker} picked {game}.',
+
+  /* a leg's turns and changing one */
+  turnsTitle: 'LEG {n} • {game}',
+  turnsSub: '{name} threw first. Tap a score to change it.',
+  turnsSubCricket: '{name} threw first. Tap a turn to change its darts.',
+  turnCol: 'TURN',
+  scoredCol: 'SCORED',
+  leftCol: 'LEFT',
+  out: 'OUT',
+  backToGame: 'BACK TO THE GAME',
+  editEyebrow: 'LEG {n} • TURN {t} • {name}',
+  editTitle: 'CHANGE {from} TO {to}?',
+  editTitleDarts: 'CHANGE THIS TURN?',
+  editNote: 'Later turns are worked out again.',
+  changeTo: 'CHANGE TO {v}',
+  changeTurn: 'CHANGE TURN',
+  err_changes_winner: 'This would change who won that leg.',
+  err_breaks_later: 'This makes a later score impossible.',
+  err_invalid: 'That score is not possible.',
+
+  /* settings */
+  gearTitle: 'SETTINGS',
+  modeTotal: 'TURN TOTAL',
+  modeDarts: 'DART BY DART',
+  hints: 'CHECKOUT HINTS',
+  on: 'ON',
+  off: 'OFF',
+  done: 'DONE',
+  endGame: 'END THIS GAME',
+  endTitle: 'END THIS GAME?',
+  endText: 'The scores of this game will be lost.',
+  endYes: 'END GAME',
+
+  /* end of the match */
+  matchOver: 'MATCH OVER',
+  winner: 'WINNER',
+  runnerUp: 'RUNNER-UP',
+  avgLine: 'Avg {avg} • First 9 {f9}',
+  mprLine: 'MPR {mpr}',
+  bestLeg: 'Best leg {n} darts',
+  legCol: 'LEG',
+  wonByCol: 'WON BY',
+  gameCol: 'GAME',
+  finishCol: 'FINISH',
+  dartsCol: 'DARTS',
+  gameNameX01: '501',
+  gameNameCricket: 'Cricket',
+  finishX01: '{nth} dart • {score}',
+  finishCricket: '{nth} dart • {number}',
+  nth1: '1st',
+  nth2: '2nd',
+  nth3: '3rd',
+  bullName: 'Bull'
+};
+if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
+</script>
+<script>
+/* The darts rules of live scoring (spec docs/superpowers/specs/2026-11-02-tournament-scoring-design.md). One file, three users:
+   the scoring page on the board's tablet or phone, the organiser app (a match's history, disputes) and the server (it
+   recalculates a match before it accepts the result). No DOM, no network, no clock: every time comes in on an event.
+
+   State is always replay(format, players, events); nothing is stored but events. An event is never changed or removed: a
+   correction is a new event, so every version of every turn can be shown and restored (spec 8.1), and changing an older
+   turn simply recalculates everything after it (spec 11). Bad input never throws: it is refused with { ok:false, code },
+   or the turn is flagged for the organiser, so a device never crashes in the middle of a match. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.DDMatch = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  var X01_STARTS = [301, 501, 701, 1001];
+
+  /* ---------- the format and the leg plan ---------- */
+
+  /* A stage's settings as one clean format: unknown values fall back to the defaults (301 is Double-In, the rest Single-In;
+     a mixed match plays the x01 and Cricket in turn). bestOf is odd, 1 to 99, as the organiser app's legs fields are. */
+  function normalizeFormat(raw) {
+    raw = raw || {};
+    var game = raw.game === 'cricket' || raw.game === 'mixed' ? raw.game : 'x01';
+    var start = X01_STARTS.indexOf(Number(raw.start)) >= 0 ? Number(raw.start) : 501;
+    var inRule = raw.inRule === 'DI' || raw.inRule === 'SI' ? raw.inRule : (start === 301 ? 'DI' : 'SI');
+    var bestOf = Math.floor(Number(raw.bestOf));
+    if (!(bestOf >= 1)) bestOf = 5;
+    bestOf = Math.min(99, bestOf % 2 ? bestOf : bestOf + 1);
+    var pattern = Array.isArray(raw.pattern) ? raw.pattern.filter(function (g) { return g === 'x01' || g === 'cricket'; }) : [];
+    if (!pattern.length) pattern = ['x01', 'cricket'];
+    return {
+      game: game, start: start, inRule: inRule, pattern: pattern, bestOf: bestOf,
+      bullFirst: raw.bullFirst === 'first' ? 'first' : 'coin',
+      decider: raw.decider === 'bull' || raw.decider === 'choice' ? raw.decider : 'alternate',
+      orderAsk: raw.orderAsk === 'leg' ? 'leg' : 'match'
+    };
+  }
+
+  /* First to a majority of the best-of, as results-engine.js counts legs. */
+  function legsToWin(format) { return Math.floor(format.bestOf / 2) + 1; }
+
+  /* The deciding leg: the one played when both sides are one leg from winning. */
+  function isDecider(format, legsWon) {
+    var half = Math.floor(format.bestOf / 2);
+    return legsWon.a === half && legsWon.b === half;
+  }
+
+  /* The game of leg legIndex (0-based). A deciding leg set to Choice plays what was picked (null until then); a mixed
+     match otherwise follows its pattern, repeated. */
+  function legGame(format, legIndex, legsWon, choiceGame) {
+    if (format.decider === 'choice' && isDecider(format, legsWon)) return choiceGame || null;
+    if (format.game === 'mixed') return format.pattern[legIndex % format.pattern.length];
+    return format.game;
+  }
+
+  /* The two games a Choice leg offers: the match's x01 (501 Single-In for a Cricket stage), or Cricket. */
+  function choiceGames(format) {
+    var x01 = format.game === 'cricket' ? { game: 'x01', start: 501, inRule: 'SI' } : { game: 'x01', start: format.start, inRule: format.inRule };
+    return [x01, { game: 'cricket' }];
+  }
+
+  /* ---------- x01: checkouts ---------- */
+
+  /* Every dart a board offers, by name: S1-S20, D1-D20, T1-T20, 25 and the bull (50, a double). */
+  var DARTS = [];
+  for (var n = 1; n <= 20; n++) {
+    DARTS.push({ name: 'S' + n, v: n, dbl: false }, { name: 'D' + n, v: 2 * n, dbl: true }, { name: 'T' + n, v: 3 * n, dbl: false });
+  }
+  DARTS.push({ name: '25', v: 25, dbl: false }, { name: 'BULL', v: 50, dbl: true });
+  var FINISHERS = DARTS.filter(function (d) { return d.dbl; });
+  /* Totals no three darts can make. */
+  var IMPOSSIBLE_TOTALS = [163, 166, 169, 172, 173, 175, 176, 178, 179];
+
+  /* How much a route is liked (lower is better): the usual setup darts are the high trebles, a single when the double is
+     close; the usual doubles are D20, D16 and D8. Only used to pick the one route the checkout hint shows. */
+  var DBL_PREF = ['D20', 'D16', 'D8', 'D10', 'D12', 'D18', 'D4', 'D14', 'D6', 'D2', 'D19', 'D17', 'D15', 'D13', 'D11', 'D9', 'D7', 'D5', 'D3', 'D1', 'BULL'];
+  function setupCost(d) {
+    if (d.name === 'BULL') return 12;
+    if (d.name === '25') return 14;
+    var k = d.name.charAt(0), num = Number(d.name.slice(1));
+    return k === 'T' ? 20 - num : k === 'S' ? 0.5 + 0.3 * (20 - num) : 15 + (20 - num);
+  }
+  function finishCost(d) { return 2 * DBL_PREF.indexOf(d.name); }
+
+  /* The best route for each finish 2..170, worked out once: the fewest darts, then the most usual one. */
+  var ROUTES = (function () {
+    var best = {};
+    function offer(route, cost) {
+      var total = route.reduce(function (s, d) { return s + d.v; }, 0);
+      var cur = best[total];
+      if (!cur || route.length < cur.route.length || (route.length === cur.route.length && cost < cur.cost)) best[total] = { route: route, cost: cost };
+    }
+    FINISHERS.forEach(function (f) {
+      var fc = finishCost(f);
+      offer([f], fc);
+      DARTS.forEach(function (a) {
+        offer([a, f], setupCost(a) + fc);
+        DARTS.forEach(function (b) {
+          if (setupCost(b) < setupCost(a)) return;   // each pair once, the more usual dart first (T20 T19 D12, not T19 T20 D12)
+          offer([a, b, f], setupCost(a) + setupCost(b) + fc);
+        });
+      });
+    });
+    return best;
+  })();
+
+  /* The fewest darts that can finish `left` on a double or the bull; 0 when three darts cannot: above 170, 1, and the
+     scores left that no three darts check out (169, 168, 166, 165, 163, 162, 159). Those are not IMPOSSIBLE_TOTALS,
+     which are turn totals no three darts can score. */
+  function minDarts(left) {
+    var r = ROUTES[left];
+    return r ? r.route.length : 0;
+  }
+
+  /* One standard route for `left`, e.g. ['T20','T20','BULL'] for 170, or null when there is none. */
+  function checkoutHint(left) {
+    var r = ROUTES[left];
+    return r ? r.route.map(function (d) { return d.name; }) : null;
+  }
+
+  /* The finishing-dart buttons worth showing after a checkout keyed as a total: a 141 can only be finished with the third
+     dart, so 1st and 2nd are hidden. */
+  function finishDartChoices(left) {
+    var k = minDarts(left), out = [];
+    if (!k) return out;
+    for (var i = k; i <= 3; i++) out.push(i);
+    return out;
+  }
+
+  /* A turn keyed as a total, checked against what is left. 'invalid' (below 0, above 180, or a total no three darts make)
+     is refused; 'bust' scores nothing; 'checkout' ends the leg. Double-Out always. With Double-In and the player not yet
+     in, the marker keys only the part of the turn that counted, so any total is fine and one above 0 opens the player. */
+  function totalCheck(left, score, opened, inRule) {
+    if (typeof score !== 'number' || !isFinite(score) || score < 0 || score > 180 || Math.floor(score) !== score || IMPOSSIBLE_TOTALS.indexOf(score) >= 0) return 'invalid';
+    if (score > left || left - score === 1) return 'bust';
+    if (score === left) return minDarts(left) > 0 ? 'checkout' : 'bust';
+    return 'ok';
+  }
+
+  /* ---------- darts ---------- */
+
+  /* A dart is { n: 1-20 or 25, m: 1 single, 2 double, 3 treble }, or { n: 0, m: 0 } for a miss. There is no treble bull. */
+  function validDart(dt) {
+    if (!dt || typeof dt !== 'object') return false;
+    if (dt.n === 0 && dt.m === 0) return true;
+    if (dt.n === 25) return dt.m === 1 || dt.m === 2;
+    return Math.floor(dt.n) === dt.n && dt.n >= 1 && dt.n <= 20 && (dt.m === 1 || dt.m === 2 || dt.m === 3);
+  }
+  function dartValue(dt) { return validDart(dt) ? dt.n * dt.m : 0; }
+
+  /* A turn keyed dart by dart. The darts count in order: with Double-In and the player not yet in, nothing scores until a
+     double (the bull counts), which scores and opens the player. Going below 0, leaving 1, or reaching 0 without a double
+     is a bust: the turn scores 0 and `used` is the darts up to the one that bust. Reaching 0 on a double is a checkout on
+     that dart; any darts after it are ignored. */
+  function dartsTurn(left, darts, opened, inRule) {
+    if (!Array.isArray(darts) || darts.length > 3 || !darts.every(validDart)) return { ok: false, code: 'bad_dart' };
+    var isIn = !!opened || inRule !== 'DI', rest = left;
+    for (var i = 0; i < darts.length; i++) {
+      var dt = darts[i], v = dartValue(dt);
+      if (!isIn) {
+        if (dt.m !== 2) continue;
+        isIn = true;
+      }
+      var after = rest - v;
+      if (after < 0 || after === 1 || (after === 0 && dt.m !== 2)) {
+        return { ok: true, scored: 0, left: left, bust: true, checkout: false, opened: isIn, finishDart: null, used: i + 1 };
+      }
+      rest = after;
+      if (rest === 0) return { ok: true, scored: left, left: 0, bust: false, checkout: true, opened: true, finishDart: i + 1, used: i + 1 };
+    }
+    return { ok: true, scored: left - rest, left: rest, bust: false, checkout: false, opened: isIn, finishDart: null, used: darts.length };
+  }
+
+  /* ---------- cricket ---------- */
+
+  var CRICKET = [20, 19, 18, 17, 16, 15, 25];
+  function emptyMarks() { var o = {}; CRICKET.forEach(function (n) { o[n] = 0; }); return o; }
+  function cricketStart() { return { marks: { a: emptyMarks(), b: emptyMarks() }, points: { a: 0, b: 0 } }; }
+  function copyBoard(b) {
+    var a = {}, bb = {};
+    CRICKET.forEach(function (n) { a[n] = b.marks.a[n] || 0; bb[n] = b.marks.b[n] || 0; });
+    return { marks: { a: a, b: bb }, points: { a: b.points.a || 0, b: b.points.b || 0 } };
+  }
+  function allClosed(marks) { return CRICKET.every(function (n) { return marks[n] >= 3; }); }
+
+  /* One cricket turn for `side`, on a copy of the board. Only 15-20 and the bull count; marks close a number at 3, and
+     marks beyond that score the number (25 for the bull) while the opponent has it open. The leg is won when this side
+     has closed every number and is not behind on points; darts after that are ignored. */
+  function cricketTurn(board, side, darts) {
+    if (!Array.isArray(darts) || darts.length > 3 || !darts.every(validDart)) return { ok: false, code: 'bad_dart' };
+    var b = copyBoard(board), other = side === 'a' ? 'b' : 'a', marks = 0;
+    for (var i = 0; i < darts.length; i++) {
+      var dt = darts[i];
+      if (CRICKET.indexOf(dt.n) < 0) continue;
+      marks += dt.m;
+      var had = b.marks[side][dt.n], now = had + dt.m;
+      var extra = Math.max(0, now - Math.max(3, had));
+      b.marks[side][dt.n] = Math.min(3, now);
+      if (extra && b.marks[other][dt.n] < 3) b.points[side] += extra * dt.n;
+      if (allClosed(b.marks[side]) && b.points[side] >= b.points[other]) {
+        return { ok: true, board: b, marks: marks, won: true, finishDart: i + 1 };
+      }
+    }
+    return { ok: true, board: b, marks: marks, won: false, finishDart: null };
+  }
+
+  /* Marks thrown in a turn (for marks per round): every mark on 15-20 and the bull, closed or not. */
+  function cricketTurnMarks(darts) {
+    return (darts || []).reduce(function (s, dt) { return s + (validDart(dt) && CRICKET.indexOf(dt.n) >= 0 ? dt.m : 0); }, 0);
+  }
+
+  /* ---------- a whole match, replayed from its events ---------- */
+
+  function otherSide(s) { return s === 'a' ? 'b' : 'a'; }
+  function copy(o) { var r = {}; for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) r[k] = o[k]; return r; }
+  var TURN_FIELDS = ['score', 'bust', 'darts', 'finishDart'];
+
+  /* Only plain event objects count, in seq order; anything else is dropped, so bad input never throws. */
+  function cleanEvents(events) {
+    if (!Array.isArray(events)) return [];
+    return events.filter(function (e) { return e && typeof e === 'object' && !Array.isArray(e) && typeof e.type === 'string'; })
+      .map(function (e, i) { return { e: e, i: i }; })
+      .sort(function (x, y) { return ((Number(x.e.seq) || 0) - (Number(y.e.seq) || 0)) || (x.i - y.i); })
+      .map(function (x) { return x.e; });
+  }
+  function cleanPlayers(players) {
+    var out = { a: [], b: [] };
+    ['a', 'b'].forEach(function (s) { if (players && Array.isArray(players[s])) out[s] = players[s].filter(function (p) { return typeof p === 'string' && p; }); });
+    return out;
+  }
+
+  /* A keyed score or darts that could never be right (a total no three darts make, a dart that does not exist). An edit
+     carrying one is refused, so the version before it stays in force. */
+  function badValues(e) {
+    if (e.score !== undefined && (typeof e.score !== 'number' || e.score < 0 || e.score > 180 || Math.floor(e.score) !== e.score || IMPOSSIBLE_TOTALS.indexOf(e.score) >= 0)) return true;
+    if (e.darts !== undefined && (!Array.isArray(e.darts) || e.darts.length > 3 || !e.darts.every(validDart))) return true;
+    return false;
+  }
+
+  /* The turns of a match, by id, each with every version it has had: version 0 is the turn as first keyed, each edit adds
+     one, an undo adds one marked undone. `current` is the version in force; a restore moves it without adding a version.
+     Only the last turn still standing can be undone. An edit to any other turn is an old edit, flagged for the organiser. */
+  function collectTurns(events, ignored, flags, frozenAfter) {
+    var turns = {}, order = [];
+    function lastStanding() {
+      for (var i = order.length - 1; i >= 0; i--) { var t = turns[order[i]]; if (!t.versions[t.current].undone) return t; }
+      return null;
+    }
+    events.forEach(function (e) {
+      var t = e.turnId !== undefined ? turns[e.turnId] : null;
+      if ((e.type === 'edit' || e.type === 'restore' || e.type === 'undo') && frozenAfter !== undefined && Number(e.seq) > frozenAfter) {
+        ignored.push(e.seq);
+        if (flags) flags.push({ turnId: e.turnId, code: 'after_confirm' });
+        return;
+      }
+      if (e.type === 'turn') {
+        if (!e.id || turns[e.id]) { ignored.push(e.seq); return; }
+        // A leg number sent as text ("1") still counts; one that is missing or could never be a leg is refused and
+        // flagged, so the organiser sees the score instead of it vanishing.
+        var leg = typeof e.leg === 'string' && /^\d+$/.test(e.leg) ? Number(e.leg) : e.leg;
+        if (typeof leg !== 'number' || !(leg >= 0) || Math.floor(leg) !== leg) {
+          ignored.push(e.seq);
+          if (flags) flags.push({ turnId: e.id, code: 'bad_leg' });
+          return;
+        }
+        var v = { at: e.at, dev: e.dev, mode: e.mode === 'darts' ? 'darts' : 'total' };
+        TURN_FIELDS.forEach(function (k) { if (e[k] !== undefined) v[k] = e[k]; });
+        turns[e.id] = { id: e.id, seq: e.seq, leg: leg, side: e.side, player: e.player, mode: e.mode === 'darts' ? 'darts' : 'total', versions: [v], current: 0 };
+        order.push(e.id);
+      } else if (e.type === 'edit') {
+        if (!t || badValues(e)) { ignored.push(e.seq); return; }
+        if (t !== lastStanding() && flags) flags.push({ turnId: t.id, code: 'old_edit' });
+        var nv = copy(t.versions[t.current]);
+        delete nv.undone;
+        nv.at = e.at; nv.dev = e.dev;
+        TURN_FIELDS.forEach(function (k) { if (e[k] !== undefined) nv[k] = e[k]; });
+        // A score without darts makes the turn a total; darts make it dart by dart (the organiser may fix either way).
+        if (e.darts !== undefined) { nv.mode = 'darts'; delete nv.score; }
+        else if (e.score !== undefined) { nv.mode = 'total'; delete nv.darts; }
+        t.versions.push(nv);
+        t.current = t.versions.length - 1;
+      } else if (e.type === 'restore') {
+        if (!t || !(e.version >= 0 && e.version < t.versions.length)) { ignored.push(e.seq); return; }
+        if (t !== lastStanding() && flags) flags.push({ turnId: t.id, code: 'old_edit' });
+        t.current = e.version;
+      } else if (e.type === 'undo') {
+        if (!t || t !== lastStanding()) { ignored.push(e.seq); return; }
+        var uv = copy(t.versions[t.current]);
+        uv.at = e.at; uv.dev = e.dev; uv.undone = true;
+        t.versions.push(uv);
+        t.current = t.versions.length - 1;
+      }
+    });
+    return { byId: turns, order: order };
+  }
+
+  /* Every version of one turn, oldest first, for the organiser's history line ("60 at 8:14:02 → 45 at 8:14:40 → 54 (now)").
+     frozenAfter: the replayed state's frozenAfter, so changes refused after the confirm are not shown as versions. */
+  function turnHistory(events, turnId, frozenAfter) {
+    var t = collectTurns(cleanEvents(events), [], null, frozenAfter).byId[turnId];
+    if (!t) return [];
+    return t.versions.map(function (v, i) {
+      var o = copy(v);
+      o.version = i; o.current = i === t.current; o.undone = !!v.undone;
+      return o;
+    });
+  }
+
+  /* Flags that need the organiser before a result can be sent. An old edit and a turn keyed for the wrong player are only
+     shown to the organiser; they do not block. */
+  var BLOCKING = ['not_checkout', 'now_bust', 'after_win', 'not_reached'];
+  function canConfirm(state) {
+    return !!(state && state.winner && state.next && state.next.ask === 'confirm' &&
+      !state.flags.some(function (f) { return BLOCKING.indexOf(f.code) >= 0; }));
+  }
+
+  /* The whole state of a match: its legs, the score, whose turn it is and what the screen must ask next. players is
+     { a: [...], b: [...] } in draw order ('a' is the first-named side); a side of two or more needs its throwing order. */
+  function replay(rawFormat, players, events) {
+    var evs = cleanEvents(events), frozenAfter;
+    var confirms = evs.filter(function (e) { return e.type === 'confirm'; });
+    for (var ci = 0; ci < confirms.length; ci++) {
+      var upTo = evs.filter(function (e) { return (Number(e.seq) || 0) <= (Number(confirms[ci].seq) || 0); });
+      if (replayCore(rawFormat, players, upTo).winner) { frozenAfter = Number(confirms[ci].seq) || 0; break; }
+    }
+    var st = replayCore(rawFormat, players, evs, frozenAfter);
+    st.frozenAfter = frozenAfter;
+    return st;
+  }
+
+  /* One replay of clean events. frozenAfter: the seq of the confirm in force; edits, undos and restores after it are
+     refused and flagged (a sent result is changed only by the organiser, as results are today). */
+  function replayCore(rawFormat, players, evs, frozenAfter) {
+    var format = normalizeFormat(rawFormat);
+    players = cleanPlayers(players);
+    var ignored = [], flags = [];
+    var turns = collectTurns(evs, ignored, flags, frozenAfter);
+    function lastOf(type, test) {
+      var found = null;
+      evs.forEach(function (e) { if (e.type === type && (!test || test(e))) found = e; });
+      return found;
+    }
+    var confirmEv = frozenAfter !== undefined ? lastOf('confirm', function (e) { return Number(e.seq) === frozenAfter; }) : lastOf('confirm');
+    var byLeg = {};
+    turns.order.forEach(function (id) {
+      var t = turns.byId[id];
+      if (t.versions[t.current].undone) return;   // withdrawn: kept in its history, out of the match
+      (byLeg[t.leg] = byLeg[t.leg] || []).push(t);
+    });
+
+    var st = { players: { a: (players.a || []).slice(), b: (players.b || []).slice() }, legs: [], legsWon: { a: 0, b: 0 }, winner: null, confirmed: false, next: null, openingBullLoser: null, flags: flags, ignored: ignored };
+    var toWin = legsToWin(format), firstStarter = null, stopped = false;
+
+    function ask(o) { st.next = o; stopped = true; }
+
+    for (var li = 0; !stopped && !st.winner; li++) {
+      var decider = isDecider(format, st.legsWon), starter = null, choice = null, game;
+      var bullThrowsFirst = st.openingBullLoser || null;
+
+      // Who starts: the opening bull, a deciding-leg bull, Choice, or alternation from leg 1's starter.
+      var needsBull = li === 0 || (decider && (format.decider === 'bull' || format.decider === 'choice'));
+      if (needsBull) {
+        if (li === 0) {
+          var bf = format.bullFirst === 'first' ? { side: 'a' } : lastOf('bullFirst');
+          if (!bf) { ask({ ask: 'bullFirst', leg: 0 }); break; }
+          bullThrowsFirst = bf.side === 'b' ? 'b' : 'a';
+        }
+        var bull = lastOf('bull', function (e) { return e.leg === li; });
+        if (!bull) { ask({ ask: 'bull', leg: li, side: bullThrowsFirst }); break; }
+        var bw = bull.winner === 'b' ? 'b' : 'a';
+        if (li === 0) { firstStarter = bw; st.openingBullLoser = otherSide(bw); }
+        starter = bw;
+        if (decider && format.decider === 'choice') {
+          var ch = lastOf('choice', function (e) { return e.leg === li; });
+          if (!ch || (ch.pick !== 'start' && ch.pick !== 'game') || (ch.game !== 'x01' && ch.game !== 'cricket')) { ask({ ask: 'choice', leg: li, choiceBy: bw }); break; }
+          choice = { by: bw, pick: ch.pick, game: ch.game };
+          starter = ch.pick === 'start' ? bw : otherSide(bw);
+        }
+      } else {
+        starter = li % 2 === 0 ? firstStarter : otherSide(firstStarter);
+      }
+
+      game = legGame(format, li, st.legsWon, choice && choice.game);
+      var start = format.start, inRule = format.inRule;
+      if (choice && game === 'x01') { var cx = choiceGames(format)[0]; start = cx.start; inRule = cx.inRule; }
+
+      // Throwing order inside each side (doubles, trios, foursomes).
+      var order = {};
+      var orderLeg = format.orderAsk === 'leg' ? li : 0;
+      var sidesInTurn = [starter, otherSide(starter)];
+      for (var si = 0; si < 2; si++) {
+        var side = sidesInTurn[si], list = (players[side] || []).slice();
+        if (list.length > 1) {
+          var oe = lastOf('order', function (e) { return e.leg === orderLeg && e.side === side && list.indexOf(e.first) >= 0; });
+          if (!oe) { ask({ ask: 'order', leg: li, orderSide: side }); break; }
+          var k = list.indexOf(oe.first);
+          list = list.slice(k).concat(list.slice(0, k));
+        }
+        order[side] = list;
+      }
+      if (stopped) break;
+
+      var leg = { game: game, start: game === 'x01' ? start : null, inRule: game === 'x01' ? inRule : null, starter: starter, order: order, turns: [], winner: null, finishDart: null, choice: choice };
+      st.legs.push(leg);
+      var left = { a: start, b: start }, opened = { a: inRule !== 'DI', b: inRule !== 'DI' };
+      var board = cricketStart(), ptr = { a: 0, b: 0 }, nextSide = starter;
+
+      var legTurns = byLeg[li] || [];
+      for (var ti = 0; ti < legTurns.length; ti++) {
+        var t = legTurns[ti], v = t.versions[t.current];
+        if (leg.winner) { flags.push({ turnId: t.id, code: 'after_win' }); continue; }
+        var side2 = t.side === 'b' ? 'b' : 'a';
+        var expected = order[nextSide] && order[nextSide][ptr[nextSide] % order[nextSide].length];
+        if (side2 !== nextSide || (expected !== undefined && t.player !== expected)) flags.push({ turnId: t.id, code: 'out_of_turn' });
+        var view = { id: t.id, side: side2, player: t.player, mode: v.mode, scored: 0, leftAfter: null, bust: false, checkout: false, finishDart: null,
+          darts: v.darts, marks: null, version: t.current, versions: t.versions.length, flagged: false, dartsUsed: 3 };
+        if (game === 'x01') {
+          if (v.mode === 'darts') {
+            var r = dartsTurn(left[side2], v.darts, opened[side2], inRule);
+            if (!r.ok) { ignored.push(t.seq); continue; }
+            opened[side2] = r.opened;
+            view.scored = r.scored; view.bust = r.bust; view.checkout = r.checkout; view.finishDart = r.finishDart;
+            view.dartsUsed = r.checkout ? r.used : 3;   // a bust counts all three darts (spec 6.1)
+            left[side2] = r.left;
+          } else {
+            if (v.bust === true) {   // keyed as a bust (No score / the Bust prompt): 0, whatever score came with it
+              view.bust = true; view.leftAfter = left[side2]; leg.turns.push(view); ptr[side2]++; nextSide = otherSide(side2);
+              continue;
+            }
+            var chk = totalCheck(left[side2], v.score, opened[side2], inRule);
+            if (chk === 'invalid') { ignored.push(t.seq); continue; }
+            if (v.finishDart !== undefined && v.finishDart !== null && chk !== 'checkout' && v.bust !== true) flags.push({ turnId: t.id, code: 'not_checkout' });
+            if (chk === 'bust' && v.bust !== true) flags.push({ turnId: t.id, code: 'now_bust' });
+            if (v.bust === true || chk === 'bust') { view.bust = true; }
+            else {
+              if (!opened[side2] && v.score > 0) opened[side2] = true;
+              view.scored = v.score; left[side2] -= v.score;
+              if (chk === 'checkout') {
+                view.checkout = true;
+                var fd = Number(v.finishDart);
+                if (finishDartChoices(view.scored).indexOf(fd) >= 0) { view.finishDart = fd; view.dartsUsed = fd; }
+              }
+            }
+          }
+          view.leftAfter = left[side2];
+        } else {
+          var cr = cricketTurn(board, side2, v.darts);
+          if (!cr.ok) { ignored.push(t.seq); continue; }
+          view.scored = cr.board.points[side2] - board.points[side2];   // this turn's points; the board holds the total
+          board = cr.board; view.marks = cricketTurnMarks(cr.won ? v.darts.slice(0, cr.finishDart) : v.darts);
+          if (cr.won) { view.checkout = true; view.finishDart = cr.finishDart; view.dartsUsed = cr.finishDart; }
+        }
+        leg.turns.push(view);
+        ptr[side2]++;
+        nextSide = otherSide(side2);
+        if (view.checkout) {
+          if (!view.finishDart) {
+            ask({ ask: 'finishDart', leg: li, turnId: t.id, side: side2, finishDartChoices: finishDartChoices(view.scored) });
+            break;
+          }
+          leg.winner = side2; leg.finishDart = view.finishDart;
+          st.legsWon[side2]++;
+          if (st.legsWon[side2] >= toWin) st.winner = side2;
+        }
+      }
+      if (stopped) break;
+      if (!leg.winner) {
+        var np = order[nextSide][ptr[nextSide] % order[nextSide].length];
+        ask({ ask: 'turn', leg: li, side: nextSide, player: np, left: game === 'x01' ? { a: left.a, b: left.b } : null, opened: game === 'x01' ? { a: opened.a, b: opened.b } : null, board: game === 'cricket' ? board : null });
+      }
+    }
+
+    // Turns in legs after the one the match ended in: kept, flagged, never applied.
+    if (st.winner) {
+      Object.keys(byLeg).forEach(function (l) { if (Number(l) >= st.legs.length) byLeg[l].forEach(function (t) { flags.push({ turnId: t.id, code: 'after_win' }); }); });
+      st.confirmed = !!confirmEv;
+      st.next = { ask: st.confirmed ? 'done' : 'confirm', leg: st.legs.length - 1 };
+    } else {
+      if (confirmEv) ignored.push(confirmEv.seq);
+      // Turns of legs not reached yet (an earlier leg is no longer won): kept, waiting, flagged.
+      Object.keys(byLeg).forEach(function (l) { if (Number(l) >= st.legs.length) byLeg[l].forEach(function (t) { flags.push({ turnId: t.id, code: 'not_reached' }); }); });
+    }
+    st.legs.forEach(function (l) { l.turns.forEach(function (tv) { tv.flagged = flags.some(function (f) { return f.turnId === tv.id; }); }); });
+    return st;
+  }
+
+  /* ---------- stats ---------- */
+
+  function round(x, dp) { var k = Math.pow(10, dp); return Math.round(x * k) / k; }
+  function emptyStats() { return { darts: 0, scored: 0, avg3: null, f9darts: 0, f9scored: 0, first9: null, legsWon: 0, cricketDarts: 0, marks: 0, mpr: null, fromTotals: false }; }
+  function finish(o) {
+    o.avg3 = o.darts ? round(o.scored / o.darts * 3, 1) : null;
+    o.first9 = o.f9darts ? round(o.f9scored / o.f9darts * 3, 1) : null;
+    o.mpr = o.cricketDarts ? round(o.marks / o.cricketDarts * 3, 2) : null;
+    delete o.f9darts; delete o.f9scored;
+    return o;
+  }
+
+  /* A match's stats from its replayed state: per player (each turn counts to the player who threw it) and per side.
+     A turn counts 3 darts, except a checkout (its finishing dart); a bust counts all 3 however it was keyed.
+     First 9 is the first three turns of each x01 leg: each player's own for byPlayer, the side's (whoever threw them)
+     for bySide. fromTotals says a player's average came from turn totals, so it has no per-dart detail. An average with
+     no darts is null, never NaN. */
+  function stats(state) {
+    if (!state || !Array.isArray(state.legs)) state = { players: { a: [], b: [] }, legs: [] };
+    var byPlayer = {}, sideStats = { a: emptyStats(), b: emptyStats() };
+    ['a', 'b'].forEach(function (s) { (state.players && state.players[s] || []).forEach(function (p) { byPlayer[p] = emptyStats(); }); });
+    function add(p, side, f) { if (!byPlayer[p]) byPlayer[p] = emptyStats(); f(byPlayer[p]); f(sideStats[side]); }
+    state.legs.forEach(function (leg) {
+      var seen = {};
+      leg.turns.forEach(function (t) {
+        add(t.player, t.side, function (o) {
+          if (leg.game === 'cricket') { o.cricketDarts += t.dartsUsed; o.marks += t.marks || 0; return; }
+          o.darts += t.dartsUsed; o.scored += t.scored;
+          if (t.mode === 'total') o.fromTotals = true;
+        });
+        if (leg.game !== 'cricket') {
+          var f9 = function (o) { o.f9darts += t.dartsUsed; o.f9scored += t.scored; };
+          if ((seen['p:' + t.player] = (seen['p:' + t.player] || 0) + 1) <= 3) f9(byPlayer[t.player]);
+          if ((seen['s:' + t.side] = (seen['s:' + t.side] || 0) + 1) <= 3) f9(sideStats[t.side]);
+        }
+        if (leg.winner && t.checkout && t.finishDart) add(t.player, t.side, function (o) { o.legsWon++; });
+      });
+    });
+    Object.keys(byPlayer).forEach(function (p) { finish(byPlayer[p]); });
+    return { byPlayer: byPlayer, bySide: { a: finish(sideStats.a), b: finish(sideStats.b) } };
+  }
+
+  return {
+    replay: replay, stats: stats, turnHistory: turnHistory, canConfirm: canConfirm,
+    normalizeFormat: normalizeFormat, legsToWin: legsToWin, isDecider: isDecider, legGame: legGame, choiceGames: choiceGames,
+    minDarts: minDarts, checkoutHint: checkoutHint, finishDartChoices: finishDartChoices, totalCheck: totalCheck,
+    dartValue: dartValue, dartsTurn: dartsTurn,
+    cricketStart: cricketStart, cricketTurn: cricketTurn, cricketTurnMarks: cricketTurnMarks
+  };
+});
+</script>
+<script>
+/* A match being scored, in memory (spec docs/superpowers/specs/2026-11-03-casual-play-design.md; the scoring rules are
+   match-engine.js's, unchanged). Shared by casual play and, later, the tournament scoring page: no DOM, no network, no
+   storage. Taps come in as actions; each one either adds engine events or is refused with { ok:false, code }, so a
+   wrong tap never changes the match. view() is everything the scoring screens show.
+
+   Two things wait on the screen and are never events: a checkout keyed as a total waits for its finishing dart
+   (pending), and a total that would bust waits for "Bust?" (askBust). Undo clears either before it takes back a turn. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./match-engine.js'));
+  else root.DDScoring = factory(root.DDMatch);
+})(typeof self !== 'undefined' ? self : this, function (M) {
+  var CRICKET = [20, 19, 18, 17, 16, 15, 25];
+  var BLOCKING = ['not_checkout', 'now_bust', 'after_win', 'not_reached'];
+  var OK = { ok: true };
+  function no(code) { return { ok: false, code: code }; }
+  function other(s) { return s === 'a' ? 'b' : 'a'; }
+
+  /* The picks on the setup screen as an engine format (spec 4.4). The opening bull has no coin flip: side 'a' is named as
+     the first thrower, and the screen does not show who throws first. */
+  function formatFor(picks) {
+    var bestOf = Number(picks && picks.bestOf) || 5, game = picks && picks.game;
+    if (game === 'cricket') return { game: 'cricket', bestOf: bestOf, bullFirst: 'first', decider: 'alternate' };
+    if (game === 'choice') return { game: 'mixed', start: 501, inRule: 'SI', pattern: ['x01', 'cricket'], bestOf: bestOf, bullFirst: 'first', decider: 'choice' };
+    return { game: 'x01', start: 501, inRule: 'SI', bestOf: bestOf, bullFirst: 'first', decider: 'alternate' };
+  }
+
+  /* A dart is { n: 1-20 or 25, m: 1-3 } (no treble bull), or { n:0, m:0 } for a miss: match-engine.js's rule. */
+  function goodDart(d) {
+    if (!d || typeof d !== 'object') return false;
+    if (d.n === 0 && d.m === 0) return true;
+    if (d.n === 25) return d.m === 1 || d.m === 2;
+    return Math.floor(d.n) === d.n && d.n >= 1 && d.n <= 20 && (d.m === 1 || d.m === 2 || d.m === 3);
+  }
+  function goodDarts(list) { return Array.isArray(list) && list.length >= 1 && list.length <= 3 && list.every(goodDart); }
+  function goodScore(s) { return M.totalCheck(1000, s, true, 'SI') !== 'invalid'; }
+
+  /* The x01 score a side has left in a leg: the last turn's leftAfter, or the start. */
+  function leftOf(leg, side) {
+    if (!leg || leg.game !== 'x01') return null;
+    var l = leg.start;
+    leg.turns.forEach(function (t) { if (t.side === side && t.leftAfter !== null) l = t.leftAfter; });
+    return l;
+  }
+
+  /* A cricket leg's board, folded from its turns. */
+  function boardOf(leg) {
+    var b = M.cricketStart();
+    leg.turns.forEach(function (t) { var r = M.cricketTurn(b, t.side, t.darts); if (r.ok) b = r.board; });
+    return b;
+  }
+
+  /* A leg's turns as rows by turn number: row n holds each side's nth turn (null until thrown). */
+  function rowsOf(leg) {
+    var rows = [], count = { a: 0, b: 0 };
+    if (!leg) return rows;
+    leg.turns.forEach(function (t) {
+      var i = count[t.side]++;
+      if (!rows[i]) rows[i] = { turn: i + 1, a: null, b: null };
+      rows[i][t.side] = { turnId: t.id, scored: t.scored, left: t.leftAfter, bust: t.bust, darts: t.darts || null, marks: t.marks, finishDart: t.finishDart };
+    });
+    return rows;
+  }
+
+  function create(opts) {
+    var format = opts.format, names = { a: opts.names.a, b: opts.names.b };
+    var players = { a: [names.a], b: [names.b] };
+    var now = opts.now || function () { return Date.now(); };
+    var hints = !!opts.hints;
+    var events = (opts.events || []).map(function (e) { var c = {}; for (var k in e) c[k] = e[k]; return c; });
+    var seq = events.reduce(function (s, e) { return Math.max(s, Number(e.seq) || 0); }, 0);
+    var pending = null, askBust = false, st = null;
+
+    function state() { if (!st) st = M.replay(format, players, events); return st; }
+    function add(e) { e.seq = ++seq; e.at = now(); events.push(e); st = null; pending = null; askBust = false; return OK; }
+    function ask() { return state().next ? state().next.ask : null; }
+    function curLeg() { var n = state().next; return n ? state().legs[n.leg] || null : null; }
+    function turnAsk() { return ask() === 'turn' && !pending && !askBust; }
+    function addTurn(fields) {
+      var n = state().next, e = { type: 'turn', id: 't' + (seq + 1), leg: n.leg, side: n.side, player: n.player };
+      for (var k in fields) e[k] = fields[k];
+      return add(e);
+    }
+
+    function bull(side) {
+      if (ask() !== 'bull') return no('nothing');
+      if (side !== 'a' && side !== 'b') return no('invalid');
+      return add({ type: 'bull', leg: state().next.leg, winner: side });
+    }
+    function choice(pick, game) {
+      if (ask() !== 'choice') return no('nothing');
+      if ((pick !== 'start' && pick !== 'game') || (game !== 'x01' && game !== 'cricket')) return no('invalid');
+      return add({ type: 'choice', leg: state().next.leg, pick: pick, game: game });
+    }
+    function total(score) {
+      if (!turnAsk() || curLeg().game !== 'x01') return no('nothing');
+      var n = state().next, chk = M.totalCheck(n.left[n.side], score, n.opened[n.side], curLeg().inRule);
+      if (chk === 'invalid') return no('invalid');
+      if (chk === 'bust') { askBust = true; return no('ask_bust'); }
+      if (chk === 'checkout') { pending = { score: score, choices: M.finishDartChoices(score) }; return OK; }
+      return addTurn({ mode: 'total', score: score });
+    }
+    function confirmBust() { if (!askBust) return no('nothing'); return addTurn({ mode: 'total', score: 0, bust: true }); }
+    function bust() {
+      if (ask() !== 'turn' || pending || curLeg().game !== 'x01') return no('nothing');
+      return addTurn({ mode: 'total', score: 0, bust: true });
+    }
+    function finishDart(k) {
+      if (!pending) return no('nothing');
+      if (pending.choices.indexOf(k) < 0) return no('invalid');
+      return addTurn({ mode: 'total', score: pending.score, finishDart: k });
+    }
+    function cancelPending() { if (!pending && !askBust) return no('nothing'); pending = null; askBust = false; return OK; }
+    function darts(list) {
+      if (!turnAsk()) return no('nothing');
+      if (!goodDarts(list)) return no('invalid');
+      return addTurn({ mode: 'darts', darts: list.map(function (d) { return { n: d.n, m: d.m }; }) });
+    }
+    function lastTurnId() {
+      var legs = state().legs;
+      for (var i = legs.length - 1; i >= 0; i--) if (legs[i].turns.length) return legs[i].turns[legs[i].turns.length - 1].id;
+      return null;
+    }
+    /* Undo takes back, in order: a waiting question, then a bull or Choice pick tapped before any turn of its leg (a
+       mis-tapped bull is thrown again), then the last turn standing, across legs (a winning turn keyed by mistake is
+       taken back even when the next leg's bull is already showing). A bull or choice is dropped from the events: casual
+       play keeps no history, and the engine reads the latest one. */
+    function undo() {
+      if (pending || askBust) return cancelPending();
+      var n = state().next, leg = curLeg();
+      if (n && !(leg && leg.turns.length)) {
+        for (var i = events.length - 1; i >= 0; i--) {
+          var e = events[i];
+          if (e.type !== 'bull' && e.type !== 'choice') continue;
+          if (e.leg === n.leg) { events.splice(i, 1); st = null; return OK; }
+          break;
+        }
+      }
+      var id = lastTurnId();
+      if (!id) return no('nothing');
+      return add({ type: 'undo', turnId: id });
+    }
+
+    /* Change an earlier turn. Kept only if every leg before the one being played keeps its winner, and no turn becomes
+       impossible (a new bust, a checkout that no longer adds up, turns after a new win, or a checkout with no finishing
+       dart); otherwise refused and nothing changes (spec 4.3). */
+    function editTurn(turnId, change) {
+      var known = events.some(function (e) { return e.type === 'turn' && e.id === turnId; });
+      if (!known) return no('no_turn');
+      change = change || {};
+      var e = { type: 'edit', turnId: turnId };
+      if (change.darts !== undefined) { if (!goodDarts(change.darts)) return no('invalid'); e.darts = change.darts; }
+      else if (change.bust === true) { e.score = 0; e.bust = true; }
+      else if (change.score !== undefined) { if (!goodScore(change.score)) return no('invalid'); e.score = change.score; e.bust = false; }
+      else return no('invalid');
+      if (change.finishDart !== undefined) e.finishDart = change.finishDart;
+      e.seq = seq + 1; e.at = now();
+      var before = state(), after = M.replay(format, players, events.concat([e]));
+      var upTo = before.next ? before.next.leg : before.legs.length;
+      for (var i = 0; i < upTo && i < before.legs.length; i++) {
+        if (!after.legs[i] || after.legs[i].winner !== before.legs[i].winner) return no('changes_winner');
+      }
+      var had = {};
+      before.flags.forEach(function (f) { had[f.turnId + ':' + f.code] = true; });
+      var broke = after.flags.some(function (f) { return BLOCKING.indexOf(f.code) >= 0 && !had[f.turnId + ':' + f.code]; });
+      if (broke || (after.next && after.next.ask === 'finishDart')) return no('breaks_later');
+      seq++; events.push(e); st = after; pending = null; askBust = false;
+      return OK;
+    }
+
+    function legTurns(i) { return rowsOf(state().legs[i]); }
+
+    function view() {
+      var s = state(), n = s.next || {}, leg = s.legs[n.leg] || null, a = n.ask || null;
+      var stats = M.stats(s).bySide;
+      var sides = {};
+      ['a', 'b'].forEach(function (k) {
+        sides[k] = { name: names[k], left: leftOf(leg, k), avg3: stats[k].avg3, first9: stats[k].first9, mpr: stats[k].mpr };
+      });
+      var throwing = a === 'turn' ? n.side : null;
+      var cricket = null;
+      if (leg && leg.game === 'cricket') {
+        var b = boardOf(leg);
+        cricket = {
+          numbers: CRICKET.map(function (x) { return { n: x, a: b.marks.a[x], b: b.marks.b[x], closedBoth: b.marks.a[x] >= 3 && b.marks.b[x] >= 3 }; }),
+          points: { a: b.points.a, b: b.points.b }
+        };
+      }
+      var last3 = rowsOf(leg).slice(-3).reverse().map(function (r) {
+        return { n: r.turn, a: r.a ? r.a.scored : null, b: r.b ? r.b.scored : null };
+      });
+      var legs = [];
+      s.legs.forEach(function (l, i) {
+        if (!l.winner) return;
+        var fin = null, dartsUsed = 0;
+        l.turns.forEach(function (t) { if (t.side === l.winner) { dartsUsed += t.dartsUsed; if (t.checkout) fin = t; } });
+        var fd = fin && fin.darts && fin.finishDart ? fin.darts[fin.finishDart - 1] : null;
+        legs.push({ n: i + 1, winner: l.winner, game: l.game, finishDart: l.finishDart, finishScore: l.game === 'x01' && fin ? fin.scored : null,
+          finishNumber: l.game === 'cricket' && fd ? fd.n : null, darts: dartsUsed, choice: l.choice });
+      });
+      return {
+        ask: a, leg: n.leg !== undefined ? n.leg : null, game: leg ? leg.game : null, bestOf: M.normalizeFormat(format).bestOf,
+        toWin: M.legsToWin(M.normalizeFormat(format)), legsWon: { a: s.legsWon.a, b: s.legsWon.b }, throwing: throwing, sides: sides,
+        last3: last3, cricket: cricket,
+        hint: hints && throwing && leg && leg.game === 'x01' ? M.checkoutHint(sides[throwing].left) : null,
+        pending: pending ? { score: pending.score, choices: pending.choices.slice() } : null, askBust: askBust,
+        bull: a === 'bull' ? { leg: n.leg, side: n.side } : null,
+        choice: a === 'choice' ? { leg: n.leg, by: n.choiceBy, firstThrower: s.openingBullLoser } : null,
+        winner: s.winner, legs: legs
+      };
+    }
+
+    return {
+      events: function () { return events.map(function (e) { var c = {}; for (var k in e) c[k] = e[k]; return c; }); },
+      state: state, view: view, legTurns: legTurns, names: function () { return { a: names.a, b: names.b }; },
+      format: function () { return format; }, setHints: function (on) { hints = !!on; },
+      // the checkout route for what is left with the darts still in hand, for dart by dart (null when hints are off or
+      // it cannot be done in those darts)
+      hintFor: function (left, dartsLeft) {
+        var r = hints ? M.checkoutHint(left) : null;
+        return r && r.length <= dartsLeft ? r : null;
+      },
+      bull: bull, choice: choice, total: total, bust: bust, confirmBust: confirmBust, darts: darts,
+      finishDart: finishDart, cancelPending: cancelPending, undo: undo, editTurn: editTurn
+    };
+  }
+
+  return { create: create, formatFor: formatFor, other: other, CRICKET: CRICKET };
+});
+</script>
+<script>
+/* The scoring screens, shared by casual play and (later) the tournament scoring page (spec
+   docs/superpowers/specs/2026-11-03-casual-play-design.md; approved screens in docs/design/screens-yours/). Each screen is
+   an HTML string built from the model's view() (scoring-model.js), so it is the same in a browser and in the tests. Every
+   word comes in from the page (opts.words); every name is escaped. Taps are data-act="<action>" (+ data-v="<value>"),
+   handled by one listener in mount().
+
+   Screens are drawn at the approved 660px width; mount() scales them to the phone with CSS zoom. Side 'a' is blue, 'b'
+   gold. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.DDScreens = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  var QUICK = [26, 41, 45, 60, 85, 100, 121, 140, 180];
+
+  function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  /* "LEG {n} WON" + {n:3} -> "LEG 3 WON". Values are put in as given: escape the result, not the values. */
+  function fmt(s, o) { return String(s).replace(/\{(\w+)\}/g, function (m, k) { return o && o[k] !== undefined && o[k] !== null ? String(o[k]) : m; }); }
+  function other(s) { return s === 'a' ? 'b' : 'a'; }
+  function up(s) { return String(s || '').toUpperCase(); }
+  function act(a, v) { return ' data-act="' + a + '"' + (v !== undefined ? ' data-v="' + esc(v) + '"' : ''); }
+
+  var ICON = {
+    back: '<svg viewBox="0 0 30 36" width="30" height="36" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5L8 18l12 13"/></svg>',
+    gear: '<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+    del: '<svg viewBox="0 0 32 24" width="34" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"><path d="M10 3h19v18H10L2 12z"/><path d="M15 8l8 8M23 8l-8 8"/></svg>',
+    undo: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v6h6"/><path d="M5 15a8 8 0 1 0 2-8.5L4 10"/></svg>',
+    check: '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>',
+    darts: '<svg viewBox="0 0 60 44" width="60" height="44" fill="currentColor" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g><path d="M4 40L14 30" stroke-width="2.5"/><path d="M13 31L24 20" stroke-width="5.5"/><path d="M24 20L32 12" stroke-width="2.5"/><path d="M30 14l2-11 4 4zM30 14l11-2-4-4z"/></g><g transform="translate(16 2)"><path d="M4 40L14 30" stroke-width="2.5"/><path d="M13 31L24 20" stroke-width="5.5"/><path d="M24 20L32 12" stroke-width="2.5"/><path d="M30 14l2-11 4 4zM30 14l11-2-4-4z"/></g></svg>',
+    shuffle: '<svg viewBox="0 0 24 20" width="46" height="38" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h3.5c4 0 6.5 10 11 10H21"/><path d="M2 15h3.5c1.7 0 3-1.7 4.2-4"/><path d="M12.3 9c1.2-2.3 2.5-4 4.2-4H21"/><path d="M18 2l3 3-3 3M18 12l3 3-3 3"/></svg>',
+    target: '<svg viewBox="0 0 112 112" width="112" height="112" fill="none"><circle cx="50" cy="62" r="40" stroke="#ffc61a" stroke-width="11"/><circle cx="50" cy="62" r="20" stroke="#ffc61a" stroke-width="9"/><circle cx="50" cy="62" r="6" fill="#ffc61a"/><path d="M52 60L92 20" stroke="#ffc61a" stroke-width="6" stroke-linecap="round"/><path d="M86 12l14-2-2 14-8 2zM84 30l12 0" stroke="#ffc61a" stroke-width="5" stroke-linejoin="round"/></svg>'
+  };
+
+  /* ---------- pieces every screen uses ---------- */
+
+  function header(o) {
+    var h = o.header || {};
+    return '<header class="dds-hd">'
+      + '<button class="ic back"' + act('back') + ' aria-label="' + esc(o.words.back) + '">' + ICON.back + '</button>'
+      + '<div class="ttl"><div class="t1">' + esc(h.title) + '</div><div class="t2">' + esc(h.line2) + '</div>'
+      + (h.line3 ? '<div class="t3">' + esc(h.line3) + '</div>' : '') + '</div>'
+      + '<div class="rt">' + (o.pill ? '<span class="pill">' + esc(o.pill) + '</span>' : '')
+      + '<button class="ic gear"' + act('gear') + ' aria-label="' + esc(o.words.settings) + '">' + ICON.gear + '</button></div>'
+      + '</header>';
+  }
+
+  function cardScore(v, s) {
+    if (v.cricket) return v.cricket.points[s];
+    var l = v.sides[s].left;
+    return l === null ? '' : l;
+  }
+  function cards(v, o) {
+    var dots = '';
+    v.legs.forEach(function (l) { dots += '<i class="dot side-' + l.winner + '"></i>'; });
+    if (!v.winner) dots += '<i class="dot now"></i>';
+    function card(s) {
+      return '<button class="card side-' + s + (v.throwing === s ? ' on' : '') + '"' + act('turns', s) + '>'
+        + '<span class="nm">' + esc(up(v.sides[s].name)) + '</span><span class="sc">' + esc(cardScore(v, s)) + '</span></button>';
+    }
+    return '<section class="dds-cards">' + card('a')
+      + '<div class="legs"><span class="lb">' + esc(o.words.legs) + '</span>'
+      + '<span class="ls"><b class="la">' + v.legsWon.a + '</b>-<b class="lb2">' + v.legsWon.b + '</b></span>'
+      + '<span class="dots">' + dots + '</span></div>'
+      + card('b') + '</section>';
+  }
+
+  function pop(side, inner, cls) {
+    return '<div class="veil"></div><div class="pop side-' + side + (cls ? ' ' + cls : '') + '" role="dialog">' + inner + '</div>';
+  }
+
+  /* ---------- x01, turn total ---------- */
+
+  function last3(v, o) {
+    var rows = v.last3.map(function (r, i) {
+      return '<div class="row' + (i === 0 ? ' new' : '') + '"><span>' + (r.a === null ? '' : r.a) + '</span><span>' + r.n + '</span><span>'
+        + (r.b === null ? '' : r.b) + '</span></div>';
+    }).join('');
+    for (var k = v.last3.length; k < 3; k++) rows += '<div class="row blank"><span></span><span></span><span></span></div>';   // the panel keeps its size
+    return '<section class="last3"><div class="ttl">' + esc(o.words.lastScores) + '</div>'
+      + '<div class="hd"><span>' + esc(up(v.sides.a.name)) + '</span><span>#</span><span>' + esc(up(v.sides.b.name)) + '</span></div>'
+      + rows + '</section>';
+  }
+
+  /* The checkout route for the thrower, when hints are on (view.hint). */
+  function hintLine(v) { return v.hint && v.hint.length ? '<div class="hint">' + esc(v.hint.join(' • ')) + '</div>' : ''; }
+
+  /* The score being typed, in a box above the keypad in the thrower's colour, with what it leaves (owner 2026-11-04,
+     option C: not on the button). */
+  function entryBox(v, o) {
+    var s = v.throwing, typed = o.typed || '', left = v.sides[s].left, after = typed ? left - Number(typed) : null;
+    return '<section class="entry side-' + s + '"><span class="who">' + esc(up(v.sides[s].name)) + '</span><span class="val">' + esc(typed) + '</span><span class="lv">'
+      + (after !== null && after >= 0 ? esc(o.words.leaves) + ' <b>' + after + '</b>' : '') + '</span></section>';
+  }
+
+  function totalPad(v, o) {
+    var q = QUICK.map(function (n) { return '<button class="q' + (n === 180 ? ' gold' : '') + '"' + act('quick', n) + '>' + n + '</button>'; });
+    var digit = function (n) { return '<button class="k"' + act('digit', n) + '>' + n + '</button>'; };
+    var typed = o.typed || '';
+    return hintLine(v) + '<section class="quick"><div class="r1">' + q.slice(0, 5).join('') + '</div><div class="r2">' + q.slice(5).join('') + '</div></section>'
+      + entryBox(v, o) + '<section class="pad">'
+      + digit(1) + digit(2) + digit(3) + '<button class="k"' + act('del') + '>' + ICON.del + '</button>'
+      + digit(4) + digit(5) + digit(6) + '<button class="k undo"' + act('undo') + '>' + ICON.undo + '<span>' + esc(o.words.undo) + '</span></button>'
+      + digit(7) + digit(8) + digit(9) + '<button class="k bust"' + act('bust') + '>' + esc(o.words.bust) + '</button>'
+      + '<button class="k zero"' + act('digit', 0) + '>0</button>'
+      + '<button class="go"' + act('submit') + (typed ? '' : ' disabled') + '>' + ICON.check + '<span>' + esc(o.words.enter) + '</span></button>'
+      + '</section>';
+  }
+
+  function whichDart(v, o) {
+    var s = v.throwing, w = o.words, p = v.pending;
+    var btns = [1, 2, 3].map(function (k) {
+      var ok = p.choices.indexOf(k) >= 0;
+      return '<button class="fd' + (ok ? '' : ' off') + '"' + (ok ? act('finish', k) : ' disabled') + '><b>' + esc(w['dart' + k]) + '</b><span>'
+        + esc(ok ? w.dartWord : w.notPossible) + '</span></button>';
+    }).join('');
+    return pop(s, '<span class="pill won">' + esc(fmt(w.legWon, { n: v.leg + 1 })) + '</span>'
+      + '<div class="who">' + esc(up(v.sides[s].name)) + '</div><div class="sub">' + esc(w.checkedOut) + '</div>'
+      + '<div class="big">' + p.score + '</div><h2>' + esc(w.whichDart) + '</h2><div class="fds">' + btns + '</div>'
+      + '<button class="ghost"' + act('cancel') + '>' + esc(w.notCheckout) + '</button>', 'finish');
+  }
+
+  function bustAsk(v, o) {
+    var s = v.throwing, w = o.words;
+    return pop(s, '<h2>' + esc(w.bustTitle) + '</h2><p>' + esc(fmt(w.bustText, { name: v.sides[s].name, left: v.sides[s].left, score: o.asked })) + '</p>'
+      + '<div class="two"><button class="dk"' + act('cancel') + '>' + esc(w.cancel) + '</button>'
+      + '<button class="red"' + act('confirmBust') + '>' + esc(w.bustYes) + '</button></div>', 'bustq');
+  }
+
+  /* ---------- darts ---------- */
+
+  /* A dart's name: 20, D20, T20, 25, BULL, or – for a miss. */
+  function dartName(d, w) {
+    if (!d) return '–';
+    if (d.n === 0) return '–';
+    if (d.n === 25) return d.m === 2 ? w.bull : '25';
+    return (d.m === 3 ? 'T' : d.m === 2 ? 'D' : '') + d.n;
+  }
+  function shown(cur, w) { return [0, 1, 2].map(function (i) { return dartName(cur[i], w); }).join(' • '); }
+  function dartsBar(o) {
+    var w = o.words, cur = o.cur || [];
+    return '<section class="dbar"><button class="dk undo"' + act('undo') + '>' + ICON.undo + '<span>' + esc(w.undo) + '</span></button>'
+      + '<div class="shown">' + esc(shown(cur, w)) + '</div>'
+      + '<button class="red enter"' + act('enter') + (cur.length ? '' : ' disabled') + '>' + ICON.check + '<span>' + esc(w.enter) + '</span></button></section>';
+  }
+
+  function x01Darts(v, o) {
+    var w = o.words, cur = o.cur || [], s = v.throwing, mult = o.mult || 1;
+    var scored = cur.reduce(function (t, d) { return t + d.n * d.m; }, 0), after = v.sides[s].left - scored;
+    // below 0, 1 left, or 0 not on a double is a bust: say NO SCORE rather than a minus number (owner 2026-11-04)
+    var busted = after < 0 || after === 1 || (after === 0 && cur[cur.length - 1].m !== 2);
+    var slots = [0, 1, 2].map(function (i) {
+      return '<div class="slot' + (i === cur.length ? ' now' : '') + '"><span>' + esc(fmt(w.dartN, { n: i + 1 })) + '</span><b>' + esc(dartName(cur[i], w)) + '</b></div>';
+    }).join('');
+    var mults = [[1, w.single], [2, w.double], [3, w.treble]].map(function (x) {
+      return '<button class="' + (mult === x[0] ? 'on' : '') + '"' + act('mult', x[0]) + '>' + esc(x[1]) + '</button>';
+    }).join('');
+    var grid = '';
+    for (var n = 1; n <= 20; n++) grid += '<button class="k"' + act('dart', n) + '>' + n + '</button>';
+    grid += '<button class="k"' + act('dart', 25) + '>25</button><button class="k sm"' + act('dart', 'bull') + '>' + esc(w.bull) + '</button>'
+      + '<button class="k sm"' + act('miss') + '>' + esc(w.miss) + '</button><button class="k"' + act('del') + '>' + ICON.del + '</button>'
+      + '<button class="k bust"' + act('bust') + '>' + esc(w.bust) + '</button>';
+    // the last 3 scores stay on screen, as in turn total (owner 2026-11-04), and the darts keyed so far add up as they go
+    return last3(v, o) + '<section class="panel turnp"><div class="ttl">' + esc(w.thisTurn) + '</div>'
+      + '<div class="line"><span class="who">' + esc(fmt(w.toThrow, { name: up(v.sides[s].name) })) + '</span><span class="scored">' + esc(fmt(w.scoredSoFar, { n: scored })) + '</span><span class="after">' + (busted ? esc(w.bust) : esc(w.leftAfter) + ' ' + after) + '</span></div>'
+      + '<div class="slots">' + slots + '</div>' + hintLine(cur.length && o.hintFor ? { hint: o.hintFor(after, 3 - cur.length) } : v) + '</section>'
+      + '<section class="mults">' + mults + '</section><section class="grid">' + grid + '</section>' + dartsBar(o);
+  }
+
+  function cricketPad(v, o) {
+    var w = o.words, rows = '';
+    function marks(n, side) {
+      var k = Math.min(3, n), out = '';
+      for (var i = 0; i < 3; i++) out += '<i class="mk' + (i < k ? ' on' : '') + '"></i>';
+      return '<div class="m' + side + (n >= 3 ? ' closed' : '') + '">' + out + '</div>';
+    }
+    v.cricket.numbers.forEach(function (r) {
+      var dead = r.closedBoth, label = r.n === 25 ? w.bull : String(r.n);
+      var key = function (cls, m, text) {
+        if (dead || (r.n === 25 && m === 3)) return '<span class="dt ' + cls + (r.n === 25 && m === 3 ? ' none' : '') + '">' + esc(text) + '</span>';
+        return '<button class="dt ' + cls + '"' + act('dart', r.n + ':' + m) + '>' + esc(text) + '</button>';
+      };
+      rows += '<div class="crow' + (dead ? ' dead' : '') + '">' + marks(r.a, 'a') + key('d', 2, 'D')
+        + (dead ? '<span class="num">' + esc(label) + '</span>' : '<button class="num"' + act('dart', r.n + ':1') + '>' + esc(label) + '</button>')
+        + key('t', 3, 'T') + marks(r.b, 'b') + '</div>';
+    });
+    return '<section class="panel cricket"><div class="chd"><span>' + esc(up(v.sides.a.name)) + '</span><span>' + esc(w.darts) + '</span><span>'
+      + esc(up(v.sides.b.name)) + '</span></div>' + rows + '<button class="key miss"' + act('miss') + '>' + esc(w.miss) + '</button></section>' + dartsBar(o);
+  }
+
+  /* ---------- bulls and Choice ---------- */
+
+  function bullButtons(v, o, sub) {
+    return '<div class="closest">' + esc(o.words.whoClosest) + '</div><div class="bbtns">' + ['a', 'b'].map(function (s) {
+      return '<button class="bb side-' + s + '"' + act('bull', s) + '><b>' + esc(v.sides[s].name) + '</b><span>' + esc(sub) + '</span></button>';
+    }).join('') + '</div>';
+  }
+  function openingBull(v, o) {
+    var w = o.words;
+    return '<section class="panel bullp"><div class="tg">' + ICON.target + '</div><div class="bt"><h3>' + esc(w.bullThrow) + '</h3><h4>' + esc(w.bullOne) + '</h4><p>'
+      + esc(w.closestStarts) + '</p></div></section>' + bullButtons(v, o, fmt(w.startsLeg, { n: 1 })) + '<p class="again">' + esc(w.throwAgain) + '</p>';
+  }
+  function legsBox(v, o) {
+    return '<div class="legs lbox"><span class="lb">' + esc(o.words.legs) + '</span><span class="ls">' + v.legsWon.a + ' - ' + v.legsWon.b + '</span></div>';
+  }
+  function undoRow(o) { return '<div class="undorow"><button class="dk undob"' + act('undo') + '>' + ICON.undo + '<span>' + esc(o.words.undo) + '</span></button></div>'; }
+  function decidingBull(v, o, choiceDecider) {
+    var w = o.words, s = v.bull.side;
+    return '<section class="decp"><div><span class="pill gold">' + esc(w.decidingLeg) + '</span><h2>' + esc(fmt(w.bullForLeg, { n: v.bull.leg + 1 })) + '</h2></div>' + legsBox(v, o) + '</section>'
+      + '<section class="panel bullp"><div class="tg">' + ICON.target + '</div><div class="bt"><h3>' + esc(w.bullThrow) + '</h3><h4>'
+      + esc(fmt(w.throwsFirst, { name: v.sides[s].name })) + '</h4><p>' + esc(w.lostOpening) + '</p></div></section>'
+      + bullButtons(v, o, choiceDecider ? w.chooses : fmt(w.startsLeg, { n: v.bull.leg + 1 })) + undoRow(o);
+  }
+  /* The deciding leg set to Choice (approved 06c): three steps, then the closest picks "I'll start the leg" or "I'll pick
+     the game", and the game is tapped below; the confirm pop-up (06d) comes up once both are picked. */
+  function choiceScreen(v, o) {
+    var w = o.words, by = v.choice.by, ot = other(by), pick = o.choicePick, game = o.choiceGame;
+    var names = { by: v.sides[by].name, other: v.sides[ot].name }, first = v.choice.firstThrower || ot;
+    var step = function (n, html) { return '<div class="step"><i>' + n + '</i><span>' + html + '</span></div>'; };
+    var lit = by === 'a' ? 'blue' : 'goldb';
+    var head = '<section class="decp"><div><span class="pill gold">' + esc(w.decidingLeg) + '</span><h2 class="huge">' + esc(w.choiceWord) + '</h2></div>' + legsBox(v, o) + '</section>'
+      + '<section class="steps">' + step(1, esc(fmt(w.choiceStep1, { name: v.sides[first].name })))
+      + step(2, esc(w.choiceStep2) + ' <b>' + esc(names.by) + '.</b>') + step(3, esc(fmt(w.choiceStep3, { name: names.by }))) + '</section>';
+    var picks = '<section class="choicep"><div class="two big2">'
+      + '<button class="' + (pick === 'start' ? lit : 'dk') + '"' + act('cpick', 'start') + '>' + ICON.darts + '<b>' + esc(w.illStart) + '</b><span>' + esc(fmt(w.illStartSub, { name: names.by, other: names.other })) + '</span></button>'
+      + '<button class="' + (pick === 'game' ? lit : 'dk') + '"' + act('cpick', 'game') + '>' + ICON.shuffle + '<b>' + esc(w.illPick) + '</b><span>' + esc(fmt(w.illPickSub, { other: names.other })) + '</span></button></div>'
+      + '<div class="two games2">'
+      + '<button class="' + (game === 'x01' ? lit : 'dk') + '"' + act('cgame', 'x01') + '>' + esc(w.game501) + '</button>'
+      + '<button class="' + (game === 'cricket' ? lit : 'dk') + '"' + act('cgame', 'cricket') + '>' + esc(w.gameNameCricket) + '</button></div></section>';
+    picks += undoRow(o);
+    if (!pick || !game) return head + picks;
+    var picker = pick === 'start' ? ot : by, starter = pick === 'start' ? by : ot;
+    return head + picks + pop(starter, '<span class="pill gold">' + esc(w.decidingLeg) + '</span>'
+      + '<div class="sub">' + esc(fmt(w.legScore, { n: v.choice.leg + 1, a: v.legsWon.a, b: v.legsWon.b })) + '</div>'
+      + '<div class="big">' + esc(game === 'x01' ? w.game501 : w.gameCricket) + '</div>'
+      + '<h2>' + esc(fmt(w.startsFirst, { name: up(v.sides[starter].name) })) + '</h2>'
+      + '<p>' + esc(fmt(w.choseLine, { starter: v.sides[starter].name, picker: v.sides[picker].name, game: game === 'x01' ? w.game501 : w.gameNameCricket })) + '</p>'
+      + '<div class="two"><button class="dk"' + act('cchange') + '>' + esc(w.change) + '</button><button class="blue"' + act('cgo') + '>'
+      + esc(fmt(w.startLeg, { n: v.choice.leg + 1 })) + '</button></div>', 'confirm');
+  }
+
+  /* ---------- a leg's turns, and changing one ---------- */
+
+  function legGame(v, leg, rows) {
+    var l = v.legs.filter(function (x) { return x.n === leg + 1; })[0];
+    if (l) return l.game;
+    var t = rows.length && (rows[0].a || rows[0].b);
+    return t && t.marks !== null && t.marks !== undefined ? 'cricket' : (leg === v.leg ? v.game : 'x01');
+  }
+  function turnsScreen(v, o) {
+    var w = o.words, leg = o.popup.leg, rows = o.turns || [], game = legGame(v, leg, rows);
+    var nLegs = v.winner ? v.legs.length : (v.leg !== null ? v.leg + 1 : v.legs.length);
+    var tabs = '';
+    for (var i = 0; i < nLegs; i++) tabs += '<button class="' + (i === leg ? 'on' : '') + '"' + act('turnsLeg', i) + '>' + esc(w.legCol) + ' ' + (i + 1) + '</button>';
+    var first = rows.length ? (rows[0].a && rows[0].b ? (rows[0].a.turnId < rows[0].b.turnId ? 'a' : 'b') : (rows[0].a ? 'a' : 'b')) : null;
+    if (rows.length && rows[0].a && rows[0].b) first = Number(rows[0].a.turnId.slice(1)) < Number(rows[0].b.turnId.slice(1)) ? 'a' : 'b';
+    var cell = function (t) {
+      if (!t) return '<span class="c dash">–</span><span class="c"></span>';
+      var shownScore = game === 'cricket' ? (t.darts || []).map(function (d) { return dartName(d, w); }).join(' • ') : (t.bust ? w.bust : t.scored);
+      var left = game === 'cricket' ? (t.scored ? '+' + t.scored : '') : (t.left === 0 ? w.out : t.left);
+      return '<button class="c sc"' + act('edit', t.turnId) + '>' + esc(shownScore) + '</button><span class="c lf">' + esc(left) + '</span>';
+    };
+    var body = rows.map(function (r) { return '<div class="trow"><span class="c n">' + r.turn + '</span>' + cell(r.a) + cell(r.b) + '</div>'; }).join('');
+    return '<section class="turnsp"><div class="tabs">' + tabs + '</div>'
+      + '<h2>' + esc(fmt(w.turnsTitle, { n: leg + 1, game: game === 'cricket' ? up(w.gameNameCricket) : w.gameNameX01 })) + '</h2>'
+      + (first ? '<p class="subl">' + esc(fmt(game === 'cricket' ? w.turnsSubCricket : w.turnsSub, { name: v.sides[first].name })) + '</p>' : '')
+      + '<div class="panel tbl' + (game === 'cricket' ? ' cr' : '') + '"><div class="thd"><span>' + esc(w.turnCol) + '</span><span class="side-a">' + esc(up(v.sides.a.name)) + '</span><span class="side-b">' + esc(up(v.sides.b.name)) + '</span></div>'
+      + (game === 'cricket' ? '' : '<div class="tsub"><span></span><span>' + esc(w.scoredCol) + '</span><span>' + esc(w.leftCol) + '</span><span>' + esc(w.scoredCol) + '</span><span>' + esc(w.leftCol) + '</span></div>')
+      + body + '</div><button class="dk wide"' + act('closePop') + '>' + esc(w.backToGame) + '</button></section>';
+  }
+  function findTurn(rows, id) {
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].a && rows[i].a.turnId === id) return { side: 'a', turn: rows[i].turn, t: rows[i].a };
+      if (rows[i].b && rows[i].b.turnId === id) return { side: 'b', turn: rows[i].turn, t: rows[i].b };
+    }
+    return null;
+  }
+  function editPop(v, o) {
+    var w = o.words, p = o.popup, rows = o.turns || [], f = findTurn(rows, p.turnId);
+    if (!f) return '';
+    var game = legGame(v, p.leg, rows), eyebrow = fmt(w.editEyebrow, { n: p.leg + 1, t: f.turn, name: up(v.sides[f.side].name) });
+    var err = p.error ? '<p class="err">' + esc(w['err_' + p.error] || p.error) + '</p>' : '';
+    var foot = '<p class="note">' + esc(w.editNote) + '</p>' + err;
+    if (game === 'cricket') {
+      var cur = o.cur || [];
+      var slots = [0, 1, 2].map(function (i) {
+        return '<div class="slot' + (i === cur.length ? ' now' : '') + '"><span>' + esc(fmt(w.dartN, { n: i + 1 })) + '</span><b>' + esc(dartName(cur[i], w)) + '</b></div>';
+      }).join('');
+      var keys = [20, 19, 18, 17, 16, 15, 25].map(function (n) {
+        var label = n === 25 ? w.bull : String(n);
+        return '<div class="erow"><button class="key"' + act('dart', n + ':2') + '>D</button><button class="key num"' + act('dart', n + ':1') + '>' + esc(label) + '</button>'
+          + (n === 25 ? '<span class="key none"></span>' : '<button class="key"' + act('dart', n + ':3') + '>T</button>') + '</div>';
+      }).join('');
+      return pop(f.side, '<div class="eyebrow">' + esc(eyebrow) + '</div><h2>' + esc(w.editTitleDarts) + '</h2><div class="slots">' + slots + '</div>'
+        + '<div class="ekeys">' + keys + '<button class="key miss"' + act('miss') + '>' + esc(w.miss) + '</button></div>' + foot
+        + '<div class="two"><button class="dk"' + act('closeEdit') + '>' + esc(w.cancel) + '</button><button class="blue"' + act('editGo') + (cur.length ? '' : ' disabled') + '>' + esc(w.changeTurn) + '</button></div>', 'edit');
+    }
+    var typed = o.typed || '';
+    var from = f.t.bust ? w.bust : f.t.scored;
+    var digit = function (n) { return '<button class="k"' + act('digit', n) + '>' + n + '</button>'; };
+    return pop(f.side, '<div class="eyebrow">' + esc(eyebrow) + '</div><h2>' + esc(fmt(w.editTitle, { from: from, to: typed || '…' })) + '</h2>'
+      + '<div class="val">' + esc(typed || '–') + '</div>' + foot
+      + '<div class="epad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(digit).join('') + '<button class="k"' + act('del') + '>' + ICON.del + '</button>' + digit(0)
+      + '<button class="k bust"' + act('editBust') + '>' + esc(w.bust) + '</button></div>'
+      + '<div class="two"><button class="dk"' + act('closeEdit') + '>' + esc(w.cancel) + '</button><button class="' + (f.side === 'a' ? 'blue' : 'goldb') + '"' + act('editGo') + (typed ? '' : ' disabled') + '>'
+      + esc(fmt(w.changeTo, { v: typed || '' })) + '</button></div>', 'edit');
+  }
+
+  /* ---------- settings ---------- */
+
+  function gearPop(v, o) {
+    var w = o.words, mode = o.mode || 'total';
+    return pop(v.throwing || 'a', '<h2>' + esc(w.gearTitle) + '</h2>'
+      + '<div class="seg">' + [['total', w.modeTotal], ['darts', w.modeDarts]].map(function (x) {
+        return '<button class="' + (mode === x[0] ? 'on' : '') + '"' + act('mode', x[0]) + '>' + esc(x[1]) + '</button>';
+      }).join('') + '</div>'
+      + '<div class="optrow"><span>' + esc(w.hints) + '</span><button class="tog' + (o.hints ? ' on' : '') + '"' + act('hints') + '>' + esc(o.hints ? w.on : w.off) + '</button></div>'
+      + (o.gearButtons || []).map(function (b, i) { return '<button class="dk wide"' + act('gearBtn', i) + '>' + esc(b.label) + '</button>'; }).join('')
+      + '<button class="blue wide"' + act('closePop') + '>' + esc(w.done) + '</button>', 'gearp');
+  }
+
+  /* ---------- the end of the match ---------- */
+
+  function summary(v, o) {
+    var w = o.words, win = v.winner, run = other(win);
+    function best(s) {
+      var d = v.legs.filter(function (l) { return l.winner === s; }).map(function (l) { return l.darts; });
+      return d.length ? Math.min.apply(null, d) : null;
+    }
+    function card(s, cls, label) {
+      var st = v.sides[s], lines = '';
+      if (st.avg3 !== null) lines += '<p>' + esc(fmt(w.avgLine, { avg: st.avg3, f9: st.first9 === null ? '–' : st.first9 })) + '</p>';
+      if (st.mpr !== null) lines += '<p>' + esc(fmt(w.mprLine, { mpr: st.mpr })) + '</p>';
+      if (best(s) !== null) lines += '<p>' + esc(fmt(w.bestLeg, { n: best(s) })) + '</p>';
+      return '<div class="sc2 ' + cls + ' side-' + s + '"><span class="lbl">' + esc(label) + '</span><span class="nm">' + esc(st.name) + '</span>' + lines + '</div>';
+    }
+    var rows = v.legs.map(function (l) {
+      var nth = w['nth' + l.finishDart] || '';
+      var fin = l.game === 'cricket' ? fmt(w.finishCricket, { nth: nth, number: l.finishNumber === 25 ? w.bullName : l.finishNumber })
+        : fmt(w.finishX01, { nth: nth, score: l.finishScore });
+      return '<div class="lrow"><span>' + l.n + '</span><span>' + esc(v.sides[l.winner].name) + '</span><span>' + esc(l.game === 'cricket' ? w.gameNameCricket : w.gameNameX01)
+        + '</span><span>' + esc(fin) + '</span><span>' + l.darts + '</span></div>';
+    }).join('');
+    var btns = (o.summaryButtons || []).map(function (b) {
+      return '<button class="' + (b.main ? 'red main' : 'dk') + '"' + act(b.act) + '>' + esc(b.label) + '</button>';
+    }).join('');
+    return '<section class="sum"><div class="top">' + card(win, 'win', w.winner)
+      + '<div class="legs lbox"><span class="lb">' + esc(w.legs) + '</span><span class="ls side-' + win + '">' + v.legsWon[win] + '-' + v.legsWon[run] + '</span></div>'
+      + card(run, 'run', w.runnerUp) + '</div>'
+      + '<div class="panel ltab"><h3>' + esc(w.legs) + '</h3><div class="lhd"><span>' + esc(w.legCol) + '</span><span>' + esc(w.wonByCol) + '</span><span>' + esc(w.gameCol)
+      + '</span><span>' + esc(w.finishCol) + '</span><span>' + esc(w.dartsCol) + '</span></div>' + rows + '</div>'
+      + '<div class="btns">' + btns + '</div></section>';
+  }
+
+  /* ---------- the whole screen ---------- */
+
+  function render(v, o) {
+    var body = '', pops = '', p = o.popup || null, hd = o;
+    if (p && (p.kind === 'turns' || p.kind === 'edit')) {
+      body = turnsScreen(v, { words: o.words, popup: { leg: p.leg }, turns: o.turns });
+      if (p.kind === 'edit') pops = editPop(v, o);
+    } else if (v.winner) {
+      hd = Object.assign({}, o, { pill: null });
+      body = summary(v, o);
+    } else if (v.ask === 'bull') {
+      body = v.bull.leg === 0 ? openingBull(v, o) : decidingBull(v, o, true);
+    } else if (v.ask === 'choice') {
+      body = choiceScreen(v, o);
+    } else if (v.ask === 'turn') {
+      body = cards(v, o);
+      if (v.game === 'cricket') body += cricketPad(v, o);
+      else if ((o.mode || 'total') === 'darts') body += x01Darts(v, o);
+      else body += last3(v, o) + totalPad(v, o);
+      if (v.pending) pops = whichDart(v, o);
+      else if (v.askBust) pops = bustAsk(v, o);
+    }
+    if (p && p.kind === 'gear') pops = gearPop(v, o);
+    if (p && p.kind === 'confirm') {
+      var gb = (o.gearButtons || [])[p.i] || {}, c = gb.confirm || {};
+      pops = pop(v.throwing || 'a', '<h2>' + esc(c.title) + '</h2><p>' + esc(c.text) + '</p><div class="two"><button class="dk"' + act('closePop') + '>' + esc(o.words.cancel) + '</button><button class="red"' + act('gearYes') + '>' + esc(c.yes) + '</button></div>', 'bustq');
+    }
+    var head = header(hd);
+    if (v.winner && !(p && (p.kind === 'turns' || p.kind === 'edit'))) {
+      head = head.replace(/<div class="rt">[\s\S]*?<\/div><\/header>$/, '<div class="rt"><span class="pill over">' + esc(o.words.matchOver) + '</span></div></header>');
+    }
+    var compact = v.ask === 'turn' && v.game === 'x01' && (o.mode || 'total') === 'darts' && !(p && (p.kind === 'turns' || p.kind === 'edit'));
+    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + '">' + head + body + pops + '</div>';
+  }
+
+  /* Scale a 660px-wide screen to the phone, and stretch it to the phone's height (the keypads and cricket rows take the
+     extra room), so a tall phone has no empty band at the bottom. The width is the page's own (clientWidth): a page wider
+     than the phone makes window.innerWidth grow with it. */
+  function fit(el) {
+    if (!el || !el.style || typeof document === 'undefined' || !document.documentElement) return;
+    var w = document.documentElement.clientWidth || (typeof window !== 'undefined' && window.innerWidth);
+    if (!w) return;
+    var z = Math.min(1.25, w / 660), h = typeof window !== 'undefined' && window.innerHeight;
+    el.style.zoom = z;
+    el.style.minHeight = Math.max(982, h ? Math.round(h / z) : 0) + 'px';
+  }
+
+  /* ---------- taps ---------- */
+
+  /* Draws the match into root and keeps it in step with taps. Screen-only state (what is typed, the darts of this turn,
+     which pop-up is open, the Choice picks) lives here; everything else is the match's. opts.onChange(match) runs after
+     every tap that changed the match (the page saves it); opts.onAction(act) gets taps this file does not know (the
+     page's summary buttons, back); opts.onPrefs({mode, hints}) when settings change. */
+  function mount(root, match, opts) {
+    var ui = { typed: '', cur: [], mult: 1, popup: null, asked: null, choicePick: null, choiceGame: null };
+    var mode = opts.mode || 'total', hints = !!opts.hints;
+    match.setHints && match.setHints(hints);
+
+    function refresh() {
+      var v = match.view();
+      var o = Object.assign({}, opts, ui, { mode: mode, hints: hints, hintFor: match.hintFor });
+      if (ui.popup && (ui.popup.kind === 'turns' || ui.popup.kind === 'edit')) o.turns = match.legTurns(ui.popup.leg);
+      root.innerHTML = render(v, o);
+      fit(root.firstChild);
+    }
+    function changed(before) {
+      if (match.events().length !== before && opts.onChange) opts.onChange(match);
+    }
+    function dartFrom(val) {
+      if (String(val).indexOf(':') > 0) { var p = String(val).split(':'); return { n: Number(p[0]), m: Number(p[1]) }; }
+      if (val === 'bull') return { n: 25, m: 2 };
+      var n = Number(val);
+      if (n === 25) return { n: 25, m: ui.mult === 2 ? 2 : 1 };
+      return { n: n, m: ui.mult };
+    }
+    function sendTotal(n) {
+      var r = match.total(n);
+      ui.asked = r.code === 'ask_bust' ? n : null;
+      ui.typed = '';
+    }
+
+    function handle(a, val) {
+      var before = match.events().length, v = match.view(), editing = ui.popup && ui.popup.kind === 'edit';
+      switch (a) {
+        case 'digit':
+          if ((ui.typed + val).length <= 3 && Number(ui.typed + val) <= 180) ui.typed = ui.typed === '0' ? String(val) : ui.typed + val;
+          break;
+        case 'del': if (editing || mode === 'total' || v.game !== 'x01') ui.typed = ui.typed.slice(0, -1); if (!editing) ui.cur.pop(); break;
+        case 'submit': if (ui.typed) sendTotal(Number(ui.typed)); break;
+        case 'quick': sendTotal(Number(val)); break;
+        case 'bust': ui.cur = []; ui.typed = ''; match.bust(); break;
+        case 'confirmBust': match.confirmBust(); ui.asked = null; break;
+        case 'cancel': match.cancelPending(); ui.asked = null; break;
+        case 'finish': match.finishDart(Number(val)); break;
+        case 'undo':
+          if (ui.cur.length) ui.cur.pop();
+          else if (ui.typed) ui.typed = '';
+          else { match.undo(); ui.choicePick = null; ui.choiceGame = null; }
+          break;
+        case 'mult': ui.mult = Number(val); break;
+        case 'dart': if (ui.cur.length < 3) { ui.cur.push(dartFrom(val)); ui.mult = 1; } break;
+        case 'miss': if (ui.cur.length < 3) { ui.cur.push({ n: 0, m: 0 }); ui.mult = 1; } break;
+        case 'enter': if (ui.cur.length && match.darts(ui.cur).ok) ui.cur = []; break;
+        case 'bull': match.bull(val); break;
+        case 'cpick': ui.choicePick = val; break;
+        case 'cgame': ui.choiceGame = val; break;
+        case 'cchange': ui.choicePick = null; ui.choiceGame = null; break;
+        case 'cgo': if (match.choice(ui.choicePick, ui.choiceGame).ok) { ui.choicePick = null; ui.choiceGame = null; } break;
+        case 'turns': ui.popup = { kind: 'turns', leg: v.leg !== null ? v.leg : Math.max(0, v.legs.length - 1) }; ui.typed = ''; ui.cur = []; break;
+        case 'turnsLeg': ui.popup = { kind: 'turns', leg: Number(val) }; break;
+        case 'edit': ui.popup = { kind: 'edit', leg: ui.popup ? ui.popup.leg : v.leg, turnId: val, error: null }; ui.typed = ''; ui.cur = []; break;
+        case 'closeEdit': ui.popup = { kind: 'turns', leg: ui.popup.leg }; ui.typed = ''; ui.cur = []; break;
+        case 'editBust':
+        case 'editGo': {
+          var change = a === 'editBust' ? { bust: true } : (ui.cur.length ? { darts: ui.cur } : { score: Number(ui.typed) });
+          var r = match.editTurn(ui.popup.turnId, change);
+          if (r.ok) { ui.popup = { kind: 'turns', leg: ui.popup.leg }; ui.typed = ''; ui.cur = []; }
+          else ui.popup.error = r.code;
+          break;
+        }
+        case 'gear': ui.popup = { kind: 'gear' }; break;
+        case 'gearBtn': ui.popup = { kind: 'confirm', i: Number(val) }; break;
+        case 'gearYes': {
+          var btn = (opts.gearButtons || [])[ui.popup && ui.popup.i];
+          ui.popup = null;
+          if (btn && opts.onAction) { opts.onAction(btn.act); return; }
+          break;
+        }
+        case 'mode': mode = val === 'darts' ? 'darts' : 'total'; ui.cur = []; ui.typed = ''; if (opts.onPrefs) opts.onPrefs({ mode: mode, hints: hints }); break;
+        case 'hints': hints = !hints; match.setHints && match.setHints(hints); if (opts.onPrefs) opts.onPrefs({ mode: mode, hints: hints }); break;
+        case 'closePop': ui.popup = null; ui.typed = ''; ui.cur = []; break;
+        case 'back':
+          if (ui.popup) { ui.popup = null; ui.typed = ''; ui.cur = []; break; }
+          if (opts.onAction) opts.onAction('back');
+          break;
+        default:
+          if (opts.onAction) opts.onAction(a, val);
+          return;
+      }
+      changed(before);
+      refresh();
+    }
+
+    root.addEventListener('click', function (ev) {
+      var el = ev.target && ev.target.closest ? ev.target.closest('[data-act]') : null;
+      if (!el || el.hasAttribute('disabled')) return;
+      handle(el.getAttribute('data-act'), el.getAttribute('data-v'));
+    });
+    refresh();
+    return { refresh: refresh, act: handle, setMatch: function (m) { match = m; ui = { typed: '', cur: [], mult: 1, popup: null, asked: null, choicePick: null, choiceGame: null }; match.setHints && match.setHints(hints); refresh(); } };
+  }
+
+  return { esc: esc, fmt: fmt, render: render, mount: mount, fit: fit, dartName: dartName, QUICK: QUICK, ICON: ICON, other: other };
+});
+</script>
+<script>
+/* Casual play (spec docs/superpowers/specs/2026-11-03-casual-play-design.md): two players, names typed in, the game
+   picked by hand, no marker, nothing sent anywhere. The setup screen is drawn here; the bull, the scoring and the result
+   are the shared scoring screens (scoring-screens.js) on a match from scoring-model.js.
+
+   The game in progress is kept on the phone (key dd-casual-v1: the picks, the match's events, which screen), so a reload
+   or a locked phone reopens it; New game clears it. Settings (turn total / dart by dart, checkout hints) are kept under
+   dd-casual-prefs. Storage that throws (private mode) is ignored: the game still plays. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.DDCasual = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  var KEY = 'dd-casual-v1', PREFS = 'dd-casual-prefs';
+  var GAMES = ['501', 'cricket', 'choice'], BESTS = [1, 3, 5, 7, 9];
+  function g() { return typeof self !== 'undefined' ? self : global; }
+  function Scoring() { return g().DDScoring; }
+  function Screens() { return g().DDScreens; }
+
+  /* null when both names are fine; trimmed, compared ignoring case. */
+  function checkNames(a, b) {
+    a = String(a || '').trim(); b = String(b || '').trim();
+    if (!a || !b) return 'name_missing';
+    if (a.toLowerCase() === b.toLowerCase()) return 'name_same';
+    return null;
+  }
+
+  function cleanPicks(p) {
+    p = p || {};
+    return {
+      a: typeof p.a === 'string' ? p.a.slice(0, 20) : '', b: typeof p.b === 'string' ? p.b.slice(0, 20) : '',
+      game: GAMES.indexOf(p.game) >= 0 ? p.game : '501', bestOf: BESTS.indexOf(Number(p.bestOf)) >= 0 ? Number(p.bestOf) : 5
+    };
+  }
+  function save(storage, data) { try { storage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* private mode: play on */ } }
+  function load(storage) {
+    var raw = null;
+    try { raw = JSON.parse(storage.getItem(KEY)); } catch (e) { return null; }
+    if (!raw || typeof raw !== 'object') return null;
+    var picks = cleanPicks(raw.picks), game = raw.screen === 'game' && Array.isArray(raw.events) && !checkNames(picks.a, picks.b);
+    return { picks: picks, events: game ? raw.events : null, screen: game ? 'game' : 'setup' };
+  }
+  function loadPrefs(storage) {
+    try {
+      var p = JSON.parse(storage.getItem(PREFS)) || {};
+      return { mode: p.mode === 'darts' ? 'darts' : 'total', hints: p.hints === true };
+    } catch (e) { return { mode: 'total', hints: false }; }
+  }
+
+  function names(picks) { return { a: picks.a.trim(), b: picks.b.trim() }; }
+  function matchFrom(data, hints) {
+    return Scoring().create({ format: Scoring().formatFor({ game: data.picks.game, bestOf: data.picks.bestOf }), names: names(data.picks), events: data.events || [], hints: !!hints });
+  }
+  function headerFor(picks, w) {
+    var key = 'line3' + (picks.game === '501' ? 'x01' : picks.game) + (picks.bestOf === 1 ? 'one' : '');
+    return { title: w.appName, line2: w.casualPlay, line3: Screens().fmt(w[key], { n: picks.bestOf }) };
+  }
+
+  /* ---------- the setup screen (CSetup) ---------- */
+
+  function renderSetup(picks, w) {
+    var esc = Screens().esc, fmt = Screens().fmt;
+    var games = [['501', w.setup501, w.setup501Sub], ['cricket', w.setupCricket, w.setupCricketSub], ['choice', w.setupChoice, w.setupChoiceSub]].map(function (x) {
+      return '<button class="opt' + (picks.game === x[0] ? ' on' : '') + '" data-cs="game" data-v="' + x[0] + '"><b>' + esc(x[1]) + '</b><span>' + esc(x[2]) + '</span></button>';
+    }).join('');
+    var bests = BESTS.map(function (n) {
+      return '<button class="opt' + (picks.bestOf === n ? ' on' : '') + '" data-cs="best" data-v="' + n + '"><b>' + n + '</b><span>' + esc(n === 1 ? w.leg1 : w.legsN) + '</span></button>';
+    }).join('');
+    var name = function (id, side, val, label) {
+      return '<label class="nm side-' + side + '"><input id="' + id + '" type="text" maxlength="20" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="'
+        + esc(w.namePlaceholder) + '" value="' + esc(val) + '"><span>' + esc(label) + '</span></label>';
+    };
+    return '<div class="dds cs"><header class="dds-hd"><span></span><div class="ttl"><div class="t1">' + esc(w.appName) + '</div><div class="t2">' + esc(w.casualPlay)
+      + '</div></div><span></span></header>'
+      + '<h3>' + esc(w.players) + '</h3>' + name('csA', 'a', picks.a, w.player1) + name('csB', 'b', picks.b, w.player2)
+      + '<h3>' + esc(w.game) + '</h3><div class="games">' + games + '</div>'
+      + '<h3>' + esc(w.bestOf) + '</h3><div class="bests">' + bests + '</div>'
+      + '<p class="first">' + esc(picks.bestOf === 1 ? w.firstTo1 : fmt(w.firstTo, { n: Math.floor(picks.bestOf / 2) + 1 })) + '</p>'
+      + '<p class="cserr"></p><p class="nextb">' + esc(w.nextBull) + '</p>'
+      + '<button class="red go" data-cs="start">' + esc(w.startGame) + '</button></div>';
+  }
+
+  /* ---------- the page ---------- */
+
+  function start(root, opts) {
+    var storage = opts.storage, w = opts.words;
+    var data = load(storage) || { picks: cleanPicks(null), events: null, screen: 'setup' };
+    var prefs = loadPrefs(storage);
+    var match = null, screen = null;
+
+    function keep() { save(storage, data); }
+    function setupState() {
+      var err = checkNames(data.picks.a, data.picks.b), btn = root.querySelector('[data-cs="start"]'), msg = root.querySelector('.cserr');
+      if (btn) { if (err) btn.setAttribute('disabled', ''); else btn.removeAttribute('disabled'); }
+      if (msg) msg.textContent = err === 'name_same' ? w.err_name_same : '';
+    }
+    function showSetup() {
+      screen = null; match = null;
+      root.innerHTML = renderSetup(data.picks, w);
+      zoom();
+      setupState();
+    }
+    function zoom() { Screens().fit(root.firstChild); }
+    function showGame() {
+      match = matchFrom(data, prefs.hints);
+      root.innerHTML = '<div class="cg"></div>';
+      screen = Screens().mount(root.firstChild, match, {
+        words: w, header: headerFor(data.picks, w), pill: null, mode: prefs.mode, hints: prefs.hints,
+        summaryButtons: [{ label: w.newGame, act: 'newGame' }, { label: w.rematch, act: 'rematch', main: true }],
+        gearButtons: [{ label: w.endGame, act: 'endGame', confirm: { title: w.endTitle, text: w.endText, yes: w.endYes } }],
+        onChange: function (m) { data.events = m.events(); keep(); },
+        onPrefs: function (p) { prefs = { mode: p.mode, hints: p.hints }; try { storage.setItem(PREFS, JSON.stringify(prefs)); } catch (e) { /* play on */ } },
+        onAction: action
+      });
+    }
+    function action(a) {
+      var v = match.view();
+      if (a === 'back') {
+        // Before the first turn the back arrow returns to setup; once the game is on (and on the result), it opens
+        // the leg's turns, so a mistake can be checked and fixed instead of losing the game.
+        if (v.ask === 'bull' && v.bull.leg === 0) { data.screen = 'setup'; data.events = null; keep(); showSetup(); }
+        else screen.act('turns');
+      } else if (a === 'newGame' || a === 'endGame') {
+        data.screen = 'setup'; data.events = null; keep(); showSetup();
+      } else if (a === 'rematch') {
+        data.screen = 'game'; data.events = []; keep(); showGame();
+      }
+    }
+
+    root.addEventListener('input', function (ev) {
+      var t = ev.target;
+      if (!t || (t.id !== 'csA' && t.id !== 'csB')) return;
+      data.picks[t.id === 'csA' ? 'a' : 'b'] = String(t.value).slice(0, 20);
+      keep(); setupState();
+    });
+    root.addEventListener('click', function (ev) {
+      var el = ev.target && ev.target.closest ? ev.target.closest('[data-cs]') : null;
+      if (!el || el.hasAttribute('disabled')) return;
+      var k = el.getAttribute('data-cs'), val = el.getAttribute('data-v');
+      if (k === 'game') { data.picks.game = val; keep(); showSetup(); }
+      else if (k === 'best') { data.picks.bestOf = Number(val); keep(); showSetup(); }
+      else if (k === 'start' && !checkNames(data.picks.a, data.picks.b)) { data.screen = 'game'; data.events = []; keep(); showGame(); }
+    });
+
+    if (data.screen === 'game') showGame(); else showSetup();
+    return { match: function () { return match; }, data: function () { return data; } };
+  }
+
+  return { start: start, checkNames: checkNames, save: save, load: load, matchFrom: matchFrom, headerFor: headerFor, renderSetup: renderSetup, KEY: KEY };
+});
+</script>
+<script>
+  (function () {
+    var storage = null;
+    try { storage = window.localStorage; storage.getItem('dd-casual-v1'); }
+    catch (e) { storage = { getItem: function () { return null; }, setItem: function () {}, removeItem: function () {} }; }
+    var app = document.getElementById('app');
+    DDCasual.start(app, { storage: storage, words: DD_CASUAL_EN });
+    window.addEventListener('resize', function () { DDScreens.fit(app.querySelector('.dds')); });
+  })();
+</script>
+</body>
+</html>

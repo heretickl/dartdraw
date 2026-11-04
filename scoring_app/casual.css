@@ -1,0 +1,27 @@
+/* Casual play: the page and the setup screen (CSetup). The scoring screens' look is scoring.css. */
+html,body{margin:0;background:#030507;min-height:100%;overflow-x:hidden}
+body{overscroll-behavior:none}
+#app{min-height:100vh}
+.dds.cs{display:flex;flex-direction:column;min-height:982px}
+.cs .dds-hd{grid-template-columns:90px 1fr 90px}
+.cs h3{font:700 30px var(--bar);margin:22px 8px 12px}
+.cs .nm{display:flex;align-items:center;height:76px;border-radius:16px;margin:0 8px 16px;padding:0 24px}
+.cs .nm.side-a{border:3px solid #22b4ff;background:linear-gradient(180deg,rgba(14,40,70,.55),rgba(6,16,30,.65));box-shadow:0 0 0 1px rgba(34,180,255,.4),0 0 20px rgba(34,176,255,.75),inset 0 0 18px rgba(34,176,255,.22)}
+.cs .nm.side-b{border:3px solid #ffc61a;background:linear-gradient(180deg,rgba(70,55,8,.45),rgba(25,19,2,.6));box-shadow:0 0 0 1px rgba(255,198,26,.4),0 0 20px rgba(255,190,20,.7),inset 0 0 18px rgba(255,190,20,.2)}
+.cs .nm input{flex:1;min-width:0;background:none;border:0;outline:0;color:#fff;font:700 36px var(--bar);caret-color:#fff}
+.cs .nm input::placeholder{color:rgba(255,255,255,.35)}
+.cs .nm span{font:500 17px var(--man);margin-left:12px}
+.cs .nm.side-a span{color:#9fe0ff}.cs .nm.side-b span{color:#ffe08a}
+.cs .games,.cs .bests{display:grid;gap:15px;margin:0 8px}
+.cs .games{grid-template-columns:repeat(3,1fr)}
+.cs .bests{grid-template-columns:repeat(5,1fr)}
+.cs .opt{border-radius:16px;border:2px solid rgba(255,255,255,.3);background:rgba(14,20,28,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.cs .games .opt{height:102px}.cs .bests .opt{height:82px}
+.cs .opt b{font:700 36px/1 var(--bar)}.cs .bests .opt b{font-size:40px}
+.cs .opt span{font:500 17px var(--man);color:#cfd8e1}
+.cs .opt.on{border:2px solid #4fc0ff;background:linear-gradient(180deg,#1f8dff,#0a5fd6);box-shadow:0 0 22px rgba(30,140,255,.7)}
+.cs .opt.on span{color:#e6f3ff}
+.cs .first{font:500 20px var(--man);color:#cfd8e1;margin:20px 8px 0}
+.cs .cserr{font:600 20px var(--man);color:#ff6b75;margin:14px 8px 0;min-height:24px}
+.cs .nextb{font:500 20px var(--man);color:#cfd8e1;text-align:center;margin:auto 8px 14px}
+.cs .go{height:78px;margin:0 8px 2px;font-size:40px;border-radius:18px}
