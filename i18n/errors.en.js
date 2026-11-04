@@ -31,6 +31,7 @@ var DD_ERR_EN = {
   'err.login_required': "Enter the username and password.",
   'err.bad_login': "That username or password is not right.",
   'err.live_off': "Live scoring is not switched on for this event.",
+  'err.no_board': "Pick a board first.",
   /* every endpoint */
   'err.method_not_allowed': 'Method not allowed',
   'err.not_found': 'Not found.',

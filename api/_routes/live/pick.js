@@ -12,7 +12,7 @@ const { sendError, bodyObject, methodNotAllowed, requireSession, live } = requir
 const { boardCountOf, load, matchView, placeFor, heldPlace, busyEntries } = require('./view');
 const LiveBoards = require('../../../live-boards');
 
-const refuse = (res, status, code, error) => res.status(status).json({ ok: false, code, error });
+const refuse = (res, status, code, error) => res.status(status).json({ ok: false, code: code, error });
 
 async function pickBoard(found, res, raw) {
   const n = typeof raw === 'number' ? raw : (typeof raw === 'string' && /^\d{1,4}$/.test(raw.trim()) ? Number(raw) : NaN);

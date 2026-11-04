@@ -26,6 +26,7 @@ var DD_ERR_MS = {
   'err.login_required': "Masukkan nama pengguna dan kata laluan.",
   'err.bad_login': "Nama pengguna atau kata laluan itu tidak betul.",
   'err.live_off': "Skor langsung tidak dihidupkan untuk acara ini.",
+  'err.no_board': "Pilih board dahulu.",
   /* every endpoint */
   'err.method_not_allowed': 'Kaedah tidak dibenarkan',
   'err.not_found': 'Tidak dijumpai.',

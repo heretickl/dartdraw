@@ -5,13 +5,21 @@
 //   /api/live/boards  the boards a device can pick (and which are taken)
 //   /api/live/matches the matches of the device's board (and of a board lent to it)
 //   /api/live/pick    the device picks its board ({ board }) or claims a match ({ pos })
+//   /api/live/turn    one turn the device keyed (idempotent on its id; kept, never applied, after finalise)
+//   /api/live/state   the device moves its match to playing / awaitingConfirm
+//   /api/live/confirm the device sends the match's final legs (applied through the rule engine, by 'dev')
+//   /api/live/retire  a side retires: the existing no-show walkover
 //
 // The action is read from req.url. Anything else answers 404 { code: 'not_found', error: 'Not found.' }.
 const ROUTES = {
   login: () => require('../_routes/live/login'),
   boards: () => require('../_routes/live/boards'),
   matches: () => require('../_routes/live/matches'),
-  pick: () => require('../_routes/live/pick')
+  pick: () => require('../_routes/live/pick'),
+  turn: () => require('../_routes/live/turn'),
+  state: () => require('../_routes/live/state'),
+  confirm: () => require('../_routes/live/confirm'),
+  retire: () => require('../_routes/live/retire')
 };
 
 function lastSegment(url) {

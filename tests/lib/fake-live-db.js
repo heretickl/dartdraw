@@ -6,6 +6,7 @@
 //   db.logins: [{ tournament_id, username, password_hash, password_shown, session_nonce, created_at }]
 //   db.devices: [{ id, tournament_id, board, session_nonce, last_seen_at, logged_out_at, unsent, created_at }]
 //   db.matches: [{ tournament_id, pos, state, device_id, board, played_on_board, paper, retired_side, started_at, ended_at, summary, changed_by_organiser }]
+//   db.turns: [{ id, tournament_id, pos, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason, created_at }]
 //   db.lends: [{ id, tournament_id, from_board, to_board, started_at, ended_at }]
 //   db.calls: [{ text, vals }]; db.before = (text, vals) => {} runs before each statement; db.failWith = (text) => code|null
 //   db.setNow(ms) / db.advance(ms): the database clock (now()), for throttle windows
@@ -15,7 +16,7 @@
 function createFakeLiveDb(opts) {
   opts = opts || {};
   let now = opts.now || Date.parse('2026-11-05T02:00:00.000Z');
-  const db = { tournaments: opts.tournaments || {}, logins: [], devices: [], matches: [], lends: [], throttle: {}, calls: [], before: null, failWith: null };
+  const db = { tournaments: opts.tournaments || {}, logins: [], devices: [], matches: [], turns: [], lends: [], throttle: {}, calls: [], before: null, failWith: null };
   db.setNow = (ms) => { now = ms; };
   db.advance = (ms) => { now += ms; };
   db.now = () => now;
@@ -102,6 +103,55 @@ function createFakeLiveDb(opts) {
       const m = db.matches.find((x) => x.tournament_id === tid && x.pos === pos && x.device_id == null && !x.paper && ['confirmed', 'retired', 'voided'].indexOf(x.state) < 0); if (!m) return [];
       Object.assign(m, { device_id: did, board, played_on_board: playedOn }); return [{ pos }];
     }
+    // tournaments: reading an event and the compare-and-set write the floor officials' code also uses (api/_routes/score/common.js)
+    if (text === 'SELECT id, data, updated_at FROM tournaments WHERE id = ?') { const t = tOf(vals[0]); return t ? [{ id: vals[0], data: copy(t.data), updated_at: t.updated_at }] : []; }
+    if (text.startsWith('UPDATE tournaments SET data = ?::jsonb, updated_at = now() WHERE id = ? AND abs(')) {
+      const [data, id, readIso] = vals; const t = tOf(id);
+      if (!t || Math.abs(Date.parse(t.updated_at) - Date.parse(readIso)) >= 1 || (t.data && t.data.finalized)) return [];
+      t.data = JSON.parse(data); db.advance(1); t.updated_at = iso();
+      return [{ updated_at: t.updated_at }];
+    }
+    // turns, summaries and state changes (api/_lib/live.js: turns, state, confirm, retire)
+    if (text === 'SELECT pos, state, device_id, board, played_on_board, paper, retired_side, changed_by_organiser, summary FROM live_matches WHERE tournament_id = ? AND pos = ?') {
+      return db.matches.filter((m) => m.tournament_id === vals[0] && m.pos === vals[1]).map((m) => Object.assign(matchRow(m), { changed_by_organiser: m.changed_by_organiser, summary: copy(m.summary || {}) }));
+    }
+    if (text === 'INSERT INTO live_turns (id, tournament_id, pos, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason) VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?) ON CONFLICT (tournament_id, id) DO NOTHING RETURNING id') {
+      const [id, tid, pos, leg, side, player, entered, did, supersedes, ignored, reason] = vals;
+      if (db.turns.some((x) => x.tournament_id === tid && x.id === id)) return [];
+      db.advance(1);   // created_at is distinct per turn, as now() is across requests
+      db.turns.push({ id, tournament_id: tid, pos, leg, side, player, entered: JSON.parse(entered), device_id: did, supersedes, ignored, ignored_reason: reason, created_at: iso() });
+      return [{ id }];
+    }
+    if (text === 'SELECT pos, device_id, ignored, ignored_reason FROM live_turns WHERE tournament_id = ? AND id = ?') {
+      return db.turns.filter((x) => x.tournament_id === vals[0] && x.id === vals[1]).map((x) => ({ pos: x.pos, device_id: x.device_id, ignored: x.ignored, ignored_reason: x.ignored_reason }));
+    }
+    if (text === 'SELECT id, leg, side, entered, supersedes FROM live_turns WHERE tournament_id = ? AND pos = ? AND ignored = false ORDER BY created_at, id') {
+      return db.turns.filter((x) => x.tournament_id === vals[0] && x.pos === vals[1] && !x.ignored)
+        .sort((x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.id < y.id ? -1 : 1))
+        .map((x) => ({ id: x.id, leg: x.leg, side: x.side, entered: copy(x.entered), supersedes: x.supersedes }));
+    }
+    const mOf = (tid, pos) => db.matches.find((x) => x.tournament_id === tid && x.pos === pos);
+    if (text === 'UPDATE live_matches SET summary = ?::jsonb WHERE tournament_id = ? AND pos = ?') { const m = mOf(vals[1], vals[2]); if (m) m.summary = JSON.parse(vals[0]); return []; }
+    if (text === 'UPDATE live_devices SET unsent = ?, last_seen_at = now() WHERE id = ? AND tournament_id = ?') {
+      const d = db.devices.find((x) => x.id === vals[1] && x.tournament_id === vals[2]); if (d) { d.unsent = vals[0]; d.last_seen_at = iso(); } return [];
+    }
+    if (text === "UPDATE live_matches SET state = 'playing', started_at = COALESCE(started_at, now()), summary = summary || ?::jsonb WHERE tournament_id = ? AND pos = ? AND device_id = ? AND changed_by_organiser = false AND state IN ('waiting', 'checkedIn', 'awaitingConfirm') RETURNING pos") {
+      const m = mOf(vals[1], vals[2]); if (!m || m.device_id !== vals[3] || m.changed_by_organiser || ['waiting', 'checkedIn', 'awaitingConfirm'].indexOf(m.state) < 0) return [];
+      m.state = 'playing'; m.started_at = m.started_at || iso(); m.summary = Object.assign({}, m.summary, JSON.parse(vals[0])); return [{ pos: m.pos }];
+    }
+    if (text === "UPDATE live_matches SET state = 'awaitingConfirm' WHERE tournament_id = ? AND pos = ? AND device_id = ? AND changed_by_organiser = false AND state = 'playing' RETURNING pos") {
+      const m = mOf(vals[0], vals[1]); if (!m || m.device_id !== vals[2] || m.changed_by_organiser || m.state !== 'playing') return [];
+      m.state = 'awaitingConfirm'; return [{ pos: m.pos }];
+    }
+    if (text === "UPDATE live_matches SET state = 'confirmed', ended_at = now() WHERE tournament_id = ? AND pos = ? AND device_id = ? AND changed_by_organiser = false AND state IN ('waiting', 'checkedIn', 'playing', 'awaitingConfirm') RETURNING pos") {
+      const m = mOf(vals[0], vals[1]); if (!m || m.device_id !== vals[2] || m.changed_by_organiser || ['waiting', 'checkedIn', 'playing', 'awaitingConfirm'].indexOf(m.state) < 0) return [];
+      m.state = 'confirmed'; m.ended_at = iso(); return [{ pos: m.pos }];
+    }
+    if (text === "UPDATE live_matches SET state = 'retired', retired_side = ?, ended_at = now() WHERE tournament_id = ? AND pos = ? AND device_id = ? AND changed_by_organiser = false AND state IN ('waiting', 'checkedIn', 'playing', 'awaitingConfirm') RETURNING pos") {
+      const m = mOf(vals[1], vals[2]); if (!m || m.device_id !== vals[3] || m.changed_by_organiser || ['waiting', 'checkedIn', 'playing', 'awaitingConfirm'].indexOf(m.state) < 0) return [];
+      m.state = 'retired'; m.retired_side = vals[0]; m.ended_at = iso(); return [{ pos: m.pos }];
+    }
+    if (text === 'UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ? AND pos = ?') { const m = mOf(vals[0], vals[1]); if (m) m.changed_by_organiser = true; return []; }
     // auth_throttle (api/_lib/throttle.js)
     if (text.startsWith('INSERT INTO auth_throttle')) {
       const [key, windowMs] = [vals[0], Number(vals[vals.length - 1])];

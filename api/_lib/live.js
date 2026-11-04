@@ -13,7 +13,7 @@
 // logged-out device (Close event) answers 410 and an event that is no longer Live answers 403. A FINALIZED event does NOT end
 // a device's session (spec 7.6: finalising does not log devices out, and turns arriving afterwards are kept, never applied):
 // sessionFor passes it through marked finalized:true, and a route only accepts that when it asks for it
-// (requireSession(req, res, { allowFinalized: true }); only `turn` and `confirm` do). Every other route answers 410.
+// (requireSession(req, res, { allowFinalized: true }); only `turn` and `confirm` do; `confirm` then answers 410 itself). Every other route answers 410.
 //
 // THE CONTRACT FOR live_turns.entered (what the scoring app sends for one turn; Task 6 consumes it):
 //   { mode: 'total' | 'darts',      how the turn was keyed: one total, or dart by dart
@@ -290,9 +290,101 @@ async function claimMatch(tournamentId, pos, deviceId, board, playedOn) {
   });
 }
 
+/* ---------- turns, state changes and the end of a match (spec sections 8 and 10; routes turn, state, confirm, retire) ---------- */
+
+/* One match's whole live row (what the turn / confirm / retire / state routes decide on), or null. summary is the public picture. */
+async function matchFull(tournamentId, pos) {
+  return q(async () => {
+    const rows = await sql`SELECT pos, state, device_id, board, played_on_board, paper, retired_side, changed_by_organiser, summary FROM live_matches WHERE tournament_id = ${tournamentId} AND pos = ${pos}`;
+    if (!rows.length) return null;
+    const r = rows[0];
+    return Object.assign(cleanRow(r), { changed_by_organiser: !!r.changed_by_organiser, summary: r.summary && typeof r.summary === 'object' ? r.summary : {} });
+  });
+}
+/* One turn row: APPEND-ONLY (INSERT only; the code never updates or deletes a live_turns row). The id is the device's own, so a
+   second insert with the same id inserts nothing. false = it was already there. */
+async function insertTurn(tournamentId, t) {
+  return q(async () => {
+    const rows = await sql`
+      INSERT INTO live_turns (id, tournament_id, pos, leg, side, player, entered, device_id, supersedes, ignored, ignored_reason)
+      VALUES (${t.id}, ${tournamentId}, ${t.pos}, ${t.leg}, ${t.side}, ${t.player}, ${JSON.stringify(t.entered)}::jsonb, ${t.deviceId}, ${t.supersedes}, ${!!t.ignored}, ${t.ignoredReason || null})
+      ON CONFLICT (tournament_id, id) DO NOTHING
+      RETURNING id`;
+    return rows.length > 0;
+  });
+}
+/* A turn that is already stored (for a repeat): { pos, device_id, ignored, ignored_reason } or null. */
+async function turnById(tournamentId, id) {
+  return q(async () => {
+    const rows = await sql`SELECT pos, device_id, ignored, ignored_reason FROM live_turns WHERE tournament_id = ${tournamentId} AND id = ${id}`;
+    return rows.length ? { pos: rows[0].pos, device_id: rows[0].device_id, ignored: !!rows[0].ignored, ignored_reason: rows[0].ignored_reason || null } : null;
+  });
+}
+/* The turns of a match that count (not ignored), oldest first: [{ id, leg, side, entered, supersedes }]. */
+async function matchTurns(tournamentId, pos) {
+  return q(async () => {
+    const rows = await sql`SELECT id, leg, side, entered, supersedes FROM live_turns WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND ignored = false ORDER BY created_at, id`;
+    return rows.map((r) => ({ id: r.id, leg: Number(r.leg), side: r.side, entered: r.entered, supersedes: r.supersedes || null }));
+  });
+}
+/* The public one-line picture of a match, rewritten after every accepted turn. */
+async function setSummary(tournamentId, pos, summary) {
+  return q(async () => { await sql`UPDATE live_matches SET summary = ${JSON.stringify(summary)}::jsonb WHERE tournament_id = ${tournamentId} AND pos = ${pos}`; });
+}
+/* What a device says about itself on a turn: how many turns it still holds unsent (and that it is alive). */
+async function setUnsent(deviceId, tournamentId, n) {
+  return q(async () => { await sql`UPDATE live_devices SET unsent = ${n}, last_seen_at = now() WHERE id = ${deviceId} AND tournament_id = ${tournamentId}`; });
+}
+/* The holder moves its match to 'playing' (first time: started_at is set; starterPatch is a JSON text merged into summary). Only
+   from waiting / checkedIn / awaitingConfirm, only by the device that holds it, never over an organiser's change. */
+async function setPlaying(tournamentId, pos, deviceId, starterPatch) {
+  return q(async () => {
+    const rows = await sql`
+      UPDATE live_matches SET state = 'playing', started_at = COALESCE(started_at, now()), summary = summary || ${starterPatch}::jsonb
+      WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND device_id = ${deviceId} AND changed_by_organiser = false AND state IN ('waiting', 'checkedIn', 'awaitingConfirm')
+      RETURNING pos`;
+    return rows.length > 0;
+  });
+}
+/* playing -> awaitingConfirm (the match is won on the device). */
+async function setAwaitingConfirm(tournamentId, pos, deviceId) {
+  return q(async () => {
+    const rows = await sql`
+      UPDATE live_matches SET state = 'awaitingConfirm'
+      WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND device_id = ${deviceId} AND changed_by_organiser = false AND state = 'playing'
+      RETURNING pos`;
+    return rows.length > 0;
+  });
+}
+/* The match is over by the device's confirmed result. */
+async function setConfirmed(tournamentId, pos, deviceId) {
+  return q(async () => {
+    const rows = await sql`
+      UPDATE live_matches SET state = 'confirmed', ended_at = now()
+      WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND device_id = ${deviceId} AND changed_by_organiser = false AND state IN ('waiting', 'checkedIn', 'playing', 'awaitingConfirm')
+      RETURNING pos`;
+    return rows.length > 0;
+  });
+}
+/* The match is over by a retirement of `side` (the walkover itself is the event's noShow result). */
+async function setRetired(tournamentId, pos, deviceId, side) {
+  return q(async () => {
+    const rows = await sql`
+      UPDATE live_matches SET state = 'retired', retired_side = ${side}, ended_at = now()
+      WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND device_id = ${deviceId} AND changed_by_organiser = false AND state IN ('waiting', 'checkedIn', 'playing', 'awaitingConfirm')
+      RETURNING pos`;
+    return rows.length > 0;
+  });
+}
+/* The organiser's result stood over this device's match (D18): the device's turns stay, nothing more is applied. */
+async function markChangedByOrganiser(tournamentId, pos) {
+  return q(async () => { await sql`UPDATE live_matches SET changed_by_organiser = true WHERE tournament_id = ${tournamentId} AND pos = ${pos}`; });
+}
+
 module.exports = {
   LiveError, PASSWORD_LENGTH, PASSWORD_ALPHABET,
   enable, show, newPassword: newPasswordFor,
   deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent,
-  liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch
+  liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch,
+  matchFull, insertTurn, turnById, matchTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser
 };
