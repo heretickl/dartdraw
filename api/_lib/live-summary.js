@@ -42,7 +42,22 @@ function effectiveTurns(turns) {
   return turns.filter((t) => !replaced[t.id]);
 }
 
-/* { legs:[a,b], remaining:[a,b]|null, thrower:'a'|'b'|null } for the match.
+/* The last LAST_TURNS counting turns of a match (the ones a spectator's live page lists), oldest first: [{ leg, side, score, left }].
+   score = what the turn scored (0 for a bust), left = the x01 score its side has left after it (annotateTurns: null for Cricket or
+   when the leg's start score is unknown). A turn a later counting turn corrects is replaced by the correction. turns: the
+   non-ignored turns, oldest first. */
+const LAST_TURNS = 6;
+function lastTurns(turns, startFor) {
+  const noStart = () => null;
+  return annotateTurns(turns, typeof startFor === 'function' ? startFor : noStart)
+    .filter((t) => t.current && t.entered)
+    .slice(-LAST_TURNS)
+    .map((t) => ({ leg: t.leg, side: t.side === 'b' ? 'b' : 'a', score: t.entered.bust ? 0 : (Number(t.entered.score) || 0), left: t.left }));
+}
+
+/* { legs:[a,b], remaining:[a,b]|null, thrower:'a'|'b'|null, last:[...], tot:{a:{s,d},b:{s,d}}|null } for the match.
+   last: see lastTurns. tot: the x01 points and darts of each side so far (x01Totals; null when the match has no x01 turn). Rows
+   written before last and tot existed simply lack them.
    turns: the non-ignored turns, oldest first ({ id, leg, side, entered, supersedes }).
    startFor(leg): the x01 start score of that leg (501...), or null for Cricket / unknown.
    latest: { side, supersedes } of the turn just stored (the thrower is the other side), next: the device's own 'a'|'b' when sent,
@@ -70,7 +85,7 @@ function summarize(turns, startFor, latest, next, prevThrower) {
   if (next === 'a' || next === 'b') thrower = next;
   else if (latest && latest.supersedes && (prevThrower === 'a' || prevThrower === 'b')) thrower = prevThrower;
   else if (latest) thrower = latest.side === 'a' ? 'b' : 'a';
-  return { legs, remaining, thrower };
+  return { legs, remaining, thrower, last: lastTurns(turns, startFor), tot: x01Totals(turns, startFor) };
 }
 
 /* What a match gives to a 3-dart average: { a:{s,d}, b:{s,d} } = the x01 points each side scored (s) and the darts it threw (d),

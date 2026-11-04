@@ -2232,13 +2232,40 @@ function koResetEmptiedRounds(bracket, fromRound){
 }
 /* Makes the change for real. Group Boards groups go through podsApplyResult (their own cascade, and the check that no
    scored Finals match depends on it); every other bracket is re-settled with settle(). Returns { ok, message }. */
+/* A knockout match the organiser changes in place keeps the stamps a scoring device left on it (by 'dev', rv, at, x01). The server
+   re-stamps the changed result as the organiser's (stampOrganiserResults) but its answer does not hand the stamps back, so without
+   this a later save would write the stale by 'dev' and x01 back over the organiser's result. Done here the way the server does it:
+   every knockout result that differs from what it was before the change and carries stamps gets the next rv, by 'o' and the time,
+   and loses x01. (A round robin result is replaced as a whole object, so it never keeps stamps.) before = koBareMap() taken first. */
+function koBareMap(){
+  const o = {};
+  try{ resultSlots(state).forEach(s=>{ if(s.kind==='ko') o[s.pos] = bareResult(s.get()); }); }catch(e){}
+  return o;
+}
+function koStampOwn(before){
+  try{
+    const now = Date.now();
+    resultSlots(state).forEach(s=>{
+      if(s.kind!=='ko' || !(s.pos in before) || bareResult(s.get())===before[s.pos]) return;
+      const m = s.m;
+      if(m.rv===undefined && m.by===undefined && m.x01===undefined) return;   // never scored by a device or stamped: nothing stale to drop
+      m.rv = (m.rv||0)+1; m.by = 'o'; m.at = now; delete m.x01;
+    });
+  }catch(e){}
+}
 function koCommitChange(bracketKey, ri, mi, applyTo, settle){
+  const before = koBareMap();
   const pod = podByKey(state, bracketKey);
-  if(pod) return podsApplyResult(state, pod, ()=> applyTo(pod.bracket.rounds[ri][mi]));
+  if(pod){
+    const r = podsApplyResult(state, pod, ()=> applyTo(pod.bracket.rounds[ri][mi]));
+    if(r && r.ok) koStampOwn(before);
+    return r;
+  }
   const bracket = bracketByKey(state, bracketKey);
   applyTo(bracket.rounds[ri][mi]);
   settle(bracket.rounds);
   koResetEmptiedRounds(bracket, ri);
+  koStampOwn(before);
   return { ok:true, message:'' };
 }
 /* Every knockout result change goes through here. It never runs on a finalized event. When later results would be
@@ -2433,11 +2460,13 @@ function markKnockoutNoShow(bracketKey, roundIdx, matchIdx, side){
   const apply = ()=>{ m.aLegs = side==='a' ? 0 : majority; m.bLegs = side==='a' ? majority : 0; m.winnerId = winnerId; m.wo = true; };
   koHeldGuard(bracketKey, roundIdx, matchIdx, ()=>{
     if(isLocked(state) || m.winnerId || m.bye || m.void) return;   // changed while the question was asked
+    const before = koBareMap();
     const podHit = podByKey(state, bracketKey);
     if(podHit){
       const res = podsApplyResult(state, podHit, apply);
       if(!res.ok){ openModal({title:T('ko.cantChange'), body: res.message, confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{}}); return; }
     } else { apply(); propagateByes(bracket.rounds); }
+    koStampOwn(before);
     const ent = state.entriesList.find(e=>e.id===loserId);
     if(ent) ent.noShow = true;
     persist(); render();
@@ -2455,11 +2484,13 @@ function markKnockoutVoid(bracketKey, roundIdx, matchIdx){
   const apply = ()=>{ m.void = true; m.aLegs = null; m.bLegs = null; m.winnerId = null; m.wo = false; delete m.called; delete m.calledAt; delete m.calledPair; };
   koHeldGuard(bracketKey, roundIdx, matchIdx, ()=>{
     if(isLocked(state) || m.winnerId || m.bye || m.void) return;   // changed while the question was asked
+    const before = koBareMap();
     const podHit = podByKey(state, bracketKey);
     if(podHit){
       const res = podsApplyResult(state, podHit, apply);
       if(!res.ok){ openModal({title:T('ko.cantChange'), body: res.message, confirmLabel:T('m.ok'), confirmClass:'primary', onConfirm:()=>{}}); return; }
     } else { apply(); propagateByes(bracket.rounds); settleVoids(bracket.rounds, true); }
+    koStampOwn(before);
     ids.forEach(id=>{ const ent = state.entriesList.find(e=>e.id===id); if(ent) ent.noShow = true; });
     persist(); render();
   }, true);
@@ -3642,7 +3673,7 @@ function canonJSON(v){
 /* A saved copy as compared for "is this my own earlier save?": without what the server adds (result stamps by/at/rv,
    settingsRev; floor officials). */
 function ownCanon(data){
-  return JSON.stringify(JSON.parse(canonJSON(data)), function(k, v){ return (k==='rv' || k==='by' || k==='at' || k==='settingsRev') ? undefined : v; });
+  return JSON.stringify(JSON.parse(canonJSON(data)), function(k, v){ return (k==='rv' || k==='by' || k==='at' || k==='x01' || k==='settingsRev') ? undefined : v; });
 }
 function recordSent(id, bodyText){
   let canon = null;
