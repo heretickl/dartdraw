@@ -164,6 +164,7 @@
       html += '<div class="card notsent"><h2>' + esc(T('ended.title')) + '</h2><p>' + esc(T(key, { date: profile && profile.event && profile.event.date || '' })) + '</p></div>';
     }
     html += takeoversHTML();
+    html += paperMsgHTML();
     html += notSentHTML();
     var list = slotsView();
     if(!list.length){ m.innerHTML = html + '<div class="card"><p class="hint">' + esc(T('none')) + '</p></div>'; return; }
@@ -190,6 +191,7 @@
     });
     m.innerHTML = html;
     Array.prototype.forEach.call(m.querySelectorAll('[data-tk]'), function(btn){ btn.onclick = function(){ answerTakeover(btn.getAttribute('data-tk'), btn.getAttribute('data-ans')); }; });
+    Array.prototype.forEach.call(m.querySelectorAll('[data-paper]'), function(btn){ btn.onclick = function(e){ if(e && e.stopPropagation) e.stopPropagation(); setPaper(btn.getAttribute('data-paper'), btn.getAttribute('data-on') === '1', false); }; });
     Array.prototype.forEach.call(m.querySelectorAll('[data-pos]'), function(btn){ btn.onclick = function(e){ if(e && e.stopPropagation) e.stopPropagation(); openForm(btn.getAttribute('data-pos')); }; });
     var tabs = document.getElementById('tabs');
     if(tabs){
@@ -211,11 +213,13 @@
         ? '<button class="btn ghost" data-pos="' + esc(s.pos) + '">' + esc(T('correct', { time: mmss(CORRECT_MS - (Date.now() - s.at)) })) + '</button>' : '';
       return '<div class="mrow done"><div class="tx">' + tag + names2 + '<div class="won">' + esc(doneText(s)) + '</div><div class="meta">' + by + '</div></div>' + (fix ? '<div class="side">' + fix + '</div>' : '') + '</div>';
     }
-    /* Live event: a match a tablet is scoring takes no entry here (the paper switch comes later); it says where it is played */
-    if(s.onTablet) return '<div class="mrow wait"><div class="tx">' + tag + names2 + '<div class="meta">' + esc(T('live.onTablet')) + (s.playedOn ? ' · ' + esc(T('live.playingOn', { b: s.playedOn })) : '') + '</div></div></div>';
+    /* Live event: a match a tablet is scoring takes no entry here; it says where it is played. "Scored on paper" takes it off the tablet (the server asks first). */
+    if(s.onTablet) return '<div class="mrow wait"><div class="tx">' + tag + names2 + '<div class="meta">' + esc(T('live.onTablet')) + (s.playedOn ? ' · ' + esc(T('live.playingOn', { b: s.playedOn })) : '') + '</div></div>' +
+      (view !== 'ended' ? '<div class="side"><button type="button" class="btn ghost" data-paper="' + esc(s.pos) + '" data-on="1">' + esc(T('paper.on')) + '</button></div>' : '') + '</div>';
     if(s.state === 'waiting' || view === 'ended') return '<div class="mrow wait"><div class="tx">' + tag + names2 + '</div></div>';
     var called = s.state === 'called', next = !called && s.pos === nextPos;
     return '<button type="button" class="mrow' + (called ? ' called' : next ? ' next' : '') + '" data-pos="' + esc(s.pos) + '"><span class="tx">' + tag + names2 +
+      (s.live === 'paper' ? '<div class="meta">' + esc(T('paper.mark')) + '</div>' : '') +
       (called ? '<div class="callmark">' + esc(T('sec.called')) + '</div>' : next ? '<div class="nextmark">' + esc(T('sec.nextUp')) + '</div>' : '') + '</span>' +
       (called || next ? '<span class="go">' + esc(T('enterShort')) + '</span>' : '<span class="chev" aria-hidden="true">›</span>') + '</button>';
   }
@@ -266,6 +270,35 @@
     return '<div class="card notsent"><h2>' + esc(T('notSent.title')) + '</h2>' + notSent.map(function(x){
       return '<div class="row"><div><div class="who">' + esc(x.label || x.pos) + '</div><div class="meta">' + esc(T('reason.' + x.reason)) + '</div></div><div class="res">' + esc(x.result || '') + '</div></div>';
     }).join('') + '<button class="btn ghost" id="dismissNotSent">' + esc(T('dismiss')) + '</button></div>';
+  }
+
+  /* ---------- Scored on paper (Live events; spec 10.5) ----------
+     Not queued like a result: the server may answer that a tablet holds the match and ask for a yes first, so it needs the signal. */
+  var paperBusy = false, paperMsg = '';
+  function paperMsgHTML(){ return paperMsg ? '<div class="card notsent"><p>' + esc(paperMsg) + '</p></div>' : ''; }
+  function setPaper(pos, on, confirm){
+    if(paperBusy) return;
+    paperBusy = true; paperMsg = '';
+    call('POST', '/api/score/result', { pos: pos, op: 'paper', on: on, confirm: confirm ? true : undefined }).then(function(r){
+      paperBusy = false;
+      if(r.status === 401){ view = 'pin'; render(); return; }
+      if(r.status === 410){ view = 'ended'; endedReason = r.body.code || r.body.reason; render(); return; }
+      if(r.body && r.body.slot) replaceSlot(r.body.slot);
+      if(r.ok && r.body.ok){ render(); refresh(); return; }
+      if(r.status === 409 && r.body.code === 'needs_confirm'){ paperAsk(pos); return; }
+      var code = r.body && r.body.code;
+      paperMsg = T(code === 'match_over' ? 'paper.over' : code === 'paper_has_result' ? 'paper.hasResult' : 'paper.failed');
+      render();
+    }, function(){ paperBusy = false; paperMsg = T('paper.offline'); render(); });
+  }
+  /* a tablet holds the match: ask before taking it off */
+  function paperAsk(pos){
+    var s = slotOf(pos), box = document.getElementById('sheetBox');
+    if(!s || !box) return;
+    box.innerHTML = '<h2>' + whoText(s, esc) + '</h2><p>' + esc(T('paper.held')) + '</p><div class="stack"><button class="btn" id="pYes">' + esc(T('paper.takeOff')) + '</button><button class="btn ghost" id="pNo">' + esc(T('form.cancel')) + '</button></div>';
+    document.getElementById('pYes').onclick = function(){ closeSheet(); setPaper(pos, true, true); };
+    document.getElementById('pNo').onclick = function(){ closeSheet(); };
+    showSheet();
   }
 
   /* ---------- the score form ---------- */
@@ -323,6 +356,7 @@
     var others = function(){
       if(s.state === 'done') return '';
       return '<button type="button" class="more" id="fMore" aria-expanded="false">' + esc(T('more')) + ' ▾</button><div class="stack" id="fMoreBox" hidden>' +
+        ('live' in s ? '<button class="btn ghost" id="fPaper">' + esc(T(s.live === 'paper' ? 'paper.off' : 'paper.on')) + '</button>' : '') +   // a Live event only
         '<button class="btn ghost" id="fNsA">' + esc(T('form.noShow', { name: nm(order[0]) })) + '</button>' +
         '<button class="btn ghost" id="fNsB">' + esc(T('form.noShow', { name: nm(order[1]) })) + '</button>' +
         (ko ? '<button class="btn ghost" id="fVoid">' + esc(T('form.void')) + '</button>' +
@@ -388,6 +422,8 @@
       document.getElementById('fClose').onclick = function(){ closeSheet(); };
       var more = document.getElementById('fMore'), mb = document.getElementById('fMoreBox');
       if(more && mb) more.onclick = function(){ var open = mb.hidden; mb.hidden = !open; more.setAttribute('aria-expanded', open ? 'true' : 'false'); more.textContent = T('more') + (open ? ' ▴' : ' ▾'); };
+      var pp = document.getElementById('fPaper');
+      if(pp) pp.onclick = function(){ closeSheet(); setPaper(pos, s.live !== 'paper', false); };
       var nsA = document.getElementById('fNsA'), nsB = document.getElementById('fNsB'), vd = document.getElementById('fVoid'), cl = document.getElementById('fCall');
       if(nsA) nsA.onclick = function(){ confirmThen(T('confirm.noShow', { name: nm('a'), other: nm('b') }), { pos: pos, op: 'noShow', side: 'a', rv: s.rv || 0 }); };
       if(nsB) nsB.onclick = function(){ confirmThen(T('confirm.noShow', { name: nm('b'), other: nm('a') }), { pos: pos, op: 'noShow', side: 'b', rv: s.rv || 0 }); };

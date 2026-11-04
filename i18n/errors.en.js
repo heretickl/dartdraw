@@ -45,6 +45,9 @@ var DD_ERR_EN = {
   'err.turn_not_restorable': "That version cannot be restored.",
   'err.event_closed': "This event is closed.",
   'err.close_blocked': "Some devices still hold turns or matches that are not in yet.",
+  'err.match_paper': "This match is scored on paper.",
+  'err.needs_confirm': "A tablet is scoring this match.",
+  'err.paper_has_result': "This match already has a result, so it cannot go back to the tablets.",
   /* every endpoint */
   'err.method_not_allowed': 'Method not allowed',
   'err.not_found': 'Not found.',

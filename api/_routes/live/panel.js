@@ -29,9 +29,13 @@
 //                                 logout / close answer 409 event_closed. Finalising does NOT close (spec 7.6: devices stay in).
 //   A FINALISED event (spec 7.6: finalising does not log devices out) can still be read (GET, history and blockers included, none of them writes:
 //   the idle-lend clean-up is skipped) and CLOSED (op 'close'); every other op answers 403 finalized.
-//   The ops of later tasks (knockout board suggestions, the paper switch) are added to OPS below.
+//     op 'paper' { pos, on, confirm? } "Scored on paper" (spec 10.5): on = true puts the match on paper (no tablet lists it, none holds it), false
+//                                 sends it back to the tablets. A match a device holds needs confirm: true (409 needs_confirm { held: true }, nothing
+//                                 changed, otherwise); the device is let go and its next call answers 409 match_paper. 404 not_found (no such match) ·
+//                                 409 match_over (on, for a match that has a result) · 409 paper_has_result (off, for a match that has a result).
+//                                 The organiser's own result entry works as always (the match stays on paper).
 //   { login: {username, password} | null, closedAt: iso | null, devices: [{ id, board, lastSeenAt, unsent, loggedOut }],
-//     boards: [{ n, group, ko, playing: {pos, state, info, a, b, disputed} | null, waiting, devices: [ids], lentTo?, lentFrom? }],
+//     boards: [{ n, group, ko, playing: {pos, state, info, a, b, disputed} | null, held, idleSince, waiting, devices: [ids], lentTo?, lentFrom? }],
 //     lends: [{ id, from, to, startedAt }], takeovers: [{ id, pos, info, fromDevice, fromBoard, toDevice, toBoard, requestedAt }],
 //     matches: [{ pos, info, a, b, state, disputed }], playingCount, now }
 // matches: the matches that have a history worth opening (in progress, over, or disputed), in the event's order.
@@ -40,6 +44,8 @@
 //   device: 'Device N' | 'Organiser', deviceNo, byOrganiser?, at, left, current }], takeovers: [{ answer, decidedBy: 'organiser' | 'official' | 'system' | null,
 //   requestedAt, decidedAt, from, to, fromNo, toNo }] } (every turn, ignored ones too, oldest first; left: the x01 score left after the turn,
 //   null for Cricket and ignored turns; current: the latest version of its chain). Device ids never leave the server in these.
+// held: a device holds a match on the board (started or not; with playing it says the board is not free for the knockout board suggestions).
+// idleSince: ms of the latest end of a match played on the board, null when none ended yet (read only: the suggestions are made in the browser).
 // group: the labels of the round robin groups and pods played on the board, joined by ", " ('' when none); ko: knockout matches are on
 // it. takeovers: the waiting requests, oldest first (live.openTakeovers: the match is still held by fromDevice, toDevice is signed in);
 // info is the match as the paper numbers it (info.matchNo), the device ids are opaque. playingCount: matches a device holds that are checked in, playing or awaiting confirmation (the Manual switch is refused while it is not 0).
@@ -48,6 +54,7 @@ const crypto = require('crypto');
 const { requireAuth } = require('../../_lib/auth');
 const { sendError, bodyObject, methodNotAllowed, live } = require('./common');
 const { boardCountOf, load, waitingOn, entryOf, startForOf } = require('./view');
+const { switchPaper } = require('./paperSwitch');
 const takeoverRoute = require('./takeover');
 const turnRoute = require('./turn');
 const { chainHeadOf, annotateTurns } = require('../../_lib/live-summary');
@@ -81,7 +88,7 @@ async function panelOf(organizer, ev) {
   const rowBy = {};
   rows.forEach((r) => { rowBy[r.pos] = r; });
   /* what is playing, per board (the match's own board group), and how many matches are in progress in all */
-  const playingBy = {};
+  const playingBy = {}, heldBy = {};
   let playingCount = 0;
   const seen = {};
   ctx.slots.forEach((s) => {
@@ -89,14 +96,16 @@ async function panelOf(organizer, ev) {
     const row = rowBy[s.pos];
     if (!row || !LiveBoards.heldBy(row) || LiveBoards.slotDone(s)) return;
     const state = LiveBoards.stateOf(s, row, false);
+    const board = row.board != null ? row.board : ((s.boards || [])[0] != null ? Number(s.boards[0]) : null);
+    if (board != null) heldBy[board] = true;   // a device holds a match on this board, started or not
     if (ACTIVE.indexOf(state) < 0) return;
     playingCount++;
-    const board = row.board != null ? row.board : ((s.boards || [])[0] != null ? Number(s.boards[0]) : null);
     if (board == null || playingBy[board]) return;
     const ei = (id) => entryOf(ctx.byId, id).name;
     playingBy[board] = { pos: s.pos, state, info: ctx.e.plain(ctx.e.matchInfo(ctx.t, s)), a: ei(s.a), b: ei(s.b), disputed: !!disputed[s.pos] };
   });
   rows.forEach((r) => { if (!seen[r.pos] && LiveBoards.heldBy(r) && ACTIVE.indexOf(r.state) >= 0) playingCount++; });   // a match the event no longer shows still counts
+  const idle = await live.boardIdleSince(t);
   const n = boardCountOf(ev.data), boards = [];
   for (let i = 1; i <= n; i++) {
     const labels = [];
@@ -107,7 +116,7 @@ async function panelOf(organizer, ev) {
       if (label) { if (labels.indexOf(label) < 0) labels.push(String(label)); } else ko = true;
     });
     const b = {
-      n: i, group: labels.join(', '), ko, playing: playingBy[i] || null, waiting: waitingOn(ctx, rows, i).length,
+      n: i, group: labels.join(', '), ko, playing: playingBy[i] || null, held: !!heldBy[i], idleSince: idle[i] != null ? idle[i] : null, waiting: waitingOn(ctx, rows, i).length,
       devices: devices.filter((d) => !d.loggedOut && d.board === i).map((d) => d.id)
     };
     const out = lends.find((l) => l.from === i), inn = lends.find((l) => l.to === i);
@@ -240,6 +249,12 @@ const OPS = {
     if (!POS_OK(b.pos)) { res.status(404).json(NOT_FOUND); return true; }
     if (typeof b.on !== 'boolean') { res.status(400).json({ code: 'invalid_op', error: 'Unknown action.' }); return true; }
     if (!(await live.setDisputed(ev.id, b.pos, b.on))) { res.status(404).json(NOT_FOUND); return true; }
+  },
+  async paper(organizer, ev, b, res) {
+    if (!POS_OK(b.pos)) { res.status(404).json(NOT_FOUND); return true; }
+    if (typeof b.on !== 'boolean') { res.status(400).json({ code: 'invalid_op', error: 'Unknown action.' }); return true; }
+    const out = await switchPaper(ev.id, load({ tournament: ev }).slotsByPos[b.pos] || null, b.on, b.confirm === true);
+    if (!out.ok) { res.status(out.status).json(out.body); return true; }
   },
   async close(organizer, ev, b, res) {
     const blockers = await blockersOf(ev);

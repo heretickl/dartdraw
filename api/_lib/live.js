@@ -210,6 +210,43 @@ async function setDisputed(tournamentId, pos, on) {
     return rows.length > 0;
   });
 }
+/* When each board last finished a match, for the knockout board suggestions: { board: ms }. A board whose matches never ended
+   (nothing played, or only on paper) is not listed: it counts as idle longest. The board a match was PLAYED on (a lend sends a tablet
+   to another board's group) is the one that was busy. */
+async function boardIdleSince(tournamentId) {
+  return q(async () => {
+    const rows = await sql`SELECT COALESCE(played_on_board, board) AS board, max(ended_at) AS ended_at FROM live_matches WHERE tournament_id = ${tournamentId} AND ended_at IS NOT NULL AND COALESCE(played_on_board, board) IS NOT NULL GROUP BY COALESCE(played_on_board, board)`;
+    const out = {};
+    rows.forEach((r) => { const ms = r.ended_at ? new Date(r.ended_at).getTime() : NaN; if (r.board != null && !isNaN(ms)) out[Number(r.board)] = ms; });
+    return out;
+  });
+}
+/* Scored on paper, on (spec 10.5, D16): the match's row is made or updated (paper, state 'paper') and no device holds it any more, so the
+   device's next call is refused. One statement, so a device that claims the match at the very same moment cannot slip through: a held match
+   is taken off its device only with force (the organiser or official confirmed). A match that is over is never touched. false = nothing
+   changed (the match is held and force is not set, or it is over). board: the match's own board, for a row made here. */
+async function setPaperOn(tournamentId, pos, board, force) {
+  return q(async () => {
+    const rows = await sql`
+      INSERT INTO live_matches (tournament_id, pos, state, device_id, board, paper)
+      VALUES (${tournamentId}, ${pos}, 'paper', NULL, ${board}, true)
+      ON CONFLICT (tournament_id, pos) DO UPDATE SET paper = true, state = 'paper', device_id = NULL
+      WHERE live_matches.state NOT IN ('confirmed', 'retired', 'voided') AND (live_matches.device_id IS NULL OR ${!!force})
+      RETURNING pos`;
+    return rows.length > 0;
+  });
+}
+/* Paper off: the match goes back to the tablets (waiting, nobody holds it). Only while it has no result in the row; the caller checks the
+   event's own result. false = nothing changed (no paper row, or the match is over). */
+async function setPaperOff(tournamentId, pos) {
+  return q(async () => {
+    const rows = await sql`
+      UPDATE live_matches SET paper = false, state = 'waiting', device_id = NULL
+      WHERE tournament_id = ${tournamentId} AND pos = ${pos} AND paper = true AND state NOT IN ('confirmed', 'retired', 'voided')
+      RETURNING pos`;
+    return rows.length > 0;
+  });
+}
 /* The lends running now, with their ids: [{ id, from, to, startedAt }]. */
 async function activeLends(tournamentId) {
   return q(async () => {
@@ -613,7 +650,7 @@ async function openTakeovers(tournamentId, pre) {
 module.exports = {
   LiveError, PASSWORD_LENGTH, PASSWORD_ALPHABET,
   enable, show, newPassword: newPasswordFor,
-  panelDevices, logoutDevice, logoutAllDevices, activeLends, addLend, endLend, endIdleLends, closedAt, closeLogin, disputedPositions, setDisputed,
+  panelDevices, logoutDevice, logoutAllDevices, activeLends, addLend, endLend, endIdleLends, closedAt, closeLogin, disputedPositions, setDisputed, boardIdleSince, setPaperOn, setPaperOff,
   deviceLogin, sessionFor, signSession, verifySession, tournamentView, ownEvent,
   liveRows, liveRow, liveLends, boardHolders, setBoard, claimMatch,
   matchFull, insertTurn, turnById, matchTurns, allTurns, setSummary, setUnsent, setPlaying, setAwaitingConfirm, setConfirmed, setRetired, markChangedByOrganiser,

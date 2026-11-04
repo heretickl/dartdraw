@@ -215,6 +215,27 @@ function createFakeLiveDb(opts) {
     if (text === 'UPDATE live_lends SET ended_at = now() WHERE tournament_id = ? AND ended_at IS NULL') {
       db.lends.forEach((l) => { if (l.tournament_id === vals[0] && l.ended_at == null) l.ended_at = iso(); }); return [];
     }
+    // knockout board suggestions and the paper switch (api/_lib/live.js: boardIdleSince, setPaperOn, setPaperOff)
+    if (text === 'SELECT COALESCE(played_on_board, board) AS board, max(ended_at) AS ended_at FROM live_matches WHERE tournament_id = ? AND ended_at IS NOT NULL AND COALESCE(played_on_board, board) IS NOT NULL GROUP BY COALESCE(played_on_board, board)') {
+      const by = {};
+      db.matches.forEach((m) => {
+        const b = m.played_on_board != null ? m.played_on_board : m.board;
+        if (m.tournament_id !== vals[0] || !m.ended_at || b == null) return;
+        if (!by[b] || m.ended_at > by[b]) by[b] = m.ended_at;
+      });
+      return Object.keys(by).map((b) => ({ board: Number(b), ended_at: by[b] }));
+    }
+    if (text === "INSERT INTO live_matches (tournament_id, pos, state, device_id, board, paper) VALUES (?, ?, 'paper', NULL, ?, true) ON CONFLICT (tournament_id, pos) DO UPDATE SET paper = true, state = 'paper', device_id = NULL WHERE live_matches.state NOT IN ('confirmed', 'retired', 'voided') AND (live_matches.device_id IS NULL OR ?) RETURNING pos") {
+      const [tid, pos, board, force] = vals, m = mOf(tid, pos);
+      if (!m) { db.matches.push({ tournament_id: tid, pos, state: 'paper', device_id: null, board, played_on_board: null, paper: true, retired_side: null, started_at: null, ended_at: null, summary: {}, changed_by_organiser: false, disputed: false }); return [{ pos }]; }
+      if (['confirmed', 'retired', 'voided'].indexOf(m.state) >= 0 || !(m.device_id == null || force)) return [];
+      Object.assign(m, { paper: true, state: 'paper', device_id: null }); return [{ pos }];
+    }
+    if (text === "UPDATE live_matches SET paper = false, state = 'waiting', device_id = NULL WHERE tournament_id = ? AND pos = ? AND paper = true AND state NOT IN ('confirmed', 'retired', 'voided') RETURNING pos") {
+      const m = mOf(vals[0], vals[1]);
+      if (!m || !m.paper || ['confirmed', 'retired', 'voided'].indexOf(m.state) >= 0) return [];
+      Object.assign(m, { paper: false, state: 'waiting', device_id: null }); return [{ pos: m.pos }];
+    }
     // take-over requests (api/_lib/live.js: requestTakeover, takeoverById, answerTakeover, voidAllowed, moveHolder, openTakeovers)
     if (text === 'INSERT INTO live_takeovers (id, tournament_id, pos, from_device, to_device) SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM live_takeovers WHERE tournament_id = ? AND pos = ? AND answer IS NULL) RETURNING id') {
       const [id, tid, pos, from, to] = vals;

@@ -5,12 +5,13 @@
 //                                         confirmed never has anything applied again)
 //   400 invalid                           not a valid score for this match: nothing changes
 //   409 not_your_match                    this device does not hold the match
+//   409 match_paper                       the match is scored on paper
 //   409 wrong_state                       the match has not started (state waiting / checkedIn)
 //   409 changed_by_organiser              the organiser (or a cleared result: nothing is put back)'s result stands over this device's match (D18); the match row is marked
 //   409 match_over · not_open · missing · blocked · 503 busy
 //   410 link_ended (reason finalized)     the event is finalized: this route opts in to the session only to answer that itself
 //   401 no_session · 403 live_off · 503 live_not_set_up
-const { sendError, bodyObject, methodNotAllowed, requireSession, sendRefused, refuse, live } = require('./common');
+const { sendError, bodyObject, methodNotAllowed, requireSession, sendRefused, refuse, refusePaper, live } = require('./common');
 const { applyForDevice, slotAnswer } = require('./apply');
 
 const legsOk = (v) => Number.isInteger(v) && v >= 0 && v <= 99;
@@ -25,7 +26,8 @@ module.exports = async (req, res) => {
     if (found.finalized) { sendRefused(res, 'finalized'); return; }
     const me = found.device.id, id = found.tournament.id, pos = b.pos;
     const row = await live.matchFull(id, pos);
-    if (!row || row.device_id !== me || row.paper) { refuse(res, 409, 'not_your_match', 'This match is not on this device any more.'); return; }
+    if (row && row.paper) { refusePaper(res); return; }
+    if (!row || row.device_id !== me) { refuse(res, 409, 'not_your_match', 'This match is not on this device any more.'); return; }
     if (row.changed_by_organiser) { refuse(res, 409, 'changed_by_organiser', 'The organiser entered this result.'); return; }
     if (row.state === 'retired' || row.state === 'voided') { refuse(res, 409, 'match_over', 'This match is over.'); return; }
     if (row.state !== 'playing' && row.state !== 'awaitingConfirm' && row.state !== 'confirmed') { refuse(res, 409, 'wrong_state', 'This match has not started.'); return; }

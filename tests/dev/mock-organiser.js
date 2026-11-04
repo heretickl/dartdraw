@@ -64,7 +64,28 @@ function seedLiveSample() {
   turn('d1', done3, 1, 'a', 100, 'dev_sample3', 500); turn('d2', done3, 1, 'b', 60, 'dev_sample3', 490);
   liveDb.takeovers.push({ id: 'tko_sample1', tournament_id: 'live-sample', pos: onBoard(2)[0].pos, from_device: 'dev_sample2', to_device: 'dev_sample3', decided_by: null, answer: null, created_at: ago(40), decided_at: null });
 }
-if (process.env.MOCK_LIVE === '1') seedLiveSample();
+/* --live-sample also seeds a Live KNOCKOUT event (live-ko-sample, login ev-kosample / KOSAMPLE2345ABCD, 4 boards): round 1 has three matches ready
+   with no board (feeders on boards 1 and 2 were played, two matches have no played feeder), a tablet is playing a match on board 3 (to see the
+   paper switch ask first), and a floor official for boards 1 to 4 (the link and PIN are printed when the server starts). */
+async function seedLiveKoSample() {
+  const { buildStates } = require('../lib/app-states');
+  const e = require('../../api/_lib/engine').engine();
+  const src = buildStates().find((s) => s.id === 'Singles/knockout/drawn').data;
+  const t = e.inside(JSON.parse(JSON.stringify(src)));
+  t.id = 'live-ko-sample'; t.eventCreation.tournamentName = 'Live knockout sample'; t.eventCreation.boards = 4; t.format.scoring = { mode: 'live' };
+  [[1, 1], [5, 2], [7, 3]].forEach(([mi, b]) => { t.knockout.rounds[0][mi].board = b; });
+  [1, 5].forEach((mi) => e.applyResult(t, 'ko:knockout:0:' + mi, 'score', { la: 3, lb: 1 }, { by: 'o', at: Date.now() }));
+  e.rebuildDerived(t);
+  db['live-ko-sample'] = { data: e.plain(t), updated_at: new Date().toISOString(), created_by: 'u1' };
+  const ago = (s) => new Date(Date.now() - s * 1000).toISOString();
+  liveDb.logins.push({ tournament_id: 'live-ko-sample', username: 'ev-kosample', password_hash: require('bcryptjs').hashSync('KOSAMPLE2345ABCD', 4), password_shown: 'KOSAMPLE2345ABCD', session_nonce: 'ko-nonce', created_at: ago(900) });
+  liveDb.devices.push({ id: 'dev_ko3', tournament_id: 'live-ko-sample', board: 3, session_nonce: 'ko-nonce', last_seen_at: ago(5), logged_out_at: null, unsent: 0, created_at: ago(800) });
+  const row = (pos, state, device, board, ended) => liveDb.matches.push({ tournament_id: 'live-ko-sample', pos, state, device_id: device, board, played_on_board: board, paper: false, retired_side: null, started_at: ago(900), ended_at: ended ? ago(ended) : null, summary: {}, changed_by_organiser: false, disputed: false });
+  row('ko:knockout:0:1', 'confirmed', null, 1, 600); row('ko:knockout:0:5', 'confirmed', null, 2, 300); row('ko:knockout:0:7', 'playing', 'dev_ko3', 3, 0);
+  const o = await require('../../api/_lib/officials').createOfficial({ id: 'u1', role: 'organizer' }, 'live-ko-sample', { name: 'Sample official', boards: [1, 2, 3, 4] });
+  console.log('live-ko-sample official: http://localhost:5393/score/' + o.token + '  PIN ' + o.official.pin);
+}
+if (process.env.MOCK_LIVE === '1') { seedLiveSample(); seedLiveKoSample().catch((err) => console.error('live-ko-sample not seeded', err)); }
 async function vercelCall(handler, req, url, res) {
   const body = req.method === 'POST' ? await readBody(req) : undefined;
   const r = { method: req.method, url: req.url, headers: Object.assign({ host: req.headers.host }, req.headers), query: Object.fromEntries(url.searchParams), body, socket: req.socket };

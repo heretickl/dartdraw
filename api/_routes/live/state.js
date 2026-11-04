@@ -4,9 +4,9 @@
 //                         Re-checked here: 409 player_busy when either entrant is playing ANOTHER match.
 //   to 'awaitingConfirm'  the match is won on the device (from playing).
 //   200 { ok, slot }      (a state the match is in already answers 200 too; a starter sent is stored)
-//   400 invalid · 409 not_your_match · 409 wrong_state · 409 match_over · 409 changed_by_organiser · 409 player_busy · 409 missing
+//   400 invalid · 409 not_your_match · 409 match_paper · 409 wrong_state · 409 match_over · 409 changed_by_organiser · 409 player_busy · 409 missing
 //   410 link_ended (finalized events are refused) · 401 no_session · 403 live_off · 503 live_not_set_up
-const { sendError, bodyObject, methodNotAllowed, requireSession, refuse, live } = require('./common');
+const { sendError, bodyObject, methodNotAllowed, requireSession, refuse, refusePaper, live } = require('./common');
 const { load, matchView, heldPlace, busyEntries } = require('./view');
 const LiveBoards = require('../../../live-boards');
 
@@ -20,7 +20,8 @@ module.exports = async (req, res) => {
     if (!found) return;
     const me = found.device.id, id = found.tournament.id, pos = b.pos, to = b.to;
     const row = await live.matchFull(id, pos);
-    if (!row || row.device_id !== me || row.paper) { refuse(res, 409, 'not_your_match', 'This match is not on this device any more.'); return; }
+    if (row && row.paper) { refusePaper(res); return; }
+    if (!row || row.device_id !== me) { refuse(res, 409, 'not_your_match', 'This match is not on this device any more.'); return; }
     if (row.changed_by_organiser) { refuse(res, 409, 'changed_by_organiser', 'The organiser entered this result.'); return; }
     if (row.state === 'confirmed' || row.state === 'retired' || row.state === 'voided') { refuse(res, 409, 'match_over', 'This match is over.'); return; }
     const ctx = load(found), s = ctx.slotsByPos[pos];

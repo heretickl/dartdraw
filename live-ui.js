@@ -431,7 +431,12 @@ function liveNamesChecklistHTML(){
    screen; one timer, stopped by the same checks). Match history (spec 7.5; a block under the boards, a History button on a board's
    playing match; a modal per match with every turn and correction, Restore, the Disputed flag and the take-over log) and Close event
    (spec 7.6; the last block: a modal that first lists what stands in the way, then closes). A closed event shows a "Closed" note and
-   keeps only the history. The knockout board suggestions and the paper switch come later, each with its own op on the same route. */
+   keeps only the history. Knockout boards (spec section 9, D7): a block under the boards lists each knockout round that has matches
+   ready (both players known) but no board, with a suggested board per match (LiveBoards.suggestKnockoutBoards: the board of the match's
+   feeder, else the group's board, else the board idle longest; a board is free when no match is playing or held on it) in a box the
+   organiser can change; Confirm round writes the chosen boards into the event itself (the same m.board the Board box of a knockout
+   match edits) with the normal persist() and render(). Nothing is written before that. "Scored on paper" (spec 10.5, D16): a switch
+   in the result windows (livePaperRowHTML), op 'paper' on the same route. */
 var liveState = { id: null, data: null, loading: false, error: '', shown: false };   // shown: the password is on screen
 var LIVE_PANEL_API = '/api/live/panel';
 var liveTimer = null;
@@ -699,6 +704,7 @@ function liveBoardsHTML(){
   if(!fin) html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.boards') + '</b>' +
     '<div class="lb-wrap"><table class="lb-table"><thead><tr><th>' + T('lb.col.board') + '</th><th>' + T('lb.col.group') + '</th><th>' + T('lb.col.playing') + '</th><th>' + T('lb.col.waiting') + '</th><th>' + T('lb.col.devices') + '</th><th></th></tr></thead><tbody>' +
     d.boards.map(function(b){ return liveBoardRowHTML(b, d); }).join('') + '</tbody></table></div></div>';
+  if(!fin && !closed) html += liveKoBlockHTML(d);
   html += liveHistoryBlockHTML(d);
   if(closed) return html + '</div>';
   html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.devices') + '</b>';
@@ -713,6 +719,124 @@ function liveBoardsHTML(){
   html += '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.close.title') + '</b><div class="hint" style="margin:4px 0 6px">' + T('lb.close.hint') + '</div>' +
     '<button class="btn ghost fo-btn" style="color:var(--red)" onclick="liveCloseModal()">' + T('lb.close.btn') + '</button></div>';
   return html + '</div>';
+}
+
+/* ---------- knockout boards (spec 9, D7) ---------- */
+var liveKoPick = {};   // pos -> the board the organiser chose in a box (0 = none), kept over the card's redraws until Confirm round
+/* The rounds with matches ready and no board: [{ key, ri, bracket, items: [{ pos, mi, m, sug }] }], sug = { board, why } | null.
+   A board is free when no match is playing on it and no device holds a match on it. */
+function liveKoRounds(){
+  var d = liveState.data, out = [];
+  if(!state || !d || !d.boards) return out;
+  var free = [], idle = {};
+  d.boards.forEach(function(b){ if(!b.playing && !b.held) free.push(b.n); idle[b.n] = b.idleSince; });
+  [['knockout', state.knockout], ['knockoutLosers', state.knockoutLosers]].forEach(function(x){
+    var br = x[1];
+    if(!br || !Array.isArray(br.rounds)) return;
+    br.rounds.forEach(function(round, ri){
+      var rd = { bracketKey: x[0], ri: ri }, ready = LiveBoards.readyKnockoutMatches(state, rd);
+      if(!ready.length) return;
+      var sug = {};
+      LiveBoards.suggestKnockoutBoards(state, rd, free, {}, idle).forEach(function(s){ sug[s.pos] = s; });
+      out.push({ key: x[0], ri: ri, bracket: br, items: ready.map(function(r){ return { pos: r.pos, mi: r.mi, m: round[r.mi], sug: sug[r.pos] || null }; }) });
+    });
+  });
+  return out;
+}
+function liveKoBracketName(key, br){
+  return key === 'knockoutLosers' ? T('bg.plate') : (br && br.podFinals ? T('lb.kob.finals') : T('bg.main'));
+}
+function liveKoBlockHTML(d){
+  var rounds = liveKoRounds();
+  if(!rounds.length) return '';
+  var n = d.boards.length;
+  return '<div id="liveKoBlock" style="padding:10px 0;border-top:1px solid var(--line)"><b>' + T('lb.kob.title') + '</b>' +
+    '<div class="hint" style="margin:4px 0 6px">' + T('lb.kob.hint') + '</div>' +
+    rounds.map(function(r){
+      var tag = r.key + ':' + r.ri;
+      return '<div class="lb-ko-round" style="margin:8px 0 12px"><div style="font-weight:800;font-size:12px;border-bottom:1px solid var(--line);margin-bottom:2px">' +
+        escText(T('lb.kob.round', { bracket: liveKoBracketName(r.key, r.bracket), round: koRoundName(r.bracket, r.ri) })) + '</div>' +
+        r.items.map(function(it){
+          var picked = liveKoPick[it.pos] !== undefined;
+          var chosen = picked ? liveKoPick[it.pos] : (it.sug ? it.sug.board : 0);
+          var why = picked ? '' : (it.sug ? T('lb.kob.why.' + it.sug.why) : T('lb.kob.why.none'));
+          var opts = '<option value="0"' + (!chosen ? ' selected' : '') + '>' + T('lb.kob.none') + '</option>';
+          for(var i = 1; i <= n; i++) opts += '<option value="' + i + '"' + (chosen === i ? ' selected' : '') + '>' + T('lb.boardN', { n: i }) + '</option>';
+          return '<div class="fo-row" style="padding:5px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="flex:1;min-width:200px"><b>' +
+            escText(bracketEntryName(state, it.m.aEntryId)) + '</b> v <b>' + escText(bracketEntryName(state, it.m.bEntryId)) + '</b> <span class="hint" style="margin:0">' +
+            escText(T('lb.match', { n: koMatchTag(r.bracket, state, r.ri, it.mi) })) + '</span></span>' +
+            '<select style="width:auto" data-ko="' + escText(tag) + '" data-pos="' + escText(it.pos) + '" aria-label="' + escText(T('fo.koBoard')) + '" onchange="liveKoSet(\'' + escJs(it.pos) + '\',this.value)">' + opts + '</select>' +
+            '<span class="hint" style="margin:0;min-width:150px">' + escText(why) + '</span></div>';
+        }).join('') +
+        '<div class="buttonrow" style="margin:6px 0 0"><button class="btn primary fo-btn" onclick="liveKoConfirm(\'' + escJs(r.key) + '\',' + r.ri + ')">' + T('lb.kob.confirm') + '</button></div></div>';
+    }).join('') + '</div>';
+}
+function liveKoSet(pos, v){ liveKoPick[pos] = parseInt(v, 10) || 0; }
+/* Confirm round: the boards in the round's boxes, as they are on screen, become the matches' own boards; one save. */
+function liveKoConfirm(key, ri){
+  if(!state || isLocked(state)){ if(typeof finalizedBlockModal === 'function') finalizedBlockModal('changed'); return; }
+  var br = bracketByKey(state, key), round = br && br.rounds && br.rounds[ri], d = liveState.data;
+  if(!round || !d || !d.boards) return;
+  var n = d.boards.length, changed = 0, boxes = document.querySelectorAll('#liveKoBlock select[data-ko="' + key + ':' + ri + '"]');
+  Array.prototype.forEach.call(boxes, function(sel){
+    var pos = sel.getAttribute('data-pos'), mi = parseInt(String(pos).split(':')[3], 10), b = parseInt(sel.value, 10) || 0, m = round[mi];
+    delete liveKoPick[pos];
+    if(!m || !(b >= 1 && b <= n) || !m.aEntryId || !m.bEntryId || m.winnerId || m.bye || m.void || parseInt(m.board, 10) > 0) return;
+    m.board = b; changed++;
+  });
+  if(!changed){ liveRedraw(); return; }
+  persist(); render();
+  loadLive(true);
+}
+
+/* ---------- Scored on paper (spec 10.5, D16) ---------- */
+/* The switch line inside a result window (a round robin or knockout score box) of a Live event; hidden until the server has said where the
+   match stands (livePaperLoad). pos: the match's place in the event (rr:<group>:<key> or ko:<bracket>:<round>:<match>). */
+function livePaperRowHTML(pos){
+  if(!liveBoardsOn() || isLocked(state)) return '';
+  return '<div class="live-paper" id="livePaper" data-pos="' + escText(pos) + '" style="display:none;margin:10px 0 0"></div>';
+}
+function livePaperLoad(pos){
+  var id = state && state.id;
+  if(!id || !liveBoardsOn() || isLocked(state) || typeof document === 'undefined' || !document.getElementById('livePaper')) return;
+  apiFetch(LIVE_PANEL_API + '?t=' + encodeURIComponent(id) + '&history=' + encodeURIComponent(pos)).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(b){
+      var el = document.getElementById('livePaper');
+      if(r.ok && el && el.getAttribute('data-pos') === pos) livePaperDraw(b.state === 'paper', '', false);
+    });
+  }).catch(function(){});
+}
+/* ask: the match is held by a tablet and the server wants a yes before taking it off. */
+function livePaperDraw(on, msg, ask){
+  var el = document.getElementById('livePaper');
+  if(!el) return;
+  el.style.display = '';
+  if(ask){
+    el.innerHTML = '<div class="confirm-box" style="margin:0;text-align:left"><b>' + T('lb.paper.held') + '</b><div class="buttonrow" style="margin:8px 0 0">' +
+      '<button type="button" class="btn primary fo-btn" onclick="livePaperSet(true,true)">' + T('lb.paper.takeOff') + '</button>' +
+      '<button type="button" class="btn ghost fo-btn" onclick="livePaperDraw(false,\'\',false)">' + T('lb.paper.keep') + '</button></div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="toggle-row" style="margin:0"><input type="checkbox" id="livePaperBox" ' + (on ? 'checked' : '') + ' onchange="livePaperSet(this.checked,false)"> <label for="livePaperBox">' + T('lb.paper.label') + '</label></div>' +
+    '<div class="hint" style="margin:2px 0 0 32px">' + T('lb.paper.hint') + '</div>' +
+    (msg ? '<div style="color:var(--red);font-size:12px;margin:4px 0 0 32px">' + escText(msg) + '</div>' : '');
+}
+var livePaperBusy = false;
+async function livePaperSet(on, confirm){
+  var el = document.getElementById('livePaper');
+  if(!el || !state || livePaperBusy) return;
+  var pos = el.getAttribute('data-pos'), id = state.id, r = null, b = {};
+  if(netOffline){ livePaperDraw(!on, T('off.needsBody'), false); return; }
+  livePaperBusy = true;
+  try{
+    r = await apiFetch(LIVE_PANEL_API, { method: 'POST', body: JSON.stringify({ t: id, op: 'paper', pos: pos, on: !!on, confirm: confirm ? true : undefined }) });
+    b = await r.json().catch(function(){ return {}; });
+  }catch(e){ r = null; }
+  livePaperBusy = false;
+  if(!document.getElementById('livePaper') || !state || state.id !== id) return;   // the window was closed meanwhile
+  if(r && r.ok){ livePaperDraw(!!on, '', false); if(currentStage === 5) loadLive(true); return; }
+  if(r && r.status === 409 && b && b.code === 'needs_confirm'){ livePaperDraw(false, '', true); return; }
+  livePaperDraw(!on, ddApiError(b || {}, T('lb.paper.err')), false);
 }
 
 /* ---------- blockers: what stands in the way of Close event, and of a tidy Finalise (spec 7.6) ---------- */

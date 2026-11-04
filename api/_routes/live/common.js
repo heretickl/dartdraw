@@ -28,6 +28,8 @@ function bodyObject(req) {
 }
 /* A refusal in the device API's shape: { ok:false, code, error }. */
 const refuse = (res, status, code, error) => res.status(status).json({ ok: false, code: code, error });
+/* The match is scored on paper (spec 10.5, D16): a device may not turn, start, confirm or retire it. */
+const refusePaper = (res) => res.status(409).json({ ok: false, code: 'match_paper', error: 'This match is scored on paper.' });
 function methodNotAllowed(res) { res.status(405).json({ code: 'method_not_allowed', error: 'Method not allowed' }); }
 
 /* The device behind the request's session: { device, tournament } when it works ({ ..., finalized: true } when the event is
@@ -53,4 +55,4 @@ async function requireSession(req, res, opts) {
   return found;
 }
 
-module.exports = { refuse, sendError, bodyObject, methodNotAllowed, liveSession, sendRefused, sendNoSession, requireSession, live };
+module.exports = { refuse, refusePaper, sendError, bodyObject, methodNotAllowed, liveSession, sendRefused, sendNoSession, requireSession, live };

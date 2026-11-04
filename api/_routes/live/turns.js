@@ -3,10 +3,10 @@
 // full history and undo (the scoring spec 8.2).
 //   200 { ok, pos, state, summary: { legs, remaining, thrower, starter? },
 //         turns: [{ id, leg, side, player, entered, supersedes }] }     the turns that count (never an ignored one), oldest first
-//   400 invalid · 409 not_your_match (this device does not hold the match) · 409 match_over
+//   400 invalid · 409 not_your_match (this device does not hold the match) · 409 match_paper · 409 match_over
 //   401 no_session · 403 live_off · 410 link_ended · 503 live_not_set_up
 // Nothing else about the match leaves here: no device ids, no ignored turns, nothing of the event.
-const { sendError, methodNotAllowed, requireSession, refuse, live } = require('./common');
+const { sendError, methodNotAllowed, requireSession, refuse, refusePaper, live } = require('./common');
 
 const OVER = ['confirmed', 'retired', 'voided'];
 
@@ -19,7 +19,8 @@ module.exports = async (req, res) => {
     if (!found) return;
     const me = found.device.id, id = found.tournament.id;
     const row = await live.matchFull(id, pos);
-    if (!row || row.device_id !== me || row.paper) { refuse(res, 409, 'not_your_match', 'This match is not on this device any more.'); return; }
+    if (row && row.paper) { refusePaper(res); return; }
+    if (!row || row.device_id !== me) { refuse(res, 409, 'not_your_match', 'This match is not on this device any more.'); return; }
     if (OVER.indexOf(row.state) >= 0) { refuse(res, 409, 'match_over', 'This match is over.'); return; }
     const turns = await live.matchTurns(id, pos);
     const sm = row.summary || {};

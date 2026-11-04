@@ -2302,7 +2302,8 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
         : '<p style="font-size:11px;color:#8a97a5">'+T('ko.score.hint', {n: bestOf, m: majority})+'</p>')+
       (state.format.formatType==='podknockout' && podByKey(state, bracketKey) ? '' :
         '<div class="field" style="margin-top:6px"><label>'+T('fo.koBoard')+'</label><input type="text" inputmode="numeric" style="width:70px" value="'+escText(m.board||'')+'" onchange="koSetBoard(\''+escJs(bracketKey)+'\','+roundIdx+','+matchIdx+',this.value)"><span class="hint" style="margin-left:6px">'+T('fo.koBoardHint')+'</span></div>')+
-      (enteredByText(m) ? '<p class="hint" style="margin:4px 0 0">'+escapeHtml(enteredByText(m))+'</p>' : ''),
+      (enteredByText(m) ? '<p class="hint" style="margin:4px 0 0">'+escapeHtml(enteredByText(m))+'</p>' : '')+
+      livePaperRowHTML('ko:'+bracketKey+':'+roundIdx+':'+matchIdx),
     confirmLabel:T('score.save'), confirmClass:'primary',
     secondaryLabel: koHasResult(m) && !m.void ? T('ko.clear') : '',
     onSecondary: ()=> koClearResult(bracketKey, roundIdx, matchIdx),
@@ -2333,6 +2334,7 @@ function koMatchScoreModal(bracketKey, roundIdx, matchIdx){
     }
   });
   if(!m.wo) setTimeout(scorePickSync, 0);   // a saved result shows as its button, lit (a walkover's legs were not played: none)
+  livePaperLoad('ko:'+bracketKey+':'+roundIdx+':'+matchIdx);
 }
 /* The knockout result box's winner: Winner only, or typed legs that name a winner, set it. */
 function koPickWinner(side){
@@ -7563,7 +7565,8 @@ function promptScore(groupId, aId, bId, aName, bName){
       '<p style="margin:0 0 6px;font-size:12px;font-weight:700">'+T('sp.orType')+'</p>'+
       '<div class="grid2" oninput="scorePickSync()"><div class="field"><label>'+T('score.legsOf', {name: escapeHtml(aName)})+'</label><input id="scA" type="number" '+clampAttr+' value="'+escText(curA)+'"></div>'+
       '<div class="field"><label>'+T('score.legsOf', {name: escapeHtml(bName)})+'</label><input id="scB" type="number" '+clampAttr+' value="'+escText(curB)+'"></div></div>'+
-      '<p style="font-size:11px;color:#8a97a5">'+T('rr.score.hint', {n: escText(state.format.bestOfLegs), m: majority0})+'</p>',
+      '<p style="font-size:11px;color:#8a97a5">'+T('rr.score.hint', {n: escText(state.format.bestOfLegs), m: majority0})+'</p>'+
+      livePaperRowHTML('rr:'+groupId+':'+scoreKey(aId, bId)),
     confirmLabel:T('score.save'), confirmClass:'primary',
     secondaryLabel: sc ? T('ko.clear') : '',
     onSecondary: ()=> clearGroupResult(groupId, aId, bId, aName, bName),
@@ -7585,6 +7588,7 @@ function promptScore(groupId, aId, bId, aName, bName){
     }
   });
   if(!(sc && sc.wo)) setTimeout(scorePickSync, 0);   // a saved result shows as its button, lit (a walkover's legs were not played: none)
+  livePaperLoad('rr:'+groupId+':'+scoreKey(aId, bId));
 }
 /* Teams, round robin: one plain result, the total legs each team won across all its segments. Capped at the most a team
    can win (teamMatchCap). A level total goes to the tie-breaker (no draws); only an older event that already saved a draw keeps
@@ -7600,7 +7604,7 @@ function promptScoreTeams(g, aId, bId, aName, bName){
     title: T('ko.vs', {a: escapeHtml(aName), b: escapeHtml(bName)}),
     bodyHTML: '<div class="grid2"><div class="field"><label>'+T('score.legsOf', {name: escapeHtml(aName)})+'</label><input id="scA" type="number" '+clampAttr+' value="'+escText(curA)+'">'+scStepHTML('scA')+'</div>'+
       '<div class="field"><label>'+T('score.legsOf', {name: escapeHtml(bName)})+'</label><input id="scB" type="number" '+clampAttr+' value="'+escText(curB)+'">'+scStepHTML('scB')+'</div></div>'+
-      teamResultHintHTML(state, 'rr'),
+      teamResultHintHTML(state, 'rr')+livePaperRowHTML('rr:'+g.id+':'+scoreKey(aId, bId)),
     confirmLabel:T('score.save'), confirmClass:'primary',
     secondaryLabel: sc ? T('ko.clear') : '',
     onSecondary: ()=> clearGroupResult(g.id, aId, bId, aName, bName),
@@ -7613,6 +7617,7 @@ function promptScoreTeams(g, aId, bId, aName, bName){
       render();
     }
   });
+  livePaperLoad('rr:'+g.id+':'+scoreKey(aId, bId));
 }
 
 /* ---------- Stage 4: Confirm & Print Bracket ---------- */

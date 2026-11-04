@@ -3,10 +3,10 @@
 //   applyResult 'noShow' op, by 'dev' (the opponent is given the walkover legs, Teams: teamWalkoverLegs; in a group the retiring
 //   entry's other unplayed group matches are walkover losses too and the entry is flagged noShow). The turns stay as they are.
 //   200 { ok, slot }                      saved (sent again after a lost answer: the same 200)
-//   400 invalid · 409 not_your_match · 409 changed_by_organiser (the organiser's result stands; the row is marked) · 409 match_over ·
+//   400 invalid · 409 not_your_match · 409 match_paper · 409 changed_by_organiser (the organiser's result stands; the row is marked) · 409 match_over ·
 //   409 not_open · missing · blocked · 503 busy
 //   410 link_ended (the event is finalized: no opt-in) · 401 no_session · 403 live_off · 503 live_not_set_up
-const { sendError, bodyObject, methodNotAllowed, requireSession, sendRefused, refuse, live } = require('./common');
+const { sendError, bodyObject, methodNotAllowed, requireSession, sendRefused, refuse, refusePaper, live } = require('./common');
 const { applyForDevice, slotAnswer } = require('./apply');
 
 module.exports = async (req, res) => {
@@ -18,7 +18,8 @@ module.exports = async (req, res) => {
     if (!found) return;
     const me = found.device.id, id = found.tournament.id, pos = b.pos, side = b.side;
     const row = await live.matchFull(id, pos);
-    if (!row || row.device_id !== me || row.paper) { refuse(res, 409, 'not_your_match', 'This match is not on this device any more.'); return; }
+    if (row && row.paper) { refusePaper(res); return; }
+    if (!row || row.device_id !== me) { refuse(res, 409, 'not_your_match', 'This match is not on this device any more.'); return; }
     if (row.changed_by_organiser) { refuse(res, 409, 'changed_by_organiser', 'The organiser entered this result.'); return; }
     if (row.state === 'confirmed' || row.state === 'voided' || (row.state === 'retired' && row.retired_side !== side)) { refuse(res, 409, 'match_over', 'This match is over.'); return; }
     const out = await applyForDevice(found, pos, 'noShow', { side }, { settled: row.state === 'retired' });

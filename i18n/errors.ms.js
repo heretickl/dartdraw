@@ -40,6 +40,9 @@ var DD_ERR_MS = {
   'err.turn_not_restorable': "Versi itu tidak boleh dipulihkan.",
   'err.event_closed': "Acara ini sudah ditutup.",
   'err.close_blocked': "Sesetengah peranti masih memegang giliran atau perlawanan yang belum masuk.",
+  'err.match_paper': "Perlawanan ini dimarkahkan di atas kertas.",
+  'err.needs_confirm': "Sebuah tablet sedang memasukkan skor perlawanan ini.",
+  'err.paper_has_result': "Perlawanan ini sudah mempunyai keputusan, jadi ia tidak boleh dikembalikan kepada tablet.",
   /* every endpoint */
   'err.method_not_allowed': 'Kaedah tidak dibenarkan',
   'err.not_found': 'Tidak dijumpai.',

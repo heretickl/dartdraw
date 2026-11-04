@@ -1,18 +1,24 @@
 // /api/score/result: one action on one match by a floor official. POST { pos, op, la?, lb?, side?, rv? } with
 // X-Score-Session. op: 'score' (la = legs of slot.a, lb = of slot.b), 'win' (knockout: side 'a'|'b' won, no legs), 'noShow' (side 'a'|'b'), 'void' (knockout
-// "Neither showed"), 'call' / 'uncall'.
+// "Neither showed"), 'call' / 'uncall', 'paper' (a Live event only: { pos, op: 'paper', on: boolean, confirm?: true }, see below).
 //   200 { ok:true, slot }
 //   409 { ok:false, code, slot }  taken (another official entered it) · changed_by_organiser · too_late (the 5 minutes
 //                                 are over) · later_played (a correction would clear results already played further on)
 //   403 not_your_board · 410 link_* · 400 invalid · 401 no_session · 503 busy
 //   On a Live event (device scoring): a match a tablet is scoring takes no score or winner from an official (409 on_tablet); the
 //   rest (call, no show, Neither showed, a correction of the official's own result) works as always.
+//   op 'paper' (spec 10.5, D16; the official's board check applies; not queued by the page, it needs the answer): on = true puts the match on
+//   paper (a tablet no longer lists or holds it), false sends it back to the tablets. A match a tablet holds needs confirm: true: 409
+//   { ok:false, code:'needs_confirm', held:true, slot } and nothing changes, otherwise. 409 match_over (on, but the match has a result) ·
+//   409 paper_has_result (off, but it has a result) · 400 invalid (not a Live event, or on is not true/false). A match on paper takes the
+//   official's result by hand as ever (no on_tablet). Answers { ok:true, slot } like every other op.
 // The organiser's result always stands: a match the organiser has entered (by 'o') is never changed here. Refusals
 // (not your board, link ended) are kept on the official's row for the organiser's panel ("Not sent").
 const { CORRECT_MS, bodyObject, methodNotAllowed, scoreSession, sendRefused, sendError, writeIfUnchanged, readEvent, slotView, liveRowsOf, engine, officials } = require('./common');
 const LiveBoards = require('../../../live-boards');
+const { switchPaper } = require('../live/paperSwitch');
 
-const OPS = ['score', 'win', 'noShow', 'void', 'call', 'uncall'];
+const OPS = ['score', 'win', 'noShow', 'void', 'call', 'uncall', 'paper'];
 
 /* Would this request leave the match exactly as it is stored now? (the same request sent twice) */
 function sameAsSent(e, t, slot, b) {
@@ -58,6 +64,18 @@ module.exports = async (req, res) => {
       const cur = slot.get();
       const decided = slot.kind === 'rr' ? !!cur : !!(slot.m.winnerId || slot.m.void || slot.m.bye);
       const answer = (code, status) => res.status(status || 409).json({ ok: false, code, slot: e.plain(view(t, slot, now)) });
+      if (b.op === 'paper') {
+        if (!live || typeof b.on !== 'boolean') { answer('invalid', 400); return; }
+        const out = await switchPaper(row.id, slot, b.on, b.confirm === true);
+        if (!out.ok) {
+          if (out.body.code === 'not_found') { answer('missing'); return; }
+          res.status(out.status).json(Object.assign({ ok: false }, out.body, { slot: e.plain(view(t, slot, now)) })); return;
+        }
+        live[b.pos] = out.row;   // the answer's slot shows the match as it is now
+        await officials.touch(me, false);
+        res.status(200).json({ ok: true, rev: row.updated_at, slot: e.plain(view(t, slot, now)) });
+        return;
+      }
       if (live && !decided && (b.op === 'score' || b.op === 'win') && LiveBoards.heldBy(live[b.pos] || null)) { answer('on_tablet'); return; }
       if (b.op === 'call' || b.op === 'uncall') {
         if (slot.kind !== 'ko' || decided || !slot.open) { answer(decided ? 'taken' : 'invalid', decided ? 409 : 400); return; }

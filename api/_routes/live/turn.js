@@ -7,10 +7,11 @@
 //   400 invalid_turn                    malformed: NOT stored
 //   409 not_your_match                  this device does not hold the match (taken over, never claimed): stored, flagged ignored
 //   409 changed_by_organiser / match_over   the organiser's result stands / the match is over: stored, flagged ignored
+//   409 match_paper                     the match is scored on paper (the organiser or an official put it there): stored, flagged ignored 'paper'
 //   401 no_session · 403 live_off · 410 link_ended · 503 live_not_set_up
 // live_turns is append-only: a correction is a new turn whose `supersedes` names the one it replaces. Turns kept as ignored are
 // never counted in the match's summary.
-const { sendError, bodyObject, methodNotAllowed, requireSession, refuse, live } = require('./common');
+const { sendError, bodyObject, methodNotAllowed, requireSession, refuse, refusePaper, live } = require('./common');
 const { load, startForOf } = require('./view');
 const { cleanEntered, summarize } = require('../../_lib/live-summary');
 
@@ -33,9 +34,10 @@ function parseTurn(b, me) {
   return { id: b.id, pos: b.pos, leg: b.leg, side: b.side, player: b.player == null ? null : b.player, entered, supersedes: b.supersedes == null ? null : b.supersedes, deviceId: me };
 }
 
-/* Why a turn is not counted (null = it counts). Order: finalized event, not the holder, the organiser's result, match over. */
+/* Why a turn is not counted (null = it counts). Order: finalized event, paper, not the holder, the organiser's result, match over. */
 function ignoreReason(found, row, me) {
   if (found.finalized) return 'finalised';
+  if (row && row.paper) return 'paper';
   if (!row || row.device_id !== me) return 'not_holder';
   if (row.changed_by_organiser) return 'changed_by_organiser';
   if (row.state === 'confirmed' || row.state === 'retired' || row.state === 'voided') return 'match_over';
@@ -47,6 +49,7 @@ const ANSWERS = {
   match_over: [409, 'match_over', 'This match is over.']
 };
 function answerIgnored(res, reason, duplicate) {
+  if (reason === 'paper') { refusePaper(res); return; }
   if (reason === 'finalised') { res.status(200).json(Object.assign({ ok: true, ignored: true }, duplicate ? { duplicate: true } : {})); return; }
   const a = ANSWERS[reason] || ANSWERS.match_over;
   refuse(res, a[0], a[1], a[2]);
