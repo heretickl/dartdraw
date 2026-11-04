@@ -169,7 +169,7 @@ test('summary: winner, runner-up, legs, the page\'s buttons', () => {
 test('gear pop-up: turn total or dart by dart, checkout hints', () => {
   const m = match('501', 5); m.bull('a');
   const d = dom(m, { popup: { kind: 'gear' }, hints: true });
-  assert.deepEqual(all(d, '[data-act="mode"]').map((e) => [e.getAttribute('data-v'), e.classList.contains('on')]), [['total', true], ['darts', false]]);
+  assert.deepEqual(all(d, '.gearp [data-act="mode"]').map((e) => [e.getAttribute('data-v'), e.classList.contains('on')]), [['total', true], ['darts', false]]);
   assert.equal(txt(d.querySelector('[data-act="hints"]')), 'ON');
   assert.ok(d.querySelector('[data-act="closePop"]'));
 });

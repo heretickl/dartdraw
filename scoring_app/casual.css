@@ -21,6 +21,11 @@ body{overscroll-behavior:none}
 .cs .opt span{font:500 17px var(--man);color:#cfd8e1}
 .cs .opt.on{border:2px solid #4fc0ff;background:linear-gradient(180deg,#1f8dff,#0a5fd6);box-shadow:0 0 22px rgba(30,140,255,.7)}
 .cs .opt.on span{color:#e6f3ff}
+.cs .legs{display:grid;gap:8px;margin:16px 8px 0}
+.cs .lrow{display:grid;grid-template-columns:110px 1fr 1fr;gap:10px;align-items:center}
+.cs .lrow .ln{font:700 24px var(--bar);color:#cfd8e1}
+.cs .lrow .opt{height:52px}.cs .lrow .opt b{font-size:26px}
+.cs .lrow .lc{grid-column:2/4;height:52px;border-radius:16px;border:2px dashed rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font:700 22px var(--bar);color:#ffe08a}
 .cs .first{font:500 20px var(--man);color:#cfd8e1;margin:20px 8px 0}
 .cs .cserr{font:600 20px var(--man);color:#ff6b75;margin:14px 8px 0;min-height:24px}
 .cs .nextb{font:500 20px var(--man);color:#cfd8e1;text-align:center;margin:auto 8px 14px}

@@ -25,9 +25,13 @@
 
   function cleanPicks(p) {
     p = p || {};
+    // Choice: the game of each leg before the last (best of 9 has 8), 501 and Cricket in turn until changed
+    var legs = [];
+    for (var i = 0; i < 8; i++) legs.push(Array.isArray(p.legs) && (p.legs[i] === 'x01' || p.legs[i] === 'cricket') ? p.legs[i] : (i % 2 ? 'cricket' : 'x01'));
     return {
       a: typeof p.a === 'string' ? p.a.slice(0, 20) : '', b: typeof p.b === 'string' ? p.b.slice(0, 20) : '',
-      game: GAMES.indexOf(p.game) >= 0 ? p.game : '501', bestOf: BESTS.indexOf(Number(p.bestOf)) >= 0 ? Number(p.bestOf) : 5
+      game: GAMES.indexOf(p.game) >= 0 ? p.game : '501', bestOf: BESTS.indexOf(Number(p.bestOf)) >= 0 ? Number(p.bestOf) : 5,
+      legs: legs
     };
   }
   function save(storage, data) { try { storage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* private mode: play on */ } }
@@ -47,7 +51,7 @@
 
   function names(picks) { return { a: picks.a.trim(), b: picks.b.trim() }; }
   function matchFrom(data, hints) {
-    return Scoring().create({ format: Scoring().formatFor({ game: data.picks.game, bestOf: data.picks.bestOf }), names: names(data.picks), events: data.events || [], hints: !!hints });
+    return Scoring().create({ format: Scoring().formatFor({ game: data.picks.game, bestOf: data.picks.bestOf, legs: data.picks.legs }), names: names(data.picks), events: data.events || [], hints: !!hints });
   }
   function headerFor(picks, w) {
     var key = 'line3' + (picks.game === '501' ? 'x01' : picks.game) + (picks.bestOf === 1 ? 'one' : '');
@@ -64,6 +68,19 @@
     var bests = BESTS.map(function (n) {
       return '<button class="opt' + (picks.bestOf === n ? ' on' : '') + '" data-cs="best" data-v="' + n + '"><b>' + n + '</b><span>' + esc(n === 1 ? w.leg1 : w.legsN) + '</span></button>';
     }).join('');
+    // Choice: pick 501 or Cricket for every leg but the last, which is always the Choice leg (owner 2026-11-04)
+    var legs = '';
+    if (picks.game === 'choice') {
+      for (var i = 0; i < picks.bestOf; i++) {
+        var row = i < picks.bestOf - 1
+          ? [['x01', w.game501], ['cricket', w.gameCricket]].map(function (x) {
+            return '<button class="opt' + (picks.legs[i] === x[0] ? ' on' : '') + '" data-cs="leg" data-v="' + i + ':' + x[0] + '"><b>' + esc(x[1]) + '</b></button>';
+          }).join('')
+          : '<div class="lc">' + esc(w.legChoice) + '</div>';
+        legs += '<div class="lrow"><span class="ln">' + esc(fmt(w.legN, { n: i + 1 })) + '</span>' + row + '</div>';
+      }
+      legs = '<div class="legs">' + legs + '</div>';
+    }
     var name = function (id, side, val, label) {
       return '<label class="nm side-' + side + '"><input id="' + id + '" type="text" maxlength="20" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="'
         + esc(w.namePlaceholder) + '" value="' + esc(val) + '"><span>' + esc(label) + '</span></label>';
@@ -72,7 +89,7 @@
       + '</div></div><span></span></header>'
       + '<h3>' + esc(w.players) + '</h3>' + name('csA', 'a', picks.a, w.player1) + name('csB', 'b', picks.b, w.player2)
       + '<h3>' + esc(w.game) + '</h3><div class="games">' + games + '</div>'
-      + '<h3>' + esc(w.bestOf) + '</h3><div class="bests">' + bests + '</div>'
+      + '<h3>' + esc(w.bestOf) + '</h3><div class="bests">' + bests + '</div>' + legs
       + '<p class="first">' + esc(picks.bestOf === 1 ? w.firstTo1 : fmt(w.firstTo, { n: Math.floor(picks.bestOf / 2) + 1 })) + '</p>'
       + '<p class="cserr"></p><p class="nextb">' + esc(w.nextBull) + '</p>'
       + '<button class="red go" data-cs="start">' + esc(w.startGame) + '</button></div>';
@@ -137,6 +154,7 @@
       var k = el.getAttribute('data-cs'), val = el.getAttribute('data-v');
       if (k === 'game') { data.picks.game = val; keep(); showSetup(); }
       else if (k === 'best') { data.picks.bestOf = Number(val); keep(); showSetup(); }
+      else if (k === 'leg') { var p = String(val).split(':'); data.picks.legs[Number(p[0])] = p[1]; keep(); showSetup(); }
       else if (k === 'start' && !checkNames(data.picks.a, data.picks.b)) { data.screen = 'game'; data.events = []; keep(); showGame(); }
     });
 

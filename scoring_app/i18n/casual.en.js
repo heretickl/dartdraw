@@ -19,6 +19,8 @@ var DD_CASUAL_EN = {
   bestOf: 'BEST OF',
   leg1: 'LEG',
   legsN: 'LEGS',
+  legN: 'LEG {n}',
+  legChoice: 'CHOICE • Bull, then choose',
   firstTo: 'First to {n} legs wins.',
   firstTo1: 'One leg wins.',
   nextBull: 'Next: a bull throw to see who starts.',
@@ -118,8 +120,8 @@ var DD_CASUAL_EN = {
 
   /* settings */
   gearTitle: 'SETTINGS',
-  modeTotal: 'TURN TOTAL',
-  modeDarts: 'DART BY DART',
+  modeTotal: 'NORMAL MODE',
+  modeDarts: 'EASY MODE',
   hints: 'CHECKOUT HINTS',
   on: 'ON',
   off: 'OFF',

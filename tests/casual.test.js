@@ -66,6 +66,33 @@ test('setup: names, game, best of, start (CSetup)', () => {
   assert.equal(s.q('#csA').value, 'Ahmad');
 });
 
+test('Choice: each leg\'s game is picked at setup, and the last leg is always the Choice leg (owner 2026-11-04)', () => {
+  const store = memStore(), s = site(store);
+  assert.equal(s.q('.legs'), null); // 501: no leg picks
+  s.type('#csA', 'Ahmad'); s.type('#csB', 'Daniel');
+  s.tap('[data-cs="game"][data-v="choice"]');
+  const rows = () => s.root.querySelectorAll('.legs .lrow');
+  const on = () => rows().slice(0, -1).map((r) => r.querySelector('.opt.on').getAttribute('data-v'));
+  assert.equal(rows().length, 5);
+  assert.deepEqual(rows().map((r) => txt(r.querySelector('.ln'))), ['LEG 1', 'LEG 2', 'LEG 3', 'LEG 4', 'LEG 5']);
+  assert.deepEqual(on(), ['0:x01', '1:cricket', '2:x01', '3:cricket']);
+  assert.equal(rows()[4].querySelectorAll('[data-cs="leg"]').length, 0);
+  assert.equal(txt(rows()[4].querySelector('.lc')), 'CHOICE • Bull, then choose');
+  s.tap('[data-cs="leg"][data-v="0:cricket"]'); s.tap('[data-cs="leg"][data-v="1:x01"]');
+  assert.deepEqual(on(), ['0:cricket', '1:x01', '2:x01', '3:cricket']);
+  s.tap('[data-cs="best"][data-v="3"]');
+  assert.equal(rows().length, 3);
+  assert.deepEqual(on(), ['0:cricket', '1:x01']); // the picks are kept when best of changes
+  s.tap('[data-cs="best"][data-v="1"]');
+  assert.equal(rows().length, 1);
+  assert.equal(txt(rows()[0].querySelector('.ln')) + ' ' + txt(rows()[0].querySelector('.lc')), 'LEG 1 CHOICE • Bull, then choose');
+  s.tap('[data-cs="best"][data-v="5"]');
+  s.tap('[data-cs="start"]');
+  s.tap('[data-act="bull"][data-v="a"]');
+  assert.equal(s.h.match().view().game, 'cricket');
+  assert.deepEqual(plain(C.load(store).picks.legs.slice(0, 4)), ['cricket', 'x01', 'x01', 'cricket']);
+});
+
 test('start: the opening bull, without check-in or coin flip (CBull)', () => {
   const s = site(memStore());
   ready(s, 'Ahmad', 'Daniel', 'choice', '5');

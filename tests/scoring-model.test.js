@@ -36,6 +36,19 @@ test('formatFor maps the three games (spec 4.4)', () => {
   assert.deepEqual(F('choice', 7), { game: 'mixed', start: 501, inRule: 'SI', pattern: ['x01', 'cricket'], bestOf: 7, bullFirst: 'first', decider: 'choice' });
 });
 
+test('formatFor: Choice plays the games picked for each leg before the deciding leg (owner 2026-11-04)', () => {
+  const f = (legs, bestOf) => S.formatFor({ game: 'choice', bestOf, legs }).pattern;
+  assert.deepEqual(f(['cricket', 'cricket', 'x01', 'x01', 'cricket', 'x01', 'x01', 'x01'], 5), ['cricket', 'cricket', 'x01', 'x01']);
+  assert.deepEqual(f(['cricket', 'x01'], 3), ['cricket', 'x01']);
+  assert.deepEqual(f(['cricket', 'bogus'], 3), ['x01', 'cricket']); // anything odd: the old swap, 501 first
+  assert.deepEqual(f(undefined, 5), ['x01', 'cricket']);
+  assert.deepEqual(f(['cricket'], 1), ['x01', 'cricket']); // best of 1 is only the Choice leg
+  const m = S.create({ format: S.formatFor({ game: 'choice', bestOf: 5, legs: ['cricket', 'cricket', 'x01', 'x01'] }), names: { a: 'Ahmad', b: 'Daniel' }, now: () => 1000 });
+  m.bull('a'); assert.equal(m.view().game, 'cricket');
+  winLeg(m, 'a'); assert.equal(m.view().game, 'cricket');
+  winLeg(m, 'a'); assert.equal(m.view().game, 'x01');
+});
+
 test('a new match asks for the bull; the closest starts leg 1', () => {
   const m = make('501', 3);
   assert.equal(m.view().ask, 'bull');

@@ -20,11 +20,11 @@ test('a tall phone: the screen fills its height', () => {
   });
 });
 
-test('a short or wide screen keeps the design height', () => {
+test('a short screen: scaled down so the whole screen fits its height (owner 2026-11-04: every device)', () => {
   withPage(660, 600, () => {
     const el = { style: {} };
     D.fit(el);
-    assert.equal(el.style.zoom, 1);
+    assert.equal(el.style.zoom, 600 / 982);
     assert.equal(el.style.minHeight, '982px');
   });
 });

@@ -20,7 +20,13 @@
   function formatFor(picks) {
     var bestOf = Number(picks && picks.bestOf) || 5, game = picks && picks.game;
     if (game === 'cricket') return { game: 'cricket', bestOf: bestOf, bullFirst: 'first', decider: 'alternate' };
-    if (game === 'choice') return { game: 'mixed', start: 501, inRule: 'SI', pattern: ['x01', 'cricket'], bestOf: bestOf, bullFirst: 'first', decider: 'choice' };
+    if (game === 'choice') {
+      // picks.legs: the game of each leg before the deciding (Choice) leg, picked at setup (owner 2026-11-04); anything
+      // missing or odd falls back to the swap, 501 first
+      var legs = Array.isArray(picks.legs) ? picks.legs.slice(0, bestOf - 1) : [];
+      var good = legs.length === bestOf - 1 && legs.length > 0 && legs.every(function (g) { return g === 'x01' || g === 'cricket'; });
+      return { game: 'mixed', start: 501, inRule: 'SI', pattern: good ? legs : ['x01', 'cricket'], bestOf: bestOf, bullFirst: 'first', decider: 'choice' };
+    }
     return { game: 'x01', start: 501, inRule: 'SI', bestOf: bestOf, bullFirst: 'first', decider: 'alternate' };
   }
 

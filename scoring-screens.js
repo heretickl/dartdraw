@@ -66,6 +66,15 @@
       + card('b') + '</section>';
   }
 
+  /* 01 only: Normal Mode (turn total) or Easy Mode (dart by dart), one tap away under the score cards (owner 2026-11-04) */
+  function modeSwitch(v, o) {
+    if (v.game !== 'x01') return '';
+    var mode = o.mode || 'total';
+    return '<section class="modesw">' + [['total', o.words.modeTotal], ['darts', o.words.modeDarts]].map(function (x) {
+      return '<button class="' + (mode === x[0] ? 'on' : '') + '"' + act('mode', x[0]) + '>' + esc(x[1]) + '</button>';
+    }).join('') + '</section>';
+  }
+
   function pop(side, inner, cls) {
     return '<div class="veil"></div><div class="pop side-' + side + (cls ? ' ' + cls : '') + '" role="dialog">' + inner + '</div>';
   }
@@ -145,7 +154,9 @@
       + '<button class="red enter"' + act('enter') + (cur.length ? '' : ' disabled') + '>' + ICON.check + '<span>' + esc(w.enter) + '</span></button></section>';
   }
 
-  function x01Darts(v, o) {
+  function x01Darts(v, o) { return x01DartsParts(v, o).join(''); }
+  /* [what this turn has scored, the keys]: one above the other on a phone, side by side on a wide screen */
+  function x01DartsParts(v, o) {
     var w = o.words, cur = o.cur || [], s = v.throwing, mult = o.mult || 1;
     var scored = cur.reduce(function (t, d) { return t + d.n * d.m; }, 0), after = v.sides[s].left - scored;
     // below 0, 1 left, or 0 not on a double is a bust: say NO SCORE rather than a minus number (owner 2026-11-04)
@@ -162,13 +173,15 @@
       + '<button class="k sm"' + act('miss') + '>' + esc(w.miss) + '</button><button class="k"' + act('del') + '>' + ICON.del + '</button>'
       + '<button class="k bust"' + act('bust') + '>' + esc(w.bust) + '</button>';
     // the last 3 scores stay on screen, as in turn total (owner 2026-11-04), and the darts keyed so far add up as they go
-    return last3(v, o) + '<section class="panel turnp"><div class="ttl">' + esc(w.thisTurn) + '</div>'
+    return [last3(v, o) + '<section class="panel turnp"><div class="ttl">' + esc(w.thisTurn) + '</div>'
       + '<div class="line"><span class="who">' + esc(fmt(w.toThrow, { name: up(v.sides[s].name) })) + '</span><span class="scored">' + esc(fmt(w.scoredSoFar, { n: scored })) + '</span><span class="after">' + (busted ? esc(w.bust) : esc(w.leftAfter) + ' ' + after) + '</span></div>'
-      + '<div class="slots">' + slots + '</div>' + hintLine(cur.length && o.hintFor ? { hint: o.hintFor(after, 3 - cur.length) } : v) + '</section>'
-      + '<section class="mults">' + mults + '</section><section class="grid">' + grid + '</section>' + dartsBar(o);
+      + '<div class="slots">' + slots + '</div>' + hintLine(cur.length && o.hintFor ? { hint: o.hintFor(after, 3 - cur.length) } : v) + '</section>',
+      '<section class="mults">' + mults + '</section><section class="grid">' + grid + '</section>' + dartsBar(o)];
   }
 
-  function cricketPad(v, o) {
+  function cricketPad(v, o) { return cricketParts(v, o).join(''); }
+  /* [the board, the darts bar] */
+  function cricketParts(v, o) {
     var w = o.words, rows = '';
     function marks(n, side) {
       var k = Math.min(3, n), out = '';
@@ -185,8 +198,8 @@
         + (dead ? '<span class="num">' + esc(label) + '</span>' : '<button class="num"' + act('dart', r.n + ':1') + '>' + esc(label) + '</button>')
         + key('t', 3, 'T') + marks(r.b, 'b') + '</div>';
     });
-    return '<section class="panel cricket"><div class="chd"><span>' + esc(up(v.sides.a.name)) + '</span><span>' + esc(w.darts) + '</span><span>'
-      + esc(up(v.sides.b.name)) + '</span></div>' + rows + '<button class="key miss"' + act('miss') + '>' + esc(w.miss) + '</button></section>' + dartsBar(o);
+    return ['<section class="panel cricket"><div class="chd"><span>' + esc(up(v.sides.a.name)) + '</span><span>' + esc(w.darts) + '</span><span>'
+      + esc(up(v.sides.b.name)) + '</span></div>' + rows + '<button class="key miss"' + act('miss') + '>' + esc(w.miss) + '</button></section>', dartsBar(o)];
   }
 
   /* ---------- bulls and Choice ---------- */
@@ -356,7 +369,7 @@
   /* ---------- the whole screen ---------- */
 
   function render(v, o) {
-    var body = '', pops = '', p = o.popup || null, hd = o;
+    var body = '', pops = '', p = o.popup || null, hd = o, wide = false;
     if (p && (p.kind === 'turns' || p.kind === 'edit')) {
       body = turnsScreen(v, { words: o.words, popup: { leg: p.leg }, turns: o.turns });
       if (p.kind === 'edit') pops = editPop(v, o);
@@ -368,10 +381,13 @@
     } else if (v.ask === 'choice') {
       body = choiceScreen(v, o);
     } else if (v.ask === 'turn') {
-      body = cards(v, o);
-      if (v.game === 'cricket') body += cricketPad(v, o);
-      else if ((o.mode || 'total') === 'darts') body += x01Darts(v, o);
-      else body += last3(v, o) + totalPad(v, o);
+      // [left, right]: stacked on a phone; side by side on a wide screen (owner 2026-11-04), scores left, keys right
+      var parts = v.game === 'cricket' ? cricketParts(v, o).reverse()
+        : (o.mode || 'total') === 'darts' ? x01DartsParts(v, o) : [last3(v, o), totalPad(v, o)];
+      wide = !!o.wide;
+      var top = cards(v, o) + modeSwitch(v, o);
+      body = wide ? '<div class="wl">' + top + parts[0] + '</div><div class="wr">' + parts[1] + '</div>'
+        : top + (v.game === 'cricket' ? parts[1] + parts[0] : parts[0] + parts[1]);
       if (v.pending) pops = whichDart(v, o);
       else if (v.askBust) pops = bustAsk(v, o);
     }
@@ -384,20 +400,30 @@
     if (v.winner && !(p && (p.kind === 'turns' || p.kind === 'edit'))) {
       head = head.replace(/<div class="rt">[\s\S]*?<\/div><\/header>$/, '<div class="rt"><span class="pill over">' + esc(o.words.matchOver) + '</span></div></header>');
     }
-    var compact = v.ask === 'turn' && v.game === 'x01' && (o.mode || 'total') === 'darts' && !(p && (p.kind === 'turns' || p.kind === 'edit'));
-    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + '">' + head + body + pops + '</div>';
+    var compact = !wide && v.ask === 'turn' && v.game === 'x01' && (o.mode || 'total') === 'darts' && !(p && (p.kind === 'turns' || p.kind === 'edit'));
+    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + (wide ? ' wide' : '') + '">' + head + body + pops + '</div>';
   }
 
-  /* Scale a 660px-wide screen to the phone, and stretch it to the phone's height (the keypads and cricket rows take the
-     extra room), so a tall phone has no empty band at the bottom. The width is the page's own (clientWidth): a page wider
-     than the phone makes window.innerWidth grow with it. */
+  /* A screen clearly wider than tall (a tablet or phone on its side, a laptop) gets the side-by-side layout. */
+  function isWide() {
+    if (typeof document === 'undefined' || !document.documentElement || typeof window === 'undefined') return false;
+    var w = document.documentElement.clientWidth || window.innerWidth, h = window.innerHeight;
+    return !!(w && h && w >= h * 1.2);
+  }
+
+  /* Scale a 660 x 982 screen (1280 x 720 when wide) to fit the window both ways, and stretch it to the window's height
+     (the keypads and cricket rows take the extra room), so a tall phone has no empty band at the bottom and a short or
+     wide window needs no scrolling (owner 2026-11-04: every device). The width is the page's own (clientWidth): a page
+     wider than the phone makes window.innerWidth grow with it. */
   function fit(el) {
     if (!el || !el.style || typeof document === 'undefined' || !document.documentElement) return;
     var w = document.documentElement.clientWidth || (typeof window !== 'undefined' && window.innerWidth);
     if (!w) return;
-    var z = Math.min(1.25, w / 660), h = typeof window !== 'undefined' && window.innerHeight;
+    var h = typeof window !== 'undefined' && window.innerHeight;
+    var wide = el.classList && el.classList.contains('wide'), dw = wide ? 1280 : 660, dh = wide ? 720 : 982;
+    var z = Math.min(wide ? 1.5 : 1.25, w / dw, h ? h / dh : Infinity);
     el.style.zoom = z;
-    el.style.minHeight = Math.max(982, h ? Math.round(h / z) : 0) + 'px';
+    el.style.minHeight = Math.max(dh, h ? Math.round(h / z) : 0) + 'px';
   }
 
   /* ---------- taps ---------- */
@@ -408,12 +434,13 @@
      page's summary buttons, back); opts.onPrefs({mode, hints}) when settings change. */
   function mount(root, match, opts) {
     var ui = { typed: '', cur: [], mult: 1, popup: null, asked: null, choicePick: null, choiceGame: null };
-    var mode = opts.mode || 'total', hints = !!opts.hints;
+    var mode = opts.mode || 'total', hints = !!opts.hints, wideNow = false;
     match.setHints && match.setHints(hints);
 
     function refresh() {
       var v = match.view();
-      var o = Object.assign({}, opts, ui, { mode: mode, hints: hints, hintFor: match.hintFor });
+      wideNow = isWide();
+      var o = Object.assign({}, opts, ui, { mode: mode, hints: hints, hintFor: match.hintFor, wide: wideNow });
       if (ui.popup && (ui.popup.kind === 'turns' || ui.popup.kind === 'edit')) o.turns = match.legTurns(ui.popup.leg);
       root.innerHTML = render(v, o);
       fit(root.firstChild);
@@ -501,9 +528,47 @@
       if (!el || el.hasAttribute('disabled')) return;
       handle(el.getAttribute('data-act'), el.getAttribute('data-v'));
     });
+    // Turning the tablet or resizing the window redraws when it crosses between upright and wide; the listeners go
+    // once this screen is no longer on the page (New game draws a fresh one).
+    function gone() { return root.isConnected === false; }
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      var onResize = function () {
+        if (gone()) { window.removeEventListener('resize', onResize); window.removeEventListener('orientationchange', onResize); return; }
+        if (isWide() !== wideNow) refresh(); else fit(root.firstChild);
+      };
+      window.addEventListener('resize', onResize);
+      window.addEventListener('orientationchange', onResize);
+    }
+    // A keyboard (laptop, tablet keyboard): digits, Backspace and Enter key a turn total or a change; Escape closes a
+    // pop-up. Not while typing in a box, nor on screens without the number pad.
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener('keydown', function onKey(ev) {
+        if (gone()) { document.removeEventListener('keydown', onKey); return; }
+        var t = ev.target, tag = t && t.tagName ? String(t.tagName).toLowerCase() : '';
+        if (tag === 'input' || tag === 'textarea' || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+        var a = keyAct(ev.key);
+        if (!a) return;
+        if (ev.preventDefault) ev.preventDefault();
+        handle(a[0], a[1]);
+      });
+    }
+    function keyAct(k) {
+      var v = match.view(), p = ui.popup, editing = p && p.kind === 'edit';
+      if (k === 'Escape') return editing ? ['closeEdit'] : p ? ['closePop'] : null;
+      var x01Edit = editing && !ui.cur.length && match.legTurns && (function () {
+        var rows = match.legTurns(p.leg), first = rows[0] && (rows[0].a || rows[0].b);
+        return !(first && first.marks !== null && first.marks !== undefined);
+      })();
+      var typing = x01Edit || (!p && v.ask === 'turn' && v.game === 'x01' && mode === 'total' && !v.pending && !v.askBust);
+      if (!typing) return null;
+      if (/^[0-9]$/.test(k)) return ['digit', k];
+      if (k === 'Backspace') return ['del'];
+      if (k === 'Enter') return [editing ? 'editGo' : 'submit'];
+      return null;
+    }
     refresh();
     return { refresh: refresh, act: handle, setMatch: function (m) { match = m; ui = { typed: '', cur: [], mult: 1, popup: null, asked: null, choicePick: null, choiceGame: null }; match.setHints && match.setHints(hints); refresh(); } };
   }
 
-  return { esc: esc, fmt: fmt, render: render, mount: mount, fit: fit, dartName: dartName, QUICK: QUICK, ICON: ICON, other: other };
+  return { esc: esc, fmt: fmt, render: render, mount: mount, fit: fit, isWide: isWide, dartName: dartName, QUICK: QUICK, ICON: ICON, other: other };
 });

@@ -269,3 +269,30 @@
 .dds .dbar{flex:none}
 .dds .sum{flex:1 1 auto;display:flex;flex-direction:column}
 .dds .sum .btns{margin-top:auto;padding-top:16px}
+
+/* Wide screens (owner 2026-11-04): a tablet or phone on its side, or a laptop, gets a 1280 x 720 screen with the scores
+   on the left and the keys on the right; fit() scales it to the window both ways. Pop-ups stay phone-width, centred. */
+.dds.wide{width:1280px;min-height:720px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto 1fr;column-gap:40px;padding:0 30px 22px}
+.dds.wide>.dds-hd{grid-column:1/3;height:92px;grid-template-columns:120px 1fr 160px}
+.dds.wide .wl,.dds.wide .wr{display:flex;flex-direction:column;min-height:0}
+.dds.wide .wl>*,.dds.wide .wr>*{flex:none}
+.dds.wide .wl .dds-cards{height:200px}.dds.wide .wl .card{height:184px}
+.dds.wide .wr>:first-child{margin-top:0}
+.dds.wide .wr .pad{flex:1 1 auto;grid-auto-rows:minmax(56px,1fr)}
+.dds.wide .wr .grid{flex:1 1 auto;grid-auto-rows:minmax(50px,1fr)}
+.dds.wide .wr .cricket{flex:1 1 auto;margin-top:0}
+.dds.wide .wr .crow{max-height:none}
+.dds.wide .wl .last3{flex:1 1 auto;display:flex;flex-direction:column}
+.dds.wide .wl .last3 .row{flex:1 1 auto;height:auto}
+.dds.wide.g-cricket .wl .dds-cards{flex:1 1 auto;height:auto}
+.dds.wide.g-cricket .wl .card{height:100%}
+.dds.wide.g-cricket .wl .card .sc{font-size:150px}.dds.wide.g-cricket .wl .card .nm{font-size:44px}
+.dds.wide.g-cricket .wl .dbar{margin-top:20px}
+.dds.wide .pop{left:50%;right:auto;width:600px;transform:translateX(-50%);top:110px}
+
+/* 01: the Normal Mode | Easy Mode switch under the score cards (owner 2026-11-04) */
+.dds .modesw{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:99px;border:1.5px solid rgba(255,255,255,.2);background:rgba(8,12,18,.6)}
+.dds .modesw button{height:38px;border-radius:99px;font:700 22px var(--bar);color:#cfd8e1;letter-spacing:.02em}
+.dds .modesw button.on{color:#fff;background:linear-gradient(180deg,#2196ff,#0a5ad0);box-shadow:0 0 14px rgba(30,150,255,.7)}
+.dds.compact .modesw{margin-top:6px}.dds.compact .modesw button{height:32px;font-size:20px}
+.dds.wide .wl .modesw{margin-top:14px}.dds.wide .wl .modesw button{height:46px;font-size:24px}
