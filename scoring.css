@@ -22,7 +22,7 @@
 .dds-hd .pill{font:700 20px var(--bar);padding:7px 16px;border-radius:99px;background:linear-gradient(180deg,#ff2e3c,#e3101e);box-shadow:0 0 16px rgba(255,36,51,.55);white-space:nowrap}
 
 /* score cards and legs */
-.dds-cards{display:grid;grid-template-columns:1fr 104px 1fr;gap:12px;align-items:center;height:166px}
+.dds-cards{display:grid;grid-template-columns:minmax(0,1fr) 104px minmax(0,1fr);gap:12px;align-items:center;height:166px}
 .dds .card{position:relative;height:148px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:.72;transition:opacity .15s}
 .dds .card.on{opacity:1}
 .dds .card.side-a{border:2px solid #28b4ff;background:linear-gradient(180deg,#07111c,#04080d);box-shadow:-9px 9px 0 0 var(--a2),inset 0 0 22px rgba(30,150,255,.28),0 0 26px rgba(20,160,255,.45)}

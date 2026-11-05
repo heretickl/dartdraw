@@ -213,3 +213,11 @@ test('keyboard: Escape closes settings', () => {
     assert.equal(p.root.querySelector('.gearp'), null);
   } finally { p.done(); }
 });
+
+// A long name must not widen its own score box: both boxes stay the same width and the name is cut with "...".
+test('the two score boxes share the width equally whatever the names', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'scoring.css'), 'utf8');
+  const m = css.match(/\.dds-cards\{[^}]*grid-template-columns:([^;}]+)/);
+  assert.ok(m, 'the score box row is a grid');
+  assert.equal(m[1].trim(), 'minmax(0,1fr) 104px minmax(0,1fr)');
+});
