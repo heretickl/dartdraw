@@ -1,18 +1,18 @@
 /* The logged-in home: the scorecard (scorecard.js), the approved mockup docs/design/scorecard-mockup.html. Everything sits
-   under .sc so it never touches the scoring screens or the account screens. .wide (DDScreens.isWide, set by scorecard.js):
+   under .scp so it never touches the scoring screens or the account screens. .wide (DDScreens.isWide, set by scorecard.js):
    the headline cards and chart on the left, the summaries and recent matches on the right. Reduced motion switches every
    animation and transition off. */
-.sc{--bar:'Barlow Semi Condensed',sans-serif;--man:Manrope,'Segoe UI',sans-serif;--blue:#22b4ff;--gold:#ffc61a;--green:#3ee08a;--red:#ff6b75;
+.scp{--bar:'Barlow Semi Condensed',sans-serif;--man:Manrope,'Segoe UI',sans-serif;--blue:#22b4ff;--gold:#ffc61a;--green:#3ee08a;--red:#ff6b75;
   position:relative;min-height:100vh;min-height:100dvh;background:#030507;color:#fff;font-family:var(--man);overflow-x:hidden;color-scheme:dark}
-.sc *{box-sizing:border-box}
-.sc [hidden]{display:none!important}
+.scp *{box-sizing:border-box}
+.scp [hidden]{display:none!important}
 .sc-bg{position:fixed;inset:0;pointer-events:none;background:radial-gradient(60vmax 60vmax at 0% 0%,rgba(34,180,255,.12),transparent 60%),radial-gradient(55vmax 55vmax at 100% 100%,rgba(255,198,26,.09),transparent 60%)}
 .sc-wrap{position:relative;max-width:1100px;margin:0 auto;padding:14px 16px 28px}
-.sc button{font-family:inherit;color:inherit}
+.scp button{font-family:inherit;color:inherit}
 .sc-bar{display:flex;align-items:center;gap:10px}
 .sc-brand{font:700 18px var(--bar);letter-spacing:.14em;color:#cfd8e1}
 .sc-sp{flex:1}
-.sc .acc-lang{margin:0}
+.scp .acc-lang{margin:0}
 .sc-link{color:#9fb0c0;font:600 13px var(--man);background:none;border:0;cursor:pointer;padding:8px 6px;min-height:36px;text-decoration:none}
 .sc-link:hover{color:#fff}
 .sc-me{display:flex;align-items:center;gap:14px;margin:14px 2px 0}
@@ -38,7 +38,7 @@
 .sc-notice span{flex:1;overflow-wrap:anywhere}
 .sc-notice button{border:0;background:none;color:#9fe0ff;font:700 13px var(--man);cursor:pointer;padding:8px;min-height:36px}
 .sc-grid{display:block}
-.sc.wide .sc-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:0 18px;align-items:start}
+.scp.wide .sc-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:0 18px;align-items:start}
 .sc-heads{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 .sc-hd{position:relative;text-align:left;border-radius:20px;padding:14px 16px;cursor:pointer;color:#fff;background:linear-gradient(180deg,rgba(22,30,40,.78),rgba(10,14,20,.82));border:1.5px solid rgba(255,255,255,.1);transition:all .25s;min-width:0}
 .sc-hd.on.x{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,198,26,.35),0 0 26px rgba(255,190,20,.3)}
@@ -71,7 +71,7 @@
 .sc-tile b{display:block;font:700 26px/1 var(--bar);margin-top:6px}
 .sc-tile small{display:block;font-size:10.5px;color:#8c97a3;margin-top:3px}
 .sc-two{display:grid;gap:12px;margin-top:12px}
-@media (min-width:600px){.sc:not(.wide) .sc-two{grid-template-columns:1fr 1fr}.sc:not(.wide) .sc-two.one{grid-template-columns:1fr}}
+@media (min-width:600px){.scp:not(.wide) .sc-two{grid-template-columns:1fr 1fr}.scp:not(.wide) .sc-two.one{grid-template-columns:1fr}}
 .sc-kind{border-radius:20px;padding:16px;border:1.5px solid}
 .sc-kind.t{border-color:rgba(255,198,26,.5);background:linear-gradient(180deg,rgba(70,55,8,.35),rgba(25,19,2,.5))}
 .sc-kind.c{border-color:rgba(34,180,255,.5);background:linear-gradient(180deg,rgba(14,40,70,.45),rgba(6,16,30,.55))}
@@ -107,6 +107,6 @@
 .sc-in{opacity:0;transform:translateY(14px);animation:sc-up .55s cubic-bezier(.2,.8,.2,1) forwards}
 @keyframes sc-up{to{opacity:1;transform:none}}
 .sc-soon{border-radius:20px;padding:26px 18px;margin-top:12px;text-align:center;color:#9fb0c0;border:1px dashed rgba(255,255,255,.2)}
-.sc .acc-toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:#1b2530;border:1px solid rgba(255,255,255,.18);padding:10px 16px;border-radius:12px;font-size:14px;transition:all .3s;z-index:5}
-.sc .acc-toast.show{opacity:1;transform:translate(-50%,0)}
-@media (prefers-reduced-motion:reduce){.sc *,.sc *::before,.sc *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition:none!important}}
+.scp .acc-toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:#1b2530;border:1px solid rgba(255,255,255,.18);padding:10px 16px;border-radius:12px;font-size:14px;transition:all .3s;z-index:5}
+.scp .acc-toast.show{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.scp *,.scp *::before,.scp *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition:none!important}}

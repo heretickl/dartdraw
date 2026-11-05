@@ -103,7 +103,7 @@ test('a good login shows the scorecard page and keeps the player on the phone; l
   s.server.answers['/api/account/login'] = [200, { player: { id: 7, email: 'a@b.com', firstName: 'Aisyah', lastName: 'Rahman', mustChange: false } }];
   s.server.answers['/api/games/scorecard'] = [200, { headline: { x01: {}, cricket: {} }, chart: { x01: [], cricket: [] }, breakdown: { x01: {}, cricket: {} }, summary: { tournament: {}, casual: {} }, recent: [], notices: [] }];
   fill(s, 'a@b.com', 'right-password'); fire(s); await tick(8);
-  assert.ok(s.v().querySelector('.sc'), 'the scorecard is drawn');
+  assert.ok(s.v().querySelector('.scp'), 'the scorecard is drawn');
   assert.equal(JSON.parse(s.storage.getItem('dd-player')).id, 7);
   s.server.answers['/api/account/logout'] = [200, { ok: true }];
   click(s.v().querySelector('[data-acc="logout"]')); await tick(8);
@@ -133,7 +133,7 @@ test('offline with a kept player: still logged in, no login screen', async () =>
   const storage = memStore({ 'dd-player': JSON.stringify({ id: 9, email: 'e@f.com', firstName: 'Ravi', lastName: 'K' }) });
   const s = await launch({ storage, me: 'offline' });
   assert.ok(!s.v().querySelector('#accUser'), 'not asked to log in');
-  assert.ok(s.v().querySelector('.sc'));
+  assert.ok(s.v().querySelector('.scp'));
 });
 
 test('a password that must be changed: every logged-in screen shows only Change password', async () => {
@@ -290,7 +290,7 @@ test('offline log out shows the login screen and sends the logout once back onli
   const win = fakeWindow('');
   const s = await launch({ storage, me: 'offline', window: win, answers: { '/api/account/logout': 'offline' } });
   DDNet.queue.add({ id: 'g9', player: 9, game: { id: 'g9' } });
-  assert.ok(s.v().querySelector('.sc'), 'logged in, offline');
+  assert.ok(s.v().querySelector('.scp'), 'logged in, offline');
   click(s.v().querySelector('[data-acc="logout"]')); await tick(8);
   assert.equal(txt(s.v().querySelector('.acc-card h2')), 'Log in', 'the login screen at once');
   assert.equal(storage.getItem('dd-player'), null, 'the phone forgets the player');

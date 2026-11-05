@@ -22,7 +22,7 @@ function setup(opts) {
   let FR = opts.friends || friends(), REQ = opts.requests || [];
   server.answers['/api/friends/list'] = () => [200, { friends: FR, requests: REQ }];
   DDNet.init({ fetch: server.fetch, storage: memStore() });
-  const doc = parse('<html><body><div class="sc"><div class="sc-tabs"><button data-tab="friends">F<i class="fx-dot" hidden></i></button></div><div id="h"></div><div class="acc-toast"></div></div></body></html>');
+  const doc = parse('<html><body><div class="scp"><div class="sc-tabs"><button data-tab="friends">F<i class="fx-dot" hidden></i></button></div><div id="h"></div><div class="acc-toast"></div></div></body></html>');
   const host = doc.getElementById('h');
   const ctx = { lang: 'en', words: W, player: { id: 'me' + (++seq), email: 'me@example.com', firstName: 'Ahmad', lastName: 'F' }, api: DDNet.api, setPlayer() {}, go(h) { ctx.went = h; } };
   const dots = [];

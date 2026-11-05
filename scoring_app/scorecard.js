@@ -169,7 +169,7 @@
     var view = box.querySelector('.fx-view'), dlgs = box.querySelector('.fx-dlgs');
     var dlg = null;   // the open dialog
 
-    function say(msg) { A.toast(host.closest ? (host.closest('.sc') || host) : host, msg); }
+    function say(msg) { A.toast(host.closest ? (host.closest('.scp') || host) : host, msg); }
     function find(id) { for (var i = 0; i < D.friends.length; i++) if (D.friends[i].id === id) return D.friends[i]; return null; }
     function dateOf(iso) { return A.dateWords(iso, ctx.lang); }
     function lost() { resetMem(null); ctx.setPlayer(null); ctx.go(''); }
@@ -538,7 +538,7 @@
       }).join('');
     }
 
-    root.innerHTML = '<div class="sc' + (ctx.wide ? ' wide' : '') + '"><div class="sc-bg"></div><div class="sc-wrap">'
+    root.innerHTML = '<div class="scp' + (ctx.wide ? ' wide' : '') + '"><div class="sc-bg"></div><div class="sc-wrap">'
       + '<div class="sc-bar sc-in"><span class="sc-brand">' + esc(w.appName) + '</span><span class="sc-sp"></span>'
       + '<div class="acc-lang" role="group" aria-label="' + esc(w.langGroup) + '">' + langBtns() + '</div>'
       + A.link('#profile', w.profileLink).replace('class="lnk"', 'class="sc-link"')
