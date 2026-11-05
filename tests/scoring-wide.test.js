@@ -221,3 +221,12 @@ test('the two score boxes share the width equally whatever the names', () => {
   assert.ok(m, 'the score box row is a grid');
   assert.equal(m[1].trim(), 'minmax(0,1fr) 104px minmax(0,1fr)');
 });
+
+// The sideways header holds three lines (DARTDRAW, CASUAL PLAY, the game line): about 98px at its font sizes. A shorter
+// header lets the game line run into the quick-score pills below it.
+test('the sideways header is tall enough for its three lines', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'scoring.css'), 'utf8');
+  const m = css.match(/\.dds\.wide>\.dds-hd\{[^}]*height:(\d+)px/);
+  assert.ok(m, 'the sideways header has a height');
+  assert.ok(Number(m[1]) >= 104, 'header height ' + m[1] + 'px');
+});
