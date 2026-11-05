@@ -64,6 +64,8 @@ module.exports = async (req, res) => {
       }
     }
   } catch (e) {
+    // Logged so a failed sign-up can be traced in the Vercel logs; the player still sees the plain message.
+    console.error('[register] failed:', e && (e.code || ''), e && e.message);
     status = 500;
     result = { code: 'register_failed', error: 'Could not create account.' };
   }
