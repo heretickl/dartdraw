@@ -1,0 +1,102 @@
+/* The account screens (account.js): the approved login mockup, docs/design/login-mockup.html. Everything sits under .acc
+   so it never touches the scoring screens (.dds has its own .card). The opening motion (board and logo rising, the dart
+   thrown in, ripples, glow) plays only with .intro, i.e. when arriving from another part of the app; the board's spin, the
+   card edge, the logo shine and the button sweep keep going. .wide (DDScreens.isWide, set by app.js): board left, form
+   right. Reduced motion switches every animation off. */
+.acc{--bar:'Barlow Semi Condensed',sans-serif;--man:Manrope,'Segoe UI',sans-serif;--blue:#22b4ff;--gold:#ffc61a;
+  position:relative;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:#030507;color:#fff;font-family:var(--man);overflow-x:hidden;color-scheme:dark}
+.acc *{box-sizing:border-box}
+.acc [hidden]{display:none!important}
+.acc-bg{position:fixed;inset:0;pointer-events:none;background:
+  radial-gradient(60vmax 60vmax at 15% 10%,rgba(34,180,255,.13),transparent 60%),
+  radial-gradient(55vmax 55vmax at 90% 95%,rgba(255,198,26,.10),transparent 60%);animation:acc-drift 14s ease-in-out infinite alternate}
+@keyframes acc-drift{to{transform:translate3d(-3%,2%,0) scale(1.06)}}
+.acc-top{display:flex;justify-content:flex-end;padding:14px 16px 0;position:relative;z-index:2}
+.acc-lang{display:flex;border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:3px;background:rgba(255,255,255,.04)}
+.acc-lang button{border:0;background:none;color:#cfd8e1;font:600 13px var(--man);padding:6px 12px;border-radius:999px;cursor:pointer;min-width:44px;min-height:32px}
+.acc-lang button.on{background:rgba(255,255,255,.14);color:#fff}
+.acc-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 16px 14px;position:relative;z-index:1}
+.acc-hero{display:flex;flex-direction:column;align-items:center}
+.acc-board{width:min(52vw,22vh,250px);aspect-ratio:1;position:relative}
+.acc.compact .acc-board{width:min(30vw,12vh,130px)}
+.acc-board svg{width:100%;height:100%;overflow:visible}
+.acc .spin{transform-origin:0 0;animation:acc-spin 90s linear infinite}
+@keyframes acc-spin{to{transform:rotate(360deg)}}
+.acc .ripple{fill:none;stroke:var(--gold);stroke-width:3;opacity:0}
+.acc.intro .dart{animation:acc-throw .75s cubic-bezier(.2,.75,.25,1) .5s both}
+@keyframes acc-throw{0%{transform:translate(330px,-330px) rotate(-12deg) scale(1.5);opacity:0}15%{opacity:1}82%{transform:translate(0,0) rotate(0) scale(1)}90%{transform:translate(0,0) rotate(-4deg)}100%{transform:translate(0,0) rotate(0)}}
+.acc.intro .ripple{animation:acc-rip 1.4s ease-out 1.15s}
+.acc.intro .ripple.r2{stroke:var(--blue);animation-delay:1.35s}
+@keyframes acc-rip{0%{r:10;opacity:.9}100%{r:190;opacity:0}}
+.acc.intro .glow{animation:acc-pulse 1s ease-out 1.15s}
+@keyframes acc-pulse{0%{filter:drop-shadow(0 0 0 rgba(255,198,26,0))}30%{filter:drop-shadow(0 0 30px rgba(255,198,26,.8))}100%{filter:drop-shadow(0 0 0 rgba(255,198,26,0))}}
+.acc-logo{margin-top:10px;text-align:center}
+.acc-logo h1{margin:0;font:700 clamp(40px,11vw,60px)/1 var(--bar);letter-spacing:.14em;padding-left:.14em;
+  background:linear-gradient(100deg,#fff 0%,#fff 40%,var(--gold) 50%,#fff 60%,#fff 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:acc-shine 5s ease-in-out 1.6s infinite}
+.acc.compact .acc-logo h1{font-size:clamp(32px,9vw,48px)}
+@keyframes acc-shine{0%{background-position:100% 0}35%,100%{background-position:-50% 0}}
+.acc-logo p{margin:6px 0 0;font:600 14px var(--man);letter-spacing:.42em;padding-left:.42em;color:#9fb0c0}
+.acc-card{width:100%;max-width:420px;margin-top:18px;padding:19px 20px 18px;border-radius:24px;position:relative;
+  background:linear-gradient(180deg,rgba(22,30,40,.72),rgba(10,14,20,.78));border:1px solid rgba(255,255,255,.1);
+  box-shadow:0 30px 60px -20px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.06);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.acc-card::before{content:"";position:absolute;inset:-1px;border-radius:24px;padding:1px;pointer-events:none;
+  background:conic-gradient(from var(--acc-a,0deg),transparent 0 70%,rgba(255,198,26,.7) 80%,rgba(34,180,255,.7) 90%,transparent 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:acc-edge 6s linear infinite}
+@property --acc-a{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes acc-edge{to{--acc-a:360deg}}
+.acc-card h2{margin:0 0 4px;font:700 24px var(--bar);letter-spacing:.06em}
+.acc-card .sub{margin:0 0 16px;font-size:13px;color:#9fb0c0}
+.acc-card .sub.sent{font-size:15px;line-height:1.5;color:#cfd8e1}
+.acc-email{margin:-8px 0 14px;font:600 14px var(--man);color:#cfd8e1;word-break:break-all}
+.acc .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.acc .two .fld input{padding-right:12px}
+.acc .fld{position:relative;margin-bottom:14px}
+.acc .fld input{width:100%;height:58px;border-radius:14px;border:1.5px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04);
+  color:#fff;font:600 17px var(--man);padding:22px 48px 6px 46px;outline:0;transition:border-color .2s,box-shadow .2s,background .2s}
+.acc .fld label{position:absolute;left:46px;top:19px;right:44px;font:500 15px var(--man);color:#8c97a3;pointer-events:none;transition:all .18s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acc .fld input:focus+label,.acc .fld input:not(:placeholder-shown)+label{top:9px;font-size:11px;letter-spacing:.08em;color:var(--gold)}
+.acc .fld input:focus{border-color:var(--gold);background:rgba(255,198,26,.05);box-shadow:0 0 0 4px rgba(255,198,26,.14),0 0 22px rgba(255,198,26,.25)}
+.acc .fld input:-webkit-autofill{-webkit-text-fill-color:#fff;-webkit-box-shadow:0 0 0 40px #10161e inset;caret-color:#fff}
+.acc .fld .ic{position:absolute;left:15px;top:18px;width:20px;height:20px;color:#8c97a3;transition:color .2s}
+.acc .fld input:focus~.ic{color:var(--gold)}
+.acc .eye{position:absolute;right:8px;top:9px;width:40px;height:40px;border:0;background:none;color:#8c97a3;border-radius:10px;cursor:pointer;display:grid;place-items:center}
+.acc .eye:hover{color:#fff;background:rgba(255,255,255,.06)}
+.acc .aux{display:flex;align-items:flex-start;gap:10px;margin:-4px 2px 10px}.acc .aux .err{flex:1;margin:0}
+.acc .lnk{color:#9fd8f5;font:600 13px var(--man);text-decoration:none;white-space:nowrap;background:none;border:0;padding:0;cursor:pointer}
+.acc .lnk:hover{color:#fff;text-decoration:underline}
+.acc .err{min-height:18px;margin:-4px 2px 10px;font-size:13px;color:#ff6b75;opacity:0;transform:translateY(-4px);transition:all .2s}
+.acc .err.show{opacity:1;transform:none}
+.acc .shake{animation:acc-shake .45s}
+@keyframes acc-shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.acc .btn{position:relative;overflow:hidden;width:100%;height:58px;border-radius:14px;border:0;cursor:pointer;font:700 22px var(--bar);letter-spacing:.1em;transition:transform .15s,box-shadow .2s;
+  display:flex;align-items:center;justify-content:center;text-decoration:none}
+.acc .btn:active{transform:scale(.98)}
+.acc .go{color:#1e1803;background:linear-gradient(180deg,#ffd84a,#f5b400);box-shadow:0 10px 30px -8px rgba(255,190,20,.7)}
+.acc .go:hover{box-shadow:0 12px 36px -6px rgba(255,190,20,.9)}
+.acc .go::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:acc-sweep 3.5s ease-in-out 2s infinite}
+@keyframes acc-sweep{0%{left:-60%}30%,100%{left:130%}}
+.acc .go .spinner{display:none;width:24px;height:24px;border:3px solid rgba(30,24,3,.25);border-top-color:#1e1803;border-radius:50%;animation:acc-spin .7s linear infinite}
+.acc .go.busy .t{display:none}.acc .go.busy .spinner{display:block}
+.acc .or{display:flex;align-items:center;gap:12px;margin:14px 0;font-size:12px;letter-spacing:.2em;color:#6d7883}
+.acc .or::before,.acc .or::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.12)}
+.acc .guest{justify-content:flex-start;gap:14px;text-align:left;height:auto;padding:14px 16px;color:#fff;background:rgba(34,180,255,.07);border:1.5px solid rgba(34,180,255,.55)}
+.acc .guest:hover{background:rgba(34,180,255,.13);box-shadow:0 0 26px rgba(34,180,255,.35)}
+.acc .guest .gi{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:rgba(34,180,255,.16);color:var(--blue)}
+.acc .guest b{display:block;font:700 21px var(--bar);letter-spacing:.08em}
+.acc .guest span span{display:block;font:500 13px var(--man);letter-spacing:0;color:#9fd8f5;margin-top:2px}
+.acc .guest .ar{margin-left:auto;flex:none;color:var(--blue);transition:transform .2s}
+.acc .guest:hover .ar{transform:translateX(4px)}
+.acc .help{margin:16px 0 0;text-align:center;font-size:12.5px;line-height:1.6;color:#7f8b97}
+.acc .acc-links .lnk{margin:0 4px}
+.acc-org,.acc-resend{margin:2px 2px 4px;font-size:13px;color:#9fb0c0;text-align:center}
+.acc-resend{margin-top:-4px}
+.acc.intro .in{opacity:0;transform:translateY(16px);animation:acc-up .6s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes acc-up{to{opacity:1;transform:none}}
+.acc-toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,40px);opacity:0;padding:12px 18px;border-radius:12px;background:#121a23;border:1px solid rgba(255,255,255,.14);font-size:14px;transition:all .3s;z-index:5;width:max-content;max-width:calc(100vw - 32px);text-align:center;pointer-events:none}
+.acc-toast.show{opacity:1;transform:translate(-50%,0)}
+.acc.wide .acc-main{flex-direction:row;gap:clamp(40px,7vw,110px)}
+.acc.wide .acc-board{width:min(34vw,52vh,420px)}
+.acc.wide.compact .acc-board{width:min(28vw,42vh,340px)}
+.acc.wide .acc-card{margin-top:0;max-width:440px;padding:30px 28px 26px}
+@media (max-width:360px){.acc .two{grid-template-columns:1fr;gap:0}}
+@media (prefers-reduced-motion:reduce){.acc *,.acc *::before,.acc *::after,.acc-bg{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition:none!important}}

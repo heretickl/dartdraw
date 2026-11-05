@@ -202,6 +202,7 @@
 .dds .turnsp .tabs button.on{border-color:#ffc61a;color:#1a1400;background:linear-gradient(180deg,#ffd43a,#f0b400)}
 .dds .turnsp h2{font:700 42px var(--bar);margin:0}
 .dds .turnsp .subl{font:500 20px var(--man);color:#cfd8e1;margin:6px 0 16px}
+.dds .turnsp .subl.locked{color:#bff5d6}
 .dds .tbl{padding:12px 8px}
 .dds .thd,.dds .trow{display:grid;grid-template-columns:70px 1fr 1fr 1fr 1fr;align-items:center;text-align:center}
 .dds .thd{grid-template-columns:70px 2fr 2fr;font:600 24px var(--bar);height:44px}
@@ -269,6 +270,11 @@
 .dds .dbar{flex:none}
 .dds .sum{flex:1 1 auto;display:flex;flex-direction:column}
 .dds .sum .btns{margin-top:auto;padding-top:16px}
+/* A logged-in player's game: the line saying where it was saved sits just above the buttons. */
+.dds .sum .saved{margin-top:auto;padding-top:16px;display:flex;align-items:center;justify-content:center;gap:16px;text-align:center}
+.dds .sum .saved p{margin:0;font:600 22px var(--man);color:#bff5d6}
+.dds .sum .saved button{flex:none;height:56px;padding:0 22px;border-radius:16px;font:700 26px var(--bar)}
+.dds .sum .saved+.btns{margin-top:0}
 
 /* Wide screens (owner 2026-11-04): a tablet or phone on its side, or a laptop, gets a 1280 x 720 screen with the scores
    on the left and the keys on the right; fit() scales it to the window both ways. Pop-ups stay phone-width, centred. */

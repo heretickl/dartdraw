@@ -17,6 +17,8 @@
 //   players                           -> players/index                 (?q= &owner= &limit= &offset= kept in req.query)
 //   players/:id                       -> players/[id]                  (req.query.id = :id)
 //   players/:id/merge                 -> players/[id]/merge            (req.query.id = :id)
+//   player-accounts                   -> player-accounts/index         (?q= &limit= &offset= kept in req.query; the players' casual-play accounts)
+//   player-accounts/:id/reset         -> player-accounts/[id]/reset    (req.query.id = :id)
 //
 // The route is read from req.url, not from the platform's query, and :id is decoded with decodeURIComponent (a bad
 // escape or an empty id is a 404). Anything else answers 404 { code: 'not_found', error: 'Not found.' }.
@@ -30,7 +32,9 @@ const H = {
   settings: () => require('./admin/settings'),
   playersIndex: () => require('./admin/players/index'),
   playerItem: () => require('./admin/players/[id]'),
-  playerMerge: () => require('./admin/players/[id]/merge')
+  playerMerge: () => require('./admin/players/[id]/merge'),
+  playerAccountsIndex: () => require('./admin/player-accounts/index'),
+  playerAccountReset: () => require('./admin/player-accounts/[id]/reset')
 };
 
 // -> { load, id } or null
@@ -61,6 +65,11 @@ function match(pathname) {
     if (parts.length === 1) return { load: H.playersIndex };
     if (parts.length === 2) return { load: H.playerItem, id };
     if (parts.length === 3 && parts[2] === 'merge') return { load: H.playerMerge, id };
+    return null;
+  }
+  if (parts[0] === 'player-accounts') {
+    if (parts.length === 1) return { load: H.playerAccountsIndex };
+    if (parts.length === 3 && parts[2] === 'reset') return { load: H.playerAccountReset, id };
     return null;
   }
   return null;

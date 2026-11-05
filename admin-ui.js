@@ -7,7 +7,7 @@
    apiFetch, openModal, render, renderSavedList, openTournament, escapeHtml. Only called while rendering or on a click. */
 
 var adminState = {
-  view: null,            // null (normal editor) | 'organizers' | 'events' | 'players' | 'settings'
+  view: null,            // null (normal editor) | 'organizers' | 'events' | 'players' | 'accounts' | 'settings'
   organizers: null,      // GET /api/admin/organizers -> organizers
   events: null,          // GET /api/admin/events -> { events, total }
   settings: null,        // GET /api/admin/settings -> { resultsDays, liveHours, limits }
@@ -15,6 +15,8 @@ var adminState = {
   players: null,         // GET /api/admin/players -> { players, total }
   playerFilters: { q: '', owner: '', offset: 0, limit: 50 },
   playersTicked: {},     // player id -> its organiser id (a merge stays within one organiser)
+  accounts: null,        // GET /api/admin/player-accounts -> { items, total } (the players' casual-play accounts)
+  accountFilters: { q: '', offset: 0, limit: 50 },
   loading: false, error: '', notice: '', seq: 0
 };
 /* Events the Admin opened that belong to someone else: id -> { ownerId, ownerName }. They are loaded cleaned (see
@@ -24,7 +26,7 @@ var foreignOpenIds = new Map();
 /* The record of the foreign event opened last ({ id, ownerId, ownerName }), or null. Cleared when an own event is opened or a new one started. */
 var adminEditing = null;
 
-var ADMIN_VIEWS = ['organizers', 'events', 'players', 'settings'];
+var ADMIN_VIEWS = ['organizers', 'events', 'players', 'accounts', 'settings'];
 var ADMIN_FORMATS = { roundrobin: 'Round Robin', knockout: 'Knockout', rrknockout: 'Round Robin → Knockout', podknockout: 'Group Boards' };
 var ADMIN_DEFAULT_LIMITS = { resultsDays: [1, 90], liveHours: [1, 168] };
 var ADMIN_CONTACT_MAX = 200;   // the sign-in page contact line (api/_lib/settings.js CONTACT_MAX_LENGTH)
@@ -219,6 +221,46 @@ function adminPlayersHTML(result, filters, organizers){
       : '<p class="intro">No players match.</p>') + pager;
 }
 
+/* Player accounts tab: the players' own accounts for casual play (api/_routes/admin/player-accounts/*), not the
+   organisers' player library above. The Admin creates an account and hands over a temporary password. */
+function adminAccountsHTML(result, filters){
+  var items = (result && Array.isArray(result.items)) ? result.items : [];
+  var total = (result && Number(result.total)) || 0;
+  filters = filters || {};
+  var limit = Number(filters.limit) || 50, offset = Number(filters.offset) || 0;
+  var rows = items.map(function(a){
+    var id = adminArg(a.id);
+    return '<tr>' +
+      '<td><strong>' + adminEsc(a.firstName) + ' ' + adminEsc(a.lastName) + '</strong></td>' +
+      '<td>' + adminEsc(a.email) + '</td>' +
+      '<td><span class="adm-status ' + (a.confirmed ? 'active' : 'unverified') + '">' + (a.confirmed ? 'Confirmed' : 'Unconfirmed') + '</span></td>' +
+      '<td>' + adminEsc(a.createdByAdmin ? 'Admin' : 'Sign-up') + '</td>' +
+      '<td>' + adminEsc(adminWhen(a.createdAt, true)) + '</td>' +
+      '<td class="adm-actions">' + adminBtn('Reset temporary password', 'adminAccountReset(' + id + ')') + '</td>' +
+    '</tr>';
+  }).join('');
+  var from = items.length ? offset + 1 : 0, to = offset + items.length;
+  var pager = total
+    ? '<div class="adm-pager"><span>' + from + '–' + to + ' of ' + total + '</span>' +
+        (offset > 0 ? '<button class="btn secondary adm-btn" onclick="adminAccountsPage(-1)">Previous</button>' : '') +
+        (offset + limit < total ? '<button class="btn secondary adm-btn" onclick="adminAccountsPage(1)">Next</button>' : '') + '</div>'
+    : '';
+  return '<div class="adm-head"><div><h2>Player accounts</h2><p class="intro" style="margin:0">The accounts players use for casual play. Create one and hand over the temporary password.</p></div>' +
+      '<button class="btn primary" onclick="adminAccountCreate()">Create account</button></div>' +
+    '<div class="adm-filter"><input id="adminAcQ" type="text" placeholder="Search name or email" value="' + adminEsc(filters.q) + '" onkeydown="if(event.key===\'Enter\')adminAccountsSearch()">' +
+      '<button class="btn secondary" onclick="adminAccountsSearch()">Search</button></div>' +
+    (items.length
+      ? '<div class="adm-scroll"><table class="adm-table"><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Made by</th><th>Created</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="intro">No player accounts match.</p>') + pager;
+}
+/* The one-time temporary password box. who: the player's name or email (plain text, escaped here). */
+function adminTempPasswordModalHTML(tempPassword, who){
+  return '<p>' + (who ? 'Temporary password for <b>' + adminEsc(who) + '</b>. ' : '') + 'It is shown only once. Give it to the player now.</p>' +
+    '<div class="field"><input id="adminTempBox" type="text" readonly value="' + adminEsc(tempPassword) + '" onclick="this.select()" style="font-family:monospace;font-size:18px;letter-spacing:2px"></div>' +
+    '<button class="btn secondary" id="adminTempCopyBtn" onclick="adminCopyTempPassword()">Copy</button>' +
+    '<p class="hint">The player must choose their own password the first time they sign in.</p>';
+}
+
 function adminSettingsHTML(settings){
   settings = settings || {};
   var lim = settings.limits || ADMIN_DEFAULT_LIMITS;
@@ -264,7 +306,7 @@ function adminReopenButtonHTML(){
 
 /* ---------- drawing ---------- */
 function adminTabsHTML(){
-  var tabs = [['organizers', 'Organisers'], ['events', 'Events'], ['players', 'Players'], ['settings', 'Settings']];
+  var tabs = [['organizers', 'Organisers'], ['events', 'Events'], ['players', 'Players'], ['accounts', 'Player accounts'], ['settings', 'Settings']];
   return '<div class="adm-tabs">' + tabs.map(function(t){
     return '<button class="adm-tab' + (adminState.view === t[0] ? ' active' : '') + '" onclick="adminShow(\'' + t[0] + '\')">' + t[1] + '</button>';
   }).join('') + '<a class="adm-back" onclick="adminBack()">← Back to my events</a></div>';
@@ -276,6 +318,7 @@ function adminBodyHTML(){
   if(v === 'organizers') return adminOrganizersHTML(adminState.organizers);
   if(v === 'events') return adminEventsHTML(adminState.events, adminState.filters, adminState.organizers);
   if(v === 'players') return adminPlayersHTML(adminState.players, adminState.playerFilters, adminState.organizers);
+  if(v === 'accounts') return adminAccountsHTML(adminState.accounts, adminState.accountFilters);
   if(v === 'settings') return adminSettingsHTML(adminState.settings);
   return '';
 }
@@ -285,6 +328,7 @@ function renderAdminView(){
     organizers: 'Add organisers, change tiers, suspend, reset passwords and move events.',
     events: 'See and edit any organiser\'s events, and control what is public.',
     players: 'See and manage every organiser\'s players.',
+    accounts: 'Create player accounts for casual play and reset their temporary passwords.',
     settings: 'Choose how long events stay on the public home page, and what the sign-in page says about getting an account.'
   };
   document.getElementById('pageTitle').textContent = 'Admin';
@@ -331,6 +375,14 @@ async function adminLoad(){
     var pl = await adminCall('/api/admin/players?' + pq.join('&'));
     if(pl.ok && pl.data && Array.isArray(pl.data.players)) adminState.players = pl.data;
     else err = adminErrorText(pl, 'Could not load the players.');
+  }
+  if(!err && view === 'accounts'){
+    var af = adminState.accountFilters, aq = [];
+    if(af.q) aq.push('q=' + encodeURIComponent(af.q));
+    aq.push('limit=' + af.limit, 'offset=' + af.offset);
+    var ac = await adminCall('/api/admin/player-accounts?' + aq.join('&'));
+    if(ac.ok && ac.data && Array.isArray(ac.data.items)) adminState.accounts = ac.data;
+    else err = adminErrorText(ac, 'Could not load the player accounts.');
   }
   if(!err && view === 'settings'){
     var s = await adminCall('/api/admin/settings');
@@ -462,6 +514,85 @@ function adminPlayersMerge(){
         adminLoad();
       });
     } });
+}
+
+/* ---------- player account actions ---------- */
+async function adminAccountsSearch(){
+  if(!isAdminUser()) return;
+  var q = document.getElementById('adminAcQ');
+  adminState.accountFilters.q = q ? String(q.value || '').trim() : adminState.accountFilters.q;
+  adminState.accountFilters.offset = 0;
+  await adminLoad();
+}
+async function adminAccountsPage(delta){
+  if(!isAdminUser()) return;
+  var f = adminState.accountFilters, total = (adminState.accounts && Number(adminState.accounts.total)) || 0;
+  var next = f.offset + delta * f.limit;
+  if(next < 0 || next >= total) return;
+  f.offset = next;
+  await adminLoad();
+}
+function adminFindAccount(id){
+  var list = (adminState.accounts && adminState.accounts.items) || [];
+  for(var i = 0; i < list.length; i++) if(list[i].id === id) return list[i];
+  return null;
+}
+/* The temporary password is only ever held in the box of this modal, never in adminState. */
+function adminShowTempPassword(tempPassword, who, title){
+  openModal({ title: title, bodyHTML: adminTempPasswordModalHTML(tempPassword, who), confirmLabel: 'Done', confirmClass: 'primary', help: false, onConfirm: function(){} });
+}
+function adminCopyTempPassword(){
+  if(!isAdminUser()) return;
+  var el = document.getElementById('adminTempBox');
+  if(!el) return;
+  try{ el.focus(); el.select(); }catch(e){}
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(el.value);
+    else document.execCommand('copy');
+  }catch(e){}
+  var b = document.getElementById('adminTempCopyBtn');
+  if(b) b.textContent = 'Copied';
+}
+function adminAccountCreate(){
+  if(!isAdminUser()) return;
+  openModal({
+    title: 'Create player account',
+    bodyHTML: '<div class="grid2"><div class="field"><label>First name</label><input id="adminAcFirst" type="text" maxlength="40"></div>' +
+      '<div class="field"><label>Last name</label><input id="adminAcLast" type="text" maxlength="40"></div></div>' +
+      '<div class="field"><label>Email</label><input id="adminAcEmail" type="email"></div>' +
+      '<p class="hint">You get a temporary password to hand over. The player must choose their own at first sign-in.</p>',
+    confirmLabel: 'Create', confirmClass: 'primary', help: false,
+    onConfirm: function(){
+      var first = String(document.getElementById('adminAcFirst').value || '').trim();
+      var last = String(document.getElementById('adminAcLast').value || '').trim();
+      var email = String(document.getElementById('adminAcEmail').value || '').trim();
+      if(!first) return { error: 'Enter a first name.' };
+      if(!last) return { error: 'Enter a last name.' };
+      if(first.length > 40 || last.length > 40) return { error: 'Names can be at most 40 characters.' };
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return { error: 'Enter a valid email address.' };
+      return adminDoAccountCreate(first, last, email);
+    }
+  });
+}
+async function adminDoAccountCreate(first, last, email){
+  if(!isAdminUser()) return false;
+  var r = await adminCall('/api/admin/player-accounts', 'POST', { email: email, firstName: first, lastName: last });
+  if(!r.ok || !r.data || !r.data.tempPassword){ adminFail(r, 'Could not create that account.'); return false; }
+  adminShowTempPassword(r.data.tempPassword, first + ' ' + last + ' (' + email + ')', 'Account created');
+  await adminLoad();
+  return true;
+}
+function adminAccountReset(id){
+  if(!isAdminUser()) return;
+  var a = adminFindAccount(id);
+  if(!a) return;
+  adminConfirm('Reset temporary password?', '<b>' + adminEsc(a.firstName + ' ' + a.lastName) + '</b> is signed out everywhere and must sign in with a new temporary password, then choose their own.',
+    'Reset', 'primary', async function(){
+      var r = await adminCall('/api/admin/player-accounts/' + encodeURIComponent(id) + '/reset', 'POST');
+      if(!r.ok || !r.data || !r.data.tempPassword){ adminFail(r, 'Could not reset that password.'); return false; }
+      adminShowTempPassword(r.data.tempPassword, a.firstName + ' ' + a.lastName + ' (' + a.email + ')', 'New temporary password');
+      return true;
+    });
 }
 
 /* ---------- organiser actions ---------- */

@@ -214,6 +214,7 @@
 .dds .turnsp .tabs button.on{border-color:#ffc61a;color:#1a1400;background:linear-gradient(180deg,#ffd43a,#f0b400)}
 .dds .turnsp h2{font:700 42px var(--bar);margin:0}
 .dds .turnsp .subl{font:500 20px var(--man);color:#cfd8e1;margin:6px 0 16px}
+.dds .turnsp .subl.locked{color:#bff5d6}
 .dds .tbl{padding:12px 8px}
 .dds .thd,.dds .trow{display:grid;grid-template-columns:70px 1fr 1fr 1fr 1fr;align-items:center;text-align:center}
 .dds .thd{grid-template-columns:70px 2fr 2fr;font:600 24px var(--bar);height:44px}
@@ -281,6 +282,11 @@
 .dds .dbar{flex:none}
 .dds .sum{flex:1 1 auto;display:flex;flex-direction:column}
 .dds .sum .btns{margin-top:auto;padding-top:16px}
+/* A logged-in player's game: the line saying where it was saved sits just above the buttons. */
+.dds .sum .saved{margin-top:auto;padding-top:16px;display:flex;align-items:center;justify-content:center;gap:16px;text-align:center}
+.dds .sum .saved p{margin:0;font:600 22px var(--man);color:#bff5d6}
+.dds .sum .saved button{flex:none;height:56px;padding:0 22px;border-radius:16px;font:700 26px var(--bar)}
+.dds .sum .saved+.btns{margin-top:0}
 
 /* Wide screens (owner 2026-11-04): a tablet or phone on its side, or a laptop, gets a 1280 x 720 screen with the scores
    on the left and the keys on the right; fit() scales it to the window both ways. Pop-ups stay phone-width, centred. */
@@ -353,8 +359,9 @@ body{overscroll-behavior:none}
 <body>
 <main id="app"></main>
 <script>
-/* Every word of casual play, in English (docs/superpowers/specs/2026-11-03-casual-play-design.md). Bahasa Malaysia comes
-   later as casual.ms.js with the same keys. {name} style fields are filled in by DDScreens.fmt. */
+/* Every word of the scoring app, in English: casual play (docs/superpowers/specs/2026-11-03-casual-play-design.md) and
+   the player accounts (login, sign-up, confirm, reset, profile). Bahasa Malaysia is casual.ms.js with the same keys.
+   {name} style fields are filled in by DDScreens.fmt / DDAccount.fmt. err_<code> words answer the server's error codes. */
 var DD_CASUAL_EN = {
   /* the page and the setup screen */
   pageTitle: 'DartDraw · Casual play',
@@ -506,7 +513,306 @@ var DD_CASUAL_EN = {
   nth1: '1st',
   nth2: '2nd',
   nth3: '3rd',
-  bullName: 'Bull'
+  bullName: 'Bull',
+
+  /* player accounts: the login and account screens (account.js) and the logged-in home (app.js) */
+  accTag: 'SCORING',
+  langGroup: 'Language / Bahasa',
+  langEN: 'EN',
+  langBM: 'BM',
+  loginTitle: 'Log in',
+  loginSub: 'Log in to keep your scorecard.',
+  userLabel: 'Username or email',
+  passLabel: 'Password',
+  showPass: 'Show password',
+  loginBtn: 'LOG IN',
+  orWord: 'OR',
+  guestBtn: 'PLAY AS GUEST',
+  guestSub: 'Casual play · no login needed',
+  newPlayer: 'New player?',
+  createAccount: 'Create an account',
+  forgotLink: 'Forgot password?',
+  orgLine: 'Organisers:',
+  orgLink: 'use the organiser app',
+  resendLink: 'Send the confirm link again',
+  resendSent: 'If that account still needs confirming, we have sent a new link.',
+  welcome: 'Welcome, {name}',
+  regTitle: 'Create an account',
+  regSub: 'For players: your games and stats are kept with your account.',
+  firstName: 'First name',
+  lastName: 'Last name',
+  emailLabel: 'Email',
+  newPassLabel: 'Password (8 or more characters)',
+  regBtn: 'CREATE ACCOUNT',
+  haveAccount: 'Already have an account?',
+  toLogin: 'Log in',
+  sentTitle: 'Check your email',
+  regSent: 'If that email can be registered, we have sent a link to confirm it. The link works for 24 hours.',
+  backToLogin: 'BACK TO LOG IN',
+  forgotTitle: 'Forgot password?',
+  forgotSub: 'Type your email and we will send a link to choose a new password.',
+  sendLinkBtn: 'SEND LINK',
+  forgotSent: 'If an account exists for that email, we have sent a link to choose a new password. The link works for 1 hour.',
+  resendTitle: 'New confirm link',
+  resendSub: 'Type the email you signed up with and we will send a new link.',
+  verifyTitle: 'Confirm your email',
+  verifySub: 'Type the password you chose when you signed up.',
+  verifyBtn: 'CONFIRM',
+  verified: 'Email confirmed. Welcome, {name}',
+  newLinkLink: 'Get a new link',
+  resetTitle: 'Choose a new password',
+  resetSub: 'At least 8 characters.',
+  savePassBtn: 'SAVE PASSWORD',
+  resetDone: 'Password saved. Log in with your new password.',
+  cpTitle: 'Change password',
+  cpSub: 'Type your current password, then the new one.',
+  cpForcedSub: 'Choose your own password to carry on.',
+  currentPassLabel: 'Current password',
+  newPassOnly: 'New password',
+  cpDone: 'Password changed.',
+  profileTitle: 'Your profile',
+  profileSub: 'You can change your name once every 30 days.',
+  saveNameBtn: 'SAVE NAME',
+  nameSaved: 'Name saved.',
+  changePassLink: 'Change password',
+  logoutLink: 'Log out',
+  backLink: 'Back',
+  homeTitle: 'Logged in as {name}',
+  playCasualBtn: 'PLAY A CASUAL GAME',
+  profileLink: 'Profile',
+  err_login_empty: 'Enter the username and password.',
+  err_fill_all: 'Fill in every box.',
+  err_bad_credentials: 'That username or password doesn’t match.',
+  err_unverified: 'Please confirm your email first: open the link we sent you.',
+  err_rate_limited: 'Too many tries. Wait a few minutes and try again.',
+  err_offline: 'No connection. Check your signal and try again.',
+  err_server: 'Something went wrong. Please try again.',
+  err_signup_closed: 'Sign-up is not open yet.',
+  err_invalid_email: 'Please enter a valid email address.',
+  err_password_too_short: 'Password must be at least 8 characters.',
+  err_password_too_long: 'Password must be at most 200 characters.',
+  err_first_name_required: 'Please enter your first name.',
+  err_last_name_required: 'Please enter your last name.',
+  err_name_too_long: 'Names must be 40 characters or fewer.',
+  err_invalid_link: 'This link is invalid or has expired.',
+  err_invalid_link_or_password: 'This link is invalid, has expired, or the password is wrong.',
+  err_current_password_required: 'Enter your current password.',
+  err_current_password_incorrect: 'The current password is wrong.',
+  err_new_password_same: 'Choose a new password that is different from the current one.',
+  err_password_changed_elsewhere: 'Your password was just changed somewhere else. Please try again.',
+  err_name_change_too_soon: 'You can change your name once every 30 days. Next change: {date}.',
+  err_not_authenticated: 'Please log in again.',
+  err_must_change_password: 'Choose a new password first.',
+  // the scorecard (scorecard.js)
+  scTabCard: 'SCORECARD',
+  scTabFriends: 'FRIENDS',
+  scFilterLabel: 'Show',
+  scFilterAll: 'ALL',
+  scFilterTour: 'TOURNAMENTS',
+  scFilterCas: 'CASUAL',
+  scPeriodLabel: 'Period',
+  scPer30: 'Last 30 days',
+  scPerYear: 'This year',
+  scPerAll: 'All time',
+  scHeadXLabel: '3-DART AVERAGE',
+  scHeadXGame: '01 GAMES',
+  scHeadCLabel: 'MARKS PER ROUND',
+  scHeadCGame: 'CRICKET',
+  scTrend30: 'vs the 30 days before',
+  scTrendYear: 'vs this time last year',
+  scChartX: '3DA · MATCH BY MATCH',
+  scChartC: 'MPR · MATCH BY MATCH',
+  scGamesN: '{n} games',
+  scGames1: '1 game',
+  scKeyTour: 'Tournament',
+  scKeyCas: 'Casual',
+  scNoChart: 'No games of this kind in this period yet.',
+  scMoreX: 'FULL 01 BREAKDOWN',
+  scMoreC: 'FULL CRICKET BREAKDOWN',
+  scTFirst9: 'FIRST 9 AVG',
+  scTCheckouts: 'CHECKOUTS',
+  scTOf: '{a} of {b}',
+  scT180: '180s',
+  scT140: '140+',
+  scT100: '100+',
+  scTHighFin: 'HIGH FINISH',
+  scTBestLeg: 'BEST LEG',
+  scTDarts: 'darts',
+  scTLegsWon: 'LEGS WON',
+  scTFirst9Mpr: 'FIRST 9 MPR',
+  scT5: '5+ MARK ROUNDS',
+  scT9: '9-MARK ROUNDS',
+  scTHat: 'HAT TRICKS',
+  scTHatSub: '3 bulls in a round',
+  scTWhite: 'WHITE HORSES',
+  scTBulls: 'BULLS PER LEG',
+  scTourTitle: 'TOURNAMENTS',
+  scTourEvents: 'Events played',
+  scTourTitles: 'Titles',
+  scTourBest: 'Best finish',
+  scTourLatest: 'Latest',
+  scCasTitle: 'CASUAL',
+  scCasPlayed: 'Games played',
+  scCasWon: 'Won',
+  scCasFav: 'Favourite game',
+  scCasWith: 'Played most with',
+  scWithGames: '{name} · {n} games',
+  scGame501: '501',
+  scGameCricket: 'Cricket',
+  scGameChoice: 'Choice',
+  scRecentTitle: 'RECENT MATCHES',
+  scRecentHint: 'Tap a match for its full stats.',
+  scVs: 'vs {name}',
+  scBestOf: 'Best of {n}',
+  scTagTour: 'TOURNAMENT',
+  scTagCas: 'CASUAL',
+  scResW: 'W',
+  scResL: 'L',
+  scHeadlineX: '3DA {v}',
+  scHeadlineC: 'MPR {v}',
+  scYou: 'You',
+  scDetailLoading: 'Loading…',
+  scDetailFailed: 'Could not load this game.',
+  scNoStats: 'No numbers for this game.',
+  scNoOppStats: 'Their numbers are not shown.',
+  scNote: 'Casual games count here when you play while logged in.',
+  scEmptyTitle: 'No games yet',
+  scEmptySub: 'Play a casual game while you are logged in and your numbers will show up here.',
+  scTourEmpty: 'Tournament results will appear here.',
+  scLoading: 'Loading your scorecard…',
+  scLoadFailed: 'Could not load your scorecard. Please try again.',
+  scOffline: 'No signal. Your scorecard needs a connection.',
+  scRetry: 'TRY AGAIN',
+  scNoticeReq: '{by} sent you a friend request.',
+  scNoticeAcc: '{by} accepted your friend request.',
+  scNoticeGameWon: 'New game with {by}: you won {score}{extra}',
+  scNoticeGameLost: 'New game with {by}: you lost {score}{extra}',
+  scNoticeAvg: ' · avg {v}',
+  scNoticeMpr: ' · MPR {v}',
+  scNoticeClose: 'OK',
+  scSince: 'Player since {date}',
+  frAddTitle: 'ADD A FRIEND',
+  frEmail: 'EMAIL',
+  frFirst: 'FIRST NAME',
+  frLast: 'LAST NAME',
+  frNick: 'NICKNAME (OPTIONAL)',
+  frNickNote: 'Only you see the nickname. Max 12 letters.',
+  frBtnRequest: 'SEND FRIEND REQUEST',
+  frBtnAdd: 'ADD FRIEND',
+  frCancel: 'Cancel',
+  frCheckOk: '{name} is on DartDraw. Results will count for both of you once they accept.',
+  frCheckNo: 'No DartDraw account yet. Their results won’t be saved.',
+  frBadEmail: 'Enter a valid email address.',
+  frOwnEmail: 'That is your own email.',
+  frDup: 'Already in your friends.',
+  frNeedFirst: 'Type their first name.',
+  frNeedLast: 'Type their last name.',
+  frMerge: 'Keep your games together',
+  frMergeSub: 'You already have {name} without an account. Move those games to this friend.',
+  frGone: 'That is no longer there. Please try again.',
+  frNotEditable: 'Only a friend without an account can be edited.',
+  frNotOn: 'They are not on DartDraw. You can invite them instead.',
+  frMailFailed: 'The invite could not be sent. Try again later.',
+  frTooSoon: 'You can do that again on {date}.',
+  frAgainOn: 'Again on {date}',
+  frLoading: 'Loading your friends…',
+  frLoadFailed: 'Could not load your friends. Please try again.',
+  frReq1: '1 FRIEND REQUEST',
+  frReqN: '{n} FRIEND REQUESTS',
+  frWants: 'wants to add you',
+  frAccept: 'ACCEPT',
+  frDeclineLbl: 'Decline',
+  frSearch: 'Search name or nickname',
+  frAddBtn: '+ ADD A FRIEND',
+  frEmptyTitle: 'No friends yet',
+  frEmptySub: 'Add a friend and your games together will show here.',
+  frNoMatch: 'No one matches that.',
+  frLinked: 'LINKED',
+  frWaiting: 'WAITING',
+  frNoAccount: 'NO ACCOUNT',
+  frToday: 'today',
+  frYesterday: 'yesterday',
+  frDaysAgo: '{n} days ago',
+  frLastPlayed: 'last played {when}',
+  frRequestSent: 'request sent {when}',
+  frNotAccepted: 'request not accepted',
+  frInviteSent: 'invite sent',
+  frNoGames: 'no games yet',
+  frNowFriend: '{name} is now your friend',
+  frDeclined: 'Declined quietly. They won’t be told.',
+  frAdded: '{name} added',
+  frRequestSentTo: 'Request sent to {name}',
+  frBack: 'Friends',
+  frYou: 'YOU',
+  frGames1: '1 game together',
+  frGamesN: '{n} games together',
+  frNoGamesYet: 'No games together yet',
+  frNoCompare: 'No numbers to compare yet',
+  frAvg3: '3-DART AVERAGE · 01',
+  frMprK: 'MPR · CRICKET',
+  frFull: 'FULL HEAD-TO-HEAD',
+  frX01Hdr: '01 · {n} LEGS',
+  frCrHdr: 'CRICKET · {n} LEGS',
+  frFirst9: 'FIRST 9 AVERAGE',
+  frCheckouts: 'CHECKOUTS',
+  frN180: '180s',
+  frHighFin: 'HIGH FINISH',
+  frBestLeg: 'BEST LEG · DARTS',
+  frFirst9Mpr: 'FIRST 9 MPR',
+  frRounds5: '5+ MARK ROUNDS',
+  frHat: 'HAT TRICKS',
+  frL5: 'LAST 5',
+  frPlay: 'Play {name}',
+  frEditNick: 'Edit nickname',
+  frRemove: 'Remove',
+  frMore: 'More',
+  frBlock: 'Block',
+  frEditDetails: 'Edit name or email',
+  frSave: 'Save',
+  frSaved: 'Saved',
+  frRemoveQ: 'Remove {name}?',
+  frRemoveSub: 'Your past games together stay on both scorecards. They won’t be told.',
+  frRemoved: '{name} removed',
+  frBlockQ: 'Block {name}?',
+  frBlockSub: 'They are removed from your friends and can’t send you requests. They won’t be told.',
+  frBlocked: '{name} blocked',
+  frWaitNote: 'Waiting for them to accept. Until then your results with them save for you only.',
+  frAskedNote: 'No answer to your request. Your results with them save for you only.',
+  frNoneNote: 'No DartDraw account yet. Your results with them save for you only.',
+  frResend: 'Send request again',
+  frCancelReq: 'Cancel request',
+  frInvite: 'Invite to DartDraw',
+  frResent: 'Request sent again',
+  frCancelled: 'Request cancelled',
+  frInvited: 'Invite sent',
+  frInviteReq: 'They have an account, so a request was sent instead',
+  frTheirsLater: 'Their numbers appear once they’re on DartDraw and linked.',
+  frCancelQ: 'Cancel the request to {name}?',
+  frCancelSub: 'The request is taken back. Your results with them keep saving for you only.',
+  frBusy: 'One moment, still answering the last request.',
+
+  /* casual play when logged in (casual.js, opponent.js renderChoose; mockup screen 1) */
+  player1You: 'PLAYER 1 · YOU',
+  alwaysCounts: 'Always counts',
+  chooseOpp: '+ CHOOSE OPPONENT',
+  changeOpp: 'Change opponent',
+  guestNothing: 'Nothing saved for them',
+  chooseTitle: 'CHOOSE OPPONENT',
+  coRecent: 'RECENT',
+  coGuest: 'PLAY A GUEST',
+  coPlay: 'PLAY',
+  coClose: 'Close',
+  coGames1: '1 game',
+  coGamesN: '{n} games',
+  coNoFriends: 'No friends yet. Add one, or play a guest.',
+  savedBoth: 'Saved to your scorecard and {name}’s',
+  savedHeld: 'Saved to yours. {name}’s is held until they accept.',
+  savedMine: 'Saved to your scorecard',
+  savedLater: 'Will be saved when you’re back online',
+  savedRelogin: 'Log in again to save this game.',
+  saveDropped: 'This game could not be saved.',
+  savedLoginBtn: 'LOG IN',
+  turnsLocked: 'Saved — turns can’t be changed now'
 };
 if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
 </script>
@@ -1552,6 +1858,9 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
   }
   function turnsScreen(v, o) {
     var w = o.words, leg = o.popup.leg, rows = o.turns || [], game = legGame(v, leg, rows);
+    // o.lockTurns (casual.js, a logged-in game once saved or waiting to be): the result's turns are shown, not changed, so the
+    // scorecard never keeps a result the screen no longer shows.
+    var locked = !!(o.lockTurns && v.winner);
     var nLegs = v.winner ? v.legs.length : (v.leg !== null ? v.leg + 1 : v.legs.length);
     var tabs = '';
     for (var i = 0; i < nLegs; i++) tabs += '<button class="' + (i === leg ? 'on' : '') + '"' + act('turnsLeg', i) + '>' + esc(w.legCol) + ' ' + (i + 1) + '</button>';
@@ -1561,12 +1870,14 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
       if (!t) return '<span class="c dash">–</span><span class="c"></span>';
       var shownScore = game === 'cricket' ? (t.darts || []).map(function (d) { return dartName(d, w); }).join(' • ') : (t.bust ? w.bust : t.scored);
       var left = game === 'cricket' ? (t.scored ? '+' + t.scored : '') : (t.left === 0 ? w.out : t.left);
+      if (locked) return '<span class="c sc">' + esc(shownScore) + '</span><span class="c lf">' + esc(left) + '</span>';
       return '<button class="c sc"' + act('edit', t.turnId) + '>' + esc(shownScore) + '</button><span class="c lf">' + esc(left) + '</span>';
     };
     var body = rows.map(function (r) { return '<div class="trow"><span class="c n">' + r.turn + '</span>' + cell(r.a) + cell(r.b) + '</div>'; }).join('');
     return '<section class="turnsp"><div class="tabs">' + tabs + '</div>'
       + '<h2>' + esc(fmt(w.turnsTitle, { n: leg + 1, game: game === 'cricket' ? up(w.gameNameCricket) : w.gameNameX01 })) + '</h2>'
-      + (first ? '<p class="subl">' + esc(fmt(game === 'cricket' ? w.turnsSubCricket : w.turnsSub, { name: v.sides[first].name })) + '</p>' : '')
+      + (locked ? '<p class="subl locked">' + esc(w.turnsLocked) + '</p>'
+        : first ? '<p class="subl">' + esc(fmt(game === 'cricket' ? w.turnsSubCricket : w.turnsSub, { name: v.sides[first].name })) + '</p>' : '')
       + '<div class="panel tbl' + (game === 'cricket' ? ' cr' : '') + '"><div class="thd"><span>' + esc(w.turnCol) + '</span><span class="side-a">' + esc(up(v.sides.a.name)) + '</span><span class="side-b">' + esc(up(v.sides.b.name)) + '</span></div>'
       + (game === 'cricket' ? '' : '<div class="tsub"><span></span><span>' + esc(w.scoredCol) + '</span><span>' + esc(w.leftCol) + '</span><span>' + esc(w.scoredCol) + '</span><span>' + esc(w.leftCol) + '</span></div>')
       + body + '</div><button class="dk wide"' + act('closePop') + '>' + esc(w.backToGame) + '</button></section>';
@@ -1644,6 +1955,13 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
       return '<div class="lrow"><span>' + l.n + '</span><span>' + esc(v.sides[l.winner].name) + '</span><span>' + esc(l.game === 'cricket' ? w.gameNameCricket : w.gameNameX01)
         + '</span><span>' + esc(fin) + '</span><span>' + l.darts + '</span></div>';
     }).join('');
+    // o.savedLine: what happened to a logged-in player's game (casual.js): a line of text, or { text, label, act } with a
+    // button (log in again). Guests have none.
+    var sl = o.savedLine, saved = '';
+    if (sl) {
+      var slt = typeof sl === 'string' ? sl : sl.text;
+      saved = '<div class="saved"><p>' + esc(slt) + '</p>' + (sl.act ? '<button class="dk"' + act(sl.act) + '>' + esc(sl.label) + '</button>' : '') + '</div>';
+    }
     var btns = (o.summaryButtons || []).map(function (b) {
       return '<button class="' + (b.main ? 'red main' : 'dk') + '"' + act(b.act) + '>' + esc(b.label) + '</button>';
     }).join('');
@@ -1652,7 +1970,7 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
       + card(run, 'run', w.runnerUp) + '</div>'
       + '<div class="panel ltab"><h3>' + esc(w.legs) + '</h3><div class="lhd"><span>' + esc(w.legCol) + '</span><span>' + esc(w.wonByCol) + '</span><span>' + esc(w.gameCol)
       + '</span><span>' + esc(w.finishCol) + '</span><span>' + esc(w.dartsCol) + '</span></div>' + rows + '</div>'
-      + '<div class="btns">' + btns + '</div></section>';
+      + saved + '<div class="btns">' + btns + '</div></section>';
   }
 
   /* ---------- the whole screen ---------- */
@@ -1660,8 +1978,8 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
   function render(v, o) {
     var body = '', pops = '', p = o.popup || null, hd = o, wide = false;
     if (p && (p.kind === 'turns' || p.kind === 'edit')) {
-      body = turnsScreen(v, { words: o.words, popup: { leg: p.leg }, turns: o.turns });
-      if (p.kind === 'edit') pops = editPop(v, o);
+      body = turnsScreen(v, { words: o.words, popup: { leg: p.leg }, turns: o.turns, lockTurns: o.lockTurns });
+      if (p.kind === 'edit' && !(o.lockTurns && v.winner)) pops = editPop(v, o);
     } else if (v.winner) {
       hd = Object.assign({}, o, { pill: null });
       body = summary(v, o);
@@ -1779,10 +2097,11 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
         case 'cgo': if (match.choice(ui.choicePick, ui.choiceGame).ok) { ui.choicePick = null; ui.choiceGame = null; } break;
         case 'turns': ui.popup = { kind: 'turns', leg: v.leg !== null ? v.leg : Math.max(0, v.legs.length - 1) }; ui.typed = ''; ui.cur = []; break;
         case 'turnsLeg': ui.popup = { kind: 'turns', leg: Number(val) }; break;
-        case 'edit': ui.popup = { kind: 'edit', leg: ui.popup ? ui.popup.leg : v.leg, turnId: val, error: null }; ui.typed = ''; ui.cur = []; break;
+        case 'edit': if (opts.lockTurns && v.winner) break; ui.popup = { kind: 'edit', leg: ui.popup ? ui.popup.leg : v.leg, turnId: val, error: null }; ui.typed = ''; ui.cur = []; break;
         case 'closeEdit': ui.popup = { kind: 'turns', leg: ui.popup.leg }; ui.typed = ''; ui.cur = []; break;
         case 'editBust':
         case 'editGo': {
+          if (opts.lockTurns && v.winner) { ui.popup = { kind: 'turns', leg: ui.popup.leg }; ui.typed = ''; ui.cur = []; break; }
           var change = a === 'editBust' ? { bust: true } : (ui.cur.length ? { darts: ui.cur } : { score: Number(ui.typed) });
           var r = match.editTurn(ui.popup.turnId, change);
           if (r.ok) { ui.popup = { kind: 'turns', leg: ui.popup.leg }; ui.typed = ''; ui.cur = []; }
@@ -1869,7 +2188,16 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
 
    The game in progress is kept on the phone (key dd-casual-v1: the picks, the match's events, which screen), so a reload
    or a locked phone reopens it; New game clears it. Settings (turn total / dart by dart, checkout hints) are kept under
-   dd-casual-prefs. Storage that throws (private mode) is ignored: the game still plays. */
+   dd-casual-prefs. Storage that throws (private mode) is ignored: the game still plays.
+
+   Logged in (opts.player, spec docs/superpowers/specs/2026-11-04-accounts-scorecard-venue-design.md, approved mockup
+   docs/design/friends-mockup.html screen 1): Player 1 is the player, locked; Player 2 is chosen from their friends, their
+   recent opponents, or a guest (the Choose opponent panel, opponent.js). The game kept in dd-casual-v1 then also carries
+   owner (the player's id), opp (Player 2), gameId (a lowercase uuid made at the start, so a reload keeps it and a game
+   sent twice is stored once) and save (what happened to it). At match over it is sent to POST /api/games/save; with no
+   signal (or the server failing, or the session gone) it waits in the phone's save queue (net.js) and a line under the
+   result says so. Guests: none of this; their setup, screens and storage are exactly as before, and a logged-in game
+   left on the phone is not theirs to reopen. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.DDCasual = factory();
@@ -1923,9 +2251,76 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
     return { title: w.appName, line2: w.casualPlay, line3: Screens().fmt(w[key], { n: picks.bestOf }) };
   }
 
+  /* ---------- logged in ---------- */
+
+  /* A new game's id: the server takes lowercase uuids only (8-4-4-4-12 hex). randomUUID is lowercase; without it (an
+     older phone, a page not on https) a version-4 uuid of the same shape is made from random numbers. */
+  function newId() {
+    var c = g().crypto;
+    if (c && typeof c.randomUUID === 'function') { try { return String(c.randomUUID()).toLowerCase(); } catch (e) { /* below */ } }
+    var h = '', i;
+    for (i = 0; i < 32; i++) h += Math.floor(Math.random() * 16).toString(16);
+    return h.slice(0, 8) + '-' + h.slice(8, 12) + '-4' + h.slice(13, 16) + '-' + '89ab'.charAt(Math.floor(Math.random() * 4)) + h.slice(17, 20) + '-' + h.slice(20, 32);
+  }
+  function clip(s, n) { return Array.from(String(s == null ? '' : s).trim()).slice(0, n).join(''); }
+  function initialsOf(full) {
+    var p = String(full || '').trim().split(/\s+/);
+    return ((p[0] || '').charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : '')).toUpperCase() || '?';
+  }
+  /* The name the player plays under (the scoring screens show it; the server reads side A's from the events). */
+  function myName(player) { return clip(player.firstName || player.lastName || '', 20) || '?'; }
+  /* Player 2's name in the game: what the player calls them, made different from Player 1's (the events must name the two
+     sides differently): the full name, else a 2 on the end. */
+  function oppName(opp, mine) {
+    var same = function (x) { return x.toLowerCase() === mine.toLowerCase(); };
+    var n = clip(opp.name, 20);
+    if (same(n) && opp.full) n = clip(opp.full, 20);
+    if (same(n)) n = clip(n, 18) + ' 2';
+    return n;
+  }
+  /* The opponent as kept: a friend { id, name, full, badge } or a guest { guest: true, name }; anything else is none. */
+  function cleanOpp(o) {
+    if (!o || typeof o !== 'object' || typeof o.name !== 'string' || !o.name.trim()) return null;
+    if (o.guest === true) return { guest: true, name: clip(o.name, 20) };
+    if (typeof o.id !== 'string' || !o.id) return null;
+    return { id: o.id, name: clip(o.name, 20), full: typeof o.full === 'string' ? o.full.slice(0, 100) : '', badge: ['linked', 'waiting', 'none'].indexOf(o.badge) >= 0 ? o.badge : 'none' };
+  }
+  var SAVES = ['saved', 'held', 'mine', 'queued', 'relogin', 'dropped'];
+  /* The line under the result for what happened to the save (null: nothing to say). */
+  function savedLine(state, opp, w) {
+    var name = opp ? opp.name : '';
+    if (state === 'saved') return Screens().fmt(w.savedBoth, { name: name });
+    if (state === 'held') return Screens().fmt(w.savedHeld, { name: name });
+    if (state === 'mine') return w.savedMine;
+    if (state === 'queued') return w.savedLater;
+    if (state === 'relogin') return { text: w.savedRelogin, label: w.savedLoginBtn, act: 'relogin' };
+    // Refused for good: said plainly, so a game that did not count is never a silent loss.
+    if (state === 'dropped') return w.saveDropped;
+    return null;
+  }
+  var LOCK = '<svg class="lk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  /* Player 1 (the player, locked) and Player 2 (a button opening Choose opponent) on the logged-in setup screen. Player 2
+     shows its badge, so the players know before they start whether the game counts for the friend too. */
+  function renderPlayers(me, w) {
+    var esc = Screens().esc, opp = me.opp;
+    var a = '<div class="nm side-a me"><span class="ini">' + esc(initialsOf(me.full || me.name)) + '</span><b>' + esc(me.name) + '</b><span class="al">'
+      + esc(w.alwaysCounts) + '</span>' + LOCK + '</div>';
+    var b;
+    if (!opp) b = '<button class="nm side-b pick" data-cs="opp">' + esc(w.chooseOpp) + '</button>';
+    else {
+      var k = opp.guest ? 'g' : opp.badge === 'linked' ? 'l' : opp.badge === 'waiting' ? 'w' : 'n';
+      var tag = opp.guest ? '<span class="al">' + esc(w.guestNothing) + '</span>'
+        : '<span class="bdg ' + k + '"><i></i>' + esc(k === 'l' ? w.frLinked : k === 'w' ? w.frWaiting : w.frNoAccount) + '</span>';
+      b = '<button class="nm side-b chosen" data-cs="opp" aria-label="' + esc(w.changeOpp) + '"><span class="ini ' + k + '">' + esc(initialsOf(opp.full || opp.name))
+        + '</span><b>' + esc(opp.name) + '</b>' + tag + '</button>';
+    }
+    return '<h3 class="pl">' + esc(w.player1You) + '</h3>' + a + '<h3 class="pl">' + esc(w.player2) + '</h3>' + b;
+  }
+
   /* ---------- the setup screen (CSetup) ---------- */
 
-  function renderSetup(picks, w) {
+  /* me (logged in only): { name, full, opp }: the two players are drawn by renderPlayers instead of the name boxes. */
+  function renderSetup(picks, w, me) {
     var esc = Screens().esc, fmt = Screens().fmt;
     var games = [['501', w.setup501, w.setup501Sub], ['cricket', w.setupCricket, w.setupCricketSub], ['choice', w.setupChoice, w.setupChoiceSub]].map(function (x) {
       return '<button class="opt' + (picks.game === x[0] ? ' on' : '') + '" data-cs="game" data-v="' + x[0] + '"><b>' + esc(x[1]) + '</b><span>' + esc(x[2]) + '</span></button>';
@@ -1950,9 +2345,9 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
       return '<label class="nm side-' + side + '"><input id="' + id + '" type="text" maxlength="20" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="'
         + esc(w.namePlaceholder) + '" value="' + esc(val) + '"><span>' + esc(label) + '</span></label>';
     };
-    return '<div class="dds cs"><header class="dds-hd"><span></span><div class="ttl"><div class="t1">' + esc(w.appName) + '</div><div class="t2">' + esc(w.casualPlay)
+    return '<div class="dds cs' + (me ? ' acct' : '') + '"><header class="dds-hd"><span></span><div class="ttl"><div class="t1">' + esc(w.appName) + '</div><div class="t2">' + esc(w.casualPlay)
       + '</div></div><span></span></header>'
-      + '<h3>' + esc(w.players) + '</h3>' + name('csA', 'a', picks.a, w.player1) + name('csB', 'b', picks.b, w.player2)
+      + (me ? renderPlayers(me, w) : '<h3>' + esc(w.players) + '</h3>' + name('csA', 'a', picks.a, w.player1) + name('csB', 'b', picks.b, w.player2))
       + '<h3>' + esc(w.game) + '</h3><div class="games">' + games + '</div>'
       + '<h3>' + esc(w.bestOf) + '</h3><div class="bests">' + bests + '</div>' + legs
       + '<p class="first">' + esc(picks.bestOf === 1 ? w.firstTo1 : fmt(w.firstTo, { n: Math.floor(picks.bestOf / 2) + 1 })) + '</p>'
@@ -1962,21 +2357,55 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
 
   /* ---------- the page ---------- */
 
+  function readRaw(storage) {
+    try { var raw = JSON.parse(storage.getItem(KEY)); return raw && typeof raw === 'object' ? raw : null; } catch (e) { return null; }
+  }
+  /* The kept game for a logged-in player: their own game as it was left (its names as played, so a name changed since
+     does not split a side in two), or a fresh setup with the last game picks and no opponent. */
+  function loadAcct(storage, player) {
+    var raw = readRaw(storage), base = load(storage), me = myName(player);
+    var picks = cleanPicks(base ? { game: base.picks.game, bestOf: base.picks.bestOf, legs: base.picks.legs } : null);
+    picks.a = me;
+    var data = { picks: picks, events: null, screen: 'setup', owner: player.id, opp: null, gameId: null, save: null, playedAt: null };
+    if (!raw || !base || raw.owner !== player.id) return data;
+    data.opp = cleanOpp(raw.opp);
+    if (base.screen === 'game' && data.opp) {
+      data.picks = base.picks; data.events = base.events; data.screen = 'game';
+      data.gameId = typeof raw.gameId === 'string' && ID_RE.test(raw.gameId) ? raw.gameId : newId();
+      data.save = SAVES.indexOf(raw.save) >= 0 ? raw.save : null;
+      data.playedAt = typeof raw.playedAt === 'string' ? raw.playedAt : null;
+    } else if (data.opp) data.picks.b = oppName(data.opp, me);
+    return data;
+  }
+  var ID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+
+  /* opts: { storage, words, player?, ctx?, net?, playWith?, onRelogin? }. Logged in (player): ctx is the app's (the
+     Choose opponent panel's api and words), net is DDNet (the save and its queue), playWith a friend from the friend card's
+     "Play <nickname>" ({ friendshipId, nickname, name, badge }) to start with as Player 2, onRelogin() opens log in. */
   function start(root, opts) {
-    var storage = opts.storage, w = opts.words;
-    var data = load(storage) || { picks: cleanPicks(null), events: null, screen: 'setup' };
+    var storage = opts.storage, w = opts.words, player = opts.player || null;
+    var data;
+    if (player) data = loadAcct(storage, player);
+    else {
+      data = load(storage) || { picks: cleanPicks(null), events: null, screen: 'setup' };
+      // A logged-in player's game left on the phone is not a guest's to go on with: a fresh setup (the game picks kept).
+      var raw = readRaw(storage);
+      if (raw && raw.owner) data = { picks: cleanPicks({ game: data.picks.game, bestOf: data.picks.bestOf, legs: data.picks.legs }), events: null, screen: 'setup' };
+    }
     var prefs = loadPrefs(storage);
-    var match = null, screen = null;
+    var match = null, screen = null, mopts = null, chooser = null, sendingId = null;   // sendingId: the game whose save is on its way
+    var doc = root.ownerDocument || (typeof document !== 'undefined' ? document : null);
+    var me = player ? { name: myName(player), full: (String(player.firstName || '') + ' ' + String(player.lastName || '')).trim() } : null;
 
     function keep() { save(storage, data); }
     function setupState() {
-      var err = checkNames(data.picks.a, data.picks.b), btn = root.querySelector('[data-cs="start"]'), msg = root.querySelector('.cserr');
+      var err = player && !data.opp ? 'name_missing' : checkNames(data.picks.a, data.picks.b), btn = root.querySelector('[data-cs="start"]'), msg = root.querySelector('.cserr');
       if (btn) { if (err) btn.setAttribute('disabled', ''); else btn.removeAttribute('disabled'); }
       if (msg) msg.textContent = err === 'name_same' ? w.err_name_same : '';
     }
     function showSetup() {
-      screen = null; match = null;
-      root.innerHTML = renderSetup(data.picks, w);
+      screen = null; match = null; mopts = null; chooser = null;
+      root.innerHTML = renderSetup(data.picks, w, me ? { name: me.name, full: me.full, opp: data.opp } : undefined);
       zoom();
       setupState();
     }
@@ -1984,27 +2413,131 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
     function showGame() {
       match = matchFrom(data, prefs.hints);
       root.innerHTML = '<div class="cg"></div>';
-      screen = Screens().mount(root.firstChild, match, {
+      mopts = {
         words: w, header: headerFor(data.picks, w), pill: null, mode: prefs.mode, hints: prefs.hints,
         summaryButtons: [{ label: w.newGame, act: 'newGame' }, { label: w.rematch, act: 'rematch', main: true }],
         gearButtons: [{ label: w.endGame, act: 'endGame', confirm: { title: w.endTitle, text: w.endText, yes: w.endYes } }],
-        onChange: function (m) { data.events = m.events(); keep(); },
+        onChange: function (m) { data.events = m.events(); keep(); if (!data.save) over(); },
         onPrefs: function (p) { prefs = { mode: p.mode, hints: p.hints }; try { storage.setItem(PREFS, JSON.stringify(prefs)); } catch (e) { /* play on */ } },
         onAction: action
-      });
+      };
+      if (player) { mopts.savedLine = savedLine(data.save, data.opp, w); mopts.lockTurns = locked(); }
+      screen = Screens().mount(root.firstChild, match, mopts);
+      // Reopened at the result: a game not sent yet, or still waiting, is sent now (the server stores an id once).
+      if (!data.save || data.save === 'queued' || data.save === 'relogin') over();
     }
     function action(a) {
       var v = match.view();
       if (a === 'back') {
         // Before the first turn the back arrow returns to setup; once the game is on (and on the result), it opens
         // the leg's turns, so a mistake can be checked and fixed instead of losing the game.
-        if (v.ask === 'bull' && v.bull.leg === 0) { data.screen = 'setup'; data.events = null; keep(); showSetup(); }
+        if (v.ask === 'bull' && v.bull.leg === 0) { data.screen = 'setup'; data.events = null; fresh(null); keep(); showSetup(); }
         else screen.act('turns');
       } else if (a === 'newGame' || a === 'endGame') {
-        data.screen = 'setup'; data.events = null; keep(); showSetup();
+        // Ending early (or a new game from the result) sends nothing more: only a finished match is ever saved.
+        data.screen = 'setup'; data.events = null; fresh(null); keep(); showSetup();
       } else if (a === 'rematch') {
-        data.screen = 'game'; data.events = []; keep(); showGame();
+        data.screen = 'game'; data.events = []; fresh(newId()); keep(); showGame();
+      } else if (a === 'relogin' && opts.onRelogin) {
+        opts.onRelogin();
       }
+    }
+    /* A logged-in game's id and save state, for a new game (id) or none yet (null). */
+    function fresh(id) {
+      if (!player) return;
+      data.gameId = id; data.save = null; data.playedAt = null;
+    }
+
+    /* ---- logged in: saving the finished game ---- */
+
+    /* The result's turns are locked once the game has gone to the server or the queue: a change after that would never
+       reach the scorecard. Not for guests, nor for a game the server refused (nothing was saved). */
+    function locked() { return !!(player && (sendingId === data.gameId || (data.save && data.save !== 'dropped'))); }
+    function show(st) {
+      if (!mopts || !screen) return;
+      mopts.savedLine = savedLine(st, data.opp, w); mopts.lockTurns = locked(); screen.refresh();
+    }
+    function bodyFor(id) {
+      return {
+        id: id, format: Scoring().formatFor({ game: data.picks.game, bestOf: data.picks.bestOf, legs: data.picks.legs }), events: match.events(),
+        playedAt: data.playedAt, sideA: { me: true }, sideB: data.opp.guest ? { guest: data.opp.name } : { friendshipId: data.opp.id }
+      };
+    }
+    function over() {
+      if (!player || !match || !match.view().winner || !data.opp || !data.gameId || !opts.net) return;
+      var id = data.gameId, net = opts.net;
+      if (sendingId === id) return;   // already on its way
+      if (!data.playedAt) { data.playedAt = new Date().toISOString(); keep(); }
+      var body = bodyFor(id);
+      if (sendingId) {
+        // The last game's save is still on its way (a quick rematch): this one waits in the queue, and is sent as soon
+        // as that answer is back (below), or by the queue's own flush.
+        net.queue.add({ id: id, player: player.id, game: body });
+        data.save = 'queued'; keep(); show('queued');
+        return;
+      }
+      sendingId = id;
+      show(data.save);
+      net.api('/api/games/save', { method: 'POST', body: body }).then(function (r) {
+        sendingId = null;
+        var st;
+        if (r.ok && r.body && r.body.saved) {
+          var f = r.body.saved.friend;
+          st = f === 'saved' ? 'saved' : f === 'held' ? 'held' : 'mine';
+          net.queue.remove(id);   // it may have waited there (offline earlier): saved now, so not sent again
+        } else if (r.status === 0 || r.status >= 500 || r.status === 429) {
+          // No signal, or the server failing: it waits on the phone and goes at start-up / back online (app.js).
+          net.queue.add({ id: id, player: player.id, game: body }); st = 'queued';
+        } else if (r.status === 401 || r.status === 403) {
+          // The session ran out during the game: kept, and sent once the player has logged in again.
+          net.queue.add({ id: id, player: player.id, game: body }); st = 'relogin';
+        } else {
+          // Refused for good (the server will never take this one): nothing to retry, nothing to show.
+          if (typeof console !== 'undefined') console.warn('casual game not saved', r.status, r.body && r.body.code);
+          net.queue.remove(id);
+          st = 'dropped';
+        }
+        if (data.gameId !== id) {
+          // A new game was started meanwhile: the answer belonged to the old one. A new game that finished and was queued
+          // in the meantime goes now.
+          if (data.save === 'queued' && st !== 'queued' && st !== 'relogin') over();
+          return;
+        }
+        data.save = st; keep(); show(st);
+      });
+    }
+
+    /* ---- logged in: Player 2 ---- */
+
+    function pickOpp(o) {
+      data.opp = cleanOpp(o);
+      data.picks.b = data.opp ? oppName(data.opp, me.name) : '';
+      keep(); showSetup();
+    }
+    /* A fresh friends list is in hand: a remembered friend whose entry is no longer on it (removed, merged, or the friend
+       removed or blocked the player) is not kept as Player 2, so the setup goes back to Choose opponent instead of
+       showing an old badge for a game that would not count for them. Only on the setup screen: a game already started
+       is saved for the player alone by the server. Answers true when Player 2 was cleared. */
+    function checkOpp(friends) {
+      if (!Array.isArray(friends) || data.screen !== 'setup' || !data.opp || data.opp.guest) return false;
+      var id = data.opp.id;
+      if (friends.some(function (f) { return f && f.id === id; })) return false;
+      data.opp = null; data.picks.b = ''; keep();
+      return true;
+    }
+    function openChooser() {
+      var O = g().DDOpponent;
+      if (!O || !opts.ctx || !doc || chooser) return;
+      chooser = doc.createElement('div');   // outside the zoomed setup screen: the panel is drawn at the phone's own size
+      root.appendChild(chooser);
+      var shown = data.opp;
+      O.renderChoose(chooser, opts.ctx, { current: data.opp, onList: checkOpp }, function (o) {
+        if (chooser && chooser.parentNode) chooser.parentNode.removeChild(chooser);
+        chooser = null;
+        if (o) pickOpp(o);
+        // Closed without a choice after Player 2 was cleared while the panel was open: the setup now shows Choose opponent.
+        else if (data.opp !== shown) showSetup();
+      });
     }
 
     root.addEventListener('input', function (ev) {
@@ -2020,14 +2553,41 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
       if (k === 'game') { data.picks.game = val; keep(); showSetup(); }
       else if (k === 'best') { data.picks.bestOf = Number(val); keep(); showSetup(); }
       else if (k === 'leg') { var p = String(val).split(':'); data.picks.legs[Number(p[0])] = p[1]; keep(); showSetup(); }
-      else if (k === 'start' && !checkNames(data.picks.a, data.picks.b)) { data.screen = 'game'; data.events = []; keep(); showGame(); }
+      else if (k === 'opp' && player) openChooser();
+      else if (k === 'start' && !checkNames(data.picks.a, data.picks.b) && (!player || data.opp)) { data.screen = 'game'; data.events = []; fresh(newId()); keep(); showGame(); }
     });
 
+    if (player) {
+      // From a friend's card ("Play <nickname>"): that friend is Player 2, unless a game with them or another is already on.
+      var pw = opts.playWith;
+      if (pw && typeof pw.friendshipId === 'string' && (data.screen !== 'game' || !(data.events && data.events.length))) {
+        data.screen = 'setup'; data.events = null; fresh(null);
+        data.opp = cleanOpp({ id: pw.friendshipId, name: pw.nickname || pw.name || '', full: pw.name || '', badge: pw.badge });
+        data.picks.b = data.opp ? oppName(data.opp, me.name) : '';
+        keep();
+      }
+      // Back online with the result on screen and the game waiting: send it now, so the line changes.
+      if (typeof window !== 'undefined' && window.addEventListener) {
+        var onOnline = function () {
+          if (root.isConnected === false) { window.removeEventListener('online', onOnline); return; }
+          if (data.save === 'queued' && match && match.view().winner) over();
+        };
+        window.addEventListener('online', onOnline);
+      }
+    }
     if (data.screen === 'game') showGame(); else showSetup();
+    // The setup opened with a friend remembered as Player 2: their entry is checked against a fresh list (no signal: kept
+    // as it is). The setup is redrawn only while it is still on screen with no panel open over it.
+    if (player && data.screen === 'setup' && data.opp && !data.opp.guest && opts.ctx && opts.ctx.api) {
+      opts.ctx.api('/api/friends/list').then(function (r) {
+        if (!(r && r.ok && r.body && Array.isArray(r.body.friends))) return;
+        if (checkOpp(r.body.friends) && !screen && !chooser && root.isConnected !== false) showSetup();
+      });
+    }
     return { match: function () { return match; }, data: function () { return data; } };
   }
 
-  return { start: start, checkNames: checkNames, save: save, load: load, matchFrom: matchFrom, headerFor: headerFor, renderSetup: renderSetup, KEY: KEY };
+  return { start: start, checkNames: checkNames, save: save, load: load, matchFrom: matchFrom, headerFor: headerFor, renderSetup: renderSetup, newId: newId, KEY: KEY };
 });
 </script>
 <script>

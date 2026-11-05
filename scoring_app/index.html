@@ -10,24 +10,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="scoring.css">
 <link rel="stylesheet" href="casual.css">
+<link rel="stylesheet" href="account.css">
+<link rel="stylesheet" href="scorecard.css">
+<link rel="stylesheet" href="friends.css">
 </head>
 <body>
 <main id="app"></main>
 <script src="i18n/casual.en.js"></script>
+<script src="i18n/casual.ms.js"></script>
 <script src="match-engine.js"></script>
 <script src="scoring-model.js"></script>
 <script src="scoring-screens.js"></script>
 <script src="casual.js"></script>
-<script>
-  (function () {
-    var storage = null;
-    try { storage = window.localStorage; storage.getItem('dd-casual-v1'); }
-    catch (e) { storage = { getItem: function () { return null; }, setItem: function () {}, removeItem: function () {} }; }
-    var app = document.getElementById('app');
-    DDCasual.start(app, { storage: storage, words: DD_CASUAL_EN });
-    window.addEventListener('resize', function () { DDScreens.fit(app.querySelector('.dds')); });
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(function () {});
-  })();
-</script>
+<script src="net.js"></script>
+<script src="account.js"></script>
+<script src="opponent.js"></script>
+<script src="scorecard.js"></script>
+<script src="app.js"></script>
+<script>DDApp.boot(document.getElementById('app'));</script>
 </body>
 </html>

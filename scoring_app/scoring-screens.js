@@ -265,6 +265,9 @@
   }
   function turnsScreen(v, o) {
     var w = o.words, leg = o.popup.leg, rows = o.turns || [], game = legGame(v, leg, rows);
+    // o.lockTurns (casual.js, a logged-in game once saved or waiting to be): the result's turns are shown, not changed, so the
+    // scorecard never keeps a result the screen no longer shows.
+    var locked = !!(o.lockTurns && v.winner);
     var nLegs = v.winner ? v.legs.length : (v.leg !== null ? v.leg + 1 : v.legs.length);
     var tabs = '';
     for (var i = 0; i < nLegs; i++) tabs += '<button class="' + (i === leg ? 'on' : '') + '"' + act('turnsLeg', i) + '>' + esc(w.legCol) + ' ' + (i + 1) + '</button>';
@@ -274,12 +277,14 @@
       if (!t) return '<span class="c dash">–</span><span class="c"></span>';
       var shownScore = game === 'cricket' ? (t.darts || []).map(function (d) { return dartName(d, w); }).join(' • ') : (t.bust ? w.bust : t.scored);
       var left = game === 'cricket' ? (t.scored ? '+' + t.scored : '') : (t.left === 0 ? w.out : t.left);
+      if (locked) return '<span class="c sc">' + esc(shownScore) + '</span><span class="c lf">' + esc(left) + '</span>';
       return '<button class="c sc"' + act('edit', t.turnId) + '>' + esc(shownScore) + '</button><span class="c lf">' + esc(left) + '</span>';
     };
     var body = rows.map(function (r) { return '<div class="trow"><span class="c n">' + r.turn + '</span>' + cell(r.a) + cell(r.b) + '</div>'; }).join('');
     return '<section class="turnsp"><div class="tabs">' + tabs + '</div>'
       + '<h2>' + esc(fmt(w.turnsTitle, { n: leg + 1, game: game === 'cricket' ? up(w.gameNameCricket) : w.gameNameX01 })) + '</h2>'
-      + (first ? '<p class="subl">' + esc(fmt(game === 'cricket' ? w.turnsSubCricket : w.turnsSub, { name: v.sides[first].name })) + '</p>' : '')
+      + (locked ? '<p class="subl locked">' + esc(w.turnsLocked) + '</p>'
+        : first ? '<p class="subl">' + esc(fmt(game === 'cricket' ? w.turnsSubCricket : w.turnsSub, { name: v.sides[first].name })) + '</p>' : '')
       + '<div class="panel tbl' + (game === 'cricket' ? ' cr' : '') + '"><div class="thd"><span>' + esc(w.turnCol) + '</span><span class="side-a">' + esc(up(v.sides.a.name)) + '</span><span class="side-b">' + esc(up(v.sides.b.name)) + '</span></div>'
       + (game === 'cricket' ? '' : '<div class="tsub"><span></span><span>' + esc(w.scoredCol) + '</span><span>' + esc(w.leftCol) + '</span><span>' + esc(w.scoredCol) + '</span><span>' + esc(w.leftCol) + '</span></div>')
       + body + '</div><button class="dk wide"' + act('closePop') + '>' + esc(w.backToGame) + '</button></section>';
@@ -357,6 +362,13 @@
       return '<div class="lrow"><span>' + l.n + '</span><span>' + esc(v.sides[l.winner].name) + '</span><span>' + esc(l.game === 'cricket' ? w.gameNameCricket : w.gameNameX01)
         + '</span><span>' + esc(fin) + '</span><span>' + l.darts + '</span></div>';
     }).join('');
+    // o.savedLine: what happened to a logged-in player's game (casual.js): a line of text, or { text, label, act } with a
+    // button (log in again). Guests have none.
+    var sl = o.savedLine, saved = '';
+    if (sl) {
+      var slt = typeof sl === 'string' ? sl : sl.text;
+      saved = '<div class="saved"><p>' + esc(slt) + '</p>' + (sl.act ? '<button class="dk"' + act(sl.act) + '>' + esc(sl.label) + '</button>' : '') + '</div>';
+    }
     var btns = (o.summaryButtons || []).map(function (b) {
       return '<button class="' + (b.main ? 'red main' : 'dk') + '"' + act(b.act) + '>' + esc(b.label) + '</button>';
     }).join('');
@@ -365,7 +377,7 @@
       + card(run, 'run', w.runnerUp) + '</div>'
       + '<div class="panel ltab"><h3>' + esc(w.legs) + '</h3><div class="lhd"><span>' + esc(w.legCol) + '</span><span>' + esc(w.wonByCol) + '</span><span>' + esc(w.gameCol)
       + '</span><span>' + esc(w.finishCol) + '</span><span>' + esc(w.dartsCol) + '</span></div>' + rows + '</div>'
-      + '<div class="btns">' + btns + '</div></section>';
+      + saved + '<div class="btns">' + btns + '</div></section>';
   }
 
   /* ---------- the whole screen ---------- */
@@ -373,8 +385,8 @@
   function render(v, o) {
     var body = '', pops = '', p = o.popup || null, hd = o, wide = false;
     if (p && (p.kind === 'turns' || p.kind === 'edit')) {
-      body = turnsScreen(v, { words: o.words, popup: { leg: p.leg }, turns: o.turns });
-      if (p.kind === 'edit') pops = editPop(v, o);
+      body = turnsScreen(v, { words: o.words, popup: { leg: p.leg }, turns: o.turns, lockTurns: o.lockTurns });
+      if (p.kind === 'edit' && !(o.lockTurns && v.winner)) pops = editPop(v, o);
     } else if (v.winner) {
       hd = Object.assign({}, o, { pill: null });
       body = summary(v, o);
@@ -492,10 +504,11 @@
         case 'cgo': if (match.choice(ui.choicePick, ui.choiceGame).ok) { ui.choicePick = null; ui.choiceGame = null; } break;
         case 'turns': ui.popup = { kind: 'turns', leg: v.leg !== null ? v.leg : Math.max(0, v.legs.length - 1) }; ui.typed = ''; ui.cur = []; break;
         case 'turnsLeg': ui.popup = { kind: 'turns', leg: Number(val) }; break;
-        case 'edit': ui.popup = { kind: 'edit', leg: ui.popup ? ui.popup.leg : v.leg, turnId: val, error: null }; ui.typed = ''; ui.cur = []; break;
+        case 'edit': if (opts.lockTurns && v.winner) break; ui.popup = { kind: 'edit', leg: ui.popup ? ui.popup.leg : v.leg, turnId: val, error: null }; ui.typed = ''; ui.cur = []; break;
         case 'closeEdit': ui.popup = { kind: 'turns', leg: ui.popup.leg }; ui.typed = ''; ui.cur = []; break;
         case 'editBust':
         case 'editGo': {
+          if (opts.lockTurns && v.winner) { ui.popup = { kind: 'turns', leg: ui.popup.leg }; ui.typed = ''; ui.cur = []; break; }
           var change = a === 'editBust' ? { bust: true } : (ui.cur.length ? { darts: ui.cur } : { score: Number(ui.typed) });
           var r = match.editTurn(ui.popup.turnId, change);
           if (r.ok) { ui.popup = { kind: 'turns', leg: ui.popup.leg }; ui.typed = ''; ui.cur = []; }

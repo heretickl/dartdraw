@@ -108,7 +108,12 @@ var DD_ERR_EN = {
   'err.contact_not_plain': 'The contact line must be plain text, without < or >.',
   'err.settings_missing': 'Send resultsDays and liveHours.',
   'err.invalid_setting_number': '{key} must be a whole number from {lo} to {hi}.',
-  'err.settings_table_missing': 'The settings table does not exist yet. Run migrations/2026-10-14-admin.sql in Neon, then try again.'
+  'err.settings_table_missing': 'The settings table does not exist yet. Run migrations/2026-10-14-admin.sql in Neon, then try again.',
+  'err.invalid_first_name': 'First name must be 1 to 40 characters.',
+  'err.invalid_last_name': 'Last name must be 1 to 40 characters.',
+  'err.email_taken': 'A player account with that email already exists.',
+  'err.player_account_not_found': 'Player account not found.',
+  'err.not_set_up': 'Player accounts are not set up yet. Run migrations/2026-11-05-player-accounts.sql first.'
 };
 /* Answers only the Admin panel shows (admin-ui.js, English only): no BM text. */
 var DD_ERR_ADMIN_ONLY = [
@@ -117,6 +122,6 @@ var DD_ERR_ADMIN_ONLY = [
   'invalid_name', 'invalid_tier', 'organiser_not_found', 'account_suspended_reactivate', 'last_admin', 'nothing_to_change',
   'invalid_role', 'invalid_suspended', 'own_role', 'suspend_self', 'admin_needs_verified', 'delete_self', 'has_events',
   'invalid_contact', 'contact_too_long', 'contact_not_plain', 'settings_missing', 'invalid_setting_number',
-  'settings_table_missing'
+  'settings_table_missing', 'invalid_first_name', 'invalid_last_name', 'email_taken', 'player_account_not_found', 'not_set_up'
 ];
 if (typeof module !== 'undefined' && module.exports) module.exports = { DD_ERR_EN: DD_ERR_EN, DD_ERR_ADMIN_ONLY: DD_ERR_ADMIN_ONLY };

@@ -1,14 +1,15 @@
 /* Casual play: a copy of the site on the phone, so a game goes on with no signal. Network first (TIMEOUT_MS at most),
    the fresh copy kept; no answer: the kept copy. Only the site's own files (SHELL) are answered here; the fonts and
-   everything else go to the network untouched.
+   everything else go to the network untouched; so do the server's answers (/api/...), which are never kept here.
    VERSION: bump it when SHELL changes (a file added or removed); it only clears the old caches. SHELL must list the page
    and every file it loads (tests/casual.test.js checks). */
-var VERSION = '2026-11-04.1';
+var VERSION = '2026-11-05.3';
 var CACHE = 'dd-casual-' + VERSION;
 var SHELL = [
   '/',
-  '/scoring.css', '/casual.css',
-  '/i18n/casual.en.js', '/match-engine.js', '/scoring-model.js', '/scoring-screens.js', '/casual.js'
+  '/scoring.css', '/casual.css', '/account.css', '/scorecard.css', '/friends.css',
+  '/i18n/casual.en.js', '/i18n/casual.ms.js', '/match-engine.js', '/scoring-model.js', '/scoring-screens.js', '/casual.js',
+  '/net.js', '/account.js', '/opponent.js', '/scorecard.js', '/app.js'
 ];
 var TIMEOUT_MS = 6000;
 
