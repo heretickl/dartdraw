@@ -281,3 +281,15 @@ test('sideways: empty last-scores rows keep their height', () => {
   assert.match(three[1], /min-height:4\dpx/);
   assert.match(six[1], /min-height:3\dpx/);
 });
+
+// 01 games are sized for Easy Mode (the taller of the two) from the start, so switching Normal / Easy keeps the size.
+test('fit, sideways 01: sized for Easy Mode in both modes', () => {
+  withPage(1000, 487, () => {
+    const el = (easy) => ({ style: {}, classList: { contains: (c) => c === 'wide' || c === 'g-x01' } });
+    const normal = el(false), easy = el(true);
+    D.fit(normal);
+    D.fit(easy);
+    assert.equal(normal.style.zoom, easy.style.zoom);
+    assert.ok(Math.abs(Number(normal.style.zoom) - 487 / 930) < 1e-9);
+  });
+});
