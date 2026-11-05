@@ -293,3 +293,73 @@ test('fit, sideways 01: sized for Easy Mode in both modes', () => {
     assert.ok(Math.abs(Number(normal.style.zoom) - 487 / 930) < 1e-9);
   });
 });
+
+// Paired boxes that show a player's name (score cards, the match summary cards, the bull "who was closest" buttons)
+// share the width equally: a plain 1fr track grows to fit a long name, so they use minmax(0,1fr).
+test('paired name boxes share the width equally whatever the names', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'scoring.css'), 'utf8');
+  const cols = (sel) => {
+    const m = css.match(new RegExp(sel.replace(/[.]/g, '\.') + '\{[^}]*grid-template-columns:([^;}]+)'));
+    assert.ok(m, sel + ' is a grid');
+    return m[1].trim();
+  };
+  assert.equal(cols('.dds .sum .top'), 'minmax(0,1fr) 104px minmax(0,1fr)');
+  assert.equal(cols('.dds .bbtns'), 'minmax(0,1fr) minmax(0,1fr)');
+});
+
+// A sideways screen wider than the 1280-wide design (a phone on its side, a laptop) widens its layout to use the room
+// instead of leaving black bands at the sides, up to 1.4 times the design width.
+test('fit, sideways: the layout widens to use a wide window', () => {
+  withPage(915, 411, () => {
+    const el = { style: {}, classList: { contains: (c) => c === 'wide' || c === 'g-x01' || c === 'play' } };
+    D.fit(el);
+    const z = Number(el.style.zoom);
+    assert.equal(el.style.width, Math.min(Math.floor(915 / z), 1792) + 'px');
+  });
+  withPage(1180, 821, () => { // a tablet on its side fills its width too
+    const el = { style: {}, classList: { contains: (c) => c === 'wide' || c === 'g-x01' || c === 'play' } };
+    D.fit(el);
+    assert.equal(el.style.width, Math.floor(1180 / Number(el.style.zoom)) + 'px');
+  });
+});
+
+// A Cricket leg inside a Choice match is drawn at Cricket's own scale, not the smaller one a 501 leg needed.
+test('fit: a Cricket screen does not inherit the 501 scale on the same window', () => {
+  withPage(1000, 486, () => {
+    const make = (game, need) => ({
+      style: {}, classList: { contains: (c) => c === 'wide' || c === 'play' || c === game },
+      getBoundingClientRect() { return { height: Math.max(need, parseFloat(this.style.minHeight) || 0) * Number(this.style.zoom) }; }
+    });
+    const x01 = make('g-x01', 990), cr = make('g-cricket', 700);
+    D.fit(x01);
+    D.fit(cr);
+    assert.ok(Math.abs(Number(cr.style.zoom) - 486 / 720) < 1e-9);
+  });
+});
+
+// zoom x min-height never lands past the window (a fraction over showed a needless scrollbar).
+test('fit: the stretched height never runs a fraction past the window', () => {
+  for (const [w, h] of [[820, 1179], [1000, 485], [390, 843]]) {
+    withPage(w, h, () => {
+      const el = { style: {}, classList: { contains: () => false } };
+      D.fit(el);
+      assert.ok(parseFloat(el.style.minHeight) * Number(el.style.zoom) <= h + 1e-9 || parseFloat(el.style.minHeight) === 982);
+    });
+  }
+});
+
+// Only the live scoring screen is "play" (fitted to its last row, sized for Easy Mode). The bull and Choice screens
+// are one-column screens: on a short wide window they keep a readable size and scroll.
+test('the bull screen is not the play screen; the scoring screen is', () => {
+  const m = match('501');
+  assert.equal(dom(m, {}).querySelector('.dds').classList.contains('play'), false);
+  m.bull('a');
+  assert.equal(dom(m, {}).querySelector('.dds').classList.contains('play'), true);
+});
+
+// The edit pop-up on the turns list starts near the top of the window like the other turns-list pop-ups, so its
+// Cancel / Change buttons are inside the window.
+test('turns-list edit pop-up is fixed near the top of the window', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'scoring.css'), 'utf8');
+  assert.match(css, /\.dds\.turnsv \.pop,\.dds\.turnsv \.pop\.edit\{position:fixed;top:40px/);
+});

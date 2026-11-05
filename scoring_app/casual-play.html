@@ -115,6 +115,7 @@
 /* pop-ups: over the faded screen, in the colour of the side they are about */
 .dds .veil{position:absolute;inset:0;background:rgba(2,4,8,.6);backdrop-filter:blur(3px) brightness(.6);-webkit-backdrop-filter:blur(3px) brightness(.6);z-index:5}
 .dds .pop{position:absolute;left:44px;right:44px;top:170px;z-index:6;border-radius:24px;padding:28px 30px 30px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.dds.turnsv .veil{position:fixed}.dds.turnsv .pop,.dds.turnsv .pop.edit{position:fixed;top:40px;left:50%;right:auto;width:572px;transform:translateX(-50%);max-height:calc(var(--winh,982px) - 80px);overflow-y:auto}
 .dds .pop.side-a{border:3px solid #22b4ff;background:linear-gradient(180deg,rgba(8,22,36,.96),rgba(4,10,18,.98));box-shadow:0 0 0 1px rgba(34,180,255,.4),0 0 26px rgba(34,176,255,.8),0 0 60px rgba(34,176,255,.3),inset 0 0 26px rgba(34,176,255,.22)}
 .dds .pop.side-b{border:3px solid #ffc61a;background:linear-gradient(180deg,rgba(30,24,6,.96),rgba(12,9,3,.98));box-shadow:0 0 0 1px rgba(255,198,26,.4),0 0 26px rgba(255,190,20,.75),0 0 60px rgba(255,190,20,.3),inset 0 0 26px rgba(255,190,20,.2)}
 .dds .pop h2{font:700 40px/1.1 var(--bar);margin:6px 0 0}
@@ -165,7 +166,7 @@
 /* cricket */
 .dds .cricket{margin-top:14px;padding:12px 6px 16px}
 .dds .chd{display:grid;grid-template-columns:186px 1fr 186px;text-align:center;font:600 22px var(--bar);padding-bottom:8px}
-.dds .crow{display:grid;grid-template-columns:186px 54px 90px 54px 186px;gap:0 8px;justify-content:center;align-items:center;margin:0 0 9px}
+.dds .crow{display:grid;grid-template-columns:168px 72px 90px 72px 168px;gap:0 8px;justify-content:center;align-items:center;margin:0 0 9px}
 .dds .crow>div{height:53px;border-radius:12px;background:rgba(4,8,12,.65);border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;gap:12px;position:relative}
 .dds .mk{width:32px;height:32px;border-radius:50%;border:2.5px solid #e8eef5;display:flex;align-items:center;justify-content:center}
 .dds .ma .mk.on{border-color:var(--a);box-shadow:0 0 10px var(--a)}
@@ -186,7 +187,7 @@
 .dds .bullp h3{font:700 38px var(--bar);margin:0}.dds .bullp h4{font:700 34px var(--bar);margin:4px 0}
 .dds .bullp p{font:500 20px var(--man);margin:0}
 .dds .closest{font:700 42px var(--bar);margin:32px 0 16px}
-.dds .bbtns{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.dds .bbtns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
 .dds .bb{height:142px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px solid rgba(255,255,255,.3)!important;background:rgba(14,20,28,.75)!important}
 .dds .bb b{font:700 39px var(--bar);max-width:95%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dds .bb span{font:500 23px var(--man)}
 .dds .bb.side-a:active{border:3px solid #5fd0ff!important;background:linear-gradient(180deg,#2196ff,#0a5ad0)!important;box-shadow:0 0 28px rgba(30,150,255,.85)}
@@ -236,9 +237,9 @@
 .dds .pop .err{font:600 20px var(--man);color:#ff6b75}
 .dds .epad{display:grid;grid-template-columns:repeat(3,150px);gap:10px 25px}
 .dds .epad .k{height:62px;font-size:38px}.dds .epad .k.bust{font-size:25px}
-.dds .ekeys{display:flex;flex-direction:column;gap:6px;width:360px}
-.dds .erow{display:grid;grid-template-columns:70px 1fr 70px;gap:10px}
-.dds .erow .key{height:42px;font-size:24px}.dds .ekeys .miss{height:44px;font-size:24px}
+.dds .ekeys{display:flex;flex-direction:column;gap:6px;width:440px}
+.dds .erow{display:grid;grid-template-columns:90px 1fr 90px;gap:10px}
+.dds .erow .key{height:70px;font-size:30px}.dds .ekeys .miss{height:64px;font-size:26px}
 .dds .key.none{opacity:.3}
 
 /* settings */
@@ -251,8 +252,8 @@
 
 /* the end of the match */
 .dds-hd .pill.over{color:#4dff8f;background:#0f5a2c;box-shadow:0 0 12px rgba(61,240,138,.35)}
-.dds .sum .top{display:grid;grid-template-columns:1fr 104px 1fr;gap:12px;align-items:center}
-.dds .sc2{border-radius:18px;padding:12px 17px;display:flex;flex-direction:column;gap:2px;min-height:170px;justify-content:center}
+.dds .sum .top{display:grid;grid-template-columns:minmax(0,1fr) 104px minmax(0,1fr);gap:12px;align-items:center}
+.dds .sc2{border-radius:18px;padding:12px 17px;display:flex;min-width:0;flex-direction:column;gap:2px;min-height:170px;justify-content:center}
 .dds .sc2.side-a{border:3px solid #22b4ff;background:linear-gradient(180deg,rgba(14,40,70,.55),rgba(6,16,30,.65));box-shadow:0 0 22px rgba(34,176,255,.8),inset 0 0 20px rgba(34,176,255,.25)}
 .dds .sc2.side-b{border:3px solid #ffc61a;background:linear-gradient(180deg,rgba(70,55,8,.45),rgba(25,19,2,.6));box-shadow:0 0 22px rgba(255,190,20,.75),inset 0 0 20px rgba(255,190,20,.2)}
 .dds .sc2 .lbl{font:700 24px var(--bar)}.dds .sc2.win .lbl{color:var(--green)}.dds .sc2.run.side-b .lbl{color:var(--b)}.dds .sc2.run.side-a .lbl{color:var(--a)}
@@ -2012,7 +2013,7 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
       head = head.replace(/<div class="rt">[\s\S]*?<\/div><\/header>$/, '<div class="rt"><span class="pill over">' + esc(o.words.matchOver) + '</span></div></header>');
     }
     var compact = !wide && v.ask === 'turn' && v.game === 'x01' && (o.mode || 'total') === 'darts' && !(p && (p.kind === 'turns' || p.kind === 'edit'));
-    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + (wide ? ' wide' : '') + (p && (p.kind === 'turns' || p.kind === 'edit') ? ' turnsv' : (v.winner ? '' : ' play')) + '">' + head + body + pops + '</div>';
+    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + (wide ? ' wide' : '') + (p && (p.kind === 'turns' || p.kind === 'edit') ? ' turnsv' : (v.ask === 'turn' && !v.winner ? ' play' : '')) + '">' + head + body + pops + '</div>';
   }
 
   /* A screen clearly wider than tall (a tablet or phone on its side, a laptop) gets the side-by-side layout. */
@@ -2037,22 +2038,30 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
     // 01 is sized for Easy Mode, its taller layout, in both modes, so the Normal / Easy switch keeps the size.
     if (play && el.classList.contains('g-x01')) dh = wide ? 930 : 1232;
     var z = Math.min(wide ? 1.5 : 1.25, w / dw, h ? h / dh : Infinity);
-    el.style.zoom = z;
-    el.style.minHeight = Math.max(dh, h ? Math.round(h / z) : 0) + 'px';
+    // A one-column screen (setup, bull, turns list, summary) on a short, wide window would shrink to a strip of tiny text
+    // to fit the height; it keeps at least 0.7 of its size there and scrolls instead.
+    if (!play && !wide && h && w >= h * 1.2) z = Math.min(1.25, w / dw, Math.max(z, 0.7));
+    // Rounded down, so zoom x height never lands a fraction of a pixel past the window (that showed a needless scrollbar).
+    function apply() {
+      el.style.zoom = z;
+      el.style.minHeight = Math.max(dh, h ? Math.floor(h / z) : 0) + 'px';
+      // A sideways screen wider than its 1280 design (a phone on its side, a laptop) widens its layout into the room,
+      // up to 1.4 times, instead of leaving black bands at the sides.
+      el.style.width = wide && w / z > dw ? Math.min(Math.floor(w / z), Math.round(dw * 1.4)) + 'px' : '';
+      // The window's height in the screen's own pixels, for pop-ups fixed to the window (the turns list's).
+      if (h && el.style.setProperty) el.style.setProperty('--winh', Math.floor(h / z) + 'px');
+    }
+    apply();
     if (!play) return;
     // Some screens need more than the design height (Easy Mode's keypad with This turn): measure what was drawn and,
     // if it still runs past the window, scale down once more so the bottom row is never cut off.
-    // The smallest scale this window has needed is kept, so the screen does not change size from one turn to the next
-    // (a new window size starts afresh).
-    var key = w + 'x' + h + (wide ? 'w' : '');
+    // The smallest scale this window and game type have needed is kept, so the screen does not change size from one
+    // turn to the next (a new window size, or 501 against Cricket, starts afresh).
+    var key = w + 'x' + h + (wide ? 'w' : '') + (el.classList.contains('g-x01') ? 'x' : 'c');
     if (fitKept.key !== key) fitKept = { key: key, z: z };
     var drawn = h && el.getBoundingClientRect ? el.getBoundingClientRect().height : 0;
     if (drawn > h + 1) fitKept.z = Math.min(fitKept.z, z * h / drawn);
-    if (fitKept.z < z) {
-      z = fitKept.z;
-      el.style.zoom = z;
-      el.style.minHeight = Math.max(dh, Math.round(h / z)) + 'px';
-    }
+    if (fitKept.z < z) { z = fitKept.z; apply(); }
   }
   var fitKept = { key: '', z: 0 };
 

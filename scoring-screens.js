@@ -416,7 +416,7 @@
       head = head.replace(/<div class="rt">[\s\S]*?<\/div><\/header>$/, '<div class="rt"><span class="pill over">' + esc(o.words.matchOver) + '</span></div></header>');
     }
     var compact = !wide && v.ask === 'turn' && v.game === 'x01' && (o.mode || 'total') === 'darts' && !(p && (p.kind === 'turns' || p.kind === 'edit'));
-    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + (wide ? ' wide' : '') + (p && (p.kind === 'turns' || p.kind === 'edit') ? ' turnsv' : (v.winner ? '' : ' play')) + '">' + head + body + pops + '</div>';
+    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + (wide ? ' wide' : '') + (p && (p.kind === 'turns' || p.kind === 'edit') ? ' turnsv' : (v.ask === 'turn' && !v.winner ? ' play' : '')) + '">' + head + body + pops + '</div>';
   }
 
   /* A screen clearly wider than tall (a tablet or phone on its side, a laptop) gets the side-by-side layout. */
@@ -441,22 +441,30 @@
     // 01 is sized for Easy Mode, its taller layout, in both modes, so the Normal / Easy switch keeps the size.
     if (play && el.classList.contains('g-x01')) dh = wide ? 930 : 1232;
     var z = Math.min(wide ? 1.5 : 1.25, w / dw, h ? h / dh : Infinity);
-    el.style.zoom = z;
-    el.style.minHeight = Math.max(dh, h ? Math.round(h / z) : 0) + 'px';
+    // A one-column screen (setup, bull, turns list, summary) on a short, wide window would shrink to a strip of tiny text
+    // to fit the height; it keeps at least 0.7 of its size there and scrolls instead.
+    if (!play && !wide && h && w >= h * 1.2) z = Math.min(1.25, w / dw, Math.max(z, 0.7));
+    // Rounded down, so zoom x height never lands a fraction of a pixel past the window (that showed a needless scrollbar).
+    function apply() {
+      el.style.zoom = z;
+      el.style.minHeight = Math.max(dh, h ? Math.floor(h / z) : 0) + 'px';
+      // A sideways screen wider than its 1280 design (a phone on its side, a laptop) widens its layout into the room,
+      // up to 1.4 times, instead of leaving black bands at the sides.
+      el.style.width = wide && w / z > dw ? Math.min(Math.floor(w / z), Math.round(dw * 1.4)) + 'px' : '';
+      // The window's height in the screen's own pixels, for pop-ups fixed to the window (the turns list's).
+      if (h && el.style.setProperty) el.style.setProperty('--winh', Math.floor(h / z) + 'px');
+    }
+    apply();
     if (!play) return;
     // Some screens need more than the design height (Easy Mode's keypad with This turn): measure what was drawn and,
     // if it still runs past the window, scale down once more so the bottom row is never cut off.
-    // The smallest scale this window has needed is kept, so the screen does not change size from one turn to the next
-    // (a new window size starts afresh).
-    var key = w + 'x' + h + (wide ? 'w' : '');
+    // The smallest scale this window and game type have needed is kept, so the screen does not change size from one
+    // turn to the next (a new window size, or 501 against Cricket, starts afresh).
+    var key = w + 'x' + h + (wide ? 'w' : '') + (el.classList.contains('g-x01') ? 'x' : 'c');
     if (fitKept.key !== key) fitKept = { key: key, z: z };
     var drawn = h && el.getBoundingClientRect ? el.getBoundingClientRect().height : 0;
     if (drawn > h + 1) fitKept.z = Math.min(fitKept.z, z * h / drawn);
-    if (fitKept.z < z) {
-      z = fitKept.z;
-      el.style.zoom = z;
-      el.style.minHeight = Math.max(dh, Math.round(h / z)) + 'px';
-    }
+    if (fitKept.z < z) { z = fitKept.z; apply(); }
   }
   var fitKept = { key: '', z: 0 };
 
