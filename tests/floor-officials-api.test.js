@@ -306,7 +306,8 @@ test('deploy: the two functions that run the app’s rules on the server ship ev
   for (const fn of ['api/score/[action].js', 'api/tournaments/[id].js']) {
     const inc = vj.functions[fn].includeFiles.replace(/^\{|\}$/g, '').split(',');
     assert.ok(inc.includes('app.html'), fn + ': app.html');
-    files.forEach((f) => assert.ok(inc.includes(f), fn + ': ' + f));
+    const covered = (f) => inc.includes(f) || (!f.includes('/') && f.endsWith('.js') && inc.includes('*.js')) || (f.startsWith('i18n/') && f.endsWith('.js') && inc.includes('i18n/*.js'));
+    files.forEach((f) => assert.ok(covered(f), fn + ': ' + f));
   }
 });
 
