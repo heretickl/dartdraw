@@ -440,13 +440,19 @@
     el.style.minHeight = Math.max(dh, h ? Math.round(h / z) : 0) + 'px';
     // Some screens need more than the design height (Easy Mode's keypad with This turn): measure what was drawn and,
     // if it still runs past the window, scale down once more so the bottom row is never cut off.
+    // The smallest scale this window has needed is kept, so the screen does not change size from one turn to the next
+    // (a new window size starts afresh).
+    var key = w + 'x' + h + (wide ? 'w' : '');
+    if (fitKept.key !== key) fitKept = { key: key, z: z };
     var drawn = h && el.getBoundingClientRect ? el.getBoundingClientRect().height : 0;
-    if (drawn > h + 1) {
-      z = z * h / drawn;
+    if (drawn > h + 1) fitKept.z = Math.min(fitKept.z, z * h / drawn);
+    if (fitKept.z < z) {
+      z = fitKept.z;
       el.style.zoom = z;
       el.style.minHeight = Math.max(dh, Math.round(h / z)) + 'px';
     }
   }
+  var fitKept = { key: '', z: 0 };
 
   /* ---------- taps ---------- */
 

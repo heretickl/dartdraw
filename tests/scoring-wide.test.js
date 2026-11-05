@@ -248,3 +248,36 @@ test('fit: a screen taller than its design height is scaled down until it all fi
     assert.ok(Math.abs(Number(el.style.zoom) - 488 / NEED) < 1e-9);
   });
 });
+
+// Between turns the screen must not change size: once a screen on this window needed a smaller scale, later screens on
+// the same window keep it, even if they are a little shorter.
+test('fit: the scale stays put between turns on the same window', () => {
+  withPage(1000, 489, () => {
+    const make = (need) => ({
+      style: {}, classList: { contains: (c) => c === 'wide' },
+      getBoundingClientRect() { return { height: Math.max(need, parseFloat(this.style.minHeight) || 0) * Number(this.style.zoom) }; }
+    });
+    const tall = make(865), short = make(791);
+    D.fit(tall);
+    D.fit(short);
+    assert.equal(short.style.zoom, tall.style.zoom);
+  });
+});
+
+// A long name in "<NAME> TO THROW" stayed on two lines and made the screen taller; it is cut with "..." instead.
+test('the This turn line never wraps a long name', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'scoring.css'), 'utf8');
+  const m = css.match(/\.dds \.turnp \.who\{([^}]*)\}/);
+  assert.ok(m, 'a rule for the name on the This turn line');
+  assert.match(m[1], /white-space:nowrap/);
+  assert.match(m[1], /text-overflow:ellipsis/);
+});
+
+// Empty rows of the last-scores box keep their full height, so the box (and the screen) does not grow as scores arrive.
+test('sideways: empty last-scores rows keep their height', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'scoring.css'), 'utf8');
+  const three = css.match(/\.dds\.wide \.wl \.last3 \.row\{([^}]*)\}/);
+  const six = css.match(/\.dds\.wide \.wl \.last3\.six \.row\{([^}]*)\}/);
+  assert.match(three[1], /min-height:4\dpx/);
+  assert.match(six[1], /min-height:3\dpx/);
+});
