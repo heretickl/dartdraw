@@ -277,8 +277,9 @@
       if (!t) return '<span class="c dash">–</span><span class="c"></span>';
       var shownScore = game === 'cricket' ? (t.darts || []).map(function (d) { return dartName(d, w); }).join(' • ') : (t.bust ? w.bust : t.scored);
       var left = game === 'cricket' ? (t.scored ? '+' + t.scored : '') : (t.left === 0 ? w.out : t.left);
-      if (locked) return '<span class="c sc">' + esc(shownScore) + '</span><span class="c lf">' + esc(left) + '</span>';
-      return '<button class="c sc"' + act('edit', t.turnId) + '>' + esc(shownScore) + '</button><span class="c lf">' + esc(left) + '</span>';
+      var cls = 'c sc' + (t.bust && game !== 'cricket' ? ' bust' : '');
+      if (locked) return '<span class="' + cls + '">' + esc(shownScore) + '</span><span class="c lf">' + esc(left) + '</span>';
+      return '<button class="' + cls + '"' + act('edit', t.turnId) + '>' + esc(shownScore) + '</button><span class="c lf">' + esc(left) + '</span>';
     };
     var body = rows.map(function (r) { return '<div class="trow"><span class="c n">' + r.turn + '</span>' + cell(r.a) + cell(r.b) + '</div>'; }).join('');
     return '<section class="turnsp"><div class="tabs">' + tabs + '</div>'
@@ -415,7 +416,7 @@
       head = head.replace(/<div class="rt">[\s\S]*?<\/div><\/header>$/, '<div class="rt"><span class="pill over">' + esc(o.words.matchOver) + '</span></div></header>');
     }
     var compact = !wide && v.ask === 'turn' && v.game === 'x01' && (o.mode || 'total') === 'darts' && !(p && (p.kind === 'turns' || p.kind === 'edit'));
-    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + (wide ? ' wide' : '') + '">' + head + body + pops + '</div>';
+    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + (wide ? ' wide' : '') + (p && (p.kind === 'turns' || p.kind === 'edit') ? ' turnsv' : (v.winner ? '' : ' play')) + '">' + head + body + pops + '</div>';
   }
 
   /* A screen clearly wider than tall (a tablet or phone on its side, a laptop) gets the side-by-side layout. */
@@ -435,11 +436,14 @@
     if (!w) return;
     var h = typeof window !== 'undefined' && window.innerHeight;
     var wide = el.classList && el.classList.contains('wide'), dw = wide ? 1280 : 660, dh = wide ? 720 : 982;
+    // Only the scoring screen itself (play) is fitted to the last row; the turns list and the match summary scroll.
+    var play = !!(el.classList && el.classList.contains('play'));
     // 01 is sized for Easy Mode, its taller layout, in both modes, so the Normal / Easy switch keeps the size.
-    if (el.classList && el.classList.contains('g-x01')) dh = wide ? 930 : 1232;
+    if (play && el.classList.contains('g-x01')) dh = wide ? 930 : 1232;
     var z = Math.min(wide ? 1.5 : 1.25, w / dw, h ? h / dh : Infinity);
     el.style.zoom = z;
     el.style.minHeight = Math.max(dh, h ? Math.round(h / z) : 0) + 'px';
+    if (!play) return;
     // Some screens need more than the design height (Easy Mode's keypad with This turn): measure what was drawn and,
     // if it still runs past the window, scale down once more so the bottom row is never cut off.
     // The smallest scale this window has needed is kept, so the screen does not change size from one turn to the next

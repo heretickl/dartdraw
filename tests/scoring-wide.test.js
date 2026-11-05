@@ -237,7 +237,7 @@ test('fit: a screen taller than its design height is scaled down until it all fi
   withPage(1000, 488, () => {
     const NEED = 790; // what the drawn screen really needs, in its own pixels
     const el = {
-      style: {}, classList: { contains: (c) => c === 'wide' },
+      style: {}, classList: { contains: (c) => c === 'wide' || c === 'play' },
       getBoundingClientRect() {
         const z = Number(this.style.zoom), min = parseFloat(this.style.minHeight) || 0;
         return { height: Math.max(NEED, min) * z };
@@ -254,7 +254,7 @@ test('fit: a screen taller than its design height is scaled down until it all fi
 test('fit: the scale stays put between turns on the same window', () => {
   withPage(1000, 489, () => {
     const make = (need) => ({
-      style: {}, classList: { contains: (c) => c === 'wide' },
+      style: {}, classList: { contains: (c) => c === 'wide' || c === 'play' },
       getBoundingClientRect() { return { height: Math.max(need, parseFloat(this.style.minHeight) || 0) * Number(this.style.zoom) }; }
     });
     const tall = make(865), short = make(791);
@@ -285,7 +285,7 @@ test('sideways: empty last-scores rows keep their height', () => {
 // 01 games are sized for Easy Mode (the taller of the two) from the start, so switching Normal / Easy keeps the size.
 test('fit, sideways 01: sized for Easy Mode in both modes', () => {
   withPage(1000, 487, () => {
-    const el = (easy) => ({ style: {}, classList: { contains: (c) => c === 'wide' || c === 'g-x01' } });
+    const el = (easy) => ({ style: {}, classList: { contains: (c) => c === 'wide' || c === 'g-x01' || c === 'play' } });
     const normal = el(false), easy = el(true);
     D.fit(normal);
     D.fit(easy);

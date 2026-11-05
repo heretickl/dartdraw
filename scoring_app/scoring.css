@@ -213,6 +213,7 @@
 .dds .trow{height:84px;border-top:1px solid rgba(255,255,255,.08);font:600 30px var(--bar)}
 .dds .trow .c.sc{margin:0 8px;height:62px;border-radius:12px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.04);font:700 34px var(--bar)}
 .dds .tbl.cr .trow .c.sc{font-size:22px}
+.dds .trow .c.sc.bust{font-size:24px;line-height:1}
 .dds .trow .lf{color:#cfd8e1}.dds .trow .dash{color:#5d6773}
 .dds .wide{width:100%;height:76px;border-radius:18px;font:700 28px var(--bar);margin-top:20px}
 .dds .pop.edit{top:110px}
