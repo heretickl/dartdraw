@@ -230,3 +230,21 @@ test('the sideways header is tall enough for its three lines', () => {
   assert.ok(m, 'the sideways header has a height');
   assert.ok(Number(m[1]) >= 104, 'header height ' + m[1] + 'px');
 });
+
+// Some screens need more than 720px (Easy Mode's keypad and This turn box): on a short window the bottom row was cut
+// off. fit measures what was drawn and scales down again until the whole screen is in the window.
+test('fit: a screen taller than its design height is scaled down until it all fits', () => {
+  withPage(1000, 488, () => {
+    const NEED = 790; // what the drawn screen really needs, in its own pixels
+    const el = {
+      style: {}, classList: { contains: (c) => c === 'wide' },
+      getBoundingClientRect() {
+        const z = Number(this.style.zoom), min = parseFloat(this.style.minHeight) || 0;
+        return { height: Math.max(NEED, min) * z };
+      }
+    };
+    D.fit(el);
+    assert.ok(el.getBoundingClientRect().height <= 488 + 0.5, 'drawn height ' + el.getBoundingClientRect().height);
+    assert.ok(Math.abs(Number(el.style.zoom) - 488 / NEED) < 1e-9);
+  });
+});

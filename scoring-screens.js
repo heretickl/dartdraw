@@ -438,6 +438,14 @@
     var z = Math.min(wide ? 1.5 : 1.25, w / dw, h ? h / dh : Infinity);
     el.style.zoom = z;
     el.style.minHeight = Math.max(dh, h ? Math.round(h / z) : 0) + 'px';
+    // Some screens need more than the design height (Easy Mode's keypad with This turn): measure what was drawn and,
+    // if it still runs past the window, scale down once more so the bottom row is never cut off.
+    var drawn = h && el.getBoundingClientRect ? el.getBoundingClientRect().height : 0;
+    if (drawn > h + 1) {
+      z = z * h / drawn;
+      el.style.zoom = z;
+      el.style.minHeight = Math.max(dh, Math.round(h / z)) + 'px';
+    }
   }
 
   /* ---------- taps ---------- */
