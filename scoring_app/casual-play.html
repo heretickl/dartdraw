@@ -2030,8 +2030,8 @@ if (typeof module === 'object' && module.exports) module.exports = DD_CASUAL_EN;
     if (!w) return;
     var h = typeof window !== 'undefined' && window.innerHeight;
     var wide = el.classList && el.classList.contains('wide'), dw = wide ? 1280 : 660, dh = wide ? 720 : 982;
-    // Sideways 01 is sized for Easy Mode, its taller layout, in both modes, so the Normal / Easy switch keeps the size.
-    if (wide && el.classList.contains('g-x01')) dh = 930;
+    // 01 is sized for Easy Mode, its taller layout, in both modes, so the Normal / Easy switch keeps the size.
+    if (el.classList && el.classList.contains('g-x01')) dh = wide ? 930 : 1232;
     var z = Math.min(wide ? 1.5 : 1.25, w / dw, h ? h / dh : Infinity);
     el.style.zoom = z;
     el.style.minHeight = Math.max(dh, h ? Math.round(h / z) : 0) + 'px';

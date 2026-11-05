@@ -28,3 +28,18 @@ test('a short screen: scaled down so the whole screen fits its height (owner 202
     assert.equal(el.style.minHeight, '982px');
   });
 });
+
+// Upright 01 is sized for Easy Mode (its taller layout, about 1231px) in both modes, so the Normal / Easy switch keeps
+// the size on a short phone or an upright tablet; a tall phone is limited by its width and does not change.
+test('upright 01: sized for Easy Mode in both modes', () => {
+  withPage(820, 1181, () => {
+    const el = { style: {}, classList: { contains: (c) => c === 'g-x01' } };
+    D.fit(el);
+    assert.ok(Math.abs(Number(el.style.zoom) - 1181 / 1232) < 1e-9);
+  });
+  withPage(390, 844, () => {
+    const el = { style: {}, classList: { contains: (c) => c === 'g-x01' } };
+    D.fit(el);
+    assert.equal(el.style.zoom, 390 / 660);
+  });
+});
