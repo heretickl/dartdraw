@@ -58,6 +58,8 @@ module.exports = async (req, res) => {
     setPlayerCookie(res, signPlayer(player));
     res.status(200).json({ player: toPublic(player) });
   } catch (e) {
+    // Logged so a failed sign-in can be traced in the Vercel logs; the player still sees the plain message.
+    console.error('[login] failed:', e && (e.code || ''), e && e.message);
     res.status(500).json({ code: 'login_failed', error: 'Could not sign in.' });
   }
 };
