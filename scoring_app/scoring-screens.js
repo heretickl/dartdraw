@@ -104,6 +104,9 @@
      option C: not on the button). */
   function entryBox(v, o) {
     var s = v.throwing, typed = o.typed || '', left = v.sides[s].left, after = typed ? left - Number(typed) : null;
+    // A refused total keeps its number and says why in the leaves slot, so nothing on the screen moves (owner 2026-11-07).
+    if (o.err) return '<section class="entry bad side-' + s + '"><span class="who">' + esc(up(v.sides[s].name)) + '</span><span class="val">' + esc(typed) + '</span><span class="lv">'
+      + esc(o.words['err_' + o.err] || o.words.err_invalid) + '</span></section>';
     return '<section class="entry side-' + s + '"><span class="who">' + esc(up(v.sides[s].name)) + '</span><span class="val">' + esc(typed) + '</span><span class="lv">'
       + (after !== null && after >= 0 ? esc(o.words.leaves) + ' <b>' + after + '</b>' : '') + '</span></section>';
   }
@@ -203,20 +206,18 @@
   function x01DartsParts(v, o) {
     var w = o.words;
     var grid = numberKeys() + '<button class="k sm"' + act('dart', 'bull') + '>' + esc(w.bull) + '</button>'
-      + '<button class="k sm"' + act('miss') + '>' + esc(w.miss) + '</button><button class="k"' + act('del') + '>' + ICON.del + '</button>'
-      + '<button class="k bust"' + act('bust') + '>' + esc(w.bust) + '</button>';
+      + '<button class="k sm"' + act('miss') + '>' + esc(w.miss) + '</button><button class="k del2"' + act('del') + '>' + ICON.del + '</button>';
     // the last 3 scores stay on screen, as in turn total (owner 2026-11-04), and the darts keyed so far add up as they go
     return [last3(v, o) + turnBox(v, o), multsRow(o) + '<section class="grid">' + grid + '</section>' + dartsBar(o)];
   }
   /* Easy Mode on a phone on its side (owner 2026-11-07, approved mockup): [This turn under the cards; Single / Double /
-     Treble, the numbers 7 wide, and one row of Bull / Miss / del / No score / Undo / Enter]. No Last 3 table, and the
+     Treble, the numbers 7 wide, and one row of Bull / Miss / del / Undo / Enter]. No Last 3 table, and the
      slots show the darts, so there is no darts bar. The same taps as x01DartsParts. */
   function x01DartsCompact(v, o) {
     var w = o.words, cur = o.cur || [];
     return [turnBox(v, o), multsRow(o) + '<section class="grid">' + numberKeys() + '</section>'
       + '<section class="cwbar"><button class="k sm"' + act('dart', 'bull') + '>' + esc(w.bull) + '</button>'
       + '<button class="k sm"' + act('miss') + '>' + esc(w.miss) + '</button><button class="k"' + act('del') + '>' + ICON.del + '</button>'
-      + '<button class="k bust"' + act('bust') + '>' + esc(w.bust) + '</button>'
       + '<button class="k undo"' + act('undo') + '>' + ICON.undo + '<span>' + esc(w.undo) + '</span></button>'
       + '<button class="red enter"' + act('enter') + (cur.length ? '' : ' disabled') + '>' + ICON.check + '<span>' + esc(w.enter) + '</span></button></section>'];
   }
@@ -535,17 +536,21 @@
       if (String(val).indexOf(':') > 0) { var p = String(val).split(':'); return { n: Number(p[0]), m: Number(p[1]) }; }
       if (val === 'bull') return { n: 25, m: 2 };
       var n = Number(val);
-      if (n === 25) return { n: 25, m: ui.mult === 2 ? 2 : 1 };
+      // 25, Bull and Miss take no Single / Double / Treble (owner 2026-11-07): 25 is always the outer bull
+      if (n === 25) return { n: 25, m: 1 };
       return { n: n, m: ui.mult };
     }
     function sendTotal(n) {
       var r = match.total(n);
       ui.asked = r.code === 'ask_bust' ? n : null;
+      // A total no three darts make stays typed with the reason, until the next key; anything else clears the box.
+      if (r.code === 'invalid') { ui.err = 'invalid'; return; }
       ui.typed = '';
     }
 
     function handle(a, val) {
       var before = match.events().length, v = match.view(), editing = ui.popup && ui.popup.kind === 'edit';
+      ui.err = null;
       switch (a) {
         case 'digit':
           if ((ui.typed + val).length <= 3 && Number(ui.typed + val) <= 180) ui.typed = ui.typed === '0' ? String(val) : ui.typed + val;

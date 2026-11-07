@@ -424,7 +424,7 @@ test('compact Normal Mode: header, cards, switch and typed score left; 9 pills i
   assert.equal(d.querySelector('.entry .val').textContent, '6');
 });
 
-test('compact Easy Mode: This turn left; S/D/T, numbers 1-20 and 25, and Bull Miss del No score Undo Enter right', () => {
+test('compact Easy Mode: This turn left; S/D/T, numbers 1-20 and 25, and Bull Miss del Undo Enter right', () => {
   const m = match('501'); m.bull('a');
   const d = dom(m, { wide: true, compactWide: true, mode: 'darts', cur: [{ n: 20, m: 3 }], mult: 1 });
   const l = d.querySelector('.wl'), r = d.querySelector('.wr');
@@ -437,7 +437,7 @@ test('compact Easy Mode: This turn left; S/D/T, numbers 1-20 and 25, and Bull Mi
   const nums = r.querySelectorAll('.grid [data-act="dart"]').map((e) => e.getAttribute('data-v'));
   assert.deepEqual(nums, Array.from({ length: 20 }, (_, i) => String(i + 1)).concat(['25']));
   assert.deepEqual(r.querySelectorAll('.cwbar [data-act]').map((e) => e.getAttribute('data-act') + (e.hasAttribute('data-v') ? '=' + e.getAttribute('data-v') : '')),
-    ['dart=bull', 'miss', 'del', 'bust', 'undo', 'enter']);
+    ['dart=bull', 'miss', 'del', 'undo', 'enter']);
   assert.equal(d.querySelector('.dbar'), null);
 });
 
@@ -485,4 +485,12 @@ test('a missed dart is shown as M; a dart not thrown yet as a dash', () => {
   assert.equal(D.dartName({ n: 0, m: 1 }, WORDS), 'M');
   assert.equal(D.dartName(null, WORDS), '–');
   assert.equal(D.dartName({ n: 20, m: 3 }, WORDS), 'T20');
+});
+
+// The sideways-phone header is one line (owner 2026-11-07): "DOUBLE OUT" wrapped "OUT" onto a second line.
+test('compact header line never wraps', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'scoring.css'), 'utf8');
+  const m = css.match(/\.dds-hd\.slim \.t1\{([^}]*)\}/);
+  assert.match(m[1], /white-space:nowrap/);
+  assert.match(m[1], /text-overflow:ellipsis/);
 });

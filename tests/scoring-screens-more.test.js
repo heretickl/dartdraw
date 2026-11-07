@@ -39,7 +39,8 @@ test('x01 dart by dart: this turn, three slots, S/D/T, 1-20, 25, BULL, MISS, ENT
   assert.ok(all(d, '[data-act="mult"]')[0].classList.contains('on'));
   const nums = all(d, '.grid [data-act="dart"]').map((e) => e.getAttribute('data-v'));
   assert.equal(nums.length, 22); assert.equal(nums[0], '1'); assert.equal(nums[19], '20'); assert.equal(nums[20], '25'); assert.equal(nums[21], 'bull');
-  ['miss', 'del', 'bust', 'undo', 'enter'].forEach((a) => assert.ok(d.querySelector(`[data-act="${a}"]`), a));
+  ['miss', 'del', 'undo', 'enter'].forEach((a) => assert.ok(d.querySelector(`[data-act="${a}"]`), a));
+  assert.equal(d.querySelector('[data-act="bust"]'), null, 'no No score key in Easy Mode (owner 2026-11-07)');
   assert.equal(txt(d.querySelector('.shown')), 'T20 • 19 • –');
 });
 
@@ -239,4 +240,34 @@ test('mount: an edit that is refused keeps the pop-up open with the reason', () 
   tap('[data-act="editGo"]');
   assert.equal(txt(root.querySelector('.pop .err')), 'This makes a later score impossible.');
   assert.equal(m.legTurns(0)[2].a.scored, 100);
+});
+
+// 25, Bull and Miss take no Single / Double / Treble (owner 2026-11-07): 25 is always the outer bull, Bull always 50,
+// Miss always nothing, whatever is selected; the selection goes back to Single after them.
+test('mount: 25, Bull and Miss ignore Double and Treble', () => {
+  const m = match('501', 5); m.bull('a');
+  const { tap, root } = mounted(m, { mode: 'darts' });
+  tap('[data-act="mult"][data-v="2"]'); tap('[data-act="dart"][data-v="25"]');
+  tap('[data-act="mult"][data-v="3"]'); tap('[data-act="dart"][data-v="bull"]');
+  tap('[data-act="mult"][data-v="3"]'); tap('[data-act="miss"]');
+  assert.ok(root.querySelectorAll('[data-act="mult"]')[0].classList.contains('on'), 'back to Single');
+  tap('[data-act="enter"]');
+  assert.equal(m.view().sides.a.left, 501 - 25 - 50);
+});
+
+// A total no three darts make (179) is refused: the typed number stays, the box shakes and says why, until the next key
+// (owner 2026-11-07). Before, the number just vanished.
+test('mount: an impossible total stays typed and says it is not possible', () => {
+  const m = match('501', 5); m.bull('a');
+  const { tap, root } = mounted(m);
+  tap('[data-act="digit"][data-v="1"]'); tap('[data-act="digit"][data-v="7"]'); tap('[data-act="digit"][data-v="9"]');
+  tap('[data-act="submit"]');
+  const box = root.querySelector('.entry');
+  assert.ok(box.classList.contains('bad'), 'the box is marked');
+  assert.equal(txt(root.querySelector('.entry .val')), '179', 'the typed number stays');
+  assert.equal(txt(root.querySelector('.entry .lv')), WORDS.err_invalid);
+  assert.equal(m.view().sides.a.left, 501, 'nothing scored');
+  tap('[data-act="del"]');
+  assert.ok(!root.querySelector('.entry').classList.contains('bad'), 'the next key clears it');
+  assert.equal(txt(root.querySelector('.entry .val')), '17');
 });
