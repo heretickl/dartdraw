@@ -86,7 +86,7 @@ test('an empty login shakes and asks for both boxes without calling the server',
 });
 
 test('every failed-login answer shows our own words, never the server text', async () => {
-  for (const [status, code, key] of [[403, 'unverified', 'err_unverified'], [429, 'rate_limited', 'err_rate_limited'], [500, 'server_error', 'err_server']]) {
+  for (const [status, code, key] of [[403, 'unverified', 'err_unverified'], [429, 'rate_limited', 'err_rate_limited']]) {
     const s = await launch();
     s.server.answers['/api/account/login'] = [status, { code, error: 'RAW ENGLISH' }];
     fill(s, 'a@b.com', 'x'); fire(s); await tick();
@@ -324,4 +324,17 @@ test('offline log out shows the login screen and sends the logout once back onli
   assert.equal(back.server.to('/api/account/logout').length, 1, 'the waiting logout is sent at start-up');
   assert.equal(storage2.getItem('dd-player'), null, 'still logged out');
   assert.equal(txt(back.v().querySelector('.acc-card h2')), 'Log in');
+});
+
+// An answer we have no words for ends with its status and code, so the owner can tell what went wrong from the screen
+// alone (no developer tools on a phone).
+test('an unexpected failure shows the status and code after the try-again words', async () => {
+  const s = await launch();
+  s.server.answers['/api/account/login'] = [500, { code: 'login_failed', error: 'RAW ENGLISH' }];
+  fill(s, 'a@b.com', 'x'); fire(s); await tick();
+  assert.equal(txt(s.v().querySelector('.err')), EN.err_server + ' (500 login_failed)');
+  const h = await launch();
+  h.server.answers['/api/account/login'] = [502, null];
+  fill(h, 'a@b.com', 'x'); fire(h); await tick();
+  assert.equal(txt(h.v().querySelector('.err')), EN.err_server + ' (502)');
 });

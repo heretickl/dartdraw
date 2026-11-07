@@ -120,7 +120,8 @@
     var code = r.body && typeof r.body.code === 'string' ? r.body.code : '';
     if (code === 'email_password_required') return w.err_login_empty;
     if (code && Object.prototype.hasOwnProperty.call(w, 'err_' + code)) return fmt(w['err_' + code], vars);
-    return w.err_server;
+    // An answer we have no words for: its status and code follow, so what went wrong can be read off the screen.
+    return w.err_server + ' (' + r.status + (/^[a-z_]{1,40}$/.test(code) ? ' ' + code : '') + ')';
   }
 
   /* A date in words in the screen's language, e.g. 7 December 2026 / 7 Disember 2026. */
