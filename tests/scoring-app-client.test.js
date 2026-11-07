@@ -338,3 +338,8 @@ test('an unexpected failure shows the status and code after the try-again words'
   fill(h, 'a@b.com', 'x'); fire(h); await tick();
   assert.equal(txt(h.v().querySelector('.err')), EN.err_server + ' (502)');
 });
+
+// The MISS key reads MISS in both languages (owner 2026-11-07): it is the darts word players use.
+test('the MISS key reads MISS in BM too', () => {
+  assert.equal(require('../scoring_app/i18n/casual.ms.js').miss, 'MISS');
+});

@@ -65,6 +65,20 @@ test('with games: both headline numbers and their trends show', async () => {
   assert.ok(!/NaN|undefined|null/.test(t));
 });
 
+// "Played most with Danny · 1 games" read wrong: one game has its own words, in both languages.
+test('played most with: 1 game, and 14 games', async () => {
+  const once = clone(full); once.summary.casual.mostPlayedWith.games = 1;
+  const s1 = run(once); await tick();
+  s1.tap('[data-f="all"]'); await tick(); // the filter is remembered from the tests before
+  const kinds = (s) => s.root.querySelectorAll('.sc-kind.c').map(txt).join(' ');
+  assert.ok(kinds(s1).includes('Danny <b> · 1 game'), kinds(s1));
+  assert.ok(!kinds(s1).includes('1 games'));
+  const s = run(full); await tick();
+  assert.ok(kinds(s).includes('Danny <b> · 14 games'), kinds(s));
+  const MS = require('../scoring_app/i18n/casual.ms.js');
+  assert.ok(W.scWithGames1 && MS.scWithGames1 && /\{name\}/.test(W.scWithGames1) && /\{name\}/.test(MS.scWithGames1));
+});
+
 test('tapping the MPR card switches the chart label and the breakdown button', async () => {
   const s = run(full); await tick();
   assert.equal(txt(s.root.querySelector('#scChl')), W.scChartX);

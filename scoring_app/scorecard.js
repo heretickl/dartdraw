@@ -624,7 +624,7 @@
       }
       if (mem.filter !== 'tournament') {
         var fav = c.favouriteGame ? gameWord(c.favouriteGame, w) : DASH;
-        var mp = c.mostPlayedWith && c.mostPlayedWith.name ? (fmt(w.scWithGames, { name: c.mostPlayedWith.name, n: c.mostPlayedWith.games }) || String(c.mostPlayedWith.name)) : DASH;
+        var mp = c.mostPlayedWith && c.mostPlayedWith.name ? (fmt(c.mostPlayedWith.games === 1 ? w.scWithGames1 : w.scWithGames, { name: c.mostPlayedWith.name, n: c.mostPlayedWith.games }) || String(c.mostPlayedWith.name)) : DASH;
         out += '<div class="sc-kind c sc-in" style="animation-delay:.36s"><h3>' + esc(w.scCasTitle) + '</h3>'
           + kv(w.scCasPlayed, isNum(c.played) ? String(c.played) : DASH) + kv(w.scCasWon, pct(c.wonPct)) + kv(w.scCasFav, fav) + kv(w.scCasWith, mp) + '</div>';
       }

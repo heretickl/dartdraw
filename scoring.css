@@ -260,7 +260,8 @@
 .dds .sum .btns .main{font-size:36px}
 
 /* Filling a tall phone: fit() stretches .dds to the screen's height; the screen is a column and the part you tap takes
-   the extra room (the keypad, the dart grid, the cricket rows), never more than about half again its drawn size. */
+   the extra room (the keypad, the dart grid, the cricket rows), never more than about half again its drawn size. The
+   cricket rows may grow further (owner 2026-11-07: Cricket fills the room the one shared scale leaves, never shrinks). */
 .dds{display:flex;flex-direction:column}
 .dds>*{flex:none}
 .dds .pad{flex:1 1 auto;grid-auto-rows:minmax(56px,84px);align-content:start}
@@ -268,7 +269,7 @@
 .dds .grid{flex:1 1 auto;grid-auto-rows:minmax(50px,76px);align-content:start}
 .dds .grid .k{height:auto;min-height:50px}
 .dds .cricket{flex:1 1 auto;display:flex;flex-direction:column}
-.dds .crow{flex:1 1 auto;max-height:80px;align-items:stretch}
+.dds .crow{flex:1 1 auto;max-height:128px;align-items:stretch}
 .dds .crow>div,.dds .crow .dt,.dds .crow .num{height:auto;min-height:53px}
 .dds .cricket .miss{flex:none}
 .dds .dbar{flex:none}
@@ -312,3 +313,58 @@
 .dds .modesw button.on{color:#fff;background:linear-gradient(180deg,#2196ff,#0a5ad0);box-shadow:0 0 14px rgba(30,150,255,.7)}
 .dds.compact .modesw{margin-top:6px}.dds.compact .modesw button{height:32px;font-size:20px}
 .dds.wide .wl .modesw{margin-top:14px}.dds.wide .wl .modesw button{height:46px;font-size:24px}
+
+/* Compact sideways (owner 2026-11-07, approved mockups): a phone on its side or a short laptop window (wide, under 560
+   tall) is a 1280 x 620 screen. The slim header sits in the left column with the score cards, the Normal | Easy switch
+   and the typed score (Normal) or This turn (Easy); the keys have the whole right column, so each is about 44px on the
+   phone. No Last 3 / Last 6 table. */
+.dds.wide.cw{grid-template-rows:1fr;padding:14px 26px 14px}
+.dds.cw .wl,.dds.cw .wr{min-height:0}
+.dds-hd.slim{height:84px;grid-template-columns:84px minmax(0,1fr) 84px}
+.dds-hd.slim .ic{width:84px;height:84px}
+.dds-hd.slim .t1{font:700 24px/1.1 var(--bar);letter-spacing:.02em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.dds.cw .wl .dds-cards{flex:1 1 0;min-height:150px;height:auto;margin-top:6px}
+.dds.cw .wl .card{height:100%;max-height:300px}
+.dds.cw .wl .card .nm{font-size:46px}.dds.cw .wl .card .sc{font-size:120px}
+.dds.cw .wl .modesw{margin-top:14px}.dds.cw .wl .modesw button{height:84px;font-size:28px}
+.dds.cw .wl .entry{margin-top:14px;height:170px;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+.dds.cw .wl .entry .who{font-size:30px}.dds.cw .wl .entry .val{font-size:96px;min-width:150px}
+.dds.cw .wl .entry .lv{font-size:24px}.dds.cw .wl .entry .lv b{font-size:40px}
+.dds.cw .wl .hint{margin-top:10px}
+.dds.cw .wl .turnp{margin-top:14px;padding:12px 18px 14px;min-height:170px}
+.dds.cw .turnp .ttl{display:none}
+.dds.cw .turnp .line{margin:0 0 10px;font-size:28px;justify-content:center;gap:0}
+.dds.cw .turnp .scored::before,.dds.cw .turnp .after::before{content:"\00b7";padding:0 12px;color:#8a96a3}
+.dds.cw .turnp .scored{color:#fff}
+.dds.cw .slot{height:96px}.dds.cw .slot b{font-size:44px}
+.dds.cw .turnp .hint{margin-top:8px;padding:2px 18px;font-size:22px}
+/* the keys: Normal 9 pills / 5-wide digits / one bottom row; Easy S-D-T / 7-wide numbers / one bottom row */
+.dds.cw .wr{gap:14px}
+.dds.cw .wr>*{margin-top:0}
+.dds.cw .quick .r1{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px;width:100%}
+.dds.cw .q{width:auto;height:84px;font-size:32px}
+.dds.cw .wr .pad{flex:2 1 0;grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:1fr;gap:14px}
+.dds.cw .padb,.dds.cw .cwbar{flex:1 1 0;display:grid;gap:14px;min-height:84px}
+.dds.cw .padb{grid-template-columns:1fr 1fr 1.2fr 2fr}
+.dds.cw .cwbar{grid-template-columns:1fr 1fr 1fr 1.2fr 1fr 1.8fr}
+.dds.cw .padb .k,.dds.cw .cwbar .k,.dds.cw .padb .go,.dds.cw .cwbar .enter{height:auto;min-height:84px}
+.dds.cw .padb .go,.dds.cw .cwbar .enter{display:flex;align-items:center;justify-content:center;gap:10px;font-size:38px}
+.dds.cw .cwbar .k.sm{font-size:28px}.dds.cw .cwbar .k.bust{font-size:24px}
+.dds.cw .mults{flex:none;padding:6px}.dds.cw .mults button{height:84px;font-size:30px}
+.dds.cw .wr .grid{flex:3 1 0;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:1fr;gap:12px}
+.dds.cw .wr .grid .k{min-height:84px;font-size:40px}
+/* Cricket: the existing sideways board, given the whole right column (MISS moves above the darts bar); the D / T keys
+   share the spare width */
+.dds.cw .wl .dbar{margin-top:14px;height:100px}
+.dds.cw .wl .miss{display:flex;margin-top:14px;height:84px;font-size:32px}
+.dds.cw .wr .cricket{padding:6px 6px 4px}
+.dds.cw .chd{padding-bottom:2px;font-size:20px}
+.dds.cw .crow{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1.6fr);margin:0 0 6px;padding:0 4px}
+.dds.cw .crow .dt{font-size:32px}
+/* pop-ups: the 620-high screen holds the tallest one (which dart finished) */
+.dds.cw .pop{top:14px;padding:18px 30px 20px;gap:6px}
+.dds.cw .pop .who{font-size:58px;margin-top:0}
+.dds.cw .pop .big{font-size:72px;margin:0}
+.dds.cw .pop.confirm .big{font-size:96px}
+.dds.cw .fd{height:100px}
+.dds.cw .ghost{margin-top:8px}

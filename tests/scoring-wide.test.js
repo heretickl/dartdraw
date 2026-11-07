@@ -102,26 +102,28 @@ test('isWide: a screen clearly wider than tall', () => {
   withPage(900, 850, () => assert.equal(D.isWide(), false)); // nearly square
 });
 
-test('fit, wide: the 1280 x 720 screen is scaled to fit both ways and stretched to the height', () => {
+test('fit, wide: the 1280 x 930 screen is scaled to fit both ways and stretched to the height', () => {
   withPage(1180, 820, () => {
     const el = { style: {}, classList: { contains: (c) => c === 'wide' } };
     D.fit(el);
-    assert.equal(el.style.zoom, Math.min(1180 / 1280, 820 / 720));
-    assert.equal(el.style.minHeight, Math.round(820 / el.style.zoom) + 'px');
+    assert.equal(el.style.zoom, Math.min(1.5, 1180 / 1280, 820 / 930));
+    assert.equal(el.style.minHeight, Math.max(930, Math.floor(820 / el.style.zoom)) + 'px');
   });
-  withPage(844, 390, () => {
+  withPage(844, 390, () => { // a phone on its side: the compact design height
     const el = { style: {}, classList: { contains: (c) => c === 'wide' } };
     D.fit(el);
-    assert.equal(el.style.zoom, 390 / 720);
+    assert.equal(el.style.zoom, Math.min(390 / 620, 844 / 1280));
+    assert.equal(el.style.minHeight, Math.max(620, Math.floor(390 / el.style.zoom)) + 'px');
   });
 });
 
-test('fit, one column on a wide window: scaled down so the whole screen fits the height', () => {
+test('fit, one column on a wide window: the wide scale, centred, and it scrolls', () => {
   withPage(1440, 900, () => {
     const el = { style: {}, classList: { contains: () => false } };
     D.fit(el);
-    assert.equal(el.style.zoom, 900 / 982);
-    assert.equal(el.style.minHeight, '982px');
+    assert.equal(el.style.zoom, Math.min(1.5, 1440 / 1280, 900 / 930));
+    assert.equal(el.style.minHeight, '930px');
+    assert.equal(el.style.width, '', 'the 660 column is not widened');
   });
 });
 
@@ -231,21 +233,16 @@ test('the sideways header is tall enough for its three lines', () => {
   assert.ok(Number(m[1]) >= 104, 'header height ' + m[1] + 'px');
 });
 
-// Some screens need more than 720px (Easy Mode's keypad and This turn box): on a short window the bottom row was cut
-// off. fit measures what was drawn and scales down again until the whole screen is in the window.
-test('fit: a screen taller than its design height is scaled down until it all fits', () => {
+// The scale never comes from what was drawn (owner 2026-11-07): the design heights are ones the layouts really fit,
+// so a screen that draws taller is not shrunk, and the size cannot jump from one tap to the next.
+test('fit: the scale does not depend on what was drawn', () => {
   withPage(1000, 488, () => {
-    const NEED = 790; // what the drawn screen really needs, in its own pixels
     const el = {
       style: {}, classList: { contains: (c) => c === 'wide' || c === 'play' },
-      getBoundingClientRect() {
-        const z = Number(this.style.zoom), min = parseFloat(this.style.minHeight) || 0;
-        return { height: Math.max(NEED, min) * z };
-      }
+      getBoundingClientRect() { return { height: 2000 * Number(this.style.zoom) }; }
     };
     D.fit(el);
-    assert.ok(el.getBoundingClientRect().height <= 488 + 0.5, 'drawn height ' + el.getBoundingClientRect().height);
-    assert.ok(Math.abs(Number(el.style.zoom) - 488 / NEED) < 1e-9);
+    assert.ok(Math.abs(Number(el.style.zoom) - Math.min(488 / 620, 1000 / 1280)) < 1e-9);
   });
 });
 
@@ -290,7 +287,7 @@ test('fit, sideways 01: sized for Easy Mode in both modes', () => {
     D.fit(normal);
     D.fit(easy);
     assert.equal(normal.style.zoom, easy.style.zoom);
-    assert.ok(Math.abs(Number(normal.style.zoom) - 487 / 930) < 1e-9);
+    assert.ok(Math.abs(Number(normal.style.zoom) - Math.min(487 / 620, 1000 / 1280)) < 1e-9);
   });
 });
 
@@ -323,33 +320,36 @@ test('fit, sideways: the layout widens to use a wide window', () => {
   });
 });
 
-// A Cricket leg inside a Choice match is drawn at Cricket's own scale, not the smaller one a 501 leg needed.
-test('fit: a Cricket screen does not inherit the 501 scale on the same window', () => {
-  withPage(1000, 486, () => {
-    const make = (game, need) => ({
-      style: {}, classList: { contains: (c) => c === 'wide' || c === 'play' || c === game },
-      getBoundingClientRect() { return { height: Math.max(need, parseFloat(this.style.minHeight) || 0) * Number(this.style.zoom) }; }
-    });
-    const x01 = make('g-x01', 990), cr = make('g-cricket', 700);
-    D.fit(x01);
-    D.fit(cr);
-    assert.ok(Math.abs(Number(cr.style.zoom) - 486 / 720) < 1e-9);
-  });
-});
-
-// zoom x min-height never lands past the window (a fraction over showed a needless scrollbar).
-test('fit: the stretched height never runs a fraction past the window', () => {
-  for (const [w, h] of [[820, 1179], [1000, 485], [390, 843]]) {
+// A Cricket leg inside a Choice match is drawn at the same scale as the 501 legs (owner 2026-11-07: one scale).
+test('fit: Cricket and 501 have the same scale on the same window', () => {
+  for (const [w, h] of [[1000, 486], [1180, 820], [820, 1180]]) {
     withPage(w, h, () => {
-      const el = { style: {}, classList: { contains: () => false } };
-      D.fit(el);
-      assert.ok(parseFloat(el.style.minHeight) * Number(el.style.zoom) <= h + 1e-9 || parseFloat(el.style.minHeight) === 982);
+      const make = (game, need) => ({
+        style: {}, classList: { contains: (c) => (w >= h * 1.2 && c === 'wide') || c === 'play' || c === game },
+        getBoundingClientRect() { return { height: need * Number(this.style.zoom) }; }
+      });
+      const x01 = make('g-x01', 990), cr = make('g-cricket', 700);
+      D.fit(x01);
+      D.fit(cr);
+      assert.equal(cr.style.zoom, x01.style.zoom, w + 'x' + h);
     });
   }
 });
 
-// Only the live scoring screen is "play" (fitted to its last row, sized for Easy Mode). The bull and Choice screens
-// are one-column screens: on a short wide window they keep a readable size and scroll.
+// zoom x min-height never lands past the window (a fraction over showed a needless scrollbar).
+test('fit: the stretched height never runs a fraction past the window', () => {
+  for (const [w, h, dh] of [[820, 1179, 1232], [1000, 485, 620], [390, 843, 1232], [1180, 821, 930]]) {
+    withPage(w, h, () => {
+      const el = { style: {}, classList: { contains: () => false } };
+      D.fit(el);
+      const min = parseFloat(el.style.minHeight);
+      assert.ok(min * Number(el.style.zoom) <= h + 1e-9 || min === dh, w + 'x' + h + ': ' + min);
+    });
+  }
+});
+
+// Only the live scoring screen is "play" (the 501 / Cricket keys). The bull and Choice screens are one-column
+// screens: on a wide window they keep their 660 column at the play screen's scale and scroll.
 test('the bull screen is not the play screen; the scoring screen is', () => {
   const m = match('501');
   assert.equal(dom(m, {}).querySelector('.dds').classList.contains('play'), false);
@@ -362,4 +362,127 @@ test('the bull screen is not the play screen; the scoring screen is', () => {
 test('turns-list edit pop-up is fixed near the top of the window', () => {
   const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'scoring.css'), 'utf8');
   assert.match(css, /\.dds\.turnsv \.pop,\.dds\.turnsv \.pop\.edit\{position:fixed;top:40px/);
+});
+
+/* ---------- one scale per window, and the compact sideways layout (owner 2026-11-07) ---------- */
+
+// The class list of a screen as render() draws it, for fit (which reads only the classes and the window).
+const drawnAs = (m, o) => {
+  const c = D.render(m.view(), opts(o)).match(/^<div class="([^"]+)"/)[1].split(' ');
+  return { style: {}, classList: { contains: (x) => c.includes(x) }, getBoundingClientRect() { return { height: 3000 * Number(this.style.zoom) }; } };
+};
+const acts = (d) => d.querySelectorAll('[data-act]').map((e) => e.getAttribute('data-act') + (e.hasAttribute('data-v') ? '=' + e.getAttribute('data-v') : '')).sort();
+
+test('one scale: 501, Cricket, a turns list and a one-column screen share the zoom on one window', () => {
+  for (const [w, h] of [[393, 852], [375, 667], [820, 1180], [1180, 820], [852, 393], [852, 320]]) {
+    withPage(w, h, () => {
+      const wide = D.isWide(), compactWide = D.isCompactWide();
+      const x = match('501'); x.bull('a');
+      const c = match('cricket'); c.bull('a');
+      const bull = match('501');
+      const els = [
+        drawnAs(x, { wide, compactWide }), drawnAs(x, { wide, compactWide, mode: 'darts', cur: [], mult: 1 }),
+        drawnAs(c, { wide, compactWide, cur: [] }), drawnAs(x, { wide, compactWide, popup: { kind: 'turns', leg: 0 }, turns: [] }),
+        drawnAs(bull, { wide, compactWide })];
+      assert.ok(els[0].classList.contains('play') && els[2].classList.contains('g-cricket') && els[3].classList.contains('turnsv'));
+      els.forEach((e) => D.fit(e));
+      els.forEach((e, i) => assert.equal(e.style.zoom, els[0].style.zoom, w + 'x' + h + ' screen ' + i));
+    });
+  }
+});
+
+test('isCompactWide: a wide window under 560 tall', () => {
+  withPage(852, 393, () => assert.equal(D.isCompactWide(), true)); // iPhone on its side
+  withPage(852, 320, () => assert.equal(D.isCompactWide(), true)); // with Safari's bars
+  withPage(1000, 559, () => assert.equal(D.isCompactWide(), true)); // a short laptop window
+  withPage(1000, 560, () => assert.equal(D.isCompactWide(), false));
+  withPage(1180, 820, () => assert.equal(D.isCompactWide(), false)); // iPad on its side
+  withPage(393, 852, () => assert.equal(D.isCompactWide(), false)); // upright phone
+  withPage(500, 450, () => assert.equal(D.isCompactWide(), false)); // short but not wide
+});
+
+test('the compact class is set only on a wide screen with compactWide', () => {
+  const m = match('501'); m.bull('a');
+  const cls = (o) => dom(m, o).querySelector('.dds').classList;
+  assert.ok(cls({ wide: true, compactWide: true }).contains('cw'));
+  assert.ok(!cls({ wide: true }).contains('cw'));
+  assert.ok(!cls({ compactWide: true }).contains('cw'));
+  assert.ok(!cls({}).contains('cw'));
+});
+
+test('compact Normal Mode: header, cards, switch and typed score left; 9 pills in one row, a 5-wide keypad and one bottom row right', () => {
+  const m = match('501'); m.bull('a');
+  const d = dom(m, { wide: true, compactWide: true, typed: '6' });
+  const l = d.querySelector('.wl'), r = d.querySelector('.wr');
+  assert.ok(has(l, '.dds-hd') && has(l, '.dds-cards') && has(l, '.modesw') && has(l, '.entry'));
+  assert.equal(d.querySelectorAll('.dds > .dds-hd').length, 0, 'the header sits in the left column');
+  assert.equal(d.querySelector('.last3'), null, 'no Last 6 table');
+  assert.equal(r.querySelectorAll('.quick > div').length, 1, 'one row of pills');
+  assert.deepEqual(r.querySelectorAll('.quick > div > .q').map((e) => e.getAttribute('data-v')), ['26', '41', '45', '60', '85', '100', '121', '140', '180']);
+  assert.deepEqual(r.querySelectorAll('.pad [data-act="digit"]').map((e) => e.getAttribute('data-v')), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']);
+  assert.deepEqual(r.querySelectorAll('.padb [data-act]').map((e) => e.getAttribute('data-act')), ['del', 'undo', 'bust', 'submit']);
+  assert.equal(d.querySelector('.entry .val').textContent, '6');
+});
+
+test('compact Easy Mode: This turn left; S/D/T, numbers 1-20 and 25, and Bull Miss del No score Undo Enter right', () => {
+  const m = match('501'); m.bull('a');
+  const d = dom(m, { wide: true, compactWide: true, mode: 'darts', cur: [{ n: 20, m: 3 }], mult: 1 });
+  const l = d.querySelector('.wl'), r = d.querySelector('.wr');
+  assert.ok(has(l, '.dds-hd') && has(l, '.dds-cards') && has(l, '.modesw') && has(l, '.turnp .slots'));
+  assert.equal(l.querySelectorAll('.slot').length, 3);
+  assert.ok(l.querySelectorAll('.slot')[1].classList.contains('now'), 'the next slot is outlined');
+  assert.ok(has(l, '.turnp .who') && has(l, '.turnp .scored') && has(l, '.turnp .after'));
+  assert.equal(d.querySelector('.last3'), null, 'no Last 3 table');
+  assert.deepEqual(r.querySelectorAll('.mults [data-act="mult"]').map((e) => e.getAttribute('data-v')), ['1', '2', '3']);
+  const nums = r.querySelectorAll('.grid [data-act="dart"]').map((e) => e.getAttribute('data-v'));
+  assert.deepEqual(nums, Array.from({ length: 20 }, (_, i) => String(i + 1)).concat(['25']));
+  assert.deepEqual(r.querySelectorAll('.cwbar [data-act]').map((e) => e.getAttribute('data-act') + (e.hasAttribute('data-v') ? '=' + e.getAttribute('data-v') : '')),
+    ['dart=bull', 'miss', 'del', 'bust', 'undo', 'enter']);
+  assert.equal(d.querySelector('.dbar'), null);
+});
+
+test('compact: every tap of the sideways screen is still there, with the same action', () => {
+  const m = match('501'); m.bull('a');
+  assert.deepEqual(acts(dom(m, { wide: true, compactWide: true })), acts(dom(m, { wide: true })));
+  const e = { mode: 'darts', cur: [], mult: 1 };
+  assert.deepEqual(acts(dom(m, Object.assign({ wide: true, compactWide: true }, e))), acts(dom(m, Object.assign({ wide: true }, e))));
+  const c = match('cricket'); c.bull('a');
+  assert.deepEqual(acts(dom(c, { wide: true, compactWide: true, cur: [] })), acts(dom(c, { wide: true, cur: [] })));
+});
+
+// MISS moves above the darts bar so the 7 board rows have the right column's whole height (about 44px on the phone).
+test('compact Cricket: the board on the right; the header, cards, MISS and darts bar on the left', () => {
+  const c = match('cricket'); c.bull('a');
+  const d = dom(c, { wide: true, compactWide: true, cur: [] });
+  const l = d.querySelector('.wl'), r = d.querySelector('.wr');
+  assert.ok(has(l, '.dds-hd') && has(l, '.dbar') && has(l, '[data-act="miss"]'));
+  assert.ok(has(r, '.cricket') && !has(r, '[data-act="miss"]'));
+  assert.ok(has(dom(c, { wide: true, cur: [] }).querySelector('.wr'), '.cricket [data-act="miss"]'), 'tablets keep MISS under the board');
+});
+
+test('mount redraws when the window turns between compact and tablet-sized sideways', () => {
+  const m = match('501'); m.bull('a');
+  const saved = { document: global.document, window: global.window };
+  let onResize = null;
+  global.document = { documentElement: { clientWidth: 1180 }, addEventListener: () => {} };
+  global.window = { innerWidth: 1180, innerHeight: 820, addEventListener: (t, f) => { if (t === 'resize') onResize = f; } };
+  try {
+    const root = parse('<main id="app"></main>').getElementById('app');
+    root.isConnected = true;
+    D.mount(root, m, opts());
+    assert.ok(root.querySelector('.dds').classList.contains('wide') && !root.querySelector('.dds').classList.contains('cw'));
+    global.window.innerHeight = 500; // still wide (1180 >= 600), now under 560 tall
+    onResize();
+    assert.ok(root.querySelector('.dds').classList.contains('cw'));
+    global.window.innerHeight = 820;
+    onResize();
+    assert.ok(!root.querySelector('.dds').classList.contains('cw'));
+  } finally { global.document = saved.document; global.window = saved.window; }
+});
+
+// A missed dart reads "M" (owner 2026-11-07), so it is never confused with a dart not thrown yet ("–").
+test('a missed dart is shown as M; a dart not thrown yet as a dash', () => {
+  assert.equal(D.dartName({ n: 0, m: 1 }, WORDS), 'M');
+  assert.equal(D.dartName(null, WORDS), '–');
+  assert.equal(D.dartName({ n: 20, m: 3 }, WORDS), 'T20');
 });

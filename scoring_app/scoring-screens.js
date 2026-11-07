@@ -35,12 +35,15 @@
 
   /* ---------- pieces every screen uses ---------- */
 
-  function header(o) {
+  /* slim: one line, "DARTDRAW · <game line>", for the compact sideways screen's left column (owner 2026-11-07) */
+  function header(o, slim) {
     var h = o.header || {};
-    return '<header class="dds-hd">'
+    var ttl = slim ? '<div class="ttl"><div class="t1">' + esc([h.title, h.line3 || h.line2].filter(Boolean).join(' · ')) + '</div></div>'
+      : '<div class="ttl"><div class="t1">' + esc(h.title) + '</div><div class="t2">' + esc(h.line2) + '</div>'
+      + (h.line3 ? '<div class="t3">' + esc(h.line3) + '</div>' : '') + '</div>';
+    return '<header class="dds-hd' + (slim ? ' slim' : '') + '">'
       + '<button class="ic back"' + act('back') + ' aria-label="' + esc(o.words.back) + '">' + ICON.back + '</button>'
-      + '<div class="ttl"><div class="t1">' + esc(h.title) + '</div><div class="t2">' + esc(h.line2) + '</div>'
-      + (h.line3 ? '<div class="t3">' + esc(h.line3) + '</div>' : '') + '</div>'
+      + ttl
       + '<div class="rt">' + (o.pill ? '<span class="pill">' + esc(o.pill) + '</span>' : '')
       + '<button class="ic gear"' + act('gear') + ' aria-label="' + esc(o.words.settings) + '">' + ICON.gear + '</button></div>'
       + '</header>';
@@ -118,6 +121,21 @@
       + '<button class="go"' + act('submit') + (typed ? '' : ' disabled') + '>' + ICON.check + '<span>' + esc(o.words.enter) + '</span></button>'
       + '</section>';
   }
+  /* Normal Mode on a phone on its side (owner 2026-11-07, approved mockup): [the typed score, under the cards; all 9
+     quick scores in one row, the digits 5 wide, and one row of del / Undo / No score / Enter]. No Last 6 table: the
+     keys need the room to stay about 44px on the phone. The same taps as totalPad. */
+  function totalPadCompact(v, o) {
+    var q = QUICK.map(function (n) { return '<button class="q' + (n === 180 ? ' gold' : '') + '"' + act('quick', n) + '>' + n + '</button>'; });
+    var digit = function (n) { return '<button class="k"' + act('digit', n) + '>' + n + '</button>'; };
+    var typed = o.typed || '';
+    return [hintLine(v) + entryBox(v, o),
+      '<section class="quick"><div class="r1">' + q.join('') + '</div></section>'
+      + '<section class="pad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(digit).join('') + '</section>'
+      + '<section class="padb"><button class="k"' + act('del') + '>' + ICON.del + '</button>'
+      + '<button class="k undo"' + act('undo') + '>' + ICON.undo + '<span>' + esc(o.words.undo) + '</span></button>'
+      + '<button class="k bust"' + act('bust') + '>' + esc(o.words.bust) + '</button>'
+      + '<button class="go"' + act('submit') + (typed ? '' : ' disabled') + '>' + ICON.check + '<span>' + esc(o.words.enter) + '</span></button></section>'];
+  }
 
   function whichDart(v, o) {
     var s = v.throwing, w = o.words, p = v.pending;
@@ -144,7 +162,7 @@
   /* A dart's name: 20, D20, T20, 25, BULL, or – for a miss. */
   function dartName(d, w) {
     if (!d) return '–';
-    if (d.n === 0) return '–';
+    if (d.n === 0) return (w && w.missShort) || 'M'; // a missed dart; '–' is a dart not thrown yet
     if (d.n === 25) return d.m === 2 ? w.bull : '25';
     return (d.m === 3 ? 'T' : d.m === 2 ? 'D' : '') + d.n;
   }
@@ -157,33 +175,56 @@
   }
 
   function x01Darts(v, o) { return x01DartsParts(v, o).join(''); }
-  /* [what this turn has scored, the keys]: one above the other on a phone, side by side on a wide screen */
-  function x01DartsParts(v, o) {
-    var w = o.words, cur = o.cur || [], s = v.throwing, mult = o.mult || 1;
+  /* The THIS TURN box: who throws, what the darts keyed so far add up to and leave, and the three dart slots. */
+  function turnBox(v, o) {
+    var w = o.words, cur = o.cur || [], s = v.throwing;
     var scored = cur.reduce(function (t, d) { return t + d.n * d.m; }, 0), after = v.sides[s].left - scored;
     // below 0, 1 left, or 0 not on a double is a bust: say NO SCORE rather than a minus number (owner 2026-11-04)
     var busted = after < 0 || after === 1 || (after === 0 && cur[cur.length - 1].m !== 2);
     var slots = [0, 1, 2].map(function (i) {
       return '<div class="slot' + (i === cur.length ? ' now' : '') + '"><span>' + esc(fmt(w.dartN, { n: i + 1 })) + '</span><b>' + esc(dartName(cur[i], w)) + '</b></div>';
     }).join('');
-    var mults = [[1, w.single], [2, w.double], [3, w.treble]].map(function (x) {
+    return '<section class="panel turnp"><div class="ttl">' + esc(w.thisTurn) + '</div>'
+      + '<div class="line"><span class="who">' + esc(fmt(w.toThrow, { name: up(v.sides[s].name) })) + '</span><span class="scored">' + esc(fmt(w.scoredSoFar, { n: scored })) + '</span><span class="after">' + (busted ? esc(w.bust) : esc(w.leftAfter) + ' ' + after) + '</span></div>'
+      + '<div class="slots">' + slots + '</div>' + hintLine(cur.length && o.hintFor ? { hint: o.hintFor(after, 3 - cur.length) } : v) + '</section>';
+  }
+  function multsRow(o) {
+    var w = o.words, mult = o.mult || 1;
+    return '<section class="mults">' + [[1, w.single], [2, w.double], [3, w.treble]].map(function (x) {
       return '<button class="' + (mult === x[0] ? 'on' : '') + '"' + act('mult', x[0]) + '>' + esc(x[1]) + '</button>';
-    }).join('');
+    }).join('') + '</section>';
+  }
+  function numberKeys() {
     var grid = '';
     for (var n = 1; n <= 20; n++) grid += '<button class="k"' + act('dart', n) + '>' + n + '</button>';
-    grid += '<button class="k"' + act('dart', 25) + '>25</button><button class="k sm"' + act('dart', 'bull') + '>' + esc(w.bull) + '</button>'
+    return grid + '<button class="k"' + act('dart', 25) + '>25</button>';
+  }
+  /* [what this turn has scored, the keys]: one above the other on a phone, side by side on a wide screen */
+  function x01DartsParts(v, o) {
+    var w = o.words;
+    var grid = numberKeys() + '<button class="k sm"' + act('dart', 'bull') + '>' + esc(w.bull) + '</button>'
       + '<button class="k sm"' + act('miss') + '>' + esc(w.miss) + '</button><button class="k"' + act('del') + '>' + ICON.del + '</button>'
       + '<button class="k bust"' + act('bust') + '>' + esc(w.bust) + '</button>';
     // the last 3 scores stay on screen, as in turn total (owner 2026-11-04), and the darts keyed so far add up as they go
-    return [last3(v, o) + '<section class="panel turnp"><div class="ttl">' + esc(w.thisTurn) + '</div>'
-      + '<div class="line"><span class="who">' + esc(fmt(w.toThrow, { name: up(v.sides[s].name) })) + '</span><span class="scored">' + esc(fmt(w.scoredSoFar, { n: scored })) + '</span><span class="after">' + (busted ? esc(w.bust) : esc(w.leftAfter) + ' ' + after) + '</span></div>'
-      + '<div class="slots">' + slots + '</div>' + hintLine(cur.length && o.hintFor ? { hint: o.hintFor(after, 3 - cur.length) } : v) + '</section>',
-      '<section class="mults">' + mults + '</section><section class="grid">' + grid + '</section>' + dartsBar(o)];
+    return [last3(v, o) + turnBox(v, o), multsRow(o) + '<section class="grid">' + grid + '</section>' + dartsBar(o)];
+  }
+  /* Easy Mode on a phone on its side (owner 2026-11-07, approved mockup): [This turn under the cards; Single / Double /
+     Treble, the numbers 7 wide, and one row of Bull / Miss / del / No score / Undo / Enter]. No Last 3 table, and the
+     slots show the darts, so there is no darts bar. The same taps as x01DartsParts. */
+  function x01DartsCompact(v, o) {
+    var w = o.words, cur = o.cur || [];
+    return [turnBox(v, o), multsRow(o) + '<section class="grid">' + numberKeys() + '</section>'
+      + '<section class="cwbar"><button class="k sm"' + act('dart', 'bull') + '>' + esc(w.bull) + '</button>'
+      + '<button class="k sm"' + act('miss') + '>' + esc(w.miss) + '</button><button class="k"' + act('del') + '>' + ICON.del + '</button>'
+      + '<button class="k bust"' + act('bust') + '>' + esc(w.bust) + '</button>'
+      + '<button class="k undo"' + act('undo') + '>' + ICON.undo + '<span>' + esc(w.undo) + '</span></button>'
+      + '<button class="red enter"' + act('enter') + (cur.length ? '' : ' disabled') + '>' + ICON.check + '<span>' + esc(w.enter) + '</span></button></section>'];
   }
 
   function cricketPad(v, o) { return cricketParts(v, o).join(''); }
-  /* [the board, the darts bar] */
-  function cricketParts(v, o) {
+  /* [the board, the darts bar]. missLeft (a phone on its side): MISS sits above the darts bar instead of under the
+     board, so the board's 7 rows have the column's whole height and stay about 44px (owner 2026-11-07). */
+  function cricketParts(v, o, missLeft) {
     var w = o.words, rows = '';
     function marks(n, side) {
       var k = Math.min(3, n), out = '';
@@ -200,8 +241,9 @@
         + (dead ? '<span class="num">' + esc(label) + '</span>' : '<button class="num"' + act('dart', r.n + ':1') + '>' + esc(label) + '</button>')
         + key('t', 3, 'T') + marks(r.b, 'b') + '</div>';
     });
+    var miss = '<button class="key miss"' + act('miss') + '>' + esc(w.miss) + '</button>';
     return ['<section class="panel cricket"><div class="chd"><span>' + esc(up(v.sides.a.name)) + '</span><span>' + esc(w.darts) + '</span><span>'
-      + esc(up(v.sides.b.name)) + '</span></div>' + rows + '<button class="key miss"' + act('miss') + '>' + esc(w.miss) + '</button></section>', dartsBar(o)];
+      + esc(up(v.sides.b.name)) + '</span></div>' + rows + (missLeft ? '' : miss) + '</section>', (missLeft ? miss : '') + dartsBar(o)];
   }
 
   /* ---------- bulls and Choice ---------- */
@@ -384,7 +426,7 @@
   /* ---------- the whole screen ---------- */
 
   function render(v, o) {
-    var body = '', pops = '', p = o.popup || null, hd = o, wide = false;
+    var body = '', pops = '', p = o.popup || null, hd = o, wide = false, cw = false;
     if (p && (p.kind === 'turns' || p.kind === 'edit')) {
       body = turnsScreen(v, { words: o.words, popup: { leg: p.leg }, turns: o.turns, lockTurns: o.lockTurns });
       if (p.kind === 'edit' && !(o.lockTurns && v.winner)) pops = editPop(v, o);
@@ -396,11 +438,15 @@
     } else if (v.ask === 'choice') {
       body = choiceScreen(v, o);
     } else if (v.ask === 'turn') {
-      // [left, right]: stacked on a phone; side by side on a wide screen (owner 2026-11-04), scores left, keys right
-      var parts = v.game === 'cricket' ? cricketParts(v, o).reverse()
-        : (o.mode || 'total') === 'darts' ? x01DartsParts(v, o) : [last3(v, o, !!o.wide), totalPad(v, o)];
-      wide = !!o.wide;
-      var top = cards(v, o) + modeSwitch(v, o);
+      // [left, right]: stacked on a phone; side by side on a wide screen (owner 2026-11-04), scores left, keys right.
+      // A short wide window (a phone on its side) has the compact layout: the header moves into the left column, so the
+      // keys on the right have the whole height (owner 2026-11-07).
+      wide = !!o.wide; cw = wide && !!o.compactWide;
+      var easy = (o.mode || 'total') === 'darts';
+      var parts = v.game === 'cricket' ? cricketParts(v, o, cw).reverse()
+        : cw ? (easy ? x01DartsCompact(v, o) : totalPadCompact(v, o))
+        : easy ? x01DartsParts(v, o) : [last3(v, o, !!o.wide), totalPad(v, o)];
+      var top = (cw ? header(o, true) : '') + cards(v, o) + modeSwitch(v, o);
       body = wide ? '<div class="wl">' + top + parts[0] + '</div><div class="wr">' + parts[1] + '</div>'
         : top + (v.game === 'cricket' ? parts[1] + parts[0] : parts[0] + parts[1]);
       if (v.pending) pops = whichDart(v, o);
@@ -411,12 +457,12 @@
       var gb = (o.gearButtons || [])[p.i] || {}, c = gb.confirm || {};
       pops = pop(v.throwing || 'a', '<h2>' + esc(c.title) + '</h2><p>' + esc(c.text) + '</p><div class="two"><button class="dk"' + act('closePop') + '>' + esc(o.words.cancel) + '</button><button class="red"' + act('gearYes') + '>' + esc(c.yes) + '</button></div>', 'bustq');
     }
-    var head = header(hd);
+    var head = cw ? '' : header(hd);
     if (v.winner && !(p && (p.kind === 'turns' || p.kind === 'edit'))) {
       head = head.replace(/<div class="rt">[\s\S]*?<\/div><\/header>$/, '<div class="rt"><span class="pill over">' + esc(o.words.matchOver) + '</span></div></header>');
     }
     var compact = !wide && v.ask === 'turn' && v.game === 'x01' && (o.mode || 'total') === 'darts' && !(p && (p.kind === 'turns' || p.kind === 'edit'));
-    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + (wide ? ' wide' : '') + (p && (p.kind === 'turns' || p.kind === 'edit') ? ' turnsv' : (v.ask === 'turn' && !v.winner ? ' play' : '')) + '">' + head + body + pops + '</div>';
+    return '<div class="dds' + (v.throwing ? ' throw-' + v.throwing : '') + (v.game ? ' g-' + v.game : '') + (compact ? ' compact' : '') + (wide ? ' wide' : '') + (cw ? ' cw' : '') + (p && (p.kind === 'turns' || p.kind === 'edit') ? ' turnsv' : (v.ask === 'turn' && !v.winner ? ' play' : '')) + '">' + head + body + pops + '</div>';
   }
 
   /* A screen clearly wider than tall (a tablet or phone on its side, a laptop) gets the side-by-side layout. */
@@ -426,47 +472,42 @@
     return !!(w && h && w >= h * 1.2);
   }
 
-  /* Scale a 660 x 982 screen (1280 x 720 when wide) to fit the window both ways, and stretch it to the window's height
-     (the keypads and cricket rows take the extra room), so a tall phone has no empty band at the bottom and a short or
-     wide window needs no scrolling (owner 2026-11-04: every device). The width is the page's own (clientWidth): a page
-     wider than the phone makes window.innerWidth grow with it. */
+  /* A wide window under 560px tall: a phone on its side, or a short laptop window. Its 501 screen has the compact
+     two-column layout, so the keys stay about 44px on the phone (owner 2026-11-07). */
+  var COMPACT_UNDER = 560;
+  function isCompactWide() {
+    return isWide() && window.innerHeight < COMPACT_UNDER;
+  }
+
+  /* The design boxes, in the screens' own pixels: every layout really fits its box at these sizes, so fit never has to
+     measure what was drawn. */
+  var UPRIGHT = { w: 660, h: 1232, max: 1.25 };   // 1232: 501 Easy Mode, the tallest one-column screen
+  var WIDE = { w: 1280, h: 930, max: 1.5 };       // a tablet on its side, a big laptop window
+  var COMPACT = { w: 1280, h: 620 };              // a phone on its side
+
+  /* One scale per window (owner 2026-11-07): the zoom comes from the window's size only, so every screen (setup, bulls,
+     Choice, 501 in both modes, Cricket, the turns list, the summary) has the same size on one window, and it changes only
+     when the window does (a rotation, a resize). A screen taller than the window scrolls. The screen is stretched to the
+     window's height (the keypads and cricket rows take the extra room), so there is no empty band at the bottom. The
+     width is the page's own (clientWidth): a page wider than the phone makes window.innerWidth grow with it. */
   function fit(el) {
     if (!el || !el.style || typeof document === 'undefined' || !document.documentElement) return;
     var w = document.documentElement.clientWidth || (typeof window !== 'undefined' && window.innerWidth);
     if (!w) return;
     var h = typeof window !== 'undefined' && window.innerHeight;
-    var wide = el.classList && el.classList.contains('wide'), dw = wide ? 1280 : 660, dh = wide ? 720 : 982;
-    // Only the scoring screen itself (play) is fitted to the last row; the turns list and the match summary scroll.
-    var play = !!(el.classList && el.classList.contains('play'));
-    // 01 is sized for Easy Mode, its taller layout, in both modes, so the Normal / Easy switch keeps the size.
-    if (play && el.classList.contains('g-x01')) dh = wide ? 930 : 1232;
-    var z = Math.min(wide ? 1.5 : 1.25, w / dw, h ? h / dh : Infinity);
-    // A one-column screen (setup, bull, turns list, summary) on a short, wide window would shrink to a strip of tiny text
-    // to fit the height; it keeps at least 0.7 of its size there and scrolls instead.
-    if (!play && !wide && h && w >= h * 1.2) z = Math.min(1.25, w / dw, Math.max(z, 0.7));
+    var sideways = !!(h && w >= h * 1.2), box = !sideways ? UPRIGHT : h < COMPACT_UNDER ? COMPACT : WIDE;
+    var z = Math.min(box.max || Infinity, w / box.w, h ? h / box.h : Infinity);
+    // Only the sideways play screen is drawn 1280 wide; the other screens keep their 660 column, centred, at the same z.
+    var wideLayout = !!(el.classList && el.classList.contains('wide'));
+    el.style.zoom = z;
     // Rounded down, so zoom x height never lands a fraction of a pixel past the window (that showed a needless scrollbar).
-    function apply() {
-      el.style.zoom = z;
-      el.style.minHeight = Math.max(dh, h ? Math.floor(h / z) : 0) + 'px';
-      // A sideways screen wider than its 1280 design (a phone on its side, a laptop) widens its layout into the room,
-      // up to 1.4 times, instead of leaving black bands at the sides.
-      el.style.width = wide && w / z > dw ? Math.min(Math.floor(w / z), Math.round(dw * 1.4)) + 'px' : '';
-      // The window's height in the screen's own pixels, for pop-ups fixed to the window (the turns list's).
-      if (h && el.style.setProperty) el.style.setProperty('--winh', Math.floor(h / z) + 'px');
-    }
-    apply();
-    if (!play) return;
-    // Some screens need more than the design height (Easy Mode's keypad with This turn): measure what was drawn and,
-    // if it still runs past the window, scale down once more so the bottom row is never cut off.
-    // The smallest scale this window and game type have needed is kept, so the screen does not change size from one
-    // turn to the next (a new window size, or 501 against Cricket, starts afresh).
-    var key = w + 'x' + h + (wide ? 'w' : '') + (el.classList.contains('g-x01') ? 'x' : 'c');
-    if (fitKept.key !== key) fitKept = { key: key, z: z };
-    var drawn = h && el.getBoundingClientRect ? el.getBoundingClientRect().height : 0;
-    if (drawn > h + 1) fitKept.z = Math.min(fitKept.z, z * h / drawn);
-    if (fitKept.z < z) { z = fitKept.z; apply(); }
+    el.style.minHeight = Math.max(box.h, h ? Math.floor(h / z) : 0) + 'px';
+    // A sideways screen wider than its 1280 design (a phone on its side, a laptop) widens its layout into the room,
+    // up to 1.4 times, instead of leaving black bands at the sides.
+    el.style.width = wideLayout && w / z > box.w ? Math.min(Math.floor(w / z), Math.round(box.w * 1.4)) + 'px' : '';
+    // The window's height in the screen's own pixels, for pop-ups fixed to the window (the turns list's).
+    if (h && el.style.setProperty) el.style.setProperty('--winh', Math.floor(h / z) + 'px');
   }
-  var fitKept = { key: '', z: 0 };
 
   /* ---------- taps ---------- */
 
@@ -476,13 +517,13 @@
      page's summary buttons, back); opts.onPrefs({mode, hints}) when settings change. */
   function mount(root, match, opts) {
     var ui = { typed: '', cur: [], mult: 1, popup: null, asked: null, choicePick: null, choiceGame: null };
-    var mode = opts.mode || 'total', hints = !!opts.hints, wideNow = false;
+    var mode = opts.mode || 'total', hints = !!opts.hints, wideNow = false, compactNow = false;
     match.setHints && match.setHints(hints);
 
     function refresh() {
       var v = match.view();
-      wideNow = isWide();
-      var o = Object.assign({}, opts, ui, { mode: mode, hints: hints, hintFor: match.hintFor, wide: wideNow });
+      wideNow = isWide(); compactNow = isCompactWide();
+      var o = Object.assign({}, opts, ui, { mode: mode, hints: hints, hintFor: match.hintFor, wide: wideNow, compactWide: compactNow });
       if (ui.popup && (ui.popup.kind === 'turns' || ui.popup.kind === 'edit')) o.turns = match.legTurns(ui.popup.leg);
       root.innerHTML = render(v, o);
       fit(root.firstChild);
@@ -571,13 +612,13 @@
       if (!el || el.hasAttribute('disabled')) return;
       handle(el.getAttribute('data-act'), el.getAttribute('data-v'));
     });
-    // Turning the tablet or resizing the window redraws when it crosses between upright and wide; the listeners go
-    // once this screen is no longer on the page (New game draws a fresh one).
+    // Turning the tablet or resizing the window redraws when it crosses between upright, wide and compact wide; the
+    // listeners go once this screen is no longer on the page (New game draws a fresh one).
     function gone() { return root.isConnected === false; }
     if (typeof window !== 'undefined' && window.addEventListener) {
       var onResize = function () {
         if (gone()) { window.removeEventListener('resize', onResize); window.removeEventListener('orientationchange', onResize); return; }
-        if (isWide() !== wideNow) refresh(); else fit(root.firstChild);
+        if (isWide() !== wideNow || isCompactWide() !== compactNow) refresh(); else fit(root.firstChild);
       };
       window.addEventListener('resize', onResize);
       window.addEventListener('orientationchange', onResize);
@@ -613,5 +654,5 @@
     return { refresh: refresh, act: handle, setMatch: function (m) { match = m; ui = { typed: '', cur: [], mult: 1, popup: null, asked: null, choicePick: null, choiceGame: null }; match.setHints && match.setHints(hints); refresh(); } };
   }
 
-  return { esc: esc, fmt: fmt, render: render, mount: mount, fit: fit, isWide: isWide, dartName: dartName, QUICK: QUICK, ICON: ICON, other: other };
+  return { esc: esc, fmt: fmt, render: render, mount: mount, fit: fit, isWide: isWide, isCompactWide: isCompactWide, dartName: dartName, QUICK: QUICK, ICON: ICON, other: other };
 });

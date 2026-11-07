@@ -2,54 +2,63 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const D = require('../scoring-screens.js');
 
-// DDScreens.fit: a screen drawn 660px wide is scaled to the phone's width and stretched to the phone's height, so a tall
-// phone (iPhone Air, about 420 x 800 in Safari) has no empty band under the keypad. Short screens keep the design height.
+// DDScreens.fit (owner 2026-11-07): one scale per window. The zoom comes from the window's size only, never from what
+// was drawn, so every .dds screen (setup, bulls, Choice, 501, Cricket, the turns list, the summary) has the same size on
+// one window, and the size changes only when the window does (a rotation, a resize). Taller screens scroll.
+//   upright:                z = min(1.25, w/660, h/1232)   (1232: 501 Easy Mode, the tallest one-column screen)
+//   wide, 560 tall or more: z = min(1.5, w/1280, h/930)
+//   wide, under 560 tall:   z = min(h/620, w/1280)         (phones on their side: the compact layout)
+// The screen is stretched to the window's height: min-height = max(design height, floor(h / z)).
 function withPage(w, h, fn) {
   const saved = { document: global.document, window: global.window };
   global.document = { documentElement: { clientWidth: w } };
   global.window = { innerWidth: w, innerHeight: h };
   try { fn(); } finally { global.document = saved.document; global.window = saved.window; }
 }
+const el = (classes, need) => ({
+  style: {}, classList: { contains: (c) => (classes || []).includes(c) },
+  // what the screen would draw: fit must not look at it
+  getBoundingClientRect() { return { height: (need || 0) * Number(this.style.zoom) }; }
+});
+const near = (a, b) => Math.abs(Number(a) - b) < 1e-9;
 
-test('a tall phone: the screen fills its height', () => {
+test('a tall phone: fitted to its width, and the screen fills its height', () => {
   withPage(420, 800, () => {
-    const el = { style: {} };
-    D.fit(el);
-    assert.equal(el.style.zoom, 420 / 660);
-    assert.equal(el.style.minHeight, Math.round(800 / (420 / 660)) + 'px');
+    const e = el();
+    D.fit(e);
+    assert.ok(near(e.style.zoom, 420 / 660));
+    assert.equal(e.style.minHeight, Math.floor(800 / (420 / 660)) + 'px');
   });
 });
 
-test('a short screen: scaled down so the whole screen fits its height (owner 2026-11-04: every device)', () => {
+test('a short upright window: fitted to the 1232 design height', () => {
   withPage(660, 600, () => {
-    const el = { style: {} };
-    D.fit(el);
-    assert.equal(el.style.zoom, 600 / 982);
-    assert.equal(el.style.minHeight, '982px');
+    const e = el();
+    D.fit(e);
+    assert.ok(near(e.style.zoom, 600 / 1232));
+    assert.equal(e.style.minHeight, '1232px');
   });
 });
 
-// Upright 01 is sized for Easy Mode (its taller layout, about 1231px) in both modes, so the Normal / Easy switch keeps
-// the size on a short phone or an upright tablet; a tall phone is limited by its width and does not change.
-test('upright 01: sized for Easy Mode in both modes', () => {
-  withPage(820, 1181, () => {
-    const el = { style: {}, classList: { contains: (c) => c === 'g-x01' || c === 'play' } };
-    D.fit(el);
-    assert.ok(Math.abs(Number(el.style.zoom) - 1181 / 1232) < 1e-9);
-  });
-  withPage(390, 844, () => {
-    const el = { style: {}, classList: { contains: (c) => c === 'g-x01' || c === 'play' } };
-    D.fit(el);
-    assert.equal(el.style.zoom, 390 / 660);
-  });
+test('upright: 501, Cricket and the one-column screens share the scale', () => {
+  for (const [w, h] of [[820, 1181], [390, 844], [375, 667]]) {
+    withPage(w, h, () => {
+      const z = Math.min(1.25, w / 660, h / 1232);
+      for (const c of [['g-x01', 'play'], ['g-cricket', 'play'], ['g-x01', 'turnsv'], []]) {
+        const e = el(c);
+        D.fit(e);
+        assert.ok(near(e.style.zoom, z), w + 'x' + h + ' ' + c.join(' ') + ': ' + e.style.zoom);
+      }
+    });
+  }
 });
 
-// The turns list is a one-column screen of its own: it keeps the usual 982px size, not the Easy Mode size of a 501 game.
-test('the turns list of a 501 game keeps the usual upright size', () => {
+test('the turns list of a 501 game has the game\'s own scale', () => {
   withPage(1000, 489, () => {
-    const el = { style: {}, classList: { contains: (c) => c === 'g-x01' || c === 'turnsv' } };
-    D.fit(el);
-    assert.equal(el.style.zoom, 0.7); // a short wide window: kept readable, scrolls
+    const list = el(['g-x01', 'turnsv']), game = el(['wide', 'g-x01', 'play']);
+    D.fit(list); D.fit(game);
+    assert.ok(near(list.style.zoom, Math.min(489 / 620, 1000 / 1280)));
+    assert.equal(list.style.zoom, game.style.zoom);
   });
 });
 
@@ -61,34 +70,27 @@ test('the turns list marks its screen, and a NO SCORE cell is drawn smaller so i
   assert.match(src, /c sc' \+ \(t\.bust/);
 });
 
-// A long turns list scrolls: it is never shrunk to fit the window, and the game screen after it keeps its own size.
-test('a long turns list scrolls instead of shrinking, and does not shrink the game after it', () => {
+// A long turns list scrolls: the scale never depends on how much was drawn.
+test('a long screen scrolls instead of shrinking, and does not change the game after it', () => {
   withPage(1000, 487, () => {
-    const make = (classes, need) => ({
-      style: {}, classList: { contains: (c) => classes.includes(c) },
-      getBoundingClientRect() { return { height: Math.max(need, parseFloat(this.style.minHeight) || 0) * Number(this.style.zoom) }; }
-    });
-    const list = make(['g-x01', 'turnsv'], 3000);
-    D.fit(list);
-    assert.equal(list.style.zoom, 0.7);
-    const game = make(['wide', 'g-x01', 'play'], 900);
-    D.fit(game);
-    assert.ok(Math.abs(Number(game.style.zoom) - 487 / 930) < 1e-9);
+    const list = el(['g-x01', 'turnsv'], 3000), game = el(['wide', 'g-x01', 'play'], 900);
+    D.fit(list); D.fit(game);
+    assert.ok(near(list.style.zoom, Math.min(487 / 620, 1000 / 1280)));
+    assert.equal(game.style.zoom, list.style.zoom);
   });
 });
 
-// On a short, wide window (a laptop, a phone on its side) the one-column screens (setup, bull, turns list, summary) are
-// not shrunk to the window's height into a strip of tiny text: they keep at least 0.7 of their size and scroll.
-test('one-column screens on a short wide window keep a readable size and scroll', () => {
+test('a short wide window: the one-column screens have the play screen\'s scale', () => {
   withPage(915, 413, () => {
-    const el = { style: {}, classList: { contains: () => false } };
-    D.fit(el);
-    assert.equal(el.style.zoom, 0.7);
+    const one = el([]), play = el(['wide', 'g-x01', 'play']);
+    D.fit(one); D.fit(play);
+    assert.ok(near(one.style.zoom, Math.min(413 / 620, 915 / 1280)));
+    assert.equal(one.style.zoom, play.style.zoom);
   });
-  withPage(390, 845, () => { // an upright phone is unchanged: fitted to its width
-    const el = { style: {}, classList: { contains: () => false } };
-    D.fit(el);
-    assert.equal(el.style.zoom, 390 / 660);
+  withPage(390, 845, () => { // an upright phone: fitted to its width
+    const e = el([]);
+    D.fit(e);
+    assert.ok(near(e.style.zoom, 390 / 660));
   });
 });
 
@@ -113,10 +115,12 @@ test('Cricket D / T keys and the edit pop-up keys are big enough to tap', () => 
 // The turns list's pop-up is limited to the window's height in the screen's own pixels (--winh), so it uses the whole
 // window and scrolls only when it truly does not fit.
 test('fit gives the screen its window height in its own pixels', () => {
-  withPage(360, 641, () => {
-    const vars = {};
-    const el = { style: { setProperty: (k, v) => { vars[k] = v; } }, classList: { contains: (c) => c === 'turnsv' } };
-    D.fit(el);
-    assert.equal(vars['--winh'], Math.floor(641 / Number(el.style.zoom)) + 'px');
-  });
+  for (const [w, h] of [[360, 641], [1180, 820], [852, 393]]) {
+    withPage(w, h, () => {
+      const vars = {};
+      const e = { style: { setProperty: (k, v) => { vars[k] = v; } }, classList: { contains: (c) => c === 'turnsv' } };
+      D.fit(e);
+      assert.equal(vars['--winh'], Math.floor(h / Number(e.style.zoom)) + 'px');
+    });
+  }
 });

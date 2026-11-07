@@ -3,7 +3,7 @@
    everything else go to the network untouched; so do the server's answers (/api/...), which are never kept here.
    VERSION: bump it when SHELL changes (a file added or removed); it only clears the old caches. SHELL must list the page
    and every file it loads (tests/casual.test.js checks). */
-var VERSION = '2026-11-07.1';
+var VERSION = '2026-11-07.4';
 var CACHE = 'dd-casual-' + VERSION;
 var SHELL = [
   '/',
