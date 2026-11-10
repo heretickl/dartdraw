@@ -14,6 +14,9 @@
   else root.DDApp = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   var LANG_KEY = 'dd-lang', PLAYER_KEY = 'dd-player', CASUAL_KEY = 'dd-casual-v1', LOGOUT_KEY = 'dd-logout-pending';
+  // 'on' once the server said this site has player accounts (GET /api/account/config); until then, and whenever it
+  // says no, every address is casual play as a guest (owner 2026-11-10: the live site waits for e-mail).
+  var ACCOUNTS_KEY = 'dd-accounts';
   var ACCOUNT = ['', 'register', 'forgot', 'resend', 'verify', 'reset', 'profile', 'password'];
   function g() { return typeof self !== 'undefined' ? self : global; }
 
@@ -34,6 +37,7 @@
       return p && typeof p === 'object' && p.id ? p : null;
     } catch (e) { return null; }
   }
+  function readAccounts(storage) { try { return storage.getItem(ACCOUNTS_KEY) === 'on'; } catch (e) { return false; } }
   function keepPlayer(storage, p) {
     try { if (p) storage.setItem(PLAYER_KEY, JSON.stringify(p)); else storage.removeItem(PLAYER_KEY); } catch (e) { /* private mode */ }
   }
@@ -55,7 +59,7 @@
     var flash = null, lastAccount = false, view = null, first = true;
     var held = null;      // a #verify= / #reset= link's token, kept here once it is off the address bar
     var draws = 0, typed = false;   // screens drawn so far; whether anything was typed on this one
-    var state = { player: readPlayer(storage) };
+    var state = { player: readPlayer(storage), accounts: readAccounts(storage) };
 
     var ctx = {
       lang: readLang(storage),
@@ -143,7 +147,7 @@
       lastAccount = account;
       if (opts.onRoute) opts.onRoute(r.name);
 
-      if (r.name === 'guest') { Casual.start(fresh(), { storage: storage, words: ctx.words }); return; }
+      if (!state.accounts || r.name === 'guest') { Casual.start(fresh(), { storage: storage, words: ctx.words }); return; }
       if (r.name === 'register') { Account.renderRegister(fresh(), ctx); }
       else if (r.name === 'forgot') { Account.renderForgot(fresh(), ctx); }
       else if (r.name === 'resend') { Account.renderResend(fresh(), ctx); }
@@ -216,9 +220,25 @@
         if (acc && Screens) { if (Screens.isWide()) acc.classList.add('wide'); else acc.classList.remove('wide'); }
       });
     }
+    /* Whether this site has player accounts. No answer keeps what the phone knew. A change redraws, except over a game
+       already being played. */
+    function config() {
+      return Net.api('/api/account/config').then(function (r) {
+        if (!r.ok || !r.body || typeof r.body.accounts !== 'boolean') return;
+        var on = r.body.accounts;
+        if (on === state.accounts) return;
+        state.accounts = on;
+        try { if (on) storage.setItem(ACCOUNTS_KEY, 'on'); else storage.removeItem(ACCOUNTS_KEY); } catch (e) { /* private mode */ }
+        if (!typed && !guestGameOn(storage)) route();
+      });
+    }
+
     route();
-    var ready = check().then(function () {
-      if (state.player) return Net.queue.flush(state.player.id);
+    var ready = config().then(function () {
+      if (!state.accounts) return null;
+      return check().then(function () {
+        if (state.player) return Net.queue.flush(state.player.id);
+      });
     });
     return { ctx: ctx, route: route, ready: ready, view: function () { return view; } };
   }

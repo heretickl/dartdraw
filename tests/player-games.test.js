@@ -14,7 +14,7 @@ const session = require('../scoring_app/api/_lib/session');
 const S = require('../scoring_app/scoring-model.js');
 const { gameStats } = require('../player-stats.js');
 
-const ENV_KEYS = ['PLAYER_SESSION_SECRET'];
+const ENV_KEYS = ['PLAYER_SESSION_SECRET', 'PLAYER_ACCOUNTS'];
 let savedEnv;
 const acct = (id, email, first, last) => ({ id, email, first_name: first, last_name: last, password_hash: 'x',
   email_verified_at: new Date(Date.now() - 864e5), must_change_password: false, token_version: 0 });
@@ -26,6 +26,7 @@ const fs = (id, status, friendId, over) => Object.assign({ id, owner_id: ME.id, 
 beforeEach(() => {
   savedEnv = {}; ENV_KEYS.forEach((k) => { savedEnv[k] = process.env[k]; });
   process.env.PLAYER_SESSION_SECRET = 'test-secret-for-player-games';
+  process.env.PLAYER_ACCOUNTS = 'on';
   db = createFakePlayerDb({
     player_accounts: [ME, FR],
     friendships: [

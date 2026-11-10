@@ -5,6 +5,8 @@
 // The action is read from req.url, not from req.query.action. Anything else answers 404
 // { code: 'not_found', error: 'Not found.' }. Handlers are added here as `name: () => require('../_routes/friends/name')`
 // (literal paths, so the file tracer bundles them) and loaded lazily, on first use.
+const { refuseWhenOff } = require('../_lib/accounts');
+
 const ROUTES = {
   check: () => require('../_routes/friends/check'),
   add: () => require('../_routes/friends/add'),
@@ -32,6 +34,7 @@ module.exports = async (req, res) => {
     res.status(404).json({ code: 'not_found', error: 'Not found.' });
     return;
   }
+  if (refuseWhenOff(res)) return;
   if (!req.query) req.query = {};
   if (req.query.action === action) delete req.query.action;
   return ROUTES[action]()(req, res);

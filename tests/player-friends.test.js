@@ -16,7 +16,7 @@ const mail = require('../scoring_app/api/_lib/mail');
 const S = require('../scoring_app/scoring-model.js');
 
 const DAY = 24 * 60 * 60 * 1000;
-const ENV_KEYS = ['PLAYER_SESSION_SECRET', 'MAIL_PROVIDER', 'RESEND_API_KEY', 'MAIL_FROM', 'APP_URL'];
+const ENV_KEYS = ['PLAYER_SESSION_SECRET', 'MAIL_PROVIDER', 'RESEND_API_KEY', 'MAIL_FROM', 'APP_URL', 'PLAYER_ACCOUNTS'];
 let savedEnv;
 const acct = (n, email, first, last, confirmed) => ({ id: String(n).repeat(8) + '-1111-4111-8111-111111111111', email, first_name: first,
   last_name: last, password_hash: 'x', email_verified_at: confirmed ? new Date(Date.now() - DAY) : null, must_change_password: false, token_version: 0 });
@@ -25,6 +25,7 @@ let A, B, C, D;
 beforeEach(() => {
   savedEnv = {}; ENV_KEYS.forEach((k) => { savedEnv[k] = process.env[k]; delete process.env[k]; });
   process.env.PLAYER_SESSION_SECRET = 'test-secret-for-player-friends';
+  process.env.PLAYER_ACCOUNTS = 'on';
   process.env.MAIL_PROVIDER = 'console';
   process.env.APP_URL = 'https://scoring.example.test';
   db = createFakePlayerDb({ player_accounts: [

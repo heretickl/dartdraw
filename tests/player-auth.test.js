@@ -16,13 +16,14 @@ const mail = require('../scoring_app/api/_lib/mail');
 const session = require('../scoring_app/api/_lib/session');
 
 const COOKIE = '__Host-dd-player';
-const ENV_KEYS = ['PLAYER_SESSION_SECRET', 'MAIL_PROVIDER', 'RESEND_API_KEY', 'MAIL_FROM', 'APP_URL', 'AUTH_MIN_RESPONSE_MS'];
+const ENV_KEYS = ['PLAYER_SESSION_SECRET', 'MAIL_PROVIDER', 'RESEND_API_KEY', 'MAIL_FROM', 'APP_URL', 'AUTH_MIN_RESPONSE_MS', 'PLAYER_ACCOUNTS'];
 const DAY = 24 * 60 * 60 * 1000;
 let savedEnv;
 
 beforeEach(() => {
   savedEnv = {}; ENV_KEYS.forEach((k) => { savedEnv[k] = process.env[k]; delete process.env[k]; });
   process.env.PLAYER_SESSION_SECRET = 'test-secret-for-player-auth';
+  process.env.PLAYER_ACCOUNTS = 'on';
   process.env.MAIL_PROVIDER = 'console';
   process.env.APP_URL = 'https://scoring.example.test/';
   process.env.AUTH_MIN_RESPONSE_MS = '0';

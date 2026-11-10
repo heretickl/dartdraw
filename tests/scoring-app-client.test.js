@@ -24,6 +24,8 @@ async function launch(opts) {
   server.answers['/api/account/me'] = opts.me || [401, { code: 'not_authenticated' }];
   Object.assign(server.answers, opts.answers || {});
   const storage = opts.storage || memStore();
+  // Accounts are on for these tests unless one says otherwise (the live site keeps them off until e-mail exists).
+  if (!opts.accountsOff && storage.getItem('dd-accounts') === null) storage.setItem('dd-accounts', 'on');
   DDNet.init({ fetch: server.fetch, storage });
   const root = newRoot();
   const app = DDApp.start(root, { storage, window: opts.window });
@@ -61,7 +63,8 @@ test('#guest shows the casual setup exactly as the guest site always did', async
   assert.equal(s.v().querySelectorAll('*').length, plain.querySelectorAll('*').length, 'same number of elements');
   assert.ok(s.v().querySelector('#csA') && s.v().querySelector('#csB'), 'two name boxes');
   assert.ok(!s.v().querySelector('.acc') && !s.v().querySelector('.cs.acct'), 'no account parts');
-  assert.equal(s.server.calls.filter((c) => c[1] !== '/api/account/me').length, 0, 'nothing sent anywhere for a guest');
+  // Only who-is-logged-in and whether the site has accounts at all: nothing about the game leaves the phone.
+  assert.equal(s.server.calls.filter((c) => c[1] !== '/api/account/me' && c[1] !== '/api/account/config').length, 0, 'nothing sent anywhere for a guest');
 });
 
 test('a wrong password shows the bad_credentials words and shakes the card', async () => {
@@ -163,7 +166,7 @@ test('#reset=<token>: the token is taken off the address (replaceState), kept fo
   const server = fakeServer();
   server.answers['/api/account/me'] = [401, {}];
   server.answers['/api/account/reset'] = [200, { ok: true }];
-  const storage = memStore();
+  const storage = memStore({ 'dd-accounts': 'on' });
   DDNet.init({ fetch: server.fetch, storage });
   const app = DDApp.start(newRoot(), { storage, window: win }); await app.ready;
   assert.equal(txt(app.view().querySelector('h2')), EN.resetTitle);
@@ -184,7 +187,7 @@ test('#verify=<token>: the token is taken off the address too', async () => {
   const server = fakeServer();
   server.answers['/api/account/me'] = [401, {}];
   server.answers['/api/account/verify'] = [200, { player: { id: 1, email: 'a@b.c', firstName: 'A', lastName: 'B' } }];
-  const storage = memStore();
+  const storage = memStore({ 'dd-accounts': 'on' });
   DDNet.init({ fetch: server.fetch, storage });
   const app = DDApp.start(newRoot(), { storage, window: win }); await app.ready;
   assert.equal(txt(app.view().querySelector('h2')), EN.verifyTitle);
@@ -199,7 +202,7 @@ test('a late "me" answer does not redraw over a half-typed login', async () => {
   const server = fakeServer();
   server.answers['/api/account/me'] = [200, { player: { id: 3, email: 'x@y.com', firstName: 'Nur', lastName: 'A' } }];
   let release;
-  const storage = memStore();
+  const storage = memStore({ 'dd-accounts': 'on' });
   DDNet.init({ fetch: (u, r) => (u === '/api/account/me' ? new Promise((res) => { release = () => res(server.fetch(u, r)); }) : server.fetch(u, r)), storage });
   const app = DDApp.start(newRoot(), { storage });
   typeInto(app.view().querySelector('#accUser'), 'typing@');
@@ -342,4 +345,26 @@ test('an unexpected failure shows the status and code after the try-again words'
 // The MISS key reads MISS in both languages (owner 2026-11-07): it is the darts word players use.
 test('the MISS key reads MISS in BM too', () => {
   assert.equal(require('../scoring_app/i18n/casual.ms.js').miss, 'MISS');
+});
+
+// Accounts off (the live site until e-mail exists): every address opens casual play as a guest, as the site did before
+// it had a login; the server's config turns accounts on and off and the phone remembers the answer.
+test('accounts off: every address opens guest play, never the login', async () => {
+  for (const h of ['', '#register', '#play']) {
+    const s = await launch({ accountsOff: true, window: h ? fakeWindow(h) : undefined, answers: { '/api/account/config': [200, { accounts: false }] } });
+    assert.equal(s.v().querySelector('#accUser'), null, 'no login on ' + (h || 'the start'));
+    assert.ok(s.v().querySelector('.cs, .dds'), 'the casual setup on ' + (h || 'the start'));
+    assert.equal(s.server.to('/api/account/me').length, 0, 'nobody is asked who is logged in');
+  }
+});
+test('accounts: the server turns them on (remembered) and off again', async () => {
+  const storage = memStore();
+  const s = await launch({ accountsOff: true, storage, answers: { '/api/account/config': [200, { accounts: true }] } });
+  await tick();
+  assert.equal(storage.getItem('dd-accounts'), 'on');
+  assert.ok(s.v().querySelector('#accUser'), 'the login once accounts are on');
+  const t = await launch({ storage, answers: { '/api/account/config': [200, { accounts: false }] } });
+  await tick();
+  assert.equal(storage.getItem('dd-accounts'), null);
+  assert.equal(t.v().querySelector('#accUser'), null, 'guest play again');
 });

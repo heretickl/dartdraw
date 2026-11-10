@@ -23,6 +23,7 @@ const OTHER = '22222222-2222-4222-8222-222222222222';
 beforeEach(() => {
   savedSecret = process.env.PLAYER_SESSION_SECRET;
   process.env.PLAYER_SESSION_SECRET = 'test-secret-for-scorecard';
+  process.env.PLAYER_ACCOUNTS = 'on';
   db = createFakePlayerDb({ player_accounts: [ME] });
 });
 afterEach(() => { if (savedSecret === undefined) delete process.env.PLAYER_SESSION_SECRET; else process.env.PLAYER_SESSION_SECRET = savedSecret; });

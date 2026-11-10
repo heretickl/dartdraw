@@ -47,3 +47,27 @@ test('API answers are never cached (vercel.json headers)', () => {
   assert.ok(rule, 'no header rule for /api/');
   assert.ok(rule.headers.some((h) => h.key === 'Cache-Control' && h.value === 'no-store'));
 });
+
+// Player accounts stay off on a site until PLAYER_ACCOUNTS=on (owner 2026-11-10: the live site waits for e-mail).
+// Off: account/config says so and every other account, friends and games call answers 404 accounts_off.
+test('accounts are off unless PLAYER_ACCOUNTS=on', async () => {
+  const { callHandler } = require('./lib/call-handler');
+  const saved = process.env.PLAYER_ACCOUNTS;
+  try {
+    delete process.env.PLAYER_ACCOUNTS;
+    const account = require('../scoring_app/api/account/[action].js');
+    let r = await callHandler(account, { method: 'GET', url: '/api/account/config' });
+    assert.equal(r.statusCode, 200); assert.deepEqual(r.body, { accounts: false });
+    for (const [name, action] of [['account', 'login'], ['account', 'register'], ['account', 'me'], ['friends', 'list'], ['games', 'save']]) {
+      const router = require('../scoring_app/api/' + name + '/[action].js');
+      r = await callHandler(router, { method: 'POST', url: '/api/' + name + '/' + action });
+      assert.equal(r.statusCode, 404, name + '/' + action);
+      assert.equal(r.body.code, 'accounts_off', name + '/' + action);
+    }
+    process.env.PLAYER_ACCOUNTS = 'on';
+    r = await callHandler(account, { method: 'GET', url: '/api/account/config' });
+    assert.deepEqual(r.body, { accounts: true });
+  } finally {
+    if (saved === undefined) delete process.env.PLAYER_ACCOUNTS; else process.env.PLAYER_ACCOUNTS = saved;
+  }
+});
